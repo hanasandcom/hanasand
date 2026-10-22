@@ -46,7 +46,7 @@ export function providerRunResult(analysis?: SandboxToolAnalysis, error = ''): P
 }
 
 export function isDegradedNavigationError(message = '') {
-    return /timeout|net::err_(?:connection_timed_out|timed_out|name_not_resolved|connection_refused|address_unreachable|socks_connection_failed|proxy_connection_failed)/i.test(message)
+    return /invalid (?:v3 )?onion|onion hostname checksum|timeout|net::err_(?:connection_timed_out|timed_out|name_not_resolved|connection_refused|address_unreachable|socks_connection_failed|proxy_connection_failed)/i.test(message)
 }
 
 export function cleanConsoleEvent(value: string) {

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { providerCaptureMessage } from '../src/handlers/onionSession/providerCapture.ts'
+import { createProviderProfileCaptureService } from '../src/handlers/onionSession/providerProfileCapture.ts'
 import { providerStartUrl } from '../src/handlers/onionSession/providerNavigation.ts'
 import { parseUrlQueryScores, urlQueryReportMatchesTarget } from '../src/handlers/onionSession/providerUrlResponses.ts'
 
@@ -53,4 +54,29 @@ test('provider captures share the websocket envelope while preserving stage-spec
     expect(JSON.parse(JSON.stringify(providerCaptureMessage('session-1', {
         id: 'provider-1', name: 'Provider', url: 'https://provider.example/report', capturedAt, target: 'https://target.example',
     }, { error: undefined })))).not.toHaveProperty('error')
+})
+
+test('provider startup failures produce same-report captures instead of disappearing', async () => {
+    const messages: Array<Record<string, unknown>> = []
+    const capture = createProviderProfileCaptureService({
+        sessionId: 'session-1',
+        isCurrentRun: () => true,
+        send: message => messages.push(message),
+        webCrackTasks: async () => [],
+        newProviderPage: async () => { throw new Error('provider browser could not launch') },
+        watchConsole: () => undefined,
+        maybeExtendSuspiciousRun: () => undefined,
+        persistProviderRunResult: () => undefined,
+    })
+
+    await capture([
+        { id: 'virustotal', name: 'VirusTotal', url: 'https://www.virustotal.com/gui/search/{url}' },
+        { id: 'urlquery', name: 'urlquery', url: 'https://urlquery.net/search?q={url}' },
+    ], 'https://example.com/', [], 1, 'run-1')
+
+    expect(messages.filter(message => message.type === 'tool_capture')).toHaveLength(2)
+    expect(messages.map(message => message.error)).toEqual([
+        'Provider browser could not start: provider browser could not launch',
+        'Provider browser could not start: provider browser could not launch',
+    ])
 })

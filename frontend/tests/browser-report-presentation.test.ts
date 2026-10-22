@@ -6,6 +6,7 @@ import { hasSuspiciousFindings, reportMarkdown } from '../src/app/browser/report
 test('Tor proxy navigation failures preserve provider checks instead of failing the run', () => {
     expect(isDegradedNavigationError('goto: net::ERR_SOCKS_CONNECTION_FAILED')).toBe(true)
     expect(isDegradedNavigationError('goto: net::ERR_PROXY_CONNECTION_FAILED')).toBe(true)
+    expect(isDegradedNavigationError('Blocked unsafe sandbox target: invalid v3 onion hostname checksum or version.')).toBe(true)
     expect(isDegradedNavigationError('Blocked unsafe sandbox target.')).toBe(false)
 })
 

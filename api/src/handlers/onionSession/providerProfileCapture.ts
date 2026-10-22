@@ -46,10 +46,22 @@ export function createProviderProfileCaptureService({ sessionId, isCurrentRun, s
                 sendToolCapture(toolUrl, { evidence, webcrackLoad, toolAnalysis: analyzeToolEvidence(tool.name || toolUrl, evidence, webcrackLoad) }, toolId)
                 return
             }
-            const providerSession = await newProviderPage(generation).catch(() => null)
+            let providerSession: Awaited<ReturnType<typeof newProviderPage>> | null = null
+            let providerStartupError = ''
+            try {
+                providerSession = await newProviderPage(generation)
+            } catch (error) {
+                providerStartupError = error instanceof Error ? error.message : String(error)
+            }
             const toolPage = providerSession?.page
             if (!toolPage || !providerSession || !isCurrentRun(generation)) {
                 await providerSession?.close().catch(() => undefined)
+                if (providerStartupError) {
+                    sendToolCapture(toolUrl, {
+                        evidence: providerPendingEvidence(toolUrl, tool.name || toolUrl, target),
+                        error: `Provider browser could not start: ${providerStartupError}`,
+                    }, toolId)
+                }
                 return
             }
             if (webcrackTool) await watchWebCrackOutput(toolPage)

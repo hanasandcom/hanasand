@@ -76,6 +76,8 @@ export async function startEphemeralBrowserWorker(sessionId: string, resolution 
             'START_XFCE4=false',
             `BROWSER_STREAM_RESOLUTION=${resolution}`,
             'BROWSER_SANDBOX_WORKER_ONLY=1',
+            // Provider checks use regular-network headless Chromium, isolated from the streamed display.
+            'BROWSER_SANDBOX_PROVIDER_DISPLAY=',
             'BROWSER_SANDBOX_SKIP_RUN_DB=1',
             'BROWSER_SANDBOX_CHROMIUM_SANDBOX=1',
             'BROWSER_SANDBOX_MAX_SESSIONS=1',
