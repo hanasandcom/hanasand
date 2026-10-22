@@ -1,7 +1,6 @@
 services:
   vm-stage-postgres:
     image: postgres:15
-    container_name: hanasand_vm_stage_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: hanasand
@@ -20,14 +19,12 @@ services:
 
   vm-stage-identity:
     image: node:22-alpine
-    container_name: hanasand_vm_stage_identity
     command: ["node", "/stage/identity-mock.mjs"]
     volumes:
       - ./staging/vm-stage/identity-mock.mjs:/stage/identity-mock.mjs:ro
     networks: [vm-stage]
 
   vm-stage-api:
-    container_name: hanasand_vm_stage_api
     build:
       context: .
       additional_contexts:
@@ -75,7 +72,6 @@ services:
     networks: [vm-stage]
 
   vm-stage-frontend:
-    container_name: hanasand_vm_stage_frontend
     build:
       context: .
       dockerfile: ./frontend/Dockerfile
@@ -101,7 +97,6 @@ services:
 
   vm-stage-login:
     image: node:22-alpine
-    container_name: hanasand_vm_stage_login
     command: ["node", "/stage/login-server.mjs"]
     volumes:
       - ./staging/vm-stage/login-server.mjs:/stage/login-server.mjs:ro
@@ -112,9 +107,7 @@ services:
 
 volumes:
   vm_stage_postgres:
-    name: hanasand_vm_stage_postgres_data
 
 networks:
   vm-stage:
-    name: hanasand_vm_stage
     driver: bridge
