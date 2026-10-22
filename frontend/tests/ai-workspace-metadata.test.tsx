@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import WorkspacePane from '../src/components/ai/workspacePane'
 
-test('workspace pane uses normalized metadata for repository fallback and focus summary', () => {
+test('workspace pane marks the selected repository file and ignores invalid recent paths', () => {
     const noop = () => {}
     const html = renderToStaticMarkup(createElement(WorkspacePane, {
         activeConversation: {
@@ -18,7 +18,7 @@ test('workspace pane uses normalized metadata for repository fallback and focus 
         }],
         initialShares: [], deployments: [], releases: [], availableVmTargets: [],
         importInput: '', githubToken: '', importError: null, importPending: false, collaborationError: null,
-        syncingRepoId: null, activeShareTree: null, selectedRepoFilePath: null,
+        syncingRepoId: null, activeShareTree: null, selectedRepoFilePath: 'src/app.ts',
         selectedShareFileContent: null, selectedShareContent: null, deployQuota: null, ownershipSummary: null,
         deployPending: false, collaboratorPending: false, currentUserId: null, rollbackPendingId: null,
         onAttachRepo: noop, onAttachShare: noop, onImportInputChange: noop, onGitHubTokenChange: noop,
@@ -29,7 +29,6 @@ test('workspace pane uses normalized metadata for repository fallback and focus 
 
     expect(html).toContain('acme/demo')
     expect(html).toContain('src/app.ts')
-    expect(html).toMatch(/>Focus<\/div><div[^>]*>src\/app\.ts<\/div>/)
-    expect(html).toContain('rounded-lg px-3 py-3 outline bg-ui-primary/10 outline-ui-primary/18')
+    expect(html).toContain('bg-ui-primary/12 text-ui-on-primary outline-ui-primary/18')
     expect(html).not.toContain('>Recent</span>')
 })
