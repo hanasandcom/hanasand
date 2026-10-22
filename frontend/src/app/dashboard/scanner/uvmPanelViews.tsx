@@ -2,7 +2,7 @@
 
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { HelpCircle } from 'lucide-react'
-import type { UvmAsset, UvmDashboard, UvmFinding } from '@/utils/monitoring/types'
+import type { UvmAsset, UvmAssetEngineCoverage, UvmDashboard, UvmFinding } from '@/utils/monitoring/types'
 import { formatDate, type UvmFindingFilters } from './uvmPanelHelpers'
 import { DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
 
@@ -52,7 +52,7 @@ export function UvmAssetsView(props: AssetViewProps) {
         </section>
         <section className='grid gap-3'>
             {data.assets.map(asset => <AssetCard key={asset.id} asset={asset} props={props} />)}
-            {!data.assets.length && <p className='rounded-lg border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>No scan assets are registered yet.</p>}
+            {!data.assets.length && <p className='rounded-lg border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : 'No scan assets are registered yet.'}</p>}
         </section>
     </>
 }
@@ -104,6 +104,42 @@ type FindingsViewProps = {
     onUpdate: (finding: UvmFinding) => void
 }
 
+export function UvmAssetEngineCoverageView({ data }: { data: UvmDashboard }) {
+    const engines: UvmAssetEngineCoverage['engine'][] = ['nmap', 'tenable-vm', 'gvm']
+    const rows = data.coverage || []
+    const byAssetEngine = new Map(rows.map(row => [`${row.assetId}:${row.engine}`, row]))
+    const cell = (assetId: string, engine: UvmAssetEngineCoverage['engine']) => {
+        const coverage = byAssetEngine.get(`${assetId}:${engine}`)
+        if (!coverage) return <span className='text-ui-muted'>Unknown</span>
+        const label = coverage.state.replaceAll('_', ' ')
+        const count = coverage.coverageKnown && coverage.completedAddresses !== null
+            ? `${coverage.completedAddresses}/${coverage.requestedAddresses.length} addresses`
+            : 'coverage unknown'
+        const lastComplete = coverage.lastCompleteRun
+        const completeCount = lastComplete?.completedAddresses !== null && lastComplete?.completedAddresses !== undefined
+            ? `${lastComplete.completedAddresses}/${lastComplete.requestedAddresses.length} addresses`
+            : 'none recorded'
+        return <div className='grid gap-1 text-xs' title={coverage.scopeMatchesAuthorizedSnapshot === false ? 'The last run used a different authorized address snapshot.' : undefined}>
+            <span className='font-semibold capitalize'>{label}</span>
+            <span className='text-ui-muted'>{coverage.freshness} · {count}</span>
+            <span className='text-ui-muted'>{coverage.lastRunAt ? formatDate(coverage.lastRunAt) : coverage.freshness === 'never' ? 'No run yet' : 'Time unknown'}</span>
+            {coverage.lastCompleteRun !== undefined && <span className='text-ui-muted' title={lastComplete?.scopeMatchesAuthorizedSnapshot === false ? 'This complete run used a different authorized address snapshot.' : undefined}>
+                Last complete: {completeCount}{lastComplete?.at ? ` · ${formatDate(lastComplete.at)}` : ''}
+            </span>}
+        </div>
+    }
+    return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
+        <h2 className='text-base font-semibold'>Coverage by asset</h2>
+        {data.scannerError ? <p className='mt-3 text-sm text-ui-warning'>Coverage unavailable: {data.scannerError}</p>
+            : !data.assets.length ? <p className='mt-3 text-sm text-ui-muted'>No assets registered.</p>
+                : !data.coverage ? <p className='mt-3 text-sm text-ui-warning'>Coverage is unavailable from this Scanner API version.</p>
+                    : <div className='mt-3 overflow-x-auto'><table className='w-full min-w-[620px] border-collapse text-left'>
+                        <thead><tr className='border-b border-ui-border text-xs text-ui-muted'><th className='py-2 pr-3 font-medium'>Asset</th><th className='px-3 py-2 font-medium'>Nmap</th><th className='px-3 py-2 font-medium'>Tenable VM</th><th className='px-3 py-2 font-medium'>Greenbone</th></tr></thead>
+                        <tbody>{data.assets.map(asset => <tr key={asset.id} className='border-b border-ui-border last:border-0'><th scope='row' className='py-3 pr-3 text-sm font-medium'>{asset.hostname}</th>{engines.map(engine => <td key={engine} className='px-3 py-3 align-top'>{cell(asset.id, engine)}</td>)}</tr>)}</tbody>
+                    </table></div>}
+    </section>
+}
+
 export function UvmFindingsView(props: FindingsViewProps) {
     const { data, attentionCount, busy, filters, setFilters, visibleFindings, findingUpdates, setFindingUpdates } = props
     return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
@@ -118,10 +154,10 @@ export function UvmFindingsView(props: FindingsViewProps) {
             <label className='grid gap-1 text-xs text-ui-muted'>Status<select aria-label='Filter by status' value={filters.status} onChange={event => setFilters(current => ({ ...current, status: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='actionable'>Unresolved</option><option value='all'>All statuses</option><option value='open'>Open</option><option value='in_progress'>In progress</option><option value='pending_verification'>Pending verification</option><option value='accepted_risk'>Accepted risk</option><option value='false_positive'>False positive</option><option value='resolved'>Resolved</option></select></label>
             <label className='grid gap-1 text-xs text-ui-muted'>Asset<select aria-label='Filter by asset' value={filters.asset} onChange={event => setFilters(current => ({ ...current, asset: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='all'>All assets</option>{[...new Map(data.findings.map(finding => [finding.assetId || finding.asset, finding.asset])).entries()].sort((left, right) => left[1].localeCompare(right[1])).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
         </div>
-        <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ui-muted'><p aria-live='polite'>{visibleFindings.length} shown · {data.findings.length} loaded</p><p>Sorted by severity, status, then age.</p></div>
+        <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ui-muted'><p aria-live='polite'>{data.scannerError ? 'Finding counts unavailable' : `${visibleFindings.length} shown · ${data.findings.length} loaded`}</p><p>Sorted by severity, status, then age.</p></div>
         <div className='mt-3 grid gap-3'>
             {visibleFindings.map(finding => <FindingCard key={finding.id} finding={finding} busy={busy} update={findingUpdates[finding.id] || { status: finding.status, note: finding.triageNote || '' }} setFindingUpdates={setFindingUpdates} onUpdate={() => props.onUpdate(finding)} />)}
-            {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>No findings imported. Check authorization, engine status and scan coverage before treating this as clear.</p>}
+            {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : 'No findings imported. Check authorization, engine status and scan coverage before treating this as clear.'}</p>}
             {data.findings.length > 0 && !visibleFindings.length && <div className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'><p>No findings match these filters.</p><button type='button' onClick={() => setFilters({ query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold text-ui-text'>Clear filters</button></div>}
         </div>
     </section>
@@ -138,6 +174,7 @@ export function UvmAssessmentStarter({ data, onManageAssets, onConfigureScanners
     const selectable = (engine: UvmDashboard['engines'][number]) => engine.status === 'available' && (engine.id !== 'tenable-vm' || tenableReady)
     const readyEngines = data.engines.filter(selectable)
     const unavailableEngines = data.engines.filter(engine => !selectable(engine))
+    const statusUnavailable = Boolean(data.scannerError)
     const nextAction = !verifiedAssets ? onManageAssets : readyEngines.length ? onStartAssessment : onConfigureScanners
     const nextLabel = !verifiedAssets ? 'Add and verify an asset' : readyEngines.length ? 'Choose scope and scanners' : 'Configure a scanner'
 
@@ -146,11 +183,11 @@ export function UvmAssessmentStarter({ data, onManageAssets, onConfigureScanners
             <div className='flex items-center gap-2'>
                 <h2 className='text-base font-semibold'>Assessment readiness</h2>
             </div>
-            <div className='flex items-center gap-2'><UvmHelp label='Assessment scope and engines' text='DNS is rechecked at launch. Nmap inventories TCP services; GVM and Tenable VM check vulnerabilities. Standalone Nessus Pro is not connected. Scans do not validate exploitability.' /><button type='button' onClick={nextAction} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas'>{nextLabel}</button></div>
+            <div className='flex items-center gap-2'><UvmHelp label='Assessment scope and engines' text='DNS is rechecked at launch. Nmap inventories TCP services; GVM and Tenable VM check vulnerabilities. Standalone Nessus Pro is not connected. Scans do not validate exploitability.' /><button type='button' onClick={nextAction} disabled={statusUnavailable} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>{statusUnavailable ? 'Unavailable' : nextLabel}</button></div>
         </div>
-        <p className='mt-2 text-sm text-ui-muted'>{verifiedAssets} verified asset{verifiedAssets === 1 ? '' : 's'} · {readyEngines.length} engines ready · {unavailableEngines.length} unavailable</p>
-        {!readyEngines.length && <p className='mt-2 text-sm text-ui-warning'>{data.scannerError || 'Configure an engine to continue.'} <button type='button' onClick={onConfigureScanners} className='font-semibold underline underline-offset-2'>Scanner setup</button></p>}
-        {unavailableEngines.length > 0 && <ul className='mt-2 grid gap-1 text-xs text-ui-warning' aria-label='Unavailable scanners'>{unavailableEngines.map(engine => <li key={engine.id}><span className='font-semibold'>{engine.name}:</span> {engine.id === 'tenable-vm' && !tenableReady ? 'Connect Tenable VM and enable a network scan configuration.' : engine.reason || engine.status}</li>)}</ul>}
+        {statusUnavailable ? <p className='mt-2 text-sm text-ui-warning'>Scanner status unavailable: {data.scannerError}</p> : <p className='mt-2 text-sm text-ui-muted'>{verifiedAssets} verified asset{verifiedAssets === 1 ? '' : 's'} · {readyEngines.length} engines ready · {unavailableEngines.length} unavailable</p>}
+        {!statusUnavailable && !readyEngines.length && <p className='mt-2 text-sm text-ui-warning'>Configure an engine to continue. <button type='button' onClick={onConfigureScanners} className='font-semibold underline underline-offset-2'>Scanner setup</button></p>}
+        {!statusUnavailable && unavailableEngines.length > 0 && <ul className='mt-2 grid gap-1 text-xs text-ui-warning' aria-label='Unavailable scanners'>{unavailableEngines.map(engine => <li key={engine.id}><span className='font-semibold'>{engine.name}:</span> {engine.id === 'tenable-vm' && !tenableReady ? 'Connect Tenable VM and enable a network scan configuration.' : engine.reason || engine.status}</li>)}</ul>}
     </section>
 }
 
