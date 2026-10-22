@@ -30,6 +30,7 @@ RUN chmod +x /app/entrypoint.sh
 FROM app-runtime-base AS app-review
 # The full API test/lint gate is an explicit review target so production image
 # builds do not block on it or inherit its build-only credentials.
+RUN apk add --no-cache bash
 RUN --mount=from=database_schema,target=/db NODE_ENV=test DB_PASSWORD=build-test DB_HOST=localhost DB_POOL_HOST=localhost DB_POOL_PORT=18505 DB_MAX_CONN=1000 VM_API_TOKEN=build-test bun run test
 RUN bun run lint
 
