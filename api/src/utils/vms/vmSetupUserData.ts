@@ -82,10 +82,18 @@ write_state() {
 set_stage() { setup_stage=$1; write_state Provisioning "$1"; }
 report_setup_error() { write_state Error "Service setup failed during \${setup_stage}. Check VM logs for details (line $1)."; }
 trap 'report_setup_error "$LINENO"' ERR
+run_bounded() {
+  local seconds=$1
+  shift
+  timeout --signal=TERM --kill-after=15s "\${seconds}s" "$@"
+}
+curl() {
+  command timeout --signal=TERM --kill-after=10s 190s curl --connect-timeout 15 --max-time 180 --retry 3 --retry-delay 2 "$@"
+}
 fetch_apt_key() {
   local url=$1 path=$2
   for attempt in 1 2 3; do
-    if python3 -c 'from urllib.request import urlopen; import os,sys; response=urlopen(sys.argv[1], timeout=30); data=response.read(1048577); response.close(); len(data) > 1048576 and sys.exit("key response is too large"); temp=sys.argv[2]+".tmp"; open(temp,"wb").write(data); os.replace(temp,sys.argv[2])' "$url" "$path"; then return 0; fi
+    if timeout --signal=TERM --kill-after=5s 45s python3 -c 'from urllib.request import urlopen; import os,sys; response=urlopen(sys.argv[1], timeout=30); data=response.read(1048577); response.close(); len(data) > 1048576 and sys.exit("key response is too large"); temp=sys.argv[2]+".tmp"; open(temp,"wb").write(data); os.replace(temp,sys.argv[2])' "$url" "$path"; then return 0; fi
     sleep "$((attempt * 2))"
   done
   return 1
@@ -129,8 +137,8 @@ if printf '%s' "$services" | grep -q '"docker"'; then
 fi
 if (( \${#apt_packages[@]} > 0 )); then
   set_stage 'Installing selected packages'
-  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
-  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "\${apt_packages[@]}"
+  run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
+  run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "\${apt_packages[@]}"
 fi
 if printf '%s' "$services" | grep -q '"bun"'; then
   set_stage 'Installing Bun'
@@ -193,12 +201,12 @@ function nextjsProjectSetup(name: string) {
 project_dir='/home/${name}/project'
 install -d -o '${name}' -g '${name}' "$project_dir"
 chown -R '${name}:${name}' "$project_dir"
-if ! runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/bin/npm install --ignore-scripts --no-audit --no-fund' > /var/log/hanasand-nextjs-install.log 2>&1; then
+if ! timeout --signal=TERM --kill-after=15s 600s runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/bin/npm install --ignore-scripts --no-audit --no-fund' > /var/log/hanasand-nextjs-install.log 2>&1; then
   tail -n 20 /var/log/hanasand-nextjs-install.log >&2 || true
   false
 fi
 set_stage 'Building Next.js application'
-if ! runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/bin/npm run build' > /var/log/hanasand-nextjs-build.log 2>&1; then
+if ! timeout --signal=TERM --kill-after=15s 600s runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/bin/npm run build' > /var/log/hanasand-nextjs-build.log 2>&1; then
   tail -n 20 /var/log/hanasand-nextjs-build.log >&2 || true
   false
 fi

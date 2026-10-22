@@ -33,7 +33,9 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('docker.asc')
     expect(script).toContain('fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc')
     expect(script).toContain('urlopen(sys.argv[1], timeout=30)')
-    expect(script.match(/apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq/g)).toHaveLength(1)
+    expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
+    expect(script).toContain('run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends')
+    expect(script).toContain('command timeout --signal=TERM --kill-after=10s 190s curl --connect-timeout 15 --max-time 180')
     expect(script.indexOf('nodesource-repo.gpg.key')).toBeLessThan(script.indexOf('update -qq'))
     expect(script).toContain('write_state Running \'Setup complete\'')
     expect(config.runcmd.at(-1)).toEqual(['/usr/local/sbin/hanasand-vm-setup'])
@@ -81,8 +83,8 @@ test('cloud-init copies a validated Next.js project into the guest and builds it
     expect(Buffer.from(page?.content || '', 'base64').toString()).toBe(files[1]?.content)
     expect(unit?.content).toContain('User=builder-vm')
     expect(unit?.content).toContain('WorkingDirectory=/home/builder-vm/project')
-    expect(script).toContain('cd /home/builder-vm/project && /usr/bin/npm install --ignore-scripts --no-audit --no-fund')
-    expect(script).toContain('cd /home/builder-vm/project && /usr/bin/npm run build')
+    expect(script).toContain('timeout --signal=TERM --kill-after=15s 600s runuser --user \'builder-vm\' -- bash -lc \'cd /home/builder-vm/project && /usr/bin/npm install --ignore-scripts --no-audit --no-fund\'')
+    expect(script).toContain('timeout --signal=TERM --kill-after=15s 600s runuser --user \'builder-vm\' -- bash -lc \'cd /home/builder-vm/project && /usr/bin/npm run build\'')
     expect(script).toContain('systemctl enable --now hanasand-nextjs.service')
     expect(script).toContain('curl -fsS -o /dev/null http://127.0.0.1:3000/')
     expect(script).toContain('write_state Running \'Next.js app built and serving on port 3000\'')
@@ -123,8 +125,8 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
 
     expect(script.indexOf('systemctl enable --now postgresql')).toBeLessThan(script.indexOf('pg_isready'))
     expect(script).toContain('apt_packages+=(nodejs)')
-    expect(script.match(/apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq/g)).toHaveLength(1)
-    expect(script.match(/apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
+    expect(script.match(/run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq/g)).toHaveLength(1)
+    expect(script.match(/run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
     expect(script).not.toContain('nodesource.com/setup_24.x')
     execFileSync('bash', ['-n'], { input: script })
 })
@@ -135,9 +137,8 @@ test('AI-selected Ubuntu packages are installed as package names, never shell co
     const script = config.write_files[0]?.content || ''
 
     expect(script).toContain('apt_packages+=( \'ripgrep\' \'ruby-full\' )')
-    expect(script).toContain('apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
-    expect(script).toContain('apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "${apt_packages[@]}"')
-    expect(script).toContain('apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "${apt_packages[@]}"')
+    expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
+    expect(script).toContain('run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "${apt_packages[@]}"')
     expect(() => vmSetupUserData('custom-vm', { services: [], aptPackages: ['curl;touch /tmp/pwned'] })).toThrow('valid Debian package identifiers')
     execFileSync('bash', ['-n'], { input: script })
 })
@@ -166,6 +167,27 @@ test('setup failures persist the stage and line for VM status feedback', () => {
         const [state, message] = readFileSync(join(directory, 'status'), 'utf8').trim().split('\t')
         expect(state).toBe('Error')
         expect(message).toMatch(/^Service setup failed during Preparing selected services\. Check VM logs for details \(line \d+\)\.$/)
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
+})
+
+test('a stalled package install hits its deadline and reports a visible setup error', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-timeout-'))
+    try {
+        const cloudInit = vmSetupUserData('hei', { services: ['postgresql'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content
+            .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${directory}/status'`)
+            .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq', 'run_bounded 1 sleep 0')
+            .replace('run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "${apt_packages[@]}"', 'run_bounded 1 sleep 3')
+
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8' })
+        expect(result.status).not.toBe(0)
+        const [state, message] = readFileSync(join(directory, 'status'), 'utf8').trim().split('\t')
+        expect(state).toBe('Error')
+        expect(message).toMatch(/^Service setup failed during Installing selected packages\./)
     } finally {
         rmSync(directory, { recursive: true, force: true })
     }
