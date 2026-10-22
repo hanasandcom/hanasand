@@ -67,7 +67,7 @@ import sys,json,ipaddress
 proposed=ipaddress.ip_network(sys.argv[1])
 networks=json.load(open(sys.argv[2]))
 routes=json.load(open(sys.argv[3]))
-current=[ipaddress.ip_network(c['Subnet'],strict=False) for n in networks for c in n.get('IPAM',{}).get('Config',[]) if c.get('Subnet')]
+current=[ipaddress.ip_network(c['Subnet'],strict=False) for n in networks for c in ((n.get('IPAM') or {}).get('Config') or []) if c.get('Subnet')]
 current.extend(ipaddress.ip_network(r['dst'],strict=False) for r in routes if r.get('dst') and r['dst'] not in ('default','0.0.0.0/0'))
 assert not any(proposed.overlaps(x) for x in current if x.version==proposed.version), 'Stage subnet overlaps an existing Docker network or host route'
 print('phase=subnet-confirmed-unused-docker-and-host-routes')
