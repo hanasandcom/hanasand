@@ -19,6 +19,7 @@ const hostMetricNames: Record<string, string> = {
 
 export function isHostMetricsDataWarning(message: string): boolean {
     return message.startsWith('Host metrics unavailable for ')
+        || /^JSON field (?:unavailable|is not numeric|type does not match the comparison): hosts?\.?(?:ovhcloud\.)?[\w*.-]+\.$/.test(message)
 }
 
 export function hostMetricsDataWarning(monitorName: string, error: unknown): string {
