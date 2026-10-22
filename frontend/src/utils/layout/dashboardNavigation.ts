@@ -54,6 +54,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
                 link('Delivery Health', '/ti/timeliness', canReviewIntel),
             ]),
             group('Security tools', [
+                link('Sandbox', '/sandbox'),
                 link('Security Scanner', canManageSystem ? '/scanner' : '/solutions/scanner'),
                 link('Check Password', '/pwned'),
                 link('Endpoint Checks', '/test'),

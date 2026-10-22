@@ -31,6 +31,8 @@ describe('isAppSurfacePath', () => {
         assert.equal(isAppSurfacePath('/ti', { sidebarVisible: false, loggedInTi: true, aiPath: false }), true)
         assert.equal(isAppSurfacePath('/ti', { sidebarVisible: false, loggedInTi: false, aiPath: false }), false)
         assert.equal(isAppSurfacePath('/ti', { sidebarVisible: hasAppSidebar('/ti'), loggedInTi: false, aiPath: false }), true)
+        assert.equal(hasAppSidebar('/sandbox'), true)
+        assert.equal(hasAppSidebar('/sandbox/report'), true)
     })
 
     it('classifies shared account, profile, organization, and share paths', () => {
