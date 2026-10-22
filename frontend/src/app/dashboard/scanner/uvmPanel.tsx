@@ -49,6 +49,7 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
         const info = data.engines.find(item => item.id === engine)
         return info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
     })
+    useEffect(() => { setData(initialData) }, [initialData])
     useEffect(() => {
         if (!data.runs.some(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status))) return
         const timer = setInterval(() => { void refreshAction().then(setData).catch(() => undefined) }, 3000)

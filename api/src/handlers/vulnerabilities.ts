@@ -3,7 +3,7 @@ import { getVulnerabilityReport, startTrackedVulnerabilityScan } from '#utils/vu
 import { getWebScanReport, setWebScanSchedule, startWebScan } from '#utils/vulnerabilities/webScanner.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { checkBillingCapacity } from './billing.ts'
-import { requireHanasandInternalAccess } from './uvmScannerAccess.ts'
+import { requireHanasandInternalAccess } from './internalRouteAccess.ts'
 
 export async function getVulnerabilities(req: FastifyRequest, res: FastifyReply) {
     if (!await requireHanasandInternalAccess(req, res)) return
@@ -71,8 +71,3 @@ export async function putWebScannerSchedule(req: FastifyRequest, res: FastifyRep
     })
     return res.send(schedule)
 }
-
-export {
-    deleteUvmTenableIntegration, getUvm, getUvmRun, postUvmAsset, postUvmAssetScan,
-    postUvmAssetTenableScan, postUvmAssetVerification, postUvmRunCancel, putUvmAssetSchedule, putUvmFinding,
-} from './uvmScanner.ts'

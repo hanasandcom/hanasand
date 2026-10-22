@@ -28,6 +28,7 @@ services:
       args:
         NEXT_PUBLIC_API: http://localhost:3282/api
         NEXT_PUBLIC_API_WS: ws://localhost:3282/api/ws
+        NEXT_PUBLIC_SCANNER_API_URL: http://localhost:18201/api
     ports: !override
       - "127.0.0.1:3280:3000"
     networks: !override
