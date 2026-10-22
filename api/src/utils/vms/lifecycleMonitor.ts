@@ -91,11 +91,11 @@ function isSafeTarget(settings: MonitorConfig) {
     return settings.enabled
         && settings.target === 'isolated-staging'
         && Boolean(settings.socketPath && settings.imageServer && settings.imageAlias)
+        && settings.socketPath !== config.lxd_socket_path
 }
 
 export function vmLifecycleMonitorIsConfigured(env: NodeJS.ProcessEnv = process.env) {
-    const settings = vmLifecycleMonitorConfig(env)
-    return isSafeTarget(settings) && settings.socketPath !== config.lxd_socket_path
+    return isSafeTarget(vmLifecycleMonitorConfig(env))
 }
 
 export async function exerciseDisposableInstance(settings: MonitorConfig, request: LxdRequest = requestLxdJson) {
