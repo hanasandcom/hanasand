@@ -27,8 +27,19 @@ done
 if docker network inspect "$network" >/dev/null 2>&1 || docker image inspect "$runtime_tag" >/dev/null 2>&1; then
  echo 'Stage network or image already exists; stopping without changes.' >&2; exit 1
 fi
+postgres_image=$(docker image inspect -f '{{.Id}}' postgres:15-alpine)
+postgres_metadata=$(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$postgres_image")
+postgres_major=$(printf '%s\n' "$postgres_metadata" | sed -n 's/^PG_MAJOR=//p')
+postgres_version=$(printf '%s\n' "$postgres_metadata" | sed -n 's/^PG_VERSION=//p')
+test "$postgres_major" = 15 || { echo 'Requires a cached PostgreSQL15 image.' >&2; exit 1; }
+phase "postgres_runtime=$postgres_image version=$postgres_version"
 assert_unused_subnet() {
-docker network inspect $(docker network ls -q) > "$stage_root/docker-networks.json"
+network_ids=$(docker network ls -q)
+if test -n "$network_ids"; then
+ docker network inspect $network_ids > "$stage_root/docker-networks.json"
+else
+ printf '[]\n' > "$stage_root/docker-networks.json"
+fi
 ip -j -4 route show table all > "$stage_root/host-routes.json"
 python3 - "$subnet" "$stage_root/docker-networks.json" "$stage_root/host-routes.json" <<'PY'
 import sys,json,ipaddress
@@ -86,19 +97,21 @@ docker buildx build --load \
  --iidfile "$stage_root/runtime-image-id" --tag "$runtime_tag" --file "$root/api/Dockerfile.logs-timeout-stage" "$root"
 stage_image=$(cat "$stage_root/runtime-image-id")
 test "$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$stage_image")" = "$expected"
-docker create --name "$pin" --label "$label=$owner" --network none "$stage_image" true >/dev/null
+docker create --name "$pin" --label "$label=$owner" --network none --memory 128m --cpus 1 --pids-limit 64 --read-only --security-opt no-new-privileges:true "$stage_image" true >/dev/null
 docker cp "$pin:/app/bun.lock" "$stage_root/built-bun.lock"
 cmp "$root/api/bun.lock" "$stage_root/built-bun.lock"
 phase "phase=private-runtime-ready source=$expected digest=$stage_image lock-unchanged=true candidate=$expected"
 assert_unused_subnet
 docker network create --internal --label "$label=$owner" --subnet "$subnet" "$network" >/dev/null
-docker run -d --name "$db" --label "$label=$owner" --network "$network" --tmpfs /var/lib/postgresql/data -e POSTGRES_DB=logs_timeout_stage_test -e POSTGRES_USER=synthetic -e POSTGRES_PASSWORD=synthetic-local-only postgres:15-alpine >/dev/null
+docker run -d --name "$db" --label "$label=$owner" --network "$network" --memory 512m --cpus 1 --pids-limit 128 --read-only --security-opt no-new-privileges:true --tmpfs /var/lib/postgresql/data:rw,nosuid,noexec,size=256m --tmpfs /var/run/postgresql:rw,nosuid,noexec,size=8m -e POSTGRES_DB=logs_timeout_stage_test -e POSTGRES_USER=synthetic -e POSTGRES_PASSWORD=synthetic-local-only "$postgres_image" >/dev/null
+ready=0
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
- if docker exec "$db" pg_isready -U synthetic -d logs_timeout_stage_test >/dev/null 2>&1; then break; fi
+ if docker exec "$db" pg_isready -U synthetic -d logs_timeout_stage_test >/dev/null 2>&1; then ready=1; break; fi
  sleep 1
 done
+test "$ready" = 1 || { echo 'Synthetic PostgreSQL did not become ready; fixture not started.' >&2; exit 1; }
 phase 'phase=run-exact-candidate-real-postgres-timeout-tests'
-docker run --rm --name "$runner" --label "$label=$owner" --network "$network" \
+docker run --rm --name "$runner" --label "$label=$owner" --network "$network" --memory 512m --cpus 1 --pids-limit 128 --read-only --security-opt no-new-privileges:true --tmpfs /tmp:rw,nosuid,noexec,size=32m \
  -w /app -e RUN_LOGS_TIMEOUT_STAGE=1 -e LOGS_TIMEOUT_STAGE_ID="$stage_id" \
  -e DB_HOST="$db" -e DB_PORT=5432 -e DB=logs_timeout_stage_test -e DB_NAME=logs_timeout_stage_test \
  -e DB_USER=synthetic -e DB_PASSWORD=synthetic-local-only -e VM_API_TOKEN=synthetic-local-only -e DB_MAX_CONN=6 \

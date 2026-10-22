@@ -13,13 +13,16 @@ test('exact skipped counts including zero are bounded, timestamped and cached', 
     const read = createSkippedCountReader(transaction(sql => { calls.push(sql); return { rows: [{ count: 0 }] } }), () => now)
     const first = await read()
     expect(first).toEqual({ skipped_events: 0, skipped_events_available: true, skipped_events_checked_at: new Date(now).toISOString() })
-    expect(calls[0]).toBe('SET LOCAL statement_timeout = \'750ms\'')
-    expect(calls[1]).toContain('WHERE ingestion_id = \'logs\' AND processing_status = \'skipped\'')
+    expect(calls[0]).toBe('SET TRANSACTION READ ONLY')
+    expect(calls[1]).toContain('statement_timeout = \'750ms\'')
+    expect(calls[1]).toContain('lock_timeout = \'100ms\'')
+    expect(calls[1]).toContain('max_parallel_workers_per_gather = 0')
+    expect(calls[2]).toContain('WHERE ingestion_id = \'logs\' AND processing_status = \'skipped\'')
     expect(await read()).toBe(first)
-    expect(calls).toHaveLength(2)
+    expect(calls).toHaveLength(3)
     now += 30_001
     expect((await read()).skipped_events_checked_at).toBe(new Date(now).toISOString())
-    expect(calls).toHaveLength(4)
+    expect(calls).toHaveLength(6)
 })
 
 test('a cancelled optional count is unknown with a warning, throttles retries and can recover', async () => {
@@ -38,6 +41,14 @@ test('a cancelled optional count is unknown with a warning, throttles retries an
     now += 30_001
     expect((await read()).skipped_events).toBe(9)
     expect(attempts).toBe(2)
+})
+
+test('known lock and pool pressure leave the optional metric unavailable', async () => {
+    for (const code of ['55P03', 'DB_QUEUE_FULL', 'ECONNRESET']) {
+        const read = createSkippedCountReader(transaction(() => { throw Object.assign(new Error('synthetic pressure'), { code }) }))
+        expect((await read()).skipped_events).toBeNull()
+        expect((await read()).skipped_events_available).toBe(false)
+    }
 })
 
 test('unexpected authorization, schema and malformed results are not hidden', async () => {
@@ -59,7 +70,7 @@ test('concurrent readers share only one bounded transaction', async () => {
     expect(first).toBe(second)
     finish()
     expect((await first).skipped_events).toBe(2)
-    expect(calls).toBe(2)
+    expect(calls).toBe(3)
 })
 
 test('the historical count runs after the main transaction and surfaces an explicit native warning', () => {

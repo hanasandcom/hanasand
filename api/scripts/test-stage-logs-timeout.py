@@ -133,17 +133,49 @@ class StagePreflight(unittest.TestCase):
         database = command('docker run -d --name "$db"')
         runner = command('docker run --rm --name "$runner"')
         self.assertEqual(database[database.index('--network') + 1], '$network')
-        self.assertEqual(database[database.index('--tmpfs') + 1], '/var/lib/postgresql/data')
+        self.assertEqual(database[database.index('--tmpfs') + 1], '/var/lib/postgresql/data:rw,nosuid,noexec,size=256m')
+        self.assertEqual(database[-2:], ['$postgres_image', '>/dev/null'])
         self.assertEqual(runner[runner.index('--network') + 1], '$network')
         self.assertEqual(runner[-3:], ['bun', 'test', '/app/tests/log-skipped-count-postgres.test.ts'])
         for args in (database, runner):
-            for forbidden in ('-p', '--publish', '--privileged', '--env-file', '--volumes-from'):
+            for forbidden in ('-p', '--publish', '--privileged', '--env-file', '--volumes-from', '--mount', '--volume'):
                 self.assertNotIn(forbidden, args)
             self.assertIn('$label=$owner', args)
+            self.assertEqual(args[args.index('--memory') + 1], '512m')
+            self.assertEqual(args[args.index('--cpus') + 1], '1')
+            self.assertEqual(args[args.index('--pids-limit') + 1], '128')
+            self.assertIn('--read-only', args)
+            self.assertEqual(args[args.index('--security-opt') + 1], 'no-new-privileges:true')
+        self.assertIn('/var/run/postgresql:rw,nosuid,noexec,size=8m', database)
+        self.assertIn('/tmp:rw,nosuid,noexec,size=32m', runner)
         volumes = [runner[i + 1] for i, arg in enumerate(runner) if arg == '-v']
         self.assertEqual(volumes, [])
         self.assertTrue(all(value.endswith(':ro') for value in volumes))
         self.assertTrue(all('/.env' not in value and '/var/lib/' not in value for value in volumes))
+
+    def test_empty_docker_inventory_skips_inspect(self):
+        body = SOURCE.split('assert_unused_subnet() {\n', 1)[1].split('\n}\nassert_unused_subnet', 1)[0]
+        with tempfile.TemporaryDirectory(prefix='logs-subnet-empty-') as temporary:
+            script = ('set -eu\n' + 'stage_root=' + shlex.quote(temporary) + '\nsubnet=10.254.252.0/28\n'
+                      + "docker() { case \"$*\" in 'network ls -q') return 0;; *) return 99;; esac; }\n"
+                      + "ip() { printf '[]\\n'; }\n" + body)
+            result = subprocess.run(['sh', '-c', script], text=True, capture_output=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads((Path(temporary) / 'docker-networks.json').read_text()), [])
+
+    def test_postgres_runtime_is_pinned_and_readiness_fails_closed(self):
+        self.assertIn("postgres_image=$(docker image inspect -f '{{.Id}}' postgres:15-alpine)", SOURCE)
+        self.assertIn('test "$postgres_major" = 15', SOURCE)
+        self.assertIn('postgres_runtime=$postgres_image version=$postgres_version', SOURCE)
+        block = 'ready=0' + SOURCE.split('ready=0', 1)[1].split("phase 'phase=run-exact-candidate", 1)[0]
+        for success_after, expected in [(99, 1), (3, 0)]:
+            script = ('set -eu\ncalls=0\ndb=synthetic\n'
+                      + f'docker() {{ calls=$((calls+1)); test "$calls" -ge {success_after}; }}\n'
+                      + 'sleep() { :; }\n' + block)
+            result = subprocess.run(['sh', '-c', script], text=True, capture_output=True, check=False)
+            self.assertEqual(result.returncode, expected, result.stderr)
+            if expected:
+                self.assertIn('fixture not started', result.stderr)
 
     def test_cleanup_checks_ownership_and_removes_ids(self):
         cleanup = SOURCE.split('cleanup() {', 1)[1].split('\nfinish() {', 1)[0]

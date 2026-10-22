@@ -19,14 +19,15 @@ export function createSkippedCountReader(transaction = withTransaction, now = Da
                 let count: number | null
                 try {
                     count = await transaction(async query => {
-                        await query('SET LOCAL statement_timeout = \'750ms\'')
+                        await query('SET TRANSACTION READ ONLY')
+                        await query('SET LOCAL statement_timeout = \'750ms\'; SET LOCAL lock_timeout = \'100ms\'; SET LOCAL max_parallel_workers_per_gather = 0')
                         const value = (await query('SELECT COUNT(*)::int AS count FROM events WHERE ingestion_id = \'logs\' AND processing_status = \'skipped\' /* log-skipped-count */')).rows[0]?.count
                         if (!Number.isSafeInteger(value) || value < 0) throw new Error('Invalid excluded log count response.')
                         return value as number
                     })
                 } catch (error) {
                     const code = (error as { code?: string }).code
-                    if (code !== '57014' && code !== 'DB_QUEUE_FULL' && !isTransientDatabaseError(error)) throw error
+                    if (code !== '57014' && code !== '55P03' && code !== 'DB_QUEUE_FULL' && !isTransientDatabaseError(error)) throw error
                     count = null
                 }
                 snapshot = { skipped_events: count, skipped_events_available: count !== null, skipped_events_checked_at: new Date(now()).toISOString(),
