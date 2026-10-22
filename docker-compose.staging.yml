@@ -122,6 +122,11 @@ services:
       retries: 10
 
 networks:
+  hanasandnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.119.87.0/24
   identity-staging:
     external: true
     name: hanasand_identity_staging_proxy
