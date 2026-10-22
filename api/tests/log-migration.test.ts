@@ -15,11 +15,14 @@ let referencedRows: Array<Record<string, unknown>> = []
 let sourceModelReceipts: Array<Record<string, unknown>> = []
 let sourceReadinessReceipts: Array<Record<string, unknown>> = []
 let sourceProxyReceipts: Array<Record<string, unknown>> = []
+let sourceAnalyzeReceipts: Array<Record<string, unknown>> = []
 let sourceArchiveRows: Array<Record<string, unknown>> = []
 let sourceThroughputSamples: Array<Record<string, unknown>> = []
 let sourceTuningSnapshots: Array<Record<string, unknown>> = []
 let findingScanReads = 0
 let sourceLogsRemain = false
+let sourceAnalyzeReceiptsRemain = false
+let sourceSpecializedReceiptsRemain = false
 let fetchHandler: typeof fetch
 const previousSyncToken = process.env.LOGS_SERVICE_SYNC_TOKEN
 process.env.LOGS_SERVICE_SYNC_TOKEN = 's'.repeat(40)
@@ -30,6 +33,9 @@ const query = async (sql: string, params: unknown[] = []) => {
         return { rows: findingScanReads === 1 ? [{ id: 'source-row-1' }] : [] }
     }
     if (sql.includes('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\')')) return { rows: [{ present: sourceLogsRemain }] }
+    if (sql.includes('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts)')) {
+        return { rows: [{ present: sourceAnalyzeReceiptsRemain || sourceSpecializedReceiptsRemain }] }
+    }
     if (sql.includes('FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace')) {
         return { rows: [{ relname: 'log_analyze_receipts' }, { relname: 'log_dimensions' }] }
     }
@@ -39,6 +45,7 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (sql.includes('FROM log_model_probe_receipts WHERE nonce >')) return { rows: sourceModelReceipts.filter(row => String(row.nonce) > String(params[0])).slice(0, Number(params[1])) }
     if (sql.includes('FROM log_readiness_audit_receipts WHERE exec_id >')) return { rows: sourceReadinessReceipts.filter(row => String(row.exec_id) > String(params[0])).slice(0, Number(params[1])) }
     if (sql.includes('FROM log_proxy_receipts WHERE key >')) return { rows: sourceProxyReceipts.filter(row => String(row.key) > String(params[0])).slice(0, Number(params[1])) }
+    if (sql.includes('FROM log_analyze_receipts WHERE key >')) return { rows: sourceAnalyzeReceipts.filter(row => String(row.key) > String(params[0])).slice(0, Number(params[1])) }
     if (sql.includes('FROM log_throughput_samples WHERE sampled_at::text>$1')) return { rows: sourceThroughputSamples.filter(row => String(row.sampled_at) > String(params[0])).slice(0, 500) }
     if (sql.includes('FROM log_tuning_snapshots WHERE organization_id>$1')) return { rows: sourceTuningSnapshots.filter(row => String(row.organization_id) > String(params[0])).slice(0, 200) }
     if (sql.includes('to_regclass($1)')) return { rows: [{ relation: 'log_analyze_event_linkage_archive' }] }
@@ -75,6 +82,13 @@ const query = async (sql: string, params: unknown[] = []) => {
         sourceProxyReceipts = sourceProxyReceipts.filter(row => !ids.has(String(row.key)))
         return { rows: deleted }
     }
+    if (sql.startsWith('DELETE FROM log_analyze_receipts')) {
+        const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
+        const ids = new Set(rows.map(row => String(row.key)))
+        const deleted = sourceAnalyzeReceipts.filter(row => ids.has(String(row.key)))
+        sourceAnalyzeReceipts = sourceAnalyzeReceipts.filter(row => !ids.has(String(row.key)))
+        return { rows: deleted }
+    }
     if (sql.startsWith('DELETE FROM log_throughput_samples')) {
         const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
         const ids = new Set(rows.map(row => String(row.sampled_at)))
@@ -108,11 +122,14 @@ beforeEach(() => {
     sourceModelReceipts = []
     sourceReadinessReceipts = []
     sourceProxyReceipts = []
+    sourceAnalyzeReceipts = []
     sourceArchiveRows = []
     sourceThroughputSamples = []
     sourceTuningSnapshots = []
     findingScanReads = 0
     sourceLogsRemain = false
+    sourceAnalyzeReceiptsRemain = false
+    sourceSpecializedReceiptsRemain = false
     fetchHandler = globalThis.fetch
 })
 
@@ -176,6 +193,31 @@ test('deletes source rows only after Logs acknowledges and processes every copie
     }])
 })
 
+test('deletes a source row only after Logs durably acknowledges its drop-rule receipt', async () => {
+    let statusQueried = false
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/api/migration/status')) statusQueried = true
+        expect(String(input)).toBe('https://logs.hanasand.com/api/ingest')
+        expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${'i'.repeat(40)}`)
+        expect(JSON.parse(String(init?.body))).toMatchObject({ events: [{ sourceEventId: 'collector-event-1' }] })
+        return new Response(JSON.stringify({ ok: true, accepted: 1, droppedSourceEventIds: ['collector-event-1'] }), { status: 201 })
+    }) as typeof fetch
+
+    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
+
+    expect(result).toEqual({ moved: 1, remaining: true, retry: false })
+    expect(statusQueried).toBe(false)
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
+})
+
+test('retains source rows if Logs reports a dropped event outside the acknowledged batch', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, accepted: 1, droppedSourceEventIds: ['other-event'] }), { status: 201 })) as typeof fetch
+
+    await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
+        .rejects.toThrow('invalid dropped-event identities')
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
+})
+
 test('copies linked finding and analyst state before deleting its Hanasand row', async () => {
     sourceFindings = [{ id: 'finding-1', organization_id: 'tenant-a', finding_key: 'tenant-a:rule:event-1',
         rule_id: 'rule', severity: 'high', status: 'investigating', summary: 'Finding', evidence: { key: true },
@@ -218,11 +260,14 @@ test('prepares and acknowledges all linked findings before event ingestion can a
     expect(calls.some(url => url.endsWith('/api/ingest'))).toBe(false)
 })
 
-test('transfers exact compressed model and readiness receipts before deleting source rows', async () => {
+test('transfers exact compressed model, readiness and general analysis receipts before deleting source rows', async () => {
     sourceModelReceipts = [{ nonce: 'nonce-a', source_event_id: 'event-a', organization_id: 'tenant-a',
         original: Buffer.from('model proof bytes'), original_encoding: 'deflate-json-v1', created_at: '2026-10-20T10:00:00Z' }]
     sourceReadinessReceipts = [{ exec_id: 'exec-a', organization_id: 'tenant-a', root_source_event_id: 'event-b',
         chain_digest: 'digest-b', original: Buffer.from('readiness chain bytes'), original_encoding: 'deflate-json-v1', created_at: '2026-10-20T11:00:00Z' }]
+    const analyzeReceipt = { key: 'a'.repeat(64), organization_id: 'tenant-a', rule_id: 'drop.audit.v1',
+        rule_version: 'v3', created_at: '2026-10-20T12:00:00Z' }
+    sourceAnalyzeReceipts = [analyzeReceipt]
     const sent: Array<{ kind: string, receipts: Array<Record<string, unknown>> }> = []
     globalThis.fetch = (async (input, init) => {
         expect(String(input)).toBe('https://logs.hanasand.com/api/migration/receipts')
@@ -232,14 +277,18 @@ test('transfers exact compressed model and readiness receipts before deleting so
         return new Response(JSON.stringify({ ok: true, accepted: body.receipts.length }), { status: 200 })
     }) as typeof fetch
 
-    expect(await migrateAnalysisReceipts('https://logs.hanasand.com', 's'.repeat(40))).toEqual({ modelProbe: 1, readinessAudit: 1, proxy: 0 })
-    expect(sent.map(batch => batch.kind)).toEqual(['model_probe', 'readiness_audit'])
+    expect(await migrateAnalysisReceipts('https://logs.hanasand.com', 's'.repeat(40))).toEqual({ modelProbe: 1, readinessAudit: 1, proxy: 0, analyze: 1 })
+    expect(statements.find(statement => statement.sql.includes('FROM log_analyze_receipts WHERE key >'))?.params[1]).toBe(2000)
+    expect(sent.map(batch => batch.kind)).toEqual(['model_probe', 'readiness_audit', 'analyze'])
     expect(sent[0]?.receipts[0]?.original_base64).toBe(Buffer.from('model proof bytes').toString('base64'))
     expect(sent[1]?.receipts[0]?.original_base64).toBe(Buffer.from('readiness chain bytes').toString('base64'))
+    expect(sent[2]?.receipts[0]).toEqual(analyzeReceipt)
     expect(sourceModelReceipts).toHaveLength(0)
     expect(sourceReadinessReceipts).toHaveLength(0)
+    expect(sourceAnalyzeReceipts).toHaveLength(0)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_model_probe_receipts'))).toBe(true)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_readiness_audit_receipts'))).toBe(true)
+    expect(statements.find(statement => statement.sql.startsWith('DELETE FROM log_analyze_receipts'))?.sql).toContain('source.rule_version=expected.rule_version')
 })
 
 test('keeps source receipt rows when Logs does not acknowledge the full batch', async () => {
@@ -249,6 +298,16 @@ test('keeps source receipt rows when Logs does not acknowledge the full batch', 
     await expect(migrateReceiptKind('https://logs.hanasand.com', 's'.repeat(40), 'model_probe')).rejects.toThrow('source receipts remain in Hanasand')
     expect(sourceModelReceipts).toHaveLength(1)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_model_probe_receipts'))).toBe(false)
+})
+
+test('retains analysis receipts if Logs does not acknowledge the exact batch', async () => {
+    sourceAnalyzeReceipts = [{ key: 'a'.repeat(64), organization_id: 'tenant-a', rule_id: 'drop.audit.v1',
+        rule_version: 'v3', created_at: '2026-10-20T12:00:00Z' }]
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, accepted: 0 }), { status: 200 })) as typeof fetch
+    await expect(migrateReceiptKind('https://logs.hanasand.com', 's'.repeat(40), 'analyze'))
+        .rejects.toThrow('source receipts remain in Hanasand')
+    expect(sourceAnalyzeReceipts).toHaveLength(1)
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_analyze_receipts'))).toBe(false)
 })
 
 test('transfers raw proxy receipt evidence before deleting its source copy', async () => {
@@ -323,6 +382,18 @@ test('clears only log-owned state after the source log event set is empty and re
 test('refuses to clear log-owned state while any Hanasand Logs event remains', async () => {
     sourceLogsRemain = true
     await expect(clearMovedLogState()).rejects.toThrow('while source log events remain')
+    expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE'))).toBe(false)
+})
+
+test('refuses to clear log-owned state while any analysis receipt remains', async () => {
+    sourceAnalyzeReceiptsRemain = true
+    await expect(clearMovedLogState()).rejects.toThrow('while migration receipts remain')
+    expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE'))).toBe(false)
+})
+
+test('refuses to clear log-owned state while any specialized migration receipt remains', async () => {
+    sourceSpecializedReceiptsRemain = true
+    await expect(clearMovedLogState()).rejects.toThrow('while migration receipts remain')
     expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE'))).toBe(false)
 })
 

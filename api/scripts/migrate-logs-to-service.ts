@@ -5,6 +5,7 @@ import { logMigrationEvent } from '../src/utils/logs/logMigrationEvent.ts'
 
 const batchSize = Math.max(1, Math.min(200, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 100))
 const receiptBatchSize = 100
+const analyzeReceiptBatchSize = 2000
 const findingScanSize = 10_000
 const apply = process.argv.includes('--apply')
 const maxPayloadBytes = 450_000
@@ -55,10 +56,17 @@ export async function clearMovedLogState(transaction = withTransaction) {
     return transaction(async query => {
         await query('SET LOCAL lock_timeout = \'2s\'')
         await query('SET LOCAL statement_timeout = \'5min\'')
-        await query('LOCK TABLE events, findings, rule_hit_counts, rule_hit_count_deltas IN SHARE ROW EXCLUSIVE MODE')
+        await query('LOCK TABLE events, findings, rule_hit_counts, rule_hit_count_deltas, log_analyze_receipts, log_model_probe_receipts, log_readiness_audit_receipts, log_proxy_receipts IN SHARE ROW EXCLUSIVE MODE')
         const remaining = await query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present')
         if (remaining.rows[0]?.present) {
             throw new Error('Cannot clear Hanasand Logs state while source log events remain.')
+        }
+        const receiptsRemaining = await query(`SELECT EXISTS(SELECT 1 FROM log_analyze_receipts)
+            OR EXISTS(SELECT 1 FROM log_model_probe_receipts)
+            OR EXISTS(SELECT 1 FROM log_readiness_audit_receipts)
+            OR EXISTS(SELECT 1 FROM log_proxy_receipts) AS present`)
+        if (receiptsRemaining.rows[0]?.present) {
+            throw new Error('Cannot clear Hanasand Logs state while migration receipts remain.')
         }
         const tables = await query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND c.relkind='r' AND left(c.relname,4)='log_'
@@ -155,11 +163,13 @@ export async function migrateFindingsBeforeEvents(url: string, syncToken: string
     }
 }
 
-export async function migrateReceiptKind(url: string, syncToken: string, kind: 'model_probe' | 'readiness_audit' | 'proxy') {
+export async function migrateReceiptKind(url: string, syncToken: string, kind: 'model_probe' | 'readiness_audit' | 'proxy' | 'analyze') {
     const modelProbe = kind === 'model_probe'
     const readinessAudit = kind === 'readiness_audit'
-    const table = modelProbe ? 'log_model_probe_receipts' : readinessAudit ? 'log_readiness_audit_receipts' : 'log_proxy_receipts'
+    const analyze = kind === 'analyze'
+    const table = modelProbe ? 'log_model_probe_receipts' : readinessAudit ? 'log_readiness_audit_receipts' : analyze ? 'log_analyze_receipts' : 'log_proxy_receipts'
     const keyColumn = modelProbe ? 'nonce' : readinessAudit ? 'exec_id' : 'key'
+    const batchLimit = analyze ? analyzeReceiptBatchSize : receiptBatchSize
     let cursor = ''
     let migrated = 0
     while (true) {
@@ -168,15 +178,16 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
             const fields = modelProbe
                 ? 'nonce,source_event_id,organization_id,original,original_encoding,created_at::text AS created_at'
                 : readinessAudit ? 'exec_id,organization_id,root_source_event_id,chain_digest,original,original_encoding,created_at::text AS created_at'
-                    : 'key,organization_id,connection_id::text AS connection_id,canonical_event_id,original,created_at::text AS created_at'
-            return query(`SELECT ${fields} FROM ${table} WHERE ${keyColumn} > $1 ORDER BY ${keyColumn} LIMIT $2`, [cursor, receiptBatchSize])
+                    : analyze ? 'key,organization_id,rule_id,rule_version,created_at::text AS created_at'
+                        : 'key,organization_id,connection_id::text AS connection_id,canonical_event_id,original,created_at::text AS created_at'
+            return query(`SELECT ${fields} FROM ${table} WHERE ${keyColumn} > $1 ORDER BY ${keyColumn} LIMIT $2`, [cursor, batchLimit])
         })
         if (!source.rows.length) return migrated
 
         const batch: Array<Record<string, unknown>> = []
         for (const row of source.rows) {
             const { original, ...fields } = row
-            const receipt = kind === 'proxy' ? row : { ...fields, original_base64: Buffer.from(original).toString('base64') }
+            const receipt = kind === 'proxy' || analyze ? row : { ...fields, original_base64: Buffer.from(original).toString('base64') }
             if (Buffer.byteLength(JSON.stringify({ kind, receipts: [...batch, receipt] })) > maxPayloadBytes) break
             batch.push(receipt)
         }
@@ -221,6 +232,12 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                   AND source.original=decode(expected.original_base64,'base64')
                   AND source.original_encoding=expected.original_encoding AND source.created_at=expected.created_at
                 RETURNING source.exec_id`, [JSON.stringify(batch)])
+            if (analyze) return query(`DELETE FROM log_analyze_receipts AS source USING jsonb_to_recordset($1::jsonb) AS expected(
+                    key text,organization_id text,rule_id text,rule_version text,created_at timestamptz)
+                WHERE source.key=expected.key AND source.organization_id=expected.organization_id
+                  AND source.rule_id=expected.rule_id AND source.rule_version=expected.rule_version
+                  AND source.created_at=expected.created_at
+                RETURNING source.key`, [JSON.stringify(batch)])
             return query(`DELETE FROM log_proxy_receipts AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                     key text,organization_id text,connection_id uuid,canonical_event_id text,original jsonb,created_at timestamptz)
                 WHERE source.key=expected.key AND source.organization_id=expected.organization_id
@@ -238,7 +255,8 @@ export async function migrateAnalysisReceipts(url: string, syncToken: string) {
     const modelProbe = await migrateReceiptKind(url, syncToken, 'model_probe')
     const readinessAudit = await migrateReceiptKind(url, syncToken, 'readiness_audit')
     const proxy = await migrateReceiptKind(url, syncToken, 'proxy')
-    return { modelProbe, readinessAudit, proxy }
+    const analyze = await migrateReceiptKind(url, syncToken, 'analyze')
+    return { modelProbe, readinessAudit, proxy, analyze }
 }
 
 export async function migrateLinkageArchive(url: string, syncToken: string) {
@@ -445,7 +463,15 @@ export async function moveOneBatch(url: string, token: string): Promise<Migratio
         throw permanentError(`Logs did not acknowledge the full migration batch (HTTP ${response.status}${body.error ? `: ${body.error}` : ''}).`)
     }
 
-    const targetIds = events.map(event => createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'))
+    const submittedSourceIds = new Set(events.map(event => event.sourceEventId))
+    const reportedDrops = body.droppedSourceEventIds === undefined ? [] : body.droppedSourceEventIds
+    if (!Array.isArray(reportedDrops) || !reportedDrops.every(id => typeof id === 'string' && submittedSourceIds.has(id))
+        || new Set(reportedDrops).size !== reportedDrops.length) {
+        throw permanentError('Logs returned invalid dropped-event identities; source rows remain in Hanasand.')
+    }
+    const droppedSourceIds = new Set(reportedDrops as string[])
+    const retainedEvents = events.filter(event => !droppedSourceIds.has(event.sourceEventId))
+    const targetIds = retainedEvents.map(event => createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'))
     if (new Set(targetIds).size !== targetIds.length) {
         throw permanentError('The source batch contains duplicate Logs identities; its rows remain in Hanasand.')
     }
