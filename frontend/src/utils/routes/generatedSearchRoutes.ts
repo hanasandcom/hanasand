@@ -101,7 +101,6 @@ export const generatedSearchRoutes = [
     { id: 'route:/s', title: 'S', detail: 'Page · /s', href: '/s' },
     { id: 'route:/sandbox', title: 'Sandbox', detail: 'Page · /sandbox', href: '/sandbox' },
     { id: 'route:/sandbox/login', title: 'Sandbox · Login', detail: 'Page · /sandbox/login', href: '/sandbox/login' },
-    { id: 'route:/sandbox/report', title: 'Sandbox · Report', detail: 'Page · /sandbox/report', href: '/sandbox/report' },
     { id: 'route:/secure-account', title: 'Secure Account', detail: 'Page · /secure-account', href: '/secure-account' },
     { id: 'route:/signup', title: 'Signup', detail: 'Page · /signup', href: '/signup' },
     { id: 'route:/solutions/scanner', title: 'Solutions · Scanner', detail: 'Page · /solutions/scanner', href: '/solutions/scanner' },

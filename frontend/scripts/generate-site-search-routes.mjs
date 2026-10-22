@@ -47,7 +47,7 @@ function quote(value) {
     return apostrophe + escaped + apostrophe
 }
 
-const nonSearchableRoutes = new Set(['/prompt', '/dashboard/system/ssh-keys', '/dashboard/projects', '/dashboard/shares'])
+const nonSearchableRoutes = new Set(['/prompt', '/dashboard/system/ssh-keys', '/dashboard/projects', '/dashboard/shares', '/sandbox/report'])
 const profilePagePath = appRoutes.find(([, canonical]) => canonical === '/ti/profiles')?.[0]
 const watchlistsPagePath = appRoutes.find(([legacy]) => legacy === '/dashboard/findings/watchlists')?.[0]
 const routes = [...new Set((await pageRoutes(appDir))
