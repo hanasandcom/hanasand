@@ -88,6 +88,17 @@ run_bounded() {
   shift
   timeout --signal=TERM --kill-after=15s "\${seconds}s" "$@"
 }
+wait_for_ready() {
+  local service_name=$1
+  shift
+  local deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    if timeout --signal=TERM --kill-after=2s 5s "$@"; then return 0; fi
+    sleep 1
+  done
+  printf '%s did not become ready within 60 seconds.\\n' "$service_name" >&2
+  return 1
+}
 curl() {
   command timeout --signal=TERM --kill-after=10s 190s curl --connect-timeout 15 --max-time 180 --retry 3 --retry-delay 2 "$@"
 }
@@ -270,15 +281,15 @@ if printf '%s' "$services" | grep -q '"sqlite"'; then sqlite3 --version; fi
 if printf '%s' "$services" | grep -q '"postgresql"'; then set_stage 'Starting PostgreSQL'; systemctl enable --now postgresql; systemctl is-active --quiet postgresql; fi
 if printf '%s' "$services" | grep -q '"mysql"'; then set_stage 'Starting MySQL'; systemctl enable --now mysql; systemctl is-active --quiet mysql; fi
 if printf '%s' "$services" | grep -q '"redis"'; then set_stage 'Starting Redis'; systemctl enable --now redis-server; systemctl is-active --quiet redis-server; fi
-if printf '%s' "$services" | grep -q '"nginx"'; then set_stage 'Starting Nginx'; systemctl enable --now nginx; systemctl is-active --quiet nginx; nginx -t; fi
-if printf '%s' "$services" | grep -q '"postgresql"'; then set_stage 'Checking PostgreSQL'; pg_isready; fi
-if printf '%s' "$services" | grep -q '"mysql"'; then set_stage 'Checking MySQL'; mysqladmin ping --silent; fi
-if printf '%s' "$services" | grep -q '"redis"'; then set_stage 'Checking Redis'; redis-cli ping | grep -qx PONG; fi
+if printf '%s' "$services" | grep -Eq '"(nginx|website)"'; then set_stage 'Starting Nginx'; systemctl enable --now nginx; systemctl is-active --quiet nginx; nginx -t; fi
+if printf '%s' "$services" | grep -q '"postgresql"'; then set_stage 'Checking PostgreSQL'; wait_for_ready PostgreSQL pg_isready; fi
+if printf '%s' "$services" | grep -q '"mysql"'; then set_stage 'Checking MySQL'; wait_for_ready MySQL mysqladmin ping --silent; fi
+if printf '%s' "$services" | grep -q '"redis"'; then set_stage 'Checking Redis'; wait_for_ready Redis sh -c 'redis-cli ping | grep -qx PONG'; fi
 if printf '%s' "$services" | grep -q '"website"'; then
   set_stage 'Publishing website'
   ${website}
   nginx -t
-  curl -fsS http://127.0.0.1/ >/dev/null
+  wait_for_ready 'Website HTTP endpoint' curl -fsS http://127.0.0.1/
 fi
 ${minecraft}
 ${nextjs}

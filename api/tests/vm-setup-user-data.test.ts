@@ -6,6 +6,21 @@ import { expect, test } from 'bun:test'
 import { parse } from 'yaml'
 import { vmSetupUserData } from '../src/utils/vms/vmSetupUserData.ts'
 import { normalizeUbuntuAptPackages } from '../src/utils/vms/ubuntuAptPackages.ts'
+import { supportedSetupServices } from '../src/utils/vms/supportedSetupServices.ts'
+import { vmServices } from '../../frontend/src/utils/vms/createOptions.ts'
+
+test('the server setup generator covers every service advertised in the VM builder', () => {
+    const advertised = vmServices.map(service => service.id).sort()
+    expect([...supportedSetupServices].sort()).toEqual(advertised)
+
+    for (const service of advertised) {
+        const cloudInit = vmSetupUserData('catalog-vm', { services: [service] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content || ''
+        expect(script).toContain(`"${service}"`)
+        execFileSync('bash', ['-n'], { input: script })
+    }
+})
 
 test('generated cloud-init installs each catalog service and reports setup state', () => {
     const cloudInit = vmSetupUserData('builder-vm', {
@@ -57,6 +72,37 @@ test('website HTML is base64 encoded before insertion into the root-owned instal
     expect(script).not.toContain(html)
     expect(script).toContain('systemctl enable --now nginx')
     execFileSync('bash', ['-n'], { input: script })
+})
+
+test('selecting Website alone starts Nginx and waits for its HTTP endpoint', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-website-ready-'))
+    try {
+        const bin = join(directory, 'bin')
+        const statusPath = join(directory, 'status')
+        const serviceLog = join(directory, 'services.log')
+        mkdirSync(bin)
+        writeFileSync(join(bin, 'apt-get'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'systemctl'), `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${serviceLog}'\nexit 0\n`)
+        writeFileSync(join(bin, 'nginx'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'curl'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'chown'), '#!/usr/bin/env bash\nexit 0\n')
+        for (const executable of ['apt-get', 'systemctl', 'nginx', 'curl', 'chown']) chmodSync(join(bin, executable), 0o755)
+
+        const cloudInit = vmSetupUserData('site-vm', { services: ['website'], websiteHtml: '<main>It works</main>' })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content
+            .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
+            .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
+            .replaceAll('/var/www/html', `${directory}/www`)
+            .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.01\n  done\n  update_apt_progress')
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
+        if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)
+        expect(readFileSync(serviceLog, 'utf8')).toContain('enable --now nginx')
+        expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
 })
 
 test('cloud-init copies a validated Next.js project into the guest and builds it as the VM user', () => {
@@ -136,10 +182,88 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     expect(script).toContain('apt_packages+=(ca-certificates)')
     expect(script).toContain('systemctl enable --now postgresql')
     expect(script).toContain('node --version; npm --version')
+    expect(script).toContain('wait_for_ready PostgreSQL pg_isready')
     expect(script.match(/run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq/g)).toHaveLength(1)
     expect(script.match(/run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
     expect(script).not.toContain('nodesource.com/setup_24.x')
     execFileSync('bash', ['-n'], { input: script })
+})
+
+test('PostgreSQL readiness retries transient startup failures before completing setup', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-postgres-ready-'))
+    try {
+        const bin = join(directory, 'bin')
+        const statusPath = join(directory, 'status')
+        const readyCountPath = join(directory, 'pg-ready-count')
+        mkdirSync(bin)
+        writeFileSync(join(bin, 'apt-get'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'systemctl'), '#!/usr/bin/env bash\nif [[ "$1" == is-active ]]; then echo active; fi\nexit 0\n')
+        writeFileSync(join(bin, 'pg_isready'), [
+            '#!/usr/bin/env bash',
+            `count="$(cat '${readyCountPath}' 2>/dev/null || printf 0)"`,
+            'count=$((count + 1))',
+            `printf '%s' "$count" > '${readyCountPath}'`,
+            '(( count >= 3 ))',
+        ].join('\n'))
+        for (const executable of ['apt-get', 'systemctl', 'pg_isready']) chmodSync(join(bin, executable), 0o755)
+
+        const cloudInit = vmSetupUserData('hei', { services: ['postgresql'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content
+            .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
+            .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
+            .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.01\n  done\n  update_apt_progress')
+            .replace('    sleep 1\n  done', '    sleep 0.01\n  done')
+
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
+        if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)
+        expect(readFileSync(readyCountPath, 'utf8')).toBe('3')
+        expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
+})
+
+test('MySQL and Redis readiness retry transient startup failures', () => {
+    for (const service of ['mysql', 'redis'] as const) {
+        const directory = mkdtempSync(join(tmpdir(), `vm-setup-${service}-ready-`))
+        try {
+            const bin = join(directory, 'bin')
+            const statusPath = join(directory, 'status')
+            const readyCountPath = join(directory, 'ready-count')
+            mkdirSync(bin)
+            writeFileSync(join(bin, 'apt-get'), '#!/usr/bin/env bash\nexit 0\n')
+            writeFileSync(join(bin, 'systemctl'), '#!/usr/bin/env bash\nexit 0\n')
+            const readyCommand = service === 'mysql' ? 'mysqladmin' : 'redis-cli'
+            const probe = service === 'mysql'
+                ? '(( count >= 3 ))'
+                : 'if (( count >= 3 )); then echo PONG; else echo LOADING; fi'
+            writeFileSync(join(bin, readyCommand), [
+                '#!/usr/bin/env bash',
+                `count="$(cat '${readyCountPath}' 2>/dev/null || printf 0)"`,
+                'count=$((count + 1))',
+                `printf '%s' "$count" > '${readyCountPath}'`,
+                probe,
+            ].join('\n'))
+            for (const executable of ['apt-get', 'systemctl', readyCommand]) chmodSync(join(bin, executable), 0o755)
+
+            const cloudInit = vmSetupUserData(`ready-${service}`, { services: [service] })
+            const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+            const script = config.write_files[0]?.content
+                .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
+                .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+                .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
+                .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.01\n  done\n  update_apt_progress')
+                .replace('    sleep 1\n  done', '    sleep 0.01\n  done')
+            const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
+            if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)
+            expect(readFileSync(readyCountPath, 'utf8')).toBe('3')
+            expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
+        } finally {
+            rmSync(directory, { recursive: true, force: true })
+        }
+    }
 })
 
 test('apt package installation writes meaningful progress to the VM status file', () => {
