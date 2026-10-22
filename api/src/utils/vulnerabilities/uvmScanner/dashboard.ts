@@ -1,0 +1,98 @@
+import run from '#db'
+import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPagePolicy.ts'
+import { getWebScanReport } from '../webScanner.ts'
+import {
+    getNetworkScannerEngines, getNetworkScannerRuns, getTenableIntegration, getTenableRuns, getTenableScans,
+} from '../scanner.ts'
+import { listUvmAssets } from './assets.ts'
+import { importTenableFindings, importWebScanFindings } from './findings.ts'
+
+export async function getUvmDashboard() {
+    const [assets, localRuns, engines, scannerRuns, tenableIntegration, tenableRunResponse, webReport] = await Promise.all([
+        listUvmAssets(),
+        run(`SELECT r.id, r.asset_id, r.request_id, r.scanner_run_id, r.engine, r.profile, r.source, r.status,
+                r.actor_id, r.error, r.created_at, r.started_at, r.finished_at, a.hostname
+            FROM uvm_network_runs r JOIN uvm_assets a ON a.id = r.asset_id
+            WHERE r.organization_id = $1 ORDER BY r.created_at DESC LIMIT 50`, [HANASAND_ORGANIZATION_ID]),
+        getNetworkScannerEngines().catch(() => ({ engines: [], error: 'Scanner service is unavailable.' })),
+        getNetworkScannerRuns(HANASAND_ORGANIZATION_ID, 50).catch(() => ({ runs: [], error: 'Scanner service is unavailable.' })),
+        getTenableIntegration(HANASAND_ORGANIZATION_ID).catch(() => null),
+        getTenableRuns(HANASAND_ORGANIZATION_ID, 50).catch(() => ({ runs: [], error: 'Scanner service is unavailable.' })),
+        getWebScanReport().catch(() => null),
+    ])
+    const serviceRuns = new Map(scannerRuns.runs.map(item => [item.runId, item]))
+    const requestRuns = new Map(scannerRuns.runs.map(item => [item.requestId, item]))
+    const scannerUnavailable = 'error' in scannerRuns
+    const runs = localRuns.rows.map(row => {
+        const remote = (row.scanner_run_id ? serviceRuns.get(row.scanner_run_id) : undefined) || requestRuns.get(row.request_id)
+        return {
+            id: row.id, scannerRunId: row.scanner_run_id, requestId: row.request_id, assetId: row.asset_id,
+            target: row.hostname, engine: row.engine, profile: row.profile, source: row.source,
+            status: remote?.status || (scannerUnavailable && row.scanner_run_id ? 'unknown' : row.status),
+            createdAt: row.created_at, startedAt: remote?.startedAt || row.started_at, finishedAt: remote?.finishedAt || row.finished_at,
+            error: remote?.error || row.error || (scannerUnavailable && row.scanner_run_id ? 'Scanner service is unavailable; the run state could not be refreshed.' : null),
+            hosts: remote?.hosts || [], engineVersion: remote?.engineVersion || null, rawXmlSha256: remote?.rawXmlSha256 || null,
+            coverage: remote ? {
+                attemptedAddresses: remote.addresses.length,
+                completedAddresses: remote.hosts.length,
+                openPorts: remote.hosts.reduce((count, host) => count + host.ports.filter(port => port.state === 'open').length, 0),
+            } : null,
+        }
+    })
+    const tenableServiceRuns = new Map(tenableRunResponse.runs.map(item => [item.runId, item]))
+    const tenableRequestRuns = new Map(tenableRunResponse.runs.map(item => [item.requestId, item]))
+    const tenableUnavailable = 'error' in tenableRunResponse
+    const tenableLocalRuns = await run(`SELECT r.id, r.asset_id, r.request_id, r.scanner_run_id, r.scan_id, r.source, r.status,
+            r.error, r.created_at, r.started_at, r.finished_at, a.hostname
+        FROM uvm_tenable_runs r JOIN uvm_assets a ON a.id = r.asset_id
+        WHERE r.organization_id = $1 ORDER BY r.created_at DESC LIMIT 50`, [HANASAND_ORGANIZATION_ID])
+    const tenableRuns = tenableLocalRuns.rows.map(row => {
+        const remote = (row.scanner_run_id ? tenableServiceRuns.get(row.scanner_run_id) : undefined) || tenableRequestRuns.get(row.request_id)
+        return {
+            id: row.id, scannerRunId: row.scanner_run_id, requestId: row.request_id, assetId: row.asset_id,
+            target: row.hostname, engine: 'tenable-vm', profile: remote?.scanId || row.scan_id, source: row.source,
+            status: remote?.status || (tenableUnavailable && row.scanner_run_id ? 'unknown' : row.status),
+            createdAt: row.created_at, startedAt: remote?.startedAt || row.started_at, finishedAt: remote?.finishedAt || row.finished_at,
+            error: remote?.error || row.error || (tenableUnavailable && row.scanner_run_id ? 'Scanner service is unavailable; the run state could not be refreshed.' : null),
+            engineVersion: null, rawXmlSha256: null, hosts: [], findings: remote?.findings || [], coverage: remote?.coverage || null,
+        }
+    })
+    const completedTenableRuns = tenableRunResponse.runs
+        .filter(item => (item.status === 'succeeded' || item.status === 'partial') && (item.findings.length > 0 || Boolean(item.coverage)))
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    let findingSyncError: string | null = null
+    try { for (const tenableRun of completedTenableRuns) await importTenableFindings(tenableRun) }
+    catch { findingSyncError = 'Tenable findings could not be synchronized to the findings queue.' }
+    try { if (webReport?.current) await importWebScanFindings(webReport.current) }
+    catch { findingSyncError = [findingSyncError, 'Web check findings could not be synchronized to the findings queue.'].filter(Boolean).join(' ') }
+    const findingRows = await run(`SELECT id, asset_id, asset_label, asset_address, engine, external_id, title, severity, cvss_score, cve_ids,
+            description, solution, evidence, status, triage_note, first_seen, last_seen, updated_at
+        FROM uvm_findings WHERE organization_id = $1 ORDER BY
+            CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
+            last_seen DESC NULLS LAST LIMIT 200`, [HANASAND_ORGANIZATION_ID])
+    let tenableScans: Awaited<ReturnType<typeof getTenableScans>>['scans'] = []
+    let tenableError: string | null = tenableUnavailable ? tenableRunResponse.error : null
+    if (tenableIntegration?.configured) {
+        try { tenableScans = (await getTenableScans(HANASAND_ORGANIZATION_ID)).scans }
+        catch { tenableError = 'Tenable scan templates could not be loaded from Scanner service.' }
+    }
+    return {
+        assets,
+        engines: [...engines.engines.filter(engine => engine.id === 'nmap'), ...(tenableIntegration?.configured ? [{
+            id: 'tenable-vm', name: 'Tenable Vulnerability Management', status: 'available', version: null, reason: null,
+            profiles: tenableScans.map(scan => ({ id: scan.id, name: scan.name, safe: true })),
+            coverage: ['Configured Tenable scan template', 'Authorized public IPv4 addresses'],
+            notCovered: ['Authentication and plugin coverage depend on the selected Tenable scan configuration'],
+        }] : [])],
+        runs: [...runs, ...tenableRuns].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50),
+        scannerError: ('error' in engines ? engines.error : null) || ('error' in scannerRuns ? scannerRuns.error : null) || tenableError,
+        tenableIntegration, tenableScans,
+        findings: findingRows.rows.map(row => ({
+            id: row.id, assetId: row.asset_id, asset: row.asset_label, address: row.asset_address, engine: row.engine,
+            externalId: row.external_id, title: row.title, severity: row.severity, cvssScore: row.cvss_score,
+            cveIds: row.cve_ids, description: row.description, solution: row.solution, evidence: row.evidence,
+            status: row.status, triageNote: row.triage_note, firstSeen: row.first_seen, lastSeen: row.last_seen, updatedAt: row.updated_at,
+        })),
+        findingSyncError,
+    }
+}

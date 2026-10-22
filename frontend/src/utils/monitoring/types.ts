@@ -85,6 +85,33 @@ export type WebScanCheck = { id: string, status: string, severity: WebScanSeveri
 export type WebScanRun = { scanId: string, status: string, startedAt: string, finishedAt: string | null, durationMs: number | null, target: string, targets: Array<{ target: string, status: string, checks: WebScanCheck[], ports: Array<{ port: number, open: boolean, elapsedMs: number }> }>, severityCounts: Record<WebScanSeverity, number>, error: string | null }
 export type WebScanReport = { current: WebScanRun | null, history: WebScanRun[], schedule: { enabled: boolean, intervalMinutes: number, nextRunAt: string | null, lastRunAt: string | null, target: string, scope: 'global' }, error: string | null }
 
+export type UvmAsset = {
+    id: string
+    hostname: string
+    verificationStatus: 'pending' | 'verified' | 'disabled'
+    verificationRecordName: string
+    verificationRecordValue: string
+    verificationMethod: 'dns_txt' | 'internal'
+    verifiedAt: string | null
+    scanAuthorizedAt: string | null
+    authorizedAddresses: string[]
+    scheduleEnabled: boolean
+    scheduleEngine: 'nmap' | 'tenable-vm'
+    scheduleScanId: string | null
+    intervalMinutes: number
+    nextRunAt: string | null
+    createdAt: string
+}
+export type UvmEngine = { id: string, name: string, status: 'available' | 'unavailable', version: string | null, reason: string | null, profiles: Array<{ id: string, name: string, safe: boolean }>, coverage: string[], notCovered: string[] }
+export type UvmPort = { port: number, protocol: string, state: string, service: string | null, product: string | null, version: string | null, extraInfo: string | null }
+export type UvmHost = { address: string, status: string, ports: UvmPort[] }
+export type UvmTenableFinding = { findingId: string, provider: 'tenable-vm', pluginId: string, cveIds: string[], title: string, severity: string, cvssScore: number | null, description: string | null, solution: string | null, evidence: string | null, assetAddress: string, firstSeen: string | null, lastSeen: string | null, status: string, observed: boolean, port: number | null, protocol: string | null }
+export type UvmTenableIntegration = { provider: 'tenable-vm', configured: boolean, credentialStoreAvailable: boolean, region: string | null, accessKeyHint: string | null, testedAt: string | null, updatedAt: string | null, error: string | null }
+export type UvmTenableScan = { id: string, scheduleUuid: string | null, name: string, enabled: boolean, status: string | null, scannerName: string | null, targets: string }
+export type UvmFinding = { id: string, assetId: string | null, asset: string, address: string | null, engine: string, externalId: string, title: string, severity: string, cvssScore: number | null, cveIds: string[], description: string | null, solution: string | null, evidence: string | null, status: 'open' | 'in_progress' | 'pending_verification' | 'accepted_risk' | 'false_positive' | 'resolved', triageNote: string | null, firstSeen: string | null, lastSeen: string | null, updatedAt: string }
+export type UvmRun = { id: string, scannerRunId: string | null, requestId: string, assetId: string, target: string, engine: string, profile: string, source: 'manual' | 'scheduled', status: string, createdAt: string, startedAt: string | null, finishedAt: string | null, error: string | null, hosts: UvmHost[], findings?: UvmTenableFinding[], engineVersion: string | null, rawXmlSha256: string | null, coverage: { attemptedAddresses: number, completedAddresses: number, openPorts?: number } | null }
+export type UvmDashboard = { assets: UvmAsset[], engines: UvmEngine[], runs: UvmRun[], scannerError: string | null, tenableIntegration: UvmTenableIntegration | null, tenableScans: UvmTenableScan[], findings: UvmFinding[], findingSyncError: string | null }
+
 export type TrafficMetric = {
     key: string
     count: number
