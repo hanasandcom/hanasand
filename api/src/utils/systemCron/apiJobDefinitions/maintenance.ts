@@ -150,7 +150,7 @@ export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
     {
         id: UVM_SCHEDULE_JOB_ID,
         name: 'Authorized network scan scheduler',
-        description: 'Queues one due, verified, explicitly authorized TCP inventory scan per minute and pauses schedules when resolved addresses change.',
+        description: 'Reconciles scanner run states and findings, queues due verified scans, and pauses schedules when authorized addresses change.',
         category: 'Other/System',
         schedule: 'Every minute while an asset schedule is due',
         cadenceSeconds: API_CRON_CADENCE_SECONDS,

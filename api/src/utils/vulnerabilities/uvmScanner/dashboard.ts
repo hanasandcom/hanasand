@@ -1,14 +1,12 @@
 import run from '#db'
 import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPagePolicy.ts'
-import { getWebScanReport } from '../webScanner.ts'
 import {
     getNetworkScannerEngines, getNetworkScannerRuns, getTenableIntegration, getTenableRuns, getTenableScans,
 } from '../scanner.ts'
 import { listUvmAssets } from './assets.ts'
-import { importTenableFindings, importWebScanFindings } from './findings.ts'
 
 export async function getUvmDashboard() {
-    const [assets, localRuns, engines, scannerRuns, tenableIntegration, tenableRunResponse, webReport] = await Promise.all([
+    const [assets, localRuns, engines, scannerRuns, tenableIntegration, tenableRunResponse] = await Promise.all([
         listUvmAssets(),
         run(`SELECT r.id, r.asset_id, r.request_id, r.scanner_run_id, r.engine, r.profile, r.source, r.status,
                 r.actor_id, r.error, r.created_at, r.started_at, r.finished_at, a.hostname
@@ -18,7 +16,6 @@ export async function getUvmDashboard() {
         getNetworkScannerRuns(HANASAND_ORGANIZATION_ID, 50).catch(() => ({ runs: [], error: 'Scanner service is unavailable.' })),
         getTenableIntegration(HANASAND_ORGANIZATION_ID).catch(() => null),
         getTenableRuns(HANASAND_ORGANIZATION_ID, 50).catch(() => ({ runs: [], error: 'Scanner service is unavailable.' })),
-        getWebScanReport().catch(() => null),
     ])
     const serviceRuns = new Map(scannerRuns.runs.map(item => [item.runId, item]))
     const requestRuns = new Map(scannerRuns.runs.map(item => [item.requestId, item]))
@@ -57,14 +54,6 @@ export async function getUvmDashboard() {
             engineVersion: null, rawXmlSha256: null, hosts: [], findings: remote?.findings || [], coverage: remote?.coverage || null,
         }
     })
-    const completedTenableRuns = tenableRunResponse.runs
-        .filter(item => (item.status === 'succeeded' || item.status === 'partial') && (item.findings.length > 0 || Boolean(item.coverage)))
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-    let findingSyncError: string | null = null
-    try { for (const tenableRun of completedTenableRuns) await importTenableFindings(tenableRun) }
-    catch { findingSyncError = 'Tenable findings could not be synchronized to the findings queue.' }
-    try { if (webReport?.current) await importWebScanFindings(webReport.current) }
-    catch { findingSyncError = [findingSyncError, 'Web check findings could not be synchronized to the findings queue.'].filter(Boolean).join(' ') }
     const findingRows = await run(`SELECT id, asset_id, asset_label, asset_address, engine, external_id, title, severity, cvss_score, cve_ids,
             description, solution, evidence, status, triage_note, first_seen, last_seen, updated_at
         FROM uvm_findings WHERE organization_id = $1 ORDER BY
@@ -93,6 +82,5 @@ export async function getUvmDashboard() {
             cveIds: row.cve_ids, description: row.description, solution: row.solution, evidence: row.evidence,
             status: row.status, triageNote: row.triage_note, firstSeen: row.first_seen, lastSeen: row.last_seen, updatedAt: row.updated_at,
         })),
-        findingSyncError,
     }
 }

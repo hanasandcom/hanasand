@@ -1,6 +1,6 @@
 export { createUvmAsset, listUvmAssets, updateUvmSchedule, verifyUvmAsset } from './uvmScanner/assets.ts'
 export { getUvmDashboard } from './uvmScanner/dashboard.ts'
-export { updateUvmFinding } from './uvmScanner/findings.ts'
+export { reconcileUvmRuns, updateUvmFinding } from './uvmScanner/findings.ts'
 export {
     cancelUvmRun, cancelUvmTenableRun, configureUvmTenable, disconnectUvmTenable,
     getUvmNetworkRun, getUvmTenableRun, runDueUvmScans, startUvmNetworkScan, startUvmTenableScan,
