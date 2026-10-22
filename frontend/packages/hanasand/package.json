@@ -1,6 +1,6 @@
 {
   "name": "hanasand",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Shared Hanasand web components, hooks, and utilities",
   "type": "module",
   "files": [
@@ -26,6 +26,11 @@
       "types": "./dist/dashboard.d.ts",
       "import": "./dist/dashboard.js"
     },
+    "./auth": {
+      "types": "./dist/auth/loginForm.d.ts",
+      "import": "./dist/auth/loginForm.js"
+    },
+    "./auth.css": "./dist/styles.css",
     "./mail": {
       "types": "./dist/mail/index.d.ts",
       "import": "./dist/mail/index.js"
