@@ -9,6 +9,8 @@ import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import config from '#constants'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import { enqueueVmProvisionOnHost, waitForVmProvisionOnHost, type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
+import { provisionLocalLxdInstance } from '#utils/vms/lxd.ts'
+import { clearLocalProvisionState, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { isSupportedSetupService, supportedSetupServices, type SupportedVmSetupService } from '#utils/vms/supportedSetupServices.ts'
@@ -255,6 +257,16 @@ async function ensureSetupPublicRoutes(vmName: string, createdBy: string, servic
 }
 
 async function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
+    if (config.lxd_project) {
+        setLocalProvisionState(name, { status: 'Provisioning', status_reason: 'Preparing the selected VM setup' })
+        void provisionLocalLxdInstance(name, options).then(() => {
+            clearLocalProvisionState(name)
+        }).catch(error => {
+            setLocalProvisionState(name, { status: 'Error', status_reason: 'VM setup could not start. Try again or contact Support if the problem persists.' })
+            void recordVmProvisioningError(name, error, 'create_or_provision')
+        })
+        return
+    }
     try {
         await enqueueVmProvisionOnHost(host, name, internalHostFetch, options)
     } catch {

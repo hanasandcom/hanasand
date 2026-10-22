@@ -82,17 +82,20 @@ write_state() {
 set_stage() { setup_stage=$1; write_state Provisioning "$1"; }
 report_setup_error() { write_state Error "Service setup failed during \${setup_stage}. Check VM logs for details (line $1)."; }
 trap 'report_setup_error "$LINENO"' ERR
+fetch_apt_key() {
+  local url=$1 path=$2
+  for attempt in 1 2 3; do
+    if python3 -c 'from urllib.request import urlopen; import os,sys; response=urlopen(sys.argv[1], timeout=30); data=response.read(1048577); response.close(); len(data) > 1048576 and sys.exit("key response is too large"); temp=sys.argv[2]+".tmp"; open(temp,"wb").write(data); os.replace(temp,sys.argv[2])' "$url" "$path"; then return 0; fi
+    sleep "$((attempt * 2))"
+  done
+  return 1
+}
 set_stage 'Preparing selected services'
 services="$(printf '%s' '${selectedBase64}' | base64 -d)"
 apt_packages=()
 if printf '%s' "$services" | grep -Eq '"(nodejs|bun|docker|minecraft-java)"'; then
   set_stage 'Preparing secure downloads'
-  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
-  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends ca-certificates curl gnupg unzip
-fi
-if (( ${customAptPackages.length} > 0 )) && ! printf '%s' "$services" | grep -Eq '"(nodejs|bun|docker|minecraft-java)"'; then
-  set_stage 'Refreshing package index'
-  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
+  apt_packages+=(ca-certificates curl unzip)
 fi
 if printf '%s' "$services" | grep -q '"postgresql"'; then apt_packages+=(postgresql postgresql-contrib); fi
 if printf '%s' "$services" | grep -q '"mysql"'; then apt_packages+=(mysql-server); fi
@@ -109,13 +112,16 @@ if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep
 if printf '%s' "$services" | grep -q '"minecraft-java"'; then apt_packages+=(curl jq tar iproute2); fi
 ${installCustomPackages}
 if printf '%s' "$services" | grep -q '"nodejs"'; then
-  curl -fsSL --retry 3 --retry-delay 2 https://deb.nodesource.com/setup_24.x -o /tmp/hanasand-nodesource.sh
-  bash /tmp/hanasand-nodesource.sh
+  install -d -m 0755 /etc/apt/keyrings
+  fetch_apt_key https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key /etc/apt/keyrings/nodesource.asc
+  chmod 0644 /etc/apt/keyrings/nodesource.asc
+  arch="$(dpkg --print-architecture)"
+  printf 'Types: deb\\nURIs: https://deb.nodesource.com/node_24.x\\nSuites: nodistro\\nComponents: main\\nArchitectures: %s\\nSigned-By: /etc/apt/keyrings/nodesource.asc\\n' "$arch" > /etc/apt/sources.list.d/nodesource.sources
   apt_packages+=(nodejs)
 fi
 if printf '%s' "$services" | grep -q '"docker"'; then
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL --retry 3 --retry-delay 2 https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  install -d -m 0755 /etc/apt/keyrings
+  fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc
   chmod a+r /etc/apt/keyrings/docker.asc
   . /etc/os-release
   printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\\n' "$(dpkg --print-architecture)" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
@@ -123,9 +129,7 @@ if printf '%s' "$services" | grep -q '"docker"'; then
 fi
 if (( \${#apt_packages[@]} > 0 )); then
   set_stage 'Installing selected packages'
-  if ! printf '%s' "$services" | grep -q '"nodejs"' || printf '%s' "$services" | grep -q '"docker"'; then
-    apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
-  fi
+  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
   apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "\${apt_packages[@]}"
 fi
 if printf '%s' "$services" | grep -q '"bun"'; then

@@ -1,5 +1,5 @@
 import config from '#constants'
-import { lxdRequest, waitForLxdOperation } from './lxd.ts'
+import { lxdProjectPath, lxdRequest, waitForLxdOperation } from './lxd.ts'
 
 const cacheTtlMs = 5 * 60_000
 const usageCache = new Map<string, { at: number, bytes: number | null }>()
@@ -47,7 +47,7 @@ async function readGuestRootDiskUsage(name: string) {
 
 async function readOutput(path?: string) {
     if (!path || !path.startsWith('/1.0/instances/')) throw new Error('VM disk metric output is unavailable.')
-    const response = await fetch(`http://localhost${path}`, {
+    const response = await fetch(`http://localhost${lxdProjectPath(path, config.lxd_project)}`, {
         unix: config.lxd_socket_path,
         signal: AbortSignal.timeout(5_000),
     } as RequestInit & { unix: string })

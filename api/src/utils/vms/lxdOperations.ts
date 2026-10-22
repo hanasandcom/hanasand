@@ -16,10 +16,13 @@ type LxdOperations = {
 export async function waitForLxdOperation<T>(request: LxdRequest, operation: string | undefined, timeoutSeconds: number) {
     if (!operation) return
     const isOperationUrl = operation.includes('/1.0/operations/')
-    const id = isOperationUrl ? operation.split('/').pop() : operation
-    if (!id) return
-    const encodedId = isOperationUrl ? id : encodeURIComponent(id)
-    return request<T>(`/1.0/operations/${encodedId}/wait?timeout=${timeoutSeconds}`)
+    if (isOperationUrl) {
+        const url = new URL(operation, 'http://localhost')
+        const query = new URLSearchParams(url.search)
+        query.set('timeout', String(timeoutSeconds))
+        return request<T>(`${url.pathname}/wait?${query.toString()}`)
+    }
+    return request<T>(`/1.0/operations/${encodeURIComponent(operation)}/wait?timeout=${timeoutSeconds}`)
 }
 
 export async function waitForInstanceOperations(request: LxdRequest, name: string, timeoutSeconds: number) {

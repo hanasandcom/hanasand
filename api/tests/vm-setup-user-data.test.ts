@@ -17,7 +17,8 @@ test('generated cloud-init installs each catalog service and reports setup state
     const script = config.write_files.find(file => file.path === '/usr/local/sbin/hanasand-vm-setup')?.content
 
     expect(config.users[0]?.name).toBe('builder-vm')
-    expect(script).toContain('nodesource.com/setup_24.x')
+    expect(script).toContain('https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key')
+    expect(script).toContain('Suites: nodistro')
     expect(script).toContain('bun.sh/install')
     expect(script).toContain('postgresql postgresql-contrib')
     expect(script).toContain('mysql-server')
@@ -27,7 +28,13 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('apt_packages+=(build-essential)')
     expect(script).toContain('rustc --version; cargo --version')
     expect(script).toContain('ruby --version; gem --version')
-    expect(script.indexOf('install -y --no-install-recommends ca-certificates curl gnupg unzip')).toBeLessThan(script.indexOf('nodesource.com/setup_24.x'))
+    expect(script).toContain('apt_packages+=(ca-certificates curl unzip)')
+    expect(script).toContain('nodesource.asc')
+    expect(script).toContain('docker.asc')
+    expect(script).toContain('fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc')
+    expect(script).toContain('urlopen(sys.argv[1], timeout=30)')
+    expect(script.match(/apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq/g)).toHaveLength(1)
+    expect(script.indexOf('nodesource-repo.gpg.key')).toBeLessThan(script.indexOf('update -qq'))
     expect(script).toContain('write_state Running \'Setup complete\'')
     expect(config.runcmd.at(-1)).toEqual(['/usr/local/sbin/hanasand-vm-setup'])
     execFileSync('bash', ['-n'], { input: script })
@@ -116,9 +123,9 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
 
     expect(script.indexOf('systemctl enable --now postgresql')).toBeLessThan(script.indexOf('pg_isready'))
     expect(script).toContain('apt_packages+=(nodejs)')
-    expect(script).toContain('if ! printf \'%s\' "$services" | grep -q \'"nodejs"\' || printf \'%s\' "$services" | grep -q \'"docker"\'; then')
-    const nodeInstall = script.slice(script.indexOf('if printf \'%s\' "$services" | grep -q \'"nodejs"\'; then'), script.indexOf('if printf \'%s\' "$services" | grep -q \'"docker"\'; then'))
-    expect(nodeInstall).not.toContain('apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
+    expect(script.match(/apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq/g)).toHaveLength(1)
+    expect(script.match(/apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
+    expect(script).not.toContain('nodesource.com/setup_24.x')
     execFileSync('bash', ['-n'], { input: script })
 })
 
@@ -128,7 +135,8 @@ test('AI-selected Ubuntu packages are installed as package names, never shell co
     const script = config.write_files[0]?.content || ''
 
     expect(script).toContain('apt_packages+=( \'ripgrep\' \'ruby-full\' )')
-    expect(script).toContain('set_stage \'Refreshing package index\'')
+    expect(script).toContain('apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
+    expect(script).toContain('apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "${apt_packages[@]}"')
     expect(script).toContain('apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "${apt_packages[@]}"')
     expect(() => vmSetupUserData('custom-vm', { services: [], aptPackages: ['curl;touch /tmp/pwned'] })).toThrow('valid Debian package identifiers')
     execFileSync('bash', ['-n'], { input: script })

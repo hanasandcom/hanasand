@@ -53,13 +53,14 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
         || selectedAptPackages.length > 0
         || Boolean(options.websiteHtml)
     if (!existing) {
+        const rootDiskPool = await localRootDiskPool()
         const response = await lxdRequest<unknown>('/1.0/instances', {
             method: 'POST',
             body: {
                 name,
                 type: 'container',
                 profiles: ['default'],
-                devices: { root: { type: 'disk', path: '/', size: selectedResources.disk } },
+                devices: { root: { type: 'disk', path: '/', pool: rootDiskPool, size: selectedResources.disk } },
                 config: {
                     'limits.cpu': selectedResources.cpu,
                     'limits.memory': selectedResources.memory,
@@ -98,6 +99,13 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
 
     await setLocalLxdInstanceState(name, 'start', { tolerateAlready: true })
     return refreshLocalLxdDetails(name)
+}
+
+async function localRootDiskPool() {
+    const profile = await lxdRequest<{ devices?: Record<string, Record<string, string>> }>('/1.0/profiles/default')
+    const pool = profile.metadata.devices?.root?.pool?.trim()
+    if (!pool) throw new Error('The default LXD profile must define a root storage pool before creating VMs.')
+    return pool
 }
 
 function createSetupHash(options: VmProvisionOptions) {
@@ -201,10 +209,19 @@ export async function lxdRequest<T>(path: string, options: LxdRequestOptions = {
 }
 
 async function defaultLxdRequest<T>(path: string, options: LxdRequestOptions = {}) {
-    const response = await requestLxdJson<T>(config.lxd_socket_path, path, options)
+    const response = await requestLxdJson<T>(config.lxd_socket_path, lxdProjectPath(path, config.lxd_project), options)
     if (response.status_code >= 400 || response.error) {
         throw new Error(response.error || `LXD returned ${response.status_code}`)
     }
 
     return response
+}
+
+export function lxdProjectPath(path: string, project: string) {
+    if (!project) return path
+    const queryIndex = path.indexOf('?')
+    const pathname = queryIndex < 0 ? path : path.slice(0, queryIndex)
+    const query = new URLSearchParams(queryIndex < 0 ? '' : path.slice(queryIndex + 1))
+    query.set('project', project)
+    return `${pathname}?${query.toString()}`
 }

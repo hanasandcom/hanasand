@@ -7,7 +7,7 @@ import { useState } from 'react'
 import DeleteVmDialog from '../vms/deleteVmDialog'
 import restoreVM from '@/utils/vms/fetch/restoreVM'
 import deleteVM from '@/utils/vms/fetch/deleteVM'
-import { ArrowRight, Cpu, Ellipsis, HardDrive, Network, TerminalSquare, Trash2 } from 'lucide-react'
+import { ArrowRight, Cpu, HardDrive, Menu, Network, TerminalSquare, Trash2 } from 'lucide-react'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import formatDescription from '@/utils/vms/formatDescription'
 import formatStatus from '@/utils/vms/formatStatus'
@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation'
 import RestartButtons from '../vms/restartButtons'
 import { vmActionStyle } from '../vms/actionStyle'
 import VMSudoPassword from '../vms/vmSudoPassword'
+import VMConnectLocally from '../vms/vmConnectLocally'
 import type { NotifyVmAction } from '../vms/vmActionFeedback'
 
 export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update: () => void, now: number, onFeedback?: NotifyVmAction }) {
@@ -86,7 +87,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                 <div className='grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start'>
                     <div className='min-w-0'>
                         <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                            <h3 className='min-w-0 break-all text-base font-semibold text-ui-text'>{name}</h3>
+                            <h3 className='min-w-0 wrap-break-word text-base font-semibold text-ui-text'>{name}</h3>
                             {vm.managed === true && <span title='Provisioned through a share' className='rounded-md border border-ui-border bg-ui-canvas px-2 py-0.5 text-[0.68rem] font-semibold text-ui-muted'>Managed</span>}
                             <span className={`rounded-md px-2 py-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] ${status === 'Running'
                                 ? 'border border-ui-success/30 bg-ui-success/10 text-ui-success'
@@ -106,13 +107,16 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                             <button type='button' onClick={openDetails} className={`${vmActionStyle} px-3 text-ui-primary`} data-vm-primary-action>
                                 Open details <ArrowRight className='h-4 w-4' />
                             </button>
+                            {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} hidden px-3 text-ui-text sm:inline-flex`} />}
+                            {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} hidden px-3 text-ui-primary sm:inline-flex`} />}
                             <details className='relative w-full sm:w-auto' data-vm-actions data-vm-danger-actions>
                                 <summary aria-label={`More actions for ${name}`} title='More actions' className={`${vmActionStyle} ml-auto w-9 cursor-pointer list-none text-ui-muted [&::-webkit-details-marker]:hidden sm:ml-0`}>
-                                    <Ellipsis className='h-5 w-5' />
+                                    <Menu className='h-4 w-4' />
                                 </summary>
                                 <div className='absolute right-0 top-11 z-20 grid min-w-56 gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
                                     <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
-                                    {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`} />}
+                                    {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} w-full justify-start px-3 text-ui-text sm:hidden`} />}
+                                    {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary sm:hidden`} />}
                                     <button type='button' onClick={() => { setDeleteError(''); setConfirmingDelete(true) }} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
                                         <Trash2 className='h-4 w-4' /> Delete VM
                                     </button>

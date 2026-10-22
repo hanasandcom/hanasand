@@ -23,6 +23,21 @@ const servicePackageAliases: Partial<Record<typeof supportedSetupServices[number
     website: new Set(['nginx']),
 }
 
+const minecraftServerTypePatterns = [
+    ['PAPER', /\bpaper\b/i],
+    ['VANILLA', /\bvanilla\b/i],
+    ['FABRIC', /\bfabric\b/i],
+    ['QUILT', /\bquilt\b/i],
+    ['NEOFORGE', /\bneo[- ]?forge\b/i],
+    ['PURPUR', /\bpurpur\b/i],
+    ['FOLIA', /\bfolia\b/i],
+] as const
+
+function requestedMinecraftServerType(prompt: string) {
+    const matches = minecraftServerTypePatterns.filter(([, pattern]) => pattern.test(prompt))
+    return matches.length === 1 ? matches[0][0] : null
+}
+
 export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyReply) {
     const auth = await tokenWrapper(req, res)
     if (!auth.valid || !auth.id) return res.status(401).send({ error: 'Unauthorized.' })
@@ -79,7 +94,7 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         if (!selectedServices.length && !selectedPackages.length && !websitePlan) {
             return res.status(422).send({ error: plan.summary.trim().slice(0, 400) || 'That setup is not available yet. Choose a service from the list or describe a supported setup.' })
         }
-        return res.send({ summary: plan.summary.slice(0, 400), services: selectedServices, packages: selectedPackages, website: websitePlan, minecraftServerType: plan.minecraftServerType || null })
+        return res.send({ summary: plan.summary.slice(0, 400), services: selectedServices, packages: selectedPackages, website: websitePlan, minecraftServerType: requestedMinecraftServerType(prompt) || plan.minecraftServerType || null })
     } catch (error) {
         req.log.warn({ err: error }, 'Unable to create a supported VM setup plan.')
         return res.status(503).send({ error: 'Could not turn that request into a supported setup. Choose services from the list or try again.' })

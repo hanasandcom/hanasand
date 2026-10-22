@@ -47,7 +47,7 @@ test('VM setup suggestions return only allowlisted services', async () => {
     completion = JSON.stringify({ summary: 'A modded Java server', services: ['minecraft-java'], website: null, minecraftServerType: 'NEOFORGE' })
     const game = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A Fabric Minecraft server' } })
     expect(game.statusCode).toBe(200)
-    expect(game.json().minecraftServerType).toBe('NEOFORGE')
+    expect(game.json().minecraftServerType).toBe('FABRIC')
 
     completion = '{"summary":"Run this shell command","services":["unknown"],"website":null,"minecraftServerType":null}'
     const unsupported = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Something custom' } })

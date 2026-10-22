@@ -1,6 +1,7 @@
 import config from '#constants'
 import { internalHostFetch } from './hostTransport.ts'
-import { getLocalLxdInstance, updateLocalLxdConfig } from './lxd.ts'
+import { getLocalLxdInstance, lxdProjectPath, updateLocalLxdConfig } from './lxd.ts'
+import { getLocalProvisionState } from './localProvisionState.ts'
 
 type Vm = { name: string; primary_host?: string | null; deleted_at?: string | Date | null; status?: string; last_checked?: string | Date | null }
 type State = { status: string; status_reason?: string }
@@ -16,7 +17,8 @@ export function invalidateLiveVmStatus(name: string) {
 
 export async function localVmStatus(name: string): Promise<State> {
     const options: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
-    const response = await fetch(`http://localhost/1.0/instances/${encodeURIComponent(name)}/state`, options)
+    const statePath = lxdProjectPath(`/1.0/instances/${encodeURIComponent(name)}/state`, config.lxd_project)
+    const response = await fetch(`http://localhost${statePath}`, options)
     if (!response.ok) throw new Error(response.status === 404 ? 'VM is unavailable on its host.' : 'VM host is not responding.')
     const body = await response.json() as { metadata?: State }
     if (!body.metadata?.status) throw new Error('VM host did not report a state.')
@@ -27,7 +29,8 @@ export async function localVmStatus(name: string): Promise<State> {
     if (!planHash) return body.metadata
 
     const setupOptions: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
-    const setupResponse = await fetch(`http://localhost/1.0/instances/${encodeURIComponent(name)}/files?path=${encodeURIComponent('/var/lib/hanasand-vm-setup/status')}`, setupOptions).catch(() => null)
+    const setupPath = lxdProjectPath(`/1.0/instances/${encodeURIComponent(name)}/files?path=${encodeURIComponent('/var/lib/hanasand-vm-setup/status')}`, config.lxd_project)
+    const setupResponse = await fetch(`http://localhost${setupPath}`, setupOptions).catch(() => null)
     const rawState = setupResponse?.ok ? await setupResponse.text().catch(() => '') : ''
     const [setupStatus, ...messageParts] = rawState.trim().split('\t')
     const setupMessage = messageParts.join('\t').slice(0, 300)
@@ -50,6 +53,11 @@ async function probe(name: string, host = config.vm_host_id): Promise<State> {
     if (cached && cached.expires > Date.now()) return cached.result
     const result = (async () => {
         if (targetHost === String(config.vm_host_id).toLowerCase()) {
+            if (config.lxd_project) {
+                const queued = getLocalProvisionState(name)
+                if (queued) return queued
+                return localVmStatus(name)
+            }
             try {
                 const state = await localVmStatus(name)
                 // A VM becomes "Running" as soon as the guest has booted, but the host
@@ -137,7 +145,8 @@ function localVmStatusInventory() {
     if (localInventory && localInventory.expires > Date.now()) return localInventory.result
     const result = (async () => {
         const options: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
-        const response = await fetch('http://localhost/1.0/instances?recursion=1', options)
+        const inventoryPath = lxdProjectPath('/1.0/instances?recursion=1', config.lxd_project)
+        const response = await fetch(`http://localhost${inventoryPath}`, options)
         if (!response.ok) throw new Error('VM host is not responding.')
         const body = await response.json() as { metadata?: LocalInstance[] }
         if (!Array.isArray(body.metadata)) throw new Error('VM host did not return its instances.')
