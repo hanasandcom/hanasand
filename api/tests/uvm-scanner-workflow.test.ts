@@ -34,8 +34,11 @@ mock.module('../src/utils/vulnerabilities/uvmScope.ts', () => ({
     sameAuthorizedAddressSet: (left: string[], right: string[]) => left.length === right.length && left.every(value => right.includes(value)),
 }))
 mock.module('../src/utils/vulnerabilities/scanner.ts', () => ({
+    getGvmRun: async() => null,
     getNetworkScannerRun: async() => null,
+    cancelGvmRun: async() => null,
     cancelNetworkScannerRun: async() => null,
+    startGvmRun: async() => ({ runId: 'gvm-run-1', status: 'queued', startedAt: null }),
     startNetworkScannerRun: async(input: Record<string, unknown>) => {
         networkScanInput = input
         if (networkScanError) throw networkScanError

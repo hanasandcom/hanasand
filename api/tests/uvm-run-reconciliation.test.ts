@@ -11,13 +11,24 @@ mock.module('#db', () => ({ default: async(sql: string, values: unknown[] = []) 
 mock.module('#utils/auth/organizationPagePolicy.ts', () => ({ HANASAND_ORGANIZATION_ID: 'org-1' }))
 mock.module('#utils/db/uvmScannerSchema.ts', () => ({ default: async() => {} }))
 mock.module('../src/utils/vulnerabilities/scanner.ts', () => ({
+    cancelGvmRun: async() => ({}),
+    cancelNetworkScannerRun: async() => ({}),
+    cancelTenableRun: async() => ({}),
+    getGvmRun: async() => ({}),
     getNetworkScannerRun: async() => ({ status: 'succeeded', error: null, startedAt: '2026-01-01T00:00:00.000Z', finishedAt: '2026-01-01T00:01:00.000Z' }),
+    getTenableIntegration: async() => ({}),
+    getTenableScans: async() => ({ scans: [] }),
     getTenableRun: async() => ({
         runId: 'tenable-1', requestId: 'request-1', organizationId: 'org-1', assetId: 'asset-1', target: 'example.com',
         addresses: ['8.8.8.8'], scanId: 'scan-1', status: 'succeeded', createdAt: '2026-01-01T00:00:00.000Z',
         startedAt: '2026-01-01T00:00:00.000Z', finishedAt: '2026-01-01T00:01:00.000Z', error: null, findings: [],
         coverage: { attemptedAddresses: 1, completedAddresses: 1 },
     }),
+    removeTenableIntegration: async() => ({}),
+    setTenableIntegration: async() => ({}),
+    startGvmRun: async() => ({}),
+    startNetworkScannerRun: async() => ({}),
+    startTenableRun: async() => ({}),
 }))
 mock.module('../src/utils/vulnerabilities/webScanner.ts', () => ({ getWebScanReport: async() => ({ history: [], current: null }) }))
 
