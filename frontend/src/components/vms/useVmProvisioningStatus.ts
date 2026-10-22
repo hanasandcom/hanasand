@@ -37,7 +37,7 @@ export function useVmProvisioningStatus(name: string | undefined) {
 
         let active = true
         const refresh = async () => {
-            const vms = await getVM(name)
+            const vms = await getVM(name, undefined, undefined, null)
             if (!active) return
             const vm = vms?.[0]
             if (!vm) return

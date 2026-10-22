@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServices } from '../src/utils/vms/createOptions'
 import { getVmProvisioningFeedback } from '../src/components/vms/useVmProvisioningStatus'
+import getVM from '../src/utils/vms/fetch/getVM'
 
 const components = new URL('../src/components/profile/vms.tsx', import.meta.url)
 const createForm = new URL('../src/components/profile/vmCreateForm.tsx', import.meta.url)
@@ -43,6 +44,12 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('if (value === \'ubuntu-24.04-desktop\') setResourcePlan(\'large\')')
     expect(source).toContain('setCreationError(result.message)')
     expect(source).toContain('role=\'alert\' className=\'rounded-lg border border-ui-danger/25')
+    expect(source).toContain('setProjectFiles(plan.projectFiles || [])')
+    expect(source).toContain('project_files: projectFiles.length ? projectFiles : undefined')
+    expect(source).toContain('const requiresFourGiB = selectedServices.includes(\'minecraft-java\') || projectFiles.length > 0')
+    expect(source).toContain('if (plan.projectFiles?.length && resourcePlan === \'small\') setResourcePlan(\'standard\')')
+    expect(source).toContain('a custom app')
+    expect(source).toContain('disabled={projectFiles.length > 0 && [\'nodejs\', \'website\', \'minecraft-java\'].includes(service.id)}')
 })
 
 test('successful creation opens the terminal without waiting for a VM status fetch', async () => {
@@ -51,7 +58,7 @@ test('successful creation opens the terminal without waiting for a VM status fet
     expect(source).toContain('provisioning=1')
     expect(session).toContain('get(\'provisioning\') === \'1\'')
     expect(session).toContain('if (!host && !provisioning)')
-    expect(progress).toContain('getVM(name)')
+    expect(progress).toContain('getVM(name, undefined, undefined, null)')
     expect(progress).toContain('status_reason')
     expect(progress).toContain('2500')
 })
@@ -70,6 +77,24 @@ test('the console reports real VM setup progress, completion, and failure separa
     })
     expect(consoleClient).toContain('session.provisioning &&')
     expect(consoleClient).toContain('role={session.provisioning.state === \'error\' ? \'alert\' : \'status\'}')
+})
+
+test('provisioning status can fetch an accessible VM outside the selected workspace filter', async () => {
+    const originalFetch = globalThis.fetch
+    let requestedHeaders: Headers | undefined
+    globalThis.fetch = async (_input, init) => {
+        requestedHeaders = new Headers(init?.headers)
+        return new Response(JSON.stringify([{ name: 'hei', status: 'PROVISIONING' }]), { status: 200 })
+    }
+
+    try {
+        const result = await getVM('hei', 'test-token', 'test-user', null)
+        expect(result?.[0]?.status).toBe('PROVISIONING')
+        expect(requestedHeaders?.get('x-organization-id')).toBeNull()
+        expect(requestedHeaders?.get('id')).toBe('test-user')
+    } finally {
+        globalThis.fetch = originalFetch
+    }
 })
 
 test('organization VM creation explains and blocks the owner/admin-only action before submission', async () => {
@@ -93,7 +118,8 @@ test('VM creation preserves workspace conflict details from the API', async () =
 
 test('VM filter popover uses the standard inset and slider-knob icon', async () => {
     const [source, inventory] = await Promise.all([readFile(filters, 'utf8'), readFile(components, 'utf8')])
-    expect(inventory).toContain('content-start gap-3 p-2 lg:p-4')
+    expect(inventory).toContain('content-start gap-3 p-2')
+    expect(inventory).not.toContain('content-start gap-3 p-2 lg:p-4')
     expect(source).toContain('left: position.mobile ? 8 : undefined')
     expect(source).toContain('right = mobile ? 8 :')
     expect(source).toContain('width: position.mobile ? \'calc(100vw - 16px)\'')

@@ -1,7 +1,7 @@
 import { StringDecoder } from 'node:string_decoder'
 import WebSocket from 'ws'
 import config from '#constants'
-import { lxdRequest } from './lxd.ts'
+import { lxdProjectPath, lxdRequest } from './lxd.ts'
 
 export function consoleUsername(name: string) {
     // Match the account used by the VM SSH gateway; never derive it from the website user.
@@ -67,7 +67,12 @@ async function attachConsoleChannels(result: ExecOperation, onOutput: (data: str
         for (const fd of ['0', 'control']) {
             const secret = result.metadata.fds[fd]
             if (!secret) throw new Error('VM console channel unavailable.')
-            const socket = new WebSocket(`ws+unix://${config.lxd_socket_path}:${operation}/websocket?secret=${encodeURIComponent(secret)}`, { handshakeTimeout: 10000 })
+            const operationPath = lxdProjectPath(operation, config.lxd_project)
+            const queryIndex = operationPath.indexOf('?')
+            const pathname = queryIndex < 0 ? operationPath : operationPath.slice(0, queryIndex)
+            const query = new URLSearchParams(queryIndex < 0 ? '' : operationPath.slice(queryIndex + 1))
+            query.set('secret', secret)
+            const socket = new WebSocket(`ws+unix://${config.lxd_socket_path}:${pathname}/websocket?${query.toString()}`, { handshakeTimeout: 10000 })
             channels.push(socket)
             for (const event of ['error', 'close'] as const) socket.on(event, () => { if (!closed) { close(); onExit() } })
             if (fd === '0') socket.on('message', data => onOutput(decoder.write(data as Buffer)))

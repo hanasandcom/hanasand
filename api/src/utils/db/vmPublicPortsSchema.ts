@@ -8,8 +8,10 @@ export default async function ensureVmPublicPortsSchema() {
         route_type TEXT NOT NULL CHECK (route_type IN ('minecraft-java', 'tls', 'http')),
         guest_port INTEGER NOT NULL CHECK (guest_port BETWEEN 1 AND 65535),
         created_by TEXT NOT NULL,
+        short_hostname BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`)
+    await run('ALTER TABLE vm_public_ports ADD COLUMN IF NOT EXISTS short_hostname BOOLEAN NOT NULL DEFAULT FALSE')
     await run(`DO $$
     BEGIN
         IF NOT EXISTS (

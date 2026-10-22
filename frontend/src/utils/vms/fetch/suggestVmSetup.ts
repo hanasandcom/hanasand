@@ -3,7 +3,7 @@ import { vmMinecraftServerTypes, type VmMinecraftServerType } from '../createOpt
 
 export type VmWebsiteImage = { url: string, alt: string, caption: string }
 export type VmWebsitePlan = { title: string, tagline: string, sections: Array<{ heading: string, body: string }>, gallery?: VmWebsiteImage[], contactEmail?: string }
-export type VmSetupPlan = { summary: string, services: string[], aptPackages: string[], website: VmWebsitePlan | null, minecraftServerType: VmMinecraftServerType | null }
+export type VmSetupPlan = { summary: string, services: string[], aptPackages: string[], website: VmWebsitePlan | null, minecraftServerType: VmMinecraftServerType | null, projectFiles: Array<{ path: string, content: string }> | null }
 
 export default async function suggestVmSetup(prompt: string, os: string): Promise<VmSetupPlan> {
     const token = getCookie('access_token')
@@ -27,5 +27,8 @@ export default async function suggestVmSetup(prompt: string, os: string): Promis
             ? { ...(result.website as VmWebsitePlan), gallery: (result.website as VmWebsitePlan).gallery || [], contactEmail: (result.website as VmWebsitePlan).contactEmail || '' }
             : null,
         minecraftServerType: vmMinecraftServerTypes.some(server => server.id === result.minecraftServerType) ? result.minecraftServerType as VmMinecraftServerType : null,
+        projectFiles: Array.isArray(result.projectFiles)
+            ? result.projectFiles.filter((file): file is { path: string, content: string } => Boolean(file) && typeof file.path === 'string' && typeof file.content === 'string')
+            : null,
     }
 }

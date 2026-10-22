@@ -23,6 +23,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     }
     const nextjsFiles = normalizedNextjsFiles
     const nextjs = nextjsFiles.length ? nextjsProjectSetup(name) : ''
+    const nextjsAptPackages = nextjsFiles.length ? 'apt_packages+=(curl)' : ''
     const projectFiles = nextjsFiles.map(file => ({
         path: `/home/${name}/project/${file.path}`,
         permissions: '0644',
@@ -30,7 +31,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
         encoding: 'b64',
         content: Buffer.from(file.content, 'utf8').toString('base64'),
     }))
-    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', website, minecraftMemoryGb, aptPackages, nextjs)
+    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages)
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -59,7 +60,7 @@ function yamlObject(value: Record<string, unknown>) {
     return JSON.stringify(value, null, 2)
 }
 
-function createSetupScript(name: string, services: string[], minecraftType: string, websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string) {
+function createSetupScript(name: string, services: string[], minecraftType: string, websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
     const minecraft = services.includes('minecraft-java')
@@ -82,18 +83,31 @@ write_state() {
 set_stage() { setup_stage=$1; write_state Provisioning "$1"; }
 report_setup_error() { write_state Error "Service setup failed during \${setup_stage}. Check VM logs for details (line $1)."; }
 trap 'report_setup_error "$LINENO"' ERR
+run_bounded() {
+  local seconds=$1
+  shift
+  timeout --signal=TERM --kill-after=15s "\${seconds}s" "$@"
+}
+curl() {
+  command timeout --signal=TERM --kill-after=10s 190s curl --connect-timeout 15 --max-time 180 --retry 3 --retry-delay 2 "$@"
+}
+fetch_apt_key() {
+  local url=$1 path=$2
+  for attempt in 1 2 3; do
+    if timeout --signal=TERM --kill-after=5s 45s python3 -c 'from urllib.request import urlopen; import os,sys; response=urlopen(sys.argv[1], timeout=30); data=response.read(1048577); response.close(); len(data) > 1048576 and sys.exit("key response is too large"); temp=sys.argv[2]+".tmp"; open(temp,"wb").write(data); os.replace(temp,sys.argv[2])' "$url" "$path"; then return 0; fi
+    sleep "$((attempt * 2))"
+  done
+  return 1
+}
 set_stage 'Preparing selected services'
 services="$(printf '%s' '${selectedBase64}' | base64 -d)"
 apt_packages=()
-if printf '%s' "$services" | grep -Eq '"(nodejs|bun|docker|minecraft-java)"'; then
+if printf '%s' "$services" | grep -Eq '"(bun|docker|minecraft-java)"'; then
   set_stage 'Preparing secure downloads'
-  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
-  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends ca-certificates curl gnupg unzip
+  apt_packages+=(ca-certificates curl unzip)
 fi
-if (( ${customAptPackages.length} > 0 )) && ! printf '%s' "$services" | grep -Eq '"(nodejs|bun|docker|minecraft-java)"'; then
-  set_stage 'Refreshing package index'
-  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
-fi
+if printf '%s' "$services" | grep -q '"nodejs"'; then apt_packages+=(ca-certificates); fi
+${nextjsAptPackages}
 if printf '%s' "$services" | grep -q '"postgresql"'; then apt_packages+=(postgresql postgresql-contrib); fi
 if printf '%s' "$services" | grep -q '"mysql"'; then apt_packages+=(mysql-server); fi
 if printf '%s' "$services" | grep -q '"redis"'; then apt_packages+=(redis-server); fi
@@ -108,14 +122,9 @@ if printf '%s' "$services" | grep -q '"php"'; then apt_packages+=(php-cli php-cu
 if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep -q '"website"'; then apt_packages+=(nginx curl); fi
 if printf '%s' "$services" | grep -q '"minecraft-java"'; then apt_packages+=(curl jq tar iproute2); fi
 ${installCustomPackages}
-if printf '%s' "$services" | grep -q '"nodejs"'; then
-  curl -fsSL --retry 3 --retry-delay 2 https://deb.nodesource.com/setup_24.x -o /tmp/hanasand-nodesource.sh
-  bash /tmp/hanasand-nodesource.sh
-  apt_packages+=(nodejs)
-fi
 if printf '%s' "$services" | grep -q '"docker"'; then
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL --retry 3 --retry-delay 2 https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  install -d -m 0755 /etc/apt/keyrings
+  fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc
   chmod a+r /etc/apt/keyrings/docker.asc
   . /etc/os-release
   printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\\n' "$(dpkg --print-architecture)" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
@@ -123,10 +132,103 @@ if printf '%s' "$services" | grep -q '"docker"'; then
 fi
 if (( \${#apt_packages[@]} > 0 )); then
   set_stage 'Installing selected packages'
-  if ! printf '%s' "$services" | grep -q '"nodejs"' || printf '%s' "$services" | grep -q '"docker"'; then
-    apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
+  run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
+  apt_progress_file="$(mktemp /run/hanasand-apt-progress.XXXXXX)"
+  run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
+  apt_install_pid=$!
+  last_apt_progress=''
+  update_apt_progress() {
+    local progress_line apt_progress_percent apt_progress
+    progress_line="$(tail -n 1 "$apt_progress_file" 2>/dev/null || true)"
+    if [[ "$progress_line" =~ ^pmstatus:([a-zA-Z0-9.+-]+):([0-9]{1,3})([.][0-9]+)?: ]]; then
+      apt_progress_percent=$((BASH_REMATCH[2] / 10 * 10))
+      apt_progress="\${BASH_REMATCH[1]} \${apt_progress_percent}%"
+      if [[ "$apt_progress" != "$last_apt_progress" ]]; then
+        set_stage "Installing \${apt_progress}"
+        last_apt_progress=$apt_progress
+      fi
+    fi
+  }
+  while kill -0 "$apt_install_pid" 2>/dev/null; do
+    update_apt_progress
+    sleep 2
+  done
+  update_apt_progress
+  if wait "$apt_install_pid"; then
+    rm -f "$apt_progress_file"
+  else
+    apt_status=$?
+    rm -f "$apt_progress_file"
+    report_setup_error "$LINENO"
+    exit "$apt_status"
   fi
-  apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "\${apt_packages[@]}"
+fi
+if printf '%s' "$services" | grep -q '"nodejs"'; then
+  set_stage 'Installing Node.js 24 LTS'
+  run_bounded 300 python3 - <<'PY'
+import hashlib
+import json
+import pathlib
+import platform
+import subprocess
+import tarfile
+import urllib.request
+
+base = "https://nodejs.org/dist/"
+with urllib.request.urlopen(base + "index.json", timeout=20) as response:
+    releases = json.load(response)
+version = next(item["version"] for item in releases if item["version"].startswith("v24."))
+architecture = {"x86_64": "x64", "aarch64": "arm64"}.get(platform.machine())
+if not architecture:
+    raise SystemExit("Node.js LTS is unavailable for this VM architecture.")
+filename = f"node-{version}-linux-{architecture}.tar.xz"
+with urllib.request.urlopen(base + version + "/SHASUMS256.txt", timeout=20) as response:
+    checksums = response.read().decode()
+expected = next((line.split()[0] for line in checksums.splitlines() if line.split()[-1] == filename), None)
+if not expected:
+    raise SystemExit("The Node.js release checksum was not published.")
+archive = pathlib.Path("/tmp") / filename
+with urllib.request.urlopen(base + version + "/" + filename, timeout=60) as response, archive.open("wb") as output:
+    digest = hashlib.sha256()
+    while chunk := response.read(1024 * 1024):
+        digest.update(chunk)
+        output.write(chunk)
+if digest.hexdigest() != expected:
+    archive.unlink(missing_ok=True)
+    raise SystemExit("The downloaded Node.js archive failed its checksum check.")
+target = pathlib.Path("/opt") / f"node-{version}"
+target.mkdir(parents=True, exist_ok=True)
+prefix = f"node-{version}-linux-{architecture}/"
+target_root = target.resolve()
+with tarfile.open(archive, mode="r:xz") as bundle:
+    members = bundle.getmembers()
+    for member in members:
+        if member.name == prefix.rstrip("/"):
+            member.name = "."
+            continue
+        if not member.name.startswith(prefix):
+            raise SystemExit("The Node.js archive contains an unexpected path.")
+        relative = pathlib.PurePosixPath(member.name[len(prefix):])
+        if relative.is_absolute() or ".." in relative.parts:
+            raise SystemExit("The Node.js archive contains an unsafe path.")
+        member.name = relative.as_posix()
+        if member.issym() or member.islnk():
+            link = pathlib.PurePosixPath(member.linkname)
+            if link.is_absolute() or ".." in link.parts:
+                resolved_link = (target / relative.parent / pathlib.Path(member.linkname)).resolve()
+            else:
+                resolved_link = (target / relative.parent / pathlib.Path(*link.parts)).resolve()
+            if not resolved_link.is_relative_to(target_root):
+                raise SystemExit("The Node.js archive contains an unsafe link.")
+    bundle.extractall(target, members=members)
+archive.unlink(missing_ok=True)
+for name in ("node", "npm", "npx", "corepack"):
+    binary = target / "bin" / name
+    if binary.exists():
+        link = pathlib.Path("/usr/local/bin", name)
+        link.unlink(missing_ok=True)
+        link.symlink_to(binary, target_is_directory=False)
+PY
 fi
 if printf '%s' "$services" | grep -q '"bun"'; then
   set_stage 'Installing Bun'
@@ -189,12 +291,12 @@ function nextjsProjectSetup(name: string) {
 project_dir='/home/${name}/project'
 install -d -o '${name}' -g '${name}' "$project_dir"
 chown -R '${name}:${name}' "$project_dir"
-if ! runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/bin/npm install --ignore-scripts --no-audit --no-fund' > /var/log/hanasand-nextjs-install.log 2>&1; then
+if ! timeout --signal=TERM --kill-after=15s 600s runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/local/bin/npm install --ignore-scripts --no-audit --no-fund' > /var/log/hanasand-nextjs-install.log 2>&1; then
   tail -n 20 /var/log/hanasand-nextjs-install.log >&2 || true
   false
 fi
 set_stage 'Building Next.js application'
-if ! runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/bin/npm run build' > /var/log/hanasand-nextjs-build.log 2>&1; then
+if ! timeout --signal=TERM --kill-after=15s 600s runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/local/bin/npm run build' > /var/log/hanasand-nextjs-build.log 2>&1; then
   tail -n 20 /var/log/hanasand-nextjs-build.log >&2 || true
   false
 fi
@@ -210,7 +312,7 @@ curl -fsS -o /dev/null http://127.0.0.1:3000/
 }
 
 function nextjsService(name: string) {
-    return `[Unit]\nDescription=Hanasand Next.js project\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=${name}\nWorkingDirectory=/home/${name}/project\nEnvironment=NODE_ENV=production\nEnvironment=HOSTNAME=0.0.0.0\nEnvironment=PORT=3000\nExecStart=/usr/bin/npm run start\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n`
+    return `[Unit]\nDescription=Hanasand Next.js project\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=${name}\nWorkingDirectory=/home/${name}/project\nEnvironment=NODE_ENV=production\nEnvironment=HOSTNAME=0.0.0.0\nEnvironment=PORT=3000\nExecStart=/usr/local/bin/npm run start\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n`
 }
 
 /* eslint-disable @stylistic/quotes -- generated bash keeps its shell quoting inside template literals. */

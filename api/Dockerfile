@@ -2,8 +2,9 @@ FROM grafana/k6:latest AS k6builder
 
 FROM oven/bun:1.3.13-alpine AS deps
 
+ARG HANASAND_STAGE_BUILD=0
 COPY .git/HEAD /tmp/hanasand-source-head
-RUN test "$(cat /tmp/hanasand-source-head)" = "ref: refs/heads/main" || { echo "Production image builds are allowed only from the main branch." >&2; exit 1; }
+RUN if [ "$HANASAND_STAGE_BUILD" = "1" ]; then test -s /tmp/hanasand-source-head; else test "$(cat /tmp/hanasand-source-head)" = "ref: refs/heads/main" || { echo "Production image builds are allowed only from the main branch." >&2; exit 1; }; fi
 
 WORKDIR /app
 

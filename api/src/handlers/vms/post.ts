@@ -9,6 +9,8 @@ import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import config from '#constants'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import { enqueueVmProvisionOnHost, waitForVmProvisionOnHost, type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
+import { provisionLocalLxdInstance } from '#utils/vms/lxd.ts'
+import { clearLocalProvisionState, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { isSupportedSetupService, supportedSetupServices, type SupportedVmSetupService } from '#utils/vms/supportedSetupServices.ts'
@@ -250,11 +252,21 @@ async function ensureSetupPublicRoutes(vmName: string, createdBy: string, servic
         const routeName = route.prefix === 'app'
             ? `app-${vmName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 36)}`
             : `${route.prefix}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`
-        await run('INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by) VALUES ($1, $2, $3, $4, $5)', [vmName, routeName, route.type, route.port, createdBy])
+        await run('INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by, short_hostname) VALUES ($1, $2, $3, $4, $5, TRUE)', [vmName, routeName, route.type, route.port, createdBy])
     }
 }
 
 async function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
+    if (config.lxd_project) {
+        setLocalProvisionState(name, { status: 'Provisioning', status_reason: 'Preparing the selected VM setup' })
+        void provisionLocalLxdInstance(name, options).then(() => {
+            clearLocalProvisionState(name)
+        }).catch(error => {
+            setLocalProvisionState(name, { status: 'Error', status_reason: 'VM setup could not start. Try again or contact Support if the problem persists.' })
+            void recordVmProvisioningError(name, error, 'create_or_provision')
+        })
+        return
+    }
     try {
         await enqueueVmProvisionOnHost(host, name, internalHostFetch, options)
     } catch {
@@ -290,6 +302,7 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     if (website && !selectedServices.includes('website')) return null
     const nextjsProjectFiles = projectFilesInput === undefined ? undefined : normalizeNextjsProjectFiles(projectFilesInput)
     if (projectFilesInput !== undefined && (!nextjsProjectFiles || !selectedServices.includes('nodejs'))) return null
+    if (nextjsProjectFiles?.length && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
     const selectedOs = (os || 'ubuntu-24.04') as VmProvisionOptions['os']
     return {
         os: selectedOs,

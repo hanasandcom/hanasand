@@ -38,6 +38,7 @@ const config = {
     vm_api_token: process.env.VM_API_TOKEN,
     vm_port_route_token: process.env.VM_PORT_ROUTE_TOKEN,
     vm_host_id: resolveVmHostId(),
+    lxd_project: process.env.LXD_PROJECT || '',
     lxd_socket_path: process.env.LXD_SOCKET_PATH || '/var/snap/lxd/common/lxd/unix.socket',
     lxd_image_alias: process.env.LXD_IMAGE_ALIAS || '24.04',
     lxd_image_server: process.env.LXD_IMAGE_SERVER || 'https://cloud-images.ubuntu.com/releases',
