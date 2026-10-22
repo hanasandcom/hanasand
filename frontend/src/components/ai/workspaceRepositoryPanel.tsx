@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FolderGit2, RefreshCcw } from 'lucide-react'
 import ErrorNotice from '@/components/error/errorNotice'
-import { Panel, Empty, WorkspacePrimaryAction, WorkspaceResourceCard, formatActivityTime } from './workbenchPaneDisplay'
+import { Panel, Empty, Stat, WorkspacePrimaryAction, WorkspaceResourceCard, formatActivityTime } from './workbenchPaneDisplay'
 import { WorkspaceFileButton } from './workspaceFileButton'
 
 export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeConversation, activeRepoId, syncingRepoId, selectedRepoFilePath, activeTreePaths, selectedContent, recentPaths, lastChangedPath, importInput, githubToken, importError, importPending, onAttachRepo, onAttachShare, onImportInputChange, onGitHubTokenChange, onImportRepo, onCreateRepository, onRevokeRepoCredential, onRefreshRepo, onSelectRepoFile, onSelectShareFile }: {
@@ -69,6 +69,7 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
                             <button type='button' aria-label={`Refresh ${repo.fullName}`} onClick={() => void onRefreshRepo(repo.id)} className='grid h-8 w-8 place-items-center rounded-lg bg-ui-raised text-ui-muted outline outline-ui-border hover:text-ui-primary'><RefreshCcw className={`h-3.5 w-3.5 ${syncingRepoId === repo.id ? 'animate-spin' : ''}`} /></button>
                         </div>
                     </div>
+                    {repo.id === activeRepoId && selectedRepoFilePath ? <Stat label='Focus' value={selectedRepoFilePath} /> : null}
                     {repo.id === activeRepoId && repo.files.length ? <div className='mt-3 max-h-36 space-y-1 overflow-y-auto pr-1'>{repo.files.slice(0, 80).map(file => <WorkspaceFileButton key={file.path} path={file.path} selected={selectedRepoFilePath === file.path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} onSelect={onSelectRepoFile} />)}</div> : null}
                 </WorkspaceResourceCard>)}
                 {standaloneFiles.map(share => <WorkspaceResourceCard key={share.id} selected={share.id === activeConversation?.workspaceId}>
