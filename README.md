@@ -73,6 +73,8 @@ The root `.env` is private and is not committed. Obtain a development configurat
 
 The Hanasand-to-Logs transfer is disabled until `LOGS_OUTBOX_ENABLED=1`. Before enabling it, configure `LOGS_SERVICE_URL=https://logs.hanasand.com`, `LOGS_SERVICE_INGEST_TOKEN`, and `LOGS_SERVICE_SYNC_TOKEN` in the API environment. Hanasand stores source events and organization/rule snapshots in a transactional outbox, retries delivery until Logs acknowledges them, and keeps tenant identity and deduplication IDs stable. This is a migration bridge; it does not by itself move Hanasand readers or production history to Logs.
 
+The API reads article Markdown from the public [Articles repository](https://github.com/hanasandcom/articles) over HTTPS. Dashboard article changes publish to both GitHub and Forgejo. Production must provide `ARTICLES_GITHUB_USERNAME`, `ARTICLES_GITHUB_TOKEN`, `ARTICLES_FORGEJO_USERNAME` and `ARTICLES_FORGEJO_TOKEN` through its protected deployment environment. Restrict the GitHub token to the `hanasandcom/articles` repository with Contents write access, and the Forgejo token to that repository with repository write access. Do not put tokens in Git remote URLs or repository configuration.
+
 Run in separate terminals:
 
 ```sh
