@@ -7,7 +7,7 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 test "$(git -C "$root" rev-parse HEAD)" = "$expected"
 test -z "$(git -C "$root" status --porcelain=v1)"
 identity_source=/home/hanasand/identity
-identity_revision=111fc5340b6e3c42cb4dc1128c5899f9e42ced52
+identity_revision=5e712f2a3eb9fef204592018cf591f941c533f0d
 identity_origin=$(git -C "$identity_source" remote get-url origin)
 case "$identity_origin" in
  git@github.com:hanasandcom/identity.git|ssh://git@git.hanasand.com/hanasandcom/identity.git) ;;

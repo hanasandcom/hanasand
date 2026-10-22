@@ -5,7 +5,7 @@ import { exportJWK, SignJWT } from 'jose'
 
 const enabled = process.env.RUN_CORE_ORGANIZATION_PROOF_STAGE === '1'
 test.skipIf(!enabled)(
-    'real Identity111 and PostgreSQL: delegated organization proof, replay and API-owned route protection',
+    'real pinned Identity and PostgreSQL: delegated organization proof, replay and API-owned route protection',
     async () => {
         const stageId = process.env.CORE_ORGANIZATION_PROOF_STAGE_ID || ''
         if (

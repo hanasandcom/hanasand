@@ -118,13 +118,13 @@ class StagePreflight(unittest.TestCase):
             'COPY api/package.json api/bun.lock api/bunfig.toml ./',
             'RUN bun install --frozen-lockfile',
             'COPY api/ ./',
-            'RUN chmod -R a+rX /app && test -s /app/tests/identity-proxy-postgres.test.ts',
+            'RUN find /app -path /app/node_modules -prune -o -exec chmod a+rX {} + && test -s /app/tests/identity-proxy-postgres.test.ts',
             'CMD ["bun", "test", "/app/tests/identity-proxy-postgres.test.ts"]'
         ])
 
     def test_private_clone_modes_become_readable_in_image(self):
         dockerfile = (SCRIPT.parent.parent / 'Dockerfile.proof-stage').read_text()
-        instruction = next(line for line in dockerfile.splitlines() if line.startswith('RUN chmod '))
+        instruction = next(line for line in dockerfile.splitlines() if line.startswith('RUN find '))
         with tempfile.TemporaryDirectory(prefix='core-proof-modes-test-') as temporary:
             app = Path(temporary) / 'app'
             tests = app / 'tests'
@@ -133,6 +133,11 @@ class StagePreflight(unittest.TestCase):
             fixture.write_text('synthetic fixture')
             package = app / 'package.json'
             package.write_text('{}')
+            dependencies = app / 'node_modules'
+            dependencies.mkdir(mode=0o700)
+            dependency = dependencies / 'synthetic-dependency.js'
+            dependency.write_text('synthetic dependency')
+            dependency.chmod(0o600)
             for directory in (app, tests):
                 directory.chmod(0o700)
             for source in (fixture, package):
@@ -143,6 +148,8 @@ class StagePreflight(unittest.TestCase):
                 self.assertEqual(stat.S_IMODE(directory.stat().st_mode), 0o755)
             for source in (fixture, package):
                 self.assertEqual(stat.S_IMODE(source.stat().st_mode), 0o644)
+            self.assertEqual(stat.S_IMODE(dependencies.stat().st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(dependency.stat().st_mode), 0o600)
 
     def test_database_and_runner_are_isolated(self):
         database = command('docker run -d --name "$db"')
@@ -163,7 +170,8 @@ class StagePreflight(unittest.TestCase):
     def test_identity_image_resolution_keeps_exact_revision_guard(self):
         resolver = SOURCE.split('identity_image=', 1)[1].split('assert_unused_subnet() {', 1)[0]
         resolver = 'identity_image=' + resolver
-        revision = '111fc5340b6e3c42cb4dc1128c5899f9e42ced52'
+        revision = '5e712f2a3eb9fef204592018cf591f941c533f0d'
+        self.assertIn('identity_revision=' + revision, SOURCE)
         stub = r'''docker() {
  case "$*" in
   'inspect -f {{.Image}} hanasand_auth_primary') echo sha256:original ;;

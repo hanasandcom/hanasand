@@ -9,6 +9,6 @@ COPY api/package.json api/bun.lock api/bunfig.toml ./
 RUN bun install --frozen-lockfile
 COPY api/ ./
 # Private Git clones use umask 077; the test runner uses a non-root host UID.
-RUN chmod -R a+rX /app && test -s /app/tests/identity-proxy-postgres.test.ts
+RUN find /app -path /app/node_modules -prune -o -exec chmod a+rX {} + && test -s /app/tests/identity-proxy-postgres.test.ts
 
 CMD ["bun", "test", "/app/tests/identity-proxy-postgres.test.ts"]
