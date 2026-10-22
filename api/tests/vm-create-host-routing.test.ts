@@ -94,6 +94,44 @@ test('VM creation forwards the selected OS and services to its assigned host', a
     })
 })
 
+test('Next.js creation forwards bounded project files to the assigned VM host and opens port 3000', async () => {
+    const projectFiles = [
+        {
+            path: 'package.json',
+            content: JSON.stringify({
+                scripts: { build: 'next build', start: 'next start --hostname 0.0.0.0 --port 3000' },
+                dependencies: { next: '16.2.3', react: '19.2.5', 'react-dom': '19.2.5' },
+            }),
+        },
+        { path: 'app/page.tsx', content: 'export default function Page() { return <main>Hello</main> }' },
+    ]
+    const response = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: { name: 'next-demo', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' }, services: ['nodejs'], project_files: projectFiles },
+    })
+    expect(response.statusCode).toBe(201)
+    expect(JSON.parse(String(calls.find(call => call.path.endsWith('/provision'))?.body))).toEqual({
+        os: 'ubuntu-24.04',
+        resources: { cpu: '2', memory: '4GiB', disk: '20GiB' },
+        services: ['nodejs'],
+        minecraftEulaAccepted: false,
+        nextjsProjectFiles: projectFiles,
+    })
+    expect(databaseCalls.find(call => call.sql.includes('INSERT INTO vm_public_ports'))?.params).toEqual([
+        'next-demo', 'app-next-demo', 'http', 3000, 'member',
+    ])
+})
+
+test('VM creation rejects unsafe or incomplete Next.js project manifests before provisioning', async () => {
+    const invalid = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: { name: 'next-demo', services: ['nodejs'], project_files: [{ path: '../outside', content: 'bad' }] },
+    })
+    expect(invalid.statusCode).toBe(400)
+    expect(calls).toHaveLength(0)
+    expect(databaseCalls.every(call => !/INSERT INTO vms/.test(call.sql))).toBe(true)
+})
+
 test('VM creation forwards Ubuntu 26.04 LTS', async () => {
     const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', os: 'ubuntu-26.04' } })
     expect(response.statusCode).toBe(201)

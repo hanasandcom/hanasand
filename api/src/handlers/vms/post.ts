@@ -14,6 +14,7 @@ import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { isSupportedSetupService, supportedSetupServices, type SupportedVmSetupService } from '#utils/vms/supportedSetupServices.ts'
 import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
 import { isVmWebsitePlan, renderVmWebsite } from '#utils/vms/website.ts'
+import { normalizeNextjsProjectFiles } from '#utils/vms/nextjsProject.ts'
 
 export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     const body = req.body as {
@@ -30,6 +31,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         minecraft_server_type?: VmProvisionOptions['minecraftServerType']
         custom_apt_packages?: unknown
         website?: unknown
+        project_files?: unknown
     } ?? {}
     const { name, access_users } = body
     let owner = body.owner
@@ -73,7 +75,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         if (!organization.rows[0]) return res.status(403).send({ error: 'An organization owner or admin must create VMs.' })
     }
 
-    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.custom_apt_packages, body.website)
+    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.custom_apt_packages, body.website, body.project_files)
     if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
 
     if (!canAssignOwner && !/^[a-z][a-z0-9-]{0,61}[a-z0-9]$/.test(name)) return res.status(400).send({ error: 'Use 2–63 lowercase letters, numbers or hyphens, starting with a letter.' })
@@ -120,7 +122,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             if (existing && !canAssignOwner) {
                 if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
-                await ensureSetupPublicRoutes(name, actorId, provisionOptions.services || [])
+                await ensureSetupPublicRoutes(name, actorId, provisionOptions.services || [], Boolean(provisionOptions.nextjsProjectFiles?.length))
                 await queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
                 return res.status(201).send(existing)
             }
@@ -141,7 +143,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 RETURNING *
             `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
-                if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || nextCreatedBy, provisionOptions.services || [])
+                if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || nextCreatedBy, provisionOptions.services || [], Boolean(provisionOptions.nextjsProjectFiles?.length))
                 if (body.provision_local !== false) await queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
 
                 await recordSystemEvent(req, {
@@ -201,7 +203,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
             if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
-            if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || created_by, provisionOptions.services || [])
+            if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || created_by, provisionOptions.services || [], Boolean(provisionOptions.nextjsProjectFiles?.length))
             if (body.provision_local !== false) await queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
 
             await recordSystemEvent(req, {
@@ -236,15 +238,18 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     }
 }
 
-async function ensureSetupPublicRoutes(vmName: string, createdBy: string, services: SupportedVmSetupService[]) {
+async function ensureSetupPublicRoutes(vmName: string, createdBy: string, services: SupportedVmSetupService[], hasNextjsProject = false) {
     const defaults = [
         ...(services.includes('website') ? [{ type: 'http', port: 80, prefix: 'site' }] : []),
+        ...(hasNextjsProject ? [{ type: 'http', port: 3000, prefix: 'app' }] : []),
         ...(services.includes('minecraft-java') ? [{ type: 'minecraft-java', port: 25565, prefix: 'mc' }] : []),
     ]
     for (const route of defaults) {
-        const existing = await run('SELECT 1 FROM vm_public_ports WHERE vm_name = $1 AND route_type = $2 LIMIT 1', [vmName, route.type])
+        const existing = await run('SELECT 1 FROM vm_public_ports WHERE vm_name = $1 AND route_type = $2 AND guest_port = $3 LIMIT 1', [vmName, route.type, route.port])
         if (existing.rows.length) continue
-        const routeName = `${route.prefix}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`
+        const routeName = route.prefix === 'app'
+            ? `app-${vmName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 36)}`
+            : `${route.prefix}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`
         await run('INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by) VALUES ($1, $2, $3, $4, $5)', [vmName, routeName, route.type, route.port, createdBy])
     }
 }
@@ -264,7 +269,7 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
 
 class VmProvisionQueueError extends Error {}
 
-function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, customAptPackages: unknown, website: unknown): VmProvisionOptions | null {
+function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, customAptPackages: unknown, website: unknown, projectFilesInput?: unknown): VmProvisionOptions | null {
     const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
     const resourceOptions = new Set(['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'])
@@ -283,6 +288,8 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     if (minecraftServerType !== undefined && !selectedServices.includes('minecraft-java')) return null
     if (website !== undefined && website !== null && !isVmWebsitePlan(website)) return null
     if (website && !selectedServices.includes('website')) return null
+    const nextjsProjectFiles = projectFilesInput === undefined ? undefined : normalizeNextjsProjectFiles(projectFilesInput)
+    if (projectFilesInput !== undefined && (!nextjsProjectFiles || !selectedServices.includes('nodejs'))) return null
     const selectedOs = (os || 'ubuntu-24.04') as VmProvisionOptions['os']
     return {
         os: selectedOs,
@@ -292,6 +299,7 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
         minecraftEulaAccepted: minecraftEulaAccepted === true,
         ...(selectedServices.includes('minecraft-java') ? { minecraftServerType: (minecraftServerType || 'PAPER') as NonNullable<VmProvisionOptions['minecraftServerType']> } : {}),
         ...(website ? { websiteHtml: renderVmWebsite(website) } : {}),
+        ...(nextjsProjectFiles ? { nextjsProjectFiles } : {}),
     }
 }
 

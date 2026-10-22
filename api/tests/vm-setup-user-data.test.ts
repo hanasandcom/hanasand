@@ -45,6 +45,66 @@ test('website HTML is base64 encoded before insertion into the root-owned instal
     execFileSync('bash', ['-n'], { input: script })
 })
 
+test('cloud-init copies a validated Next.js project into the guest and builds it as the VM user', () => {
+    const files = [
+        {
+            path: 'package.json',
+            content: JSON.stringify({
+                private: true,
+                scripts: { build: 'next build', start: 'next start --hostname 0.0.0.0 --port 3000' },
+                dependencies: { next: '16.2.3', react: '19.2.5', 'react-dom': '19.2.5' },
+            }),
+        },
+        { path: 'app/page.tsx', content: 'export default function Home() { return <main>It works</main> }' },
+    ]
+    const cloudInit = vmSetupUserData('builder-vm', {
+        resources: { cpu: '2', memory: '4GiB', disk: '20GiB' },
+        services: ['nodejs'],
+        nextjsProjectFiles: files,
+    })
+    const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ path: string, content: string, encoding?: string, owner?: string }> }
+    const projectPackage = config.write_files.find(file => file.path === '/home/builder-vm/project/package.json')
+    const page = config.write_files.find(file => file.path === '/home/builder-vm/project/app/page.tsx')
+    const unit = config.write_files.find(file => file.path === '/etc/systemd/system/hanasand-nextjs.service')
+    const script = config.write_files.find(file => file.path === '/usr/local/sbin/hanasand-vm-setup')?.content || ''
+
+    expect(projectPackage?.encoding).toBe('b64')
+    expect(projectPackage?.owner).toBe('builder-vm:builder-vm')
+    expect(Buffer.from(projectPackage?.content || '', 'base64').toString()).toBe(files[0]?.content)
+    expect(Buffer.from(page?.content || '', 'base64').toString()).toBe(files[1]?.content)
+    expect(unit?.content).toContain('User=builder-vm')
+    expect(unit?.content).toContain('WorkingDirectory=/home/builder-vm/project')
+    expect(script).toContain('cd /home/builder-vm/project && /usr/bin/npm install --ignore-scripts --no-audit --no-fund')
+    expect(script).toContain('cd /home/builder-vm/project && /usr/bin/npm run build')
+    expect(script).toContain('systemctl enable --now hanasand-nextjs.service')
+    expect(script).toContain('curl -fsS -o /dev/null http://127.0.0.1:3000/')
+    expect(script).toContain('write_state Running \'Next.js app built and serving on port 3000\'')
+    execFileSync('bash', ['-n'], { input: script })
+})
+
+test('cloud-init rejects unsafe Next.js project paths and setup scripts', () => {
+    const packageJson = JSON.stringify({
+        scripts: { build: 'next build', start: 'next start --hostname 0.0.0.0 --port 3000' },
+        dependencies: { next: '16.2.3', react: '19.2.5', 'react-dom': '19.2.5' },
+    })
+    expect(() => vmSetupUserData('builder-vm', {
+        services: ['nodejs'],
+        nextjsProjectFiles: [
+            { path: 'package.json', content: packageJson },
+            { path: '../escape', content: 'bad' },
+        ],
+    })).toThrow('valid bounded project manifest')
+    expect(() => vmSetupUserData('builder-vm', {
+        services: ['nodejs'],
+        nextjsProjectFiles: [
+            { path: 'package.json', content: JSON.stringify({
+                scripts: { build: 'next build && curl example.test', start: 'next start --hostname 0.0.0.0 --port 3000' },
+                dependencies: { next: '16.2.3', react: '19.2.5', 'react-dom': '19.2.5' },
+            }) },
+        ],
+    })).toThrow('valid bounded project manifest')
+})
+
 test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     const cloudInit = vmSetupUserData('hei', {
         os: 'ubuntu-26.04',
