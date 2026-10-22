@@ -24,7 +24,7 @@ export async function runAlertReadinessAndCaseVisibility(ctx: OrganizationApiSmo
     assertReadinessMemberLifecycle(readiness)
     assertReadinessInviteLifecycle(readiness, assertionContext)
     assertReadinessWorkspaceProofs(readiness, assertionContext)
-    assertReadinessUiAuditProofs(readiness, assertionContext)
+    assertReadinessUiAuditProofs(readiness)
     assertReadinessSharedWatchlist(readiness, assertionContext)
     const memberPortalVisibility = orgUtils.organizationAnalystPortalVisibilityAdapter(readiness.sharedWatchlistDownstreamProof, readiness.downstreamAuthorization)
     assertMemberPortalVisibility(memberPortalVisibility, readiness, assertionContext)

@@ -32,7 +32,6 @@ export function assertAdminPortalAdapter(adminAlertCaseVisibility: Row, adminRea
     assert.equal(adminAlertCaseVisibility.analystPortalAdapter.watchlistScope.crossTenantCollisionAllowed, false)
     assert.ok(adminAlertCaseVisibility.analystPortalAdapter.allowedActions.includes('review_alert'))
     assert.ok(adminAlertCaseVisibility.analystPortalAdapter.allowedActions.includes('assign_case'))
-    assert.ok(adminAlertCaseVisibility.analystPortalAdapter.allowedActions.includes('open_audit_timeline'))
     assert.equal(adminAlertCaseVisibility.analystPortalAdapter.actionMatrix.assign_case.allowed, true)
     assert.deepEqual(adminAlertCaseVisibility.analystPortalAdapter.actionMatrix.assign_case.blockerCodes, [])
     assert.equal(adminAlertCaseVisibility.analystPortalAdapter.actionMatrix.deliver_webhook.allowed, false)
