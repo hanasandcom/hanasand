@@ -37,6 +37,13 @@ if docker network inspect "$network" >/dev/null 2>&1 || docker image inspect "$r
  echo 'Stage network or image already exists; stopping without changes.' >&2; exit 1
 fi
 identity_image=$(docker inspect -f '{{.Image}}' hanasand_auth_primary)
+# A running container can retain an image ID removed from the local catalog.
+# Resolve only its configured tag, pin the current immutable ID, and still
+# require the exact reviewed Identity revision before extracting dependencies.
+if ! docker image inspect "$identity_image" >/dev/null 2>&1; then
+ identity_tag=$(docker inspect -f '{{.Config.Image}}' hanasand_auth_primary)
+ identity_image=$(docker image inspect -f '{{.Id}}' "$identity_tag")
+fi
 identity_release=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$identity_image")
 test "$identity_release" = "$identity_revision" || { echo 'Identity runtime base changed; stopping.' >&2; exit 1; }
 assert_unused_subnet() {

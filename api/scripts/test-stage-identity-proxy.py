@@ -136,6 +136,38 @@ class StagePreflight(unittest.TestCase):
         self.assertTrue(all(value.endswith(':ro') for value in volumes))
         self.assertTrue(all('/.env' not in value and '/var/lib/' not in value for value in volumes))
 
+    def test_identity_image_resolution_keeps_exact_revision_guard(self):
+        resolver = SOURCE.split('identity_image=', 1)[1].split('assert_unused_subnet() {', 1)[0]
+        resolver = 'identity_image=' + resolver
+        revision = '111fc5340b6e3c42cb4dc1128c5899f9e42ced52'
+        stub = r'''docker() {
+ case "$*" in
+  'inspect -f {{.Image}} hanasand_auth_primary') echo sha256:original ;;
+  'inspect -f {{.Config.Image}} hanasand_auth_primary') echo configured-identity-tag ;;
+  'image inspect sha256:original') test "$original_present" = yes ;;
+  'image inspect -f {{.Id}} configured-identity-tag')
+   test "$tag_present" = yes || return 1
+   echo sha256:cached ;;
+  'image inspect -f {{index .Config.Labels "org.opencontainers.image.revision"}} sha256:original'|'image inspect -f {{index .Config.Labels "org.opencontainers.image.revision"}} sha256:cached') echo "$cached_revision" ;;
+  *) echo "Unexpected fake Docker invocation: $*" >&2; return 1 ;;
+ esac
+}
+'''
+        cases = [
+            ('yes', 'no', revision, 'sha256:original'),
+            ('no', 'yes', revision, 'sha256:cached'),
+            ('no', 'yes', 'unexpected-revision', None),
+            ('no', 'no', revision, None)
+        ]
+        for original, tag, cached_revision, expected in cases:
+            script = ('set -eu\n' + f'original_present={original}; tag_present={tag}; '
+                      + f'cached_revision={cached_revision}; identity_revision={revision}\n'
+                      + stub + resolver + 'printf "%s" "$identity_image"\n')
+            result = subprocess.run(['sh', '-c', script], text=True, capture_output=True, check=False)
+            self.assertEqual(result.returncode == 0, expected is not None, result.stderr)
+            if expected:
+                self.assertEqual(result.stdout, expected)
+
     def test_cleanup_checks_ownership_and_removes_ids(self):
         cleanup = SOURCE.split('cleanup() {', 1)[1].split('\nfinish() {', 1)[0]
         self.assertEqual(cleanup.count('test "$actual" = "$owner"'), 3)
