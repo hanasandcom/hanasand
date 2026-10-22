@@ -45,6 +45,7 @@
     "eslint-config-next": "^16.2.4",
     "fflate": "0.8.3",
     "formik": "^2.4.9",
+    "hanasand": "1.0.3",
     "highlight.js": "^11.11.1",
     "jspdf": "4.2.1",
     "jspdf-autotable": "5.0.8",
@@ -58,10 +59,10 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
+    "server-only": "0.0.1",
     "sharp": "^0.34.5",
     "sql-formatter": "^15.8.2",
-    "yup": "^1.7.1",
-    "hanasand": "1.0.3"
+    "yup": "^1.7.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
