@@ -6,6 +6,8 @@ let authorized = false
 let host = 'ovhcloud'
 let vmRows: Array<{ primary_host: string | null }> = []
 let lxdAvailable = true
+let holdProvisioning = false
+let releaseProvisioning: (() => void) | undefined
 const queries: Array<{ sql: string, values?: unknown[] }> = []
 const provisions: Array<{ name: string, options?: unknown }> = []
 
@@ -19,7 +21,10 @@ mock.module('../src/utils/db.ts', () => ({
 }))
 mock.module('../src/utils/vms/lxd.ts', () => ({
     canUseLocalLxd: async () => lxdAvailable,
-    provisionLocalLxdInstance: async (name: string, options?: unknown) => { provisions.push({ name, options }) },
+    provisionLocalLxdInstance: async (name: string, options?: unknown) => {
+        provisions.push({ name, options })
+        if (holdProvisioning) await new Promise<void>(resolve => { releaseProvisioning = resolve })
+    },
 }))
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
     supportedHost: (value: string) => ['inspur', 'ovhcloud'].includes(value),
@@ -34,6 +39,8 @@ beforeEach(() => {
     host = 'ovhcloud'
     vmRows = [{ primary_host: 'ovhcloud' }]
     lxdAvailable = true
+    holdProvisioning = false
+    releaseProvisioning = undefined
     queries.length = 0
     provisions.length = 0
 })
@@ -87,11 +94,11 @@ test('reports unavailable local LXD without provisioning', async () => {
     expect(provisions).toEqual([])
 })
 
-test('provisions a VM once when its active primary host matches and supports legacy admin names', async () => {
+test('accepts provisioning when its active primary host matches and supports legacy admin names', async () => {
     authorized = true
     vmRows = [{ primary_host: 'OVHCLOUD' }]
     const response = await app.inject({ method: 'POST', url: '/vms/internal/Admin_VM1/provision' })
-    expect(response.statusCode).toBe(200)
+    expect(response.statusCode).toBe(202)
     expect(response.json()).toEqual({ ok: true, name: 'Admin_VM1', host: 'ovhcloud' })
     expect(provisions).toEqual([{ name: 'Admin_VM1', options: undefined }])
 })
@@ -101,6 +108,18 @@ test('forwards the selected operating system, resources, and services to the LXD
     const options = { os: 'ubuntu-26.04', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' }, services: ['nodejs', 'postgresql'] }
     const response = await app.inject({ method: 'POST', url: '/vms/internal/fixture-vm/provision', payload: options })
 
-    expect(response.statusCode).toBe(200)
+    expect(response.statusCode).toBe(202)
     expect(provisions).toEqual([{ name: 'fixture-vm', options }])
+})
+
+test('accepts the host job immediately while VM provisioning continues in the background', async () => {
+    authorized = true
+    holdProvisioning = true
+
+    const response = await app.inject({ method: 'POST', url: '/vms/internal/fixture-vm/provision' })
+
+    expect(response.statusCode).toBe(202)
+    expect(response.json()).toEqual({ ok: true, name: 'fixture-vm', host: 'ovhcloud' })
+    expect(provisions).toEqual([{ name: 'fixture-vm', options: undefined }])
+    releaseProvisioning?.()
 })

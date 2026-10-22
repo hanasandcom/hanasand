@@ -39,8 +39,10 @@ export default async function provisionInternalVm(req: FastifyRequest, res: Fast
         }
 
         const body = req.body as VmProvisionOptions | undefined
-        await provisionLocalLxdInstance(name, body)
-        return res.send({ ok: true, name, host: localHost })
+        void provisionLocalLxdInstance(name, body).catch(error => {
+            req.log.error({ err: error, vmName: name }, 'Unable to provision VM on its assigned host.')
+        })
+        return res.status(202).send({ ok: true, name, host: localHost })
     } catch (error) {
         req.log.error({ err: error, vmName: name }, 'Unable to provision VM on its assigned host.')
         return res.status(500).send({ error: 'Unable to provision VM.' })
