@@ -28,7 +28,11 @@ export default fp(async (fastify) => {
         }
     }
 
-    await runTrackedBackgroundJob('api-hot-cache-refresh', refreshQueries)
+    // Do not hold Fastify startup on VM/host telemetry or cache queries. A
+    // slow host snapshot must not keep the production API out of service.
+    void runTrackedBackgroundJob('api-hot-cache-refresh', refreshQueries).catch(error => {
+        fastify.log.warn({ error }, 'Initial cached query refresh failed; background refresh will retry')
+    })
     const timer = setInterval(() => void runTrackedBackgroundJob('api-hot-cache-refresh', refreshQueries), config.CACHE_TTL_HOT)
     fastify.addHook('onClose', async () => { clearInterval(timer) })
 })

@@ -15,6 +15,7 @@ const unitTestFiles = [
     'uvm-scanner-workflow.test.ts',
     'uvm-scope.test.ts',
     'uvm-assessment.test.ts',
+    'refresh-plugin-startup.test.ts',
 ]
 
 const databaseTestFiles = [
