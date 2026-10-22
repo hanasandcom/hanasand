@@ -33,11 +33,19 @@ export function filterAndSortUvmFindings(findings: UvmFinding[], filters: UvmFin
 
 export function formatDate(value?: string | null) { return formatUtcDateTime(value, 'pending') }
 
-export function SummaryCard({ label, value, detail }: { label: string, value: string, detail: string }) {
-    return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><p className='text-xs font-semibold text-ui-muted'>{label}</p><p className='mt-2 text-2xl font-semibold'>{value}</p><p className='mt-1 text-xs text-ui-muted'>{detail}</p></section>
+export function formatRunCoverage(run: UvmRun) {
+    if (run.coverage?.known === false) return 'Coverage unavailable'
+    if (!run.coverage) {
+        return ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status)
+            ? `${run.status} · coverage pending`
+            : 'Coverage not reported'
+    }
+    const targets = run.coverage.requestedAddresses ?? run.coverage.attemptedAddresses
+    if (targets <= 0) return 'No address count reported'
+    return `${run.coverage.completedAddresses}/${targets} addresses · ${run.status}`
 }
 
-export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRun, defaultOpen: boolean, cancelBusy: boolean, onCancel: () => void }) {
+export function RunCard({ run, defaultOpen, cancelBusy, servicesPaused = false, onCancel }: { run: UvmRun, defaultOpen: boolean, cancelBusy: boolean, servicesPaused?: boolean, onCancel: () => void }) {
     const [open, setOpen] = useState(defaultOpen || run.status === 'running' || run.status === 'queued')
     const canCancel = run.engine === 'nmap' ? run.status === 'queued' : run.engine === 'tenable-vm' && ['queued', 'launching', 'running'].includes(run.status)
     const openPorts = run.hosts.flatMap(host => host.ports.filter(port => port.state === 'open').map(port => ({ host, port })))
@@ -46,7 +54,7 @@ export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRu
         {open && <div className='mt-3 border-t border-ui-border pt-3'>
             <div className='grid gap-1 text-xs text-ui-muted sm:grid-cols-2'>{run.engineVersion !== null && <p>Engine version: {run.engineVersion || 'pending'}</p>}<p>Host results: {run.engine === 'nmap' && run.coverage?.known === false ? 'historical invocation coverage unavailable' : run.coverage ? `${run.coverage.completedAddresses}/${run.coverage.attemptedAddresses} attempted addresses` : ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status) ? 'pending' : 'not reported'}</p>{run.coverage?.requestedAddresses !== undefined && <p>Requested targets: {run.coverage.requestedAddresses}</p>}{run.coverage?.missingAddresses?.length ? <p className='sm:col-span-2'>Attempted but without a complete host result (including Nmap timeouts): {run.coverage.missingAddresses.join(', ')}</p> : null}{run.coverage?.unattemptedAddresses?.length ? <p className='sm:col-span-2'>Not attempted: {run.coverage.unattemptedAddresses.join(', ')}</p> : null}{run.coverage?.completedAddressList?.length ? <p className='sm:col-span-2'>Completed host results: {run.coverage.completedAddressList.join(', ')}</p> : null}{run.engine === 'nmap' && <><p>Open TCP ports: {run.coverage?.openPorts ?? openPorts.length}</p><p>Raw Nmap XML SHA-256: <code className='break-all'>{run.rawXmlSha256 || 'pending'}</code></p></>}{run.engine === 'gvm' && <p>Raw Greenbone report SHA-256: <code className='break-all'>{run.rawXmlSha256 || 'pending'}</code></p>}</div>
             {run.error && <p className='mt-2 text-xs text-ui-warning'>{run.error}</p>}
-            {canCancel && <button type='button' onClick={onCancel} disabled={cancelBusy} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{cancelBusy ? 'Cancelling…' : 'Cancel scan'}</button>}
+            {canCancel && <button type='button' onClick={onCancel} disabled={cancelBusy || servicesPaused} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{cancelBusy ? 'Cancelling…' : 'Cancel scan'}</button>}
             {run.engine === 'gvm' && ['queued', 'launching', 'running', 'cancelling'].includes(run.status) && <p className='mt-2 text-xs text-ui-muted'>Cancel this job from its parent assessment.</p>}
             {run.hosts.length > 0 && <div className='mt-3 grid gap-2'>{run.hosts.map(host => <div key={host.address} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><p className='font-semibold'>{host.address} · {host.timedOut ? 'timed out' : host.status}</p>{host.ports.filter(port => port.state === 'open').length ? <div className='mt-2 grid gap-1'>{host.ports.filter(port => port.state === 'open').map(port => <p key={`${host.address}-${port.protocol}-${port.port}`}><code>{port.port}/{port.protocol}</code> · {port.service || 'unknown service'}{port.product ? ` · ${port.product}` : ''}{port.version ? ` ${port.version}` : ''}{port.extraInfo ? ` · ${port.extraInfo}` : ''}</p>)}</div> : <p className='mt-1 text-ui-muted'>No open ports were reported.</p>}</div>)}</div>}
             {run.findings?.length ? <div className='mt-3 grid gap-2'><h4 className='text-xs font-semibold'>Vulnerability findings · {run.findings.length}</h4>{run.findings.map(finding => <div key={finding.findingId} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 font-semibold text-ui-warning'>{finding.severity}</span><span className='text-ui-muted'>Plugin {finding.pluginId} · {finding.assetAddress}{finding.port ? `:${finding.port}` : ''}</span></div>{finding.cveIds.length > 0 && <p className='mt-1 text-ui-muted'>{finding.cveIds.join(', ')}{finding.cvssScore !== null ? ` · CVSS ${finding.cvssScore}` : ''}</p>}{finding.solution && <p className='mt-1'><span className='font-semibold'>Suggested fix:</span> {finding.solution}</p>}{finding.evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{finding.evidence}</pre></details>}</div>)}</div> : null}
