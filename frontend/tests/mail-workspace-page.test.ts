@@ -1,35 +1,19 @@
-// @ts-expect-error Bun supplies this test module at runtime.
 import { expect, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import type { MailOverview } from '../src/utils/mail/types'
-import { needsSelectedMessageRequest, resolveMailboxPage } from '../src/components/mail/mailWorkspacePage'
+import { readFile } from 'node:fs/promises'
 
-function overview(selectedMailboxId: string | null, mailboxId: string | null = 'inbox') {
-    return {
-        selectedMailboxId,
-        mailboxes: mailboxId ? [{ id: mailboxId, name: mailboxId, role: mailboxId === 'inbox' ? 'inbox' : 'sent' }] : [],
-    } as MailOverview
-}
+test('dashboard mail mounts the shared workspace and calls the dedicated Mail API', async () => {
+    const [page, workspace, adapter, client] = await Promise.all([
+        readFile(new URL('../src/app/dashboard/mail/page.tsx', import.meta.url), 'utf8'),
+        readFile(new URL('../src/components/mail/mailWorkspace.tsx', import.meta.url), 'utf8'),
+        readFile(new URL('../src/components/mail/mailUiApi.ts', import.meta.url), 'utf8'),
+        readFile(new URL('../src/utils/mail/client.transport.ts', import.meta.url), 'utf8'),
+    ])
 
-test('initial load reuses the API-selected mailbox page', () => {
-    expect(resolveMailboxPage(overview('sent', 'sent'), '')).toEqual({ selectedFolder: 'sent', useFirstPage: true })
-})
-
-test('switching to a different requested mailbox fetches that page', () => {
-    expect(resolveMailboxPage(overview('inbox'), 'sent')).toEqual({ selectedFolder: 'sent', useFirstPage: false })
-})
-
-test('empty mailbox response does not trigger another overview request', () => {
-    expect(resolveMailboxPage(overview(null, null), '')).toEqual({ selectedFolder: '', useFirstPage: true })
-})
-
-test('initial overview message detail is reused instead of fetched again', () => {
-    expect(needsSelectedMessageRequest({ selectedMessage: { id: 'message-1' } } as MailOverview, 'message-1')).toBe(false)
-    expect(needsSelectedMessageRequest({ selectedMessage: null } as MailOverview, 'message-1')).toBe(true)
-})
-
-test('compose stays enabled while a loaded mailbox refreshes', () => {
-    const source = readFileSync(join(process.cwd(), 'src/components/mail/mailWorkspace.tsx'), 'utf8')
-    expect(source).toContain('disabled={!mail.overview || mail.overview.actor.canSend === false}')
+    expect(page).toContain('<MailWorkspace')
+    expect(page).not.toContain('<iframe')
+    expect(workspace).toContain('from \'@hanasand/mail-ui\'')
+    expect(workspace).toContain('<SharedMailWorkspace')
+    expect(adapter).toContain('satisfies MailUiApi')
+    expect(client).toContain('https://mail.hanasand.com/api')
+    expect(client).not.toContain('config.url.api')
 })
