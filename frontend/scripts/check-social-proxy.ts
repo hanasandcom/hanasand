@@ -25,6 +25,8 @@ try {
     assert.equal(upstreamBody.redirectPath, '/thesis')
     const cookie = login.cookies.get('hanasand_auth_binding')!
     assert.equal(cookie.value, binding)
+    assert.match(cookie.value, /^[A-Za-z0-9_-]{43}$/)
+    assert.equal(cookie.domain, '.hanasand.com')
     const header = login.headers.get('set-cookie')!
     for (const setting of ['Secure', 'HttpOnly', 'SameSite=none', 'Path=/', 'Domain=.hanasand.com']) assert.ok(header.includes(setting))
     const before = called
@@ -55,4 +57,4 @@ try {
     assert.ok(cancelled.headers.get('location')!.includes('socialError='))
     assert.equal(cancelled.cookies.get('access_token'), undefined)
 } finally { globalThis.fetch = realFetch }
-console.log('Social frontend proxy: host-only secure binding, same-origin linking, impersonation block, Apple form POST, session cookies, safe redirects, linking without session switching, cancellation passed.')
+console.log('Social frontend proxy: Identity-owned shared secure binding, same-origin linking, impersonation block, Apple form POST, session cookies, safe redirects, linking without session switching, cancellation passed.')
