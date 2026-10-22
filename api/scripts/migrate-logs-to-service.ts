@@ -110,8 +110,6 @@ export async function clearMovedLogState(transaction = withTransaction) {
         await query('TRUNCATE TABLE rule_hit_count_deltas RESTART IDENTITY')
         await query(`INSERT INTO rule_hit_counts(organization_id,source,rule_id,hits)
             SELECT organization_id,'findings',rule_id,count(*) FROM findings GROUP BY organization_id,rule_id`)
-        await query(`INSERT INTO rule_hit_count_deltas(organization_id,source,rule_id,delta)
-            SELECT organization_id,source,rule_id,hits FROM rule_hit_counts WHERE hits > 0`)
         return cleared
     })
 }
