@@ -27,9 +27,10 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
                 const provisioning = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('provisioning') === '1'
                 if (!host && !provisioning) {
                     if (!name) throw new Error('Select a virtual machine to open its console.')
+                    const api = typeof window !== 'undefined' ? '/api/backend' : config.url.api
                     await prepareVmConsole(
                         name,
-                        config.url.api,
+                        api,
                         getCookie('id') || '',
                         decodeURIComponent(getCookie('access_token') || ''),
                         message => { if (!disposed) setStatus(message) },

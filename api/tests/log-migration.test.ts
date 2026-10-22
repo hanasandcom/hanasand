@@ -412,6 +412,7 @@ test('clears only log-owned state after the source log event set is empty and re
         .toEqual(['log_delivery_outbox', 'log_organization_sync_outbox', 'log_organization_sync_cursor'])
     expect(statements.some(statement => statement.sql === 'TRUNCATE TABLE rule_hit_count_deltas RESTART IDENTITY')).toBe(true)
     expect(statements.some(statement => statement.sql.includes('SELECT organization_id,\'findings\',rule_id,count(*) FROM findings'))).toBe(true)
+    expect(statements.some(statement => statement.sql.startsWith('INSERT INTO rule_hit_count_deltas'))).toBe(false)
 })
 
 test('preserves unrelated events and findings while clearing empty Logs tables', async () => {

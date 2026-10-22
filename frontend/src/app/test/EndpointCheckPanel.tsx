@@ -1,8 +1,10 @@
 'use client'
 
 import ErrorNotice from '@/components/error/errorNotice'
+import CustomTrafficEditor from './CustomTrafficEditor'
 import { ArrowRight, CheckCircle2, Flame, Globe2, Inbox, Search, UserRound } from 'lucide-react'
 import type { KeyboardEvent, SyntheticEvent } from 'react'
+import type { CustomTrafficStage } from '@/utils/test/trafficShapes'
 
 export type ScenarioPreset = {
     id: string
@@ -16,6 +18,7 @@ type EndpointCheckPanelProps = {
     path: string
     scenarioId: string
     scenarios: ScenarioPreset[]
+    customStages: CustomTrafficStage[]
     quotaLabel: string
     missingTestId?: string
     error: unknown
@@ -23,6 +26,7 @@ type EndpointCheckPanelProps = {
     recentScans: Test[]
     onPathChange: (value: string) => void
     onScenarioChange: (id: string) => void
+    onCustomStagesChange: (stages: CustomTrafficStage[]) => void
     onSubmit: (event: SyntheticEvent<HTMLElement>) => void | Promise<void>
     onEndpointKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void | Promise<void>
     onNavigate: (url: string) => void
@@ -32,6 +36,7 @@ export default function EndpointCheckPanel({
     path,
     scenarioId,
     scenarios,
+    customStages,
     quotaLabel,
     missingTestId,
     error,
@@ -39,6 +44,7 @@ export default function EndpointCheckPanel({
     recentScans,
     onPathChange,
     onScenarioChange,
+    onCustomStagesChange,
     onSubmit,
     onEndpointKeyDown,
     onNavigate,
@@ -86,7 +92,7 @@ export default function EndpointCheckPanel({
 
                         <div className='grid gap-2'>
                             <span className='text-xs font-semibold uppercase text-ui-primary'>Traffic shape</span>
-                            <div className='grid gap-2 sm:grid-cols-3'>
+                            <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-4'>
                                 {scenarios.map((scenario) => (
                                     <button
                                         key={scenario.id}
@@ -103,6 +109,8 @@ export default function EndpointCheckPanel({
                                 ))}
                             </div>
                         </div>
+
+                        {scenarioId === 'custom' ? <CustomTrafficEditor stages={customStages} onChange={onCustomStagesChange} /> : null}
 
                         <button type='submit' disabled={starting} className='inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:bg-ui-primary/90 disabled:cursor-not-allowed disabled:opacity-70'>
                             <Search className='h-4 w-4' />

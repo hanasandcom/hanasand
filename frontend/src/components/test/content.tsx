@@ -68,7 +68,7 @@ export default function Content({
                         setRerun(false)
                         setTest((prev: Test) => ({
                             ...prev,
-                            status: 'done',
+                            status: msg.data.code === 0 ? 'done' : 'failed',
                             exit_code: msg.data.code,
                             summary: msg.data.summary || prev.summary,
                             duration: msg.data.durationMs ? { milliseconds: msg.data.durationMs } : prev.duration,
@@ -88,7 +88,7 @@ export default function Content({
     }, [id, setTest, reconnect, setIsConnected, setParticipants, setRerun, setError])
 
     return (
-        <div className='min-h-[30rem] min-w-0 max-w-full space-y-3 overflow-hidden rounded-lg border border-ui-border bg-ui-panel p-3 shadow-sm md:h-full'>
+        <div className='min-h-[30rem] min-w-0 max-w-full space-y-3 overflow-hidden rounded-lg border border-ui-border bg-ui-panel p-3 shadow-sm xl:h-full'>
             <TestContent test={test} showLogs={showLogs} showErrors={showErrors} />
             <ErrorNotice compact message={error as string | null} />
         </div>

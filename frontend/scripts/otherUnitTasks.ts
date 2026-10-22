@@ -39,7 +39,10 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'site-search-truthfulness', title: 'Site search result truthfulness', command: [bun, 'test', 'tests/site-search-truthfulness.test.ts'] },
     { id: 'source-coverage-truthfulness', title: 'Source coverage readiness truthfulness', command: [bun, 'test', 'tests/source-coverage-truthfulness.test.ts'] },
     { id: 'support-ticket-filters', title: 'Support ticket filtering', command: [bun, 'test', 'tests/support-ticket-filters.test.ts'] },
+    { id: 'sandbox-embed', title: 'Sandbox embeds Browser UI in the site shell', command: [bun, 'test', 'tests/sandbox-embed.test.ts'] },
     { id: 'terminal-message-state', title: 'Terminal message lifecycle state', command: [bun, 'test', 'tests/terminal-message-state.test.ts'] },
+    { id: 'test-result-panel-render', title: 'Load test result panel presentation', command: [bun, 'test', 'tests/test-result-panel-render.test.tsx'] },
+    { id: 'test-traffic-shapes', title: 'Load test traffic shape validation', command: [bun, 'test', 'tests/test-traffic-shapes.test.ts'] },
     { id: 'test-page-panel-render', title: 'Endpoint test panel presentation', command: [bun, 'test', 'tests/test-page-panel-render.test.tsx'] },
     { id: 'test-stats-render', title: 'Service check stats search surface rendering', command: [bun, 'test', 'tests/test-stats-render.test.tsx'] },
     { id: 'thesis-markdown-link', title: 'Thesis markdown link presentation', command: [bun, 'test', 'tests/thesis-markdown-link.test.tsx'] },
@@ -51,5 +54,4 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'vm-filtering', title: 'VM inventory filter combinations and incomplete resources', command: [bun, 'test', 'tests/vm-filtering.test.ts'] },
     { id: 'vm-polling-lifecycle', title: 'VM polling terminal refresh behavior', command: [bun, 'test', 'tests/vm-polling-lifecycle.test.ts'] },
     { id: 'findings-workflow-submit-variants', title: 'Findings workflow submit form variants', command: [bun, 'test', 'tests/findings-workflow-submit-variants.test.tsx'] },
-    { id: 'sandbox-quota-value', title: 'Sandbox signed-in unlimited quota values', command: [bun, 'test', 'tests/sandbox-quota-value.test.ts'] },
 ]

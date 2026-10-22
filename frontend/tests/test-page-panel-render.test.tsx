@@ -2,10 +2,13 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import EndpointCheckPanel, { type ScenarioPreset } from '../src/app/test/EndpointCheckPanel'
+import { defaultCustomStages, scenarioPresets } from '../src/utils/test/trafficShapes'
 
 const scenarios: ScenarioPreset[] = [
     { id: 'baseline', label: 'Baseline', detail: 'Single-user HTTP check.', stages: [{ duration: '30s', target: 1 }], timeout: 30_000 },
     { id: 'ramp', label: 'Ramp', detail: 'Gradual traffic increase.', stages: [{ duration: '30s', target: 5 }], timeout: 45_000 },
+    { id: 'spike', label: 'Spike', detail: 'Short burst.', stages: [{ duration: '15s', target: 5 }, { duration: '20s', target: 40 }], timeout: 60_000 },
+    { id: 'custom', label: 'Custom', detail: 'Set your own traffic stages.', stages: [], timeout: 30_000 },
 ]
 
 function renderPanel(overrides: Partial<Parameters<typeof EndpointCheckPanel>[0]> = {}) {
@@ -13,12 +16,14 @@ function renderPanel(overrides: Partial<Parameters<typeof EndpointCheckPanel>[0]
         path='https://api.example.com/health'
         scenarioId='ramp'
         scenarios={scenarios}
+        customStages={defaultCustomStages}
         quotaLabel='3 free runs remaining'
         error={null}
         starting={false}
         recentScans={[]}
         onPathChange={() => {}}
         onScenarioChange={() => {}}
+        onCustomStagesChange={() => {}}
         onSubmit={() => {}}
         onEndpointKeyDown={() => {}}
         onNavigate={() => {}}
@@ -53,4 +58,14 @@ test('endpoint panel keeps the missing-result notice and recent scan summary', (
     expect(html).toContain('done')
     expect(html).toContain('My checks')
     expect(html).toContain('Results')
+})
+
+test('custom traffic exposes the graph and precise input mode', () => {
+    const html = renderPanel({ scenarioId: 'custom', scenarios: scenarioPresets })
+    expect(html).toContain('Custom traffic')
+    expect(html).toContain('Custom traffic graph')
+    expect(html).toContain('aria-pressed="true"')
+    expect(html).toContain('aria-pressed="false"')
+    expect(html).toContain('role="slider"')
+    expect(html).toContain('Add stage')
 })
