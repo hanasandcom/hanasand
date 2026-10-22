@@ -60,6 +60,13 @@ test('endpoint panel keeps the missing-result notice and recent scan summary', (
     expect(html).toContain('Results')
 })
 
+test('endpoint panel presents every configured traffic shape', () => {
+    const html = renderPanel({ scenarios: scenarioPresets })
+    for (const label of ['Baseline', 'Ramp', 'Spike', 'Custom']) {
+        expect(html).toContain(label)
+    }
+})
+
 test('custom traffic exposes the graph and precise input mode', () => {
     const html = renderPanel({ scenarioId: 'custom', scenarios: scenarioPresets })
     expect(html).toContain('Custom traffic')
