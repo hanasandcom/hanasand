@@ -24,9 +24,6 @@ export function isInfrastructureWebSocketPath(path: string) {
     return path.startsWith('/api/client/ws/')
 }
 
-export function isBrowserStreamPath(path: string) {
-}
-
 export function isTrustedStatusIngest(req: FastifyRequest, path: string) {
     return req.method.toUpperCase() === 'POST'
         && path === '/api/status/ingest'

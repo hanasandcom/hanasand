@@ -13,7 +13,7 @@ import {
 import hasInternalToken from '#utils/auth/internalToken.ts'
 import { isTransientDatabaseError } from '#db'
 import { normalizeRequestPath, resolveRateLimitActor, type RateLimitActor } from './rateLimitActor.ts'
-import { isBrowserStreamPath, isInfrastructureWebSocketPath, isTrustedStatusIngest, internalTokenRoutes, matchesInternalTokenRoute, resolveRouteRule } from './rateLimitPolicy.ts'
+import { isInfrastructureWebSocketPath, isTrustedStatusIngest, internalTokenRoutes, matchesInternalTokenRoute, resolveRouteRule } from './rateLimitPolicy.ts'
 import { applyCredentialLimitHeaders, consumeCredentialPeriodBudgets, credentialPeriodLimits } from './credentialRateLimits.ts'
 import { applyRateLimitHeaders, sendBoundaryError, sendRateLimitExceeded } from './rateLimitResponses.ts'
 
@@ -66,7 +66,6 @@ async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, database
     if (
         req.headers.upgrade?.toLowerCase() === 'websocket'
         || isInfrastructureWebSocketPath(path)
-        || isBrowserStreamPath(path)
         || !path.startsWith('/api')
         || isTrustedStatusIngest(req, path)
     ) return true
