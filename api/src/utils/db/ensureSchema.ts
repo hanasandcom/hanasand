@@ -25,6 +25,7 @@ import ensureSystemAuditSchema from './systemAuditSchema.ts'
 import ensureApiAccessSchema from './apiAccessSchema.ts'
 import ensureEventLogSchema from './eventLogSchema.ts'
 import ensureRulesFindingsSchema from './rulesFindingsSchema.ts'
+import { ensureLogsOutboxSchema } from '../logs/logOutbox.ts'
 import ensureMailSchema from './mailSchema.ts'
 import ensureOrganizationAdaptersSchema from './organizationAdaptersSchema.ts'
 import { applyTrackedSchemaRelease, vmHostMigrationReleaseMarker } from './schemaReleasePolicy.ts'
@@ -149,6 +150,7 @@ async function applySchema() {
     await ensureApiAccessSchema()
     await ensureEventLogSchema()
     await ensureRulesFindingsSchema()
+    await ensureLogsOutboxSchema()
     await ensureMailSchema()
     await ensureOrganizationAdaptersSchema()
 }

@@ -16,6 +16,7 @@ import { startIngestAccessCounterRefresh } from './utils/events/analyzeIngestAcc
 import { startDropRateAlertRefresh } from './utils/events/dropRateAlert.ts'
 import { startDatabaseOverviewRefresh, warmDatabaseOverview } from './utils/db/overview.ts'
 import recordLog from '#utils/logs/recordLog.ts'
+import { startLogsOutboxDelivery } from '#utils/logs/logOutbox.ts'
 import { provisionExistingMailAccounts } from '#utils/mail/accounts.ts'
 import { TRUSTED_API_PROXIES } from '#utils/http/publicBoundary.ts'
 import { randomUUID } from 'node:crypto'
@@ -128,6 +129,10 @@ async function start() {
             void loadCachedMostActiveServices().catch(error => fastify.log.warn({ error }, 'Failed to warm most active services cache; background refresh will retry'))
             const stopMostActiveRefresh = startMostActiveServicesRefresh()
             fastify.addHook('onClose', async () => { stopMostActiveRefresh() })
+        }
+        if (!httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+            const stopLogsOutbox = startLogsOutboxDelivery(error => fastify.log.error({ error }, 'Logs service outbox delivery failed; it will retry'))
+            fastify.addHook('onClose', async () => { stopLogsOutbox() })
         }
         if (!httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
             const stopProcessing = process.env.LOG_CATCHUP_WORKER_DISABLED === '1'

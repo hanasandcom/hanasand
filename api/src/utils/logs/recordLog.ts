@@ -18,6 +18,7 @@ import { recordProfileSshKeyUsageFromEvents } from '../sshKeyUsage.ts'
 import { createHash, randomUUID } from 'node:crypto'
 import { eventRow, insertEvents } from './recordLogPersistence.ts'
 import type { LogRecordEntry, PreparedLog } from './recordLogTypes.ts'
+import { enqueueLogsForIndependentService } from './logOutbox.ts'
 
 function preserveUnrecognizedFields(entry: LogRecordEntry) {
     const fields = Object.fromEntries(Object.entries(entry).filter(([key]) => !['service', 'host', 'level', 'message', 'metadata', 'sourceEventId', 'timestamp'].includes(key)))
@@ -108,7 +109,9 @@ export default async function recordLog(entry: LogRecordEntry, query: typeof run
         await tx('SET LOCAL lock_timeout=\'1ms\'')
         return recordLog(entry, tx)
     })
-    const values = await prepareLog(preserveUnrecognizedFields(entry), query)
+    const original = { ...preserveUnrecognizedFields(entry), sourceEventId: entry.sourceEventId || randomUUID() }
+    await enqueueLogsForIndependentService([original], query)
+    const values = await prepareLog(original, query)
     if (!values) return
     const row = eventRow(values)!
     const inserted = await insertEvents([row], query)
@@ -120,7 +123,9 @@ export default async function recordLog(entry: LogRecordEntry, query: typeof run
 export async function recordLogBatch(entries: LogRecordEntry[], query: typeof run) {
     const rows: NonNullable<ReturnType<typeof eventRow>>[] = []
     const retention = new Map<string, Awaited<ReturnType<typeof loadLogRetentionRules>>>()
-    const originals = entries.map(entry => ({ ...preserveUnrecognizedFields(entry), service: entry.service ?? process.env.SERVICE_NAME ?? 'hanasand-api' }))
+    const originals = entries.map(entry => ({ ...preserveUnrecognizedFields(entry),
+        service: entry.service ?? process.env.SERVICE_NAME ?? 'hanasand-api', sourceEventId: entry.sourceEventId || randomUUID() }))
+    await enqueueLogsForIndependentService(originals, query)
     for (const entry of await analyzeRoutineGroupBatch(await analyzePostgresBatch(await analyzeReadinessAuditBatch(originals, query), query), query)) {
         const values = await prepareLog(entry, query, retention)
         const row = eventRow(values)
