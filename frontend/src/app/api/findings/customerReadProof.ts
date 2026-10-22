@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { backendDeviceProofTarget } from '@/utils/auth/backendDeviceProofTarget'
 
-export function caseReadProof(request: NextRequest): { id: string; token: string; headers: Record<string, string> } | { response: NextResponse } {
-    if (request.method !== 'GET' || request.nextUrl.pathname !== '/api/cases'
-        || request.nextUrl.searchParams.get('collection') !== 'intelligence') return denied(400)
+export function customerReadProof(request: NextRequest): { id: string; token: string; headers: Record<string, string> } | { response: NextResponse } {
+    const supportedPath = request.nextUrl.pathname === '/api/findings/alerts'
+        || request.nextUrl.pathname === '/api/cases' && request.nextUrl.searchParams.get('collection') === 'intelligence'
+    if (request.method !== 'GET' || !supportedPath) return denied(400)
     const target = backendDeviceProofTarget(request)
     if (!target) return denied(401)
     const authorization = request.headers.get('authorization')
@@ -20,5 +21,5 @@ export function caseReadProof(request: NextRequest): { id: string; token: string
 }
 
 function denied(status: number) {
-    return { response: NextResponse.json({ error: { code: 'invalid_session', message: 'A valid case request session is required.' } }, { status, headers: { 'cache-control': 'no-store' } }) }
+    return { response: NextResponse.json({ error: { code: 'invalid_session', message: 'A valid request session is required.' } }, { status, headers: { 'cache-control': 'no-store' } }) }
 }

@@ -1,4 +1,4 @@
-import { caseReadProof } from '../cases/caseReadProof'
+import { customerReadProof } from './customerReadProof'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
@@ -17,10 +17,11 @@ type ProxyOptions = {
 }
 
 export async function proxyTiRequest(request: NextRequest, path: string, options: ProxyOptions = {}) {
-    const delegatedCaseRead = path === '/v1/cases' && request.method === 'GET'
+    const delegatedCustomerRead = request.method === 'GET'
         && (!options.method || options.method === 'GET')
-        && request.nextUrl.pathname === '/api/cases' && request.nextUrl.searchParams.get('collection') === 'intelligence'
-    const proof = delegatedCaseRead ? caseReadProof(request) : undefined
+        && (path === '/v1/cases' && request.nextUrl.pathname === '/api/cases' && request.nextUrl.searchParams.get('collection') === 'intelligence'
+            || path === '/v1/dwm/alerts' && request.nextUrl.pathname === '/api/findings/alerts')
+    const proof = delegatedCustomerRead ? customerReadProof(request) : undefined
     if (proof && 'response' in proof) return proof.response
     const session = proof && !('response' in proof)
         ? { identity: { id: proof.id, token: proof.token } }
@@ -47,7 +48,7 @@ export async function proxyTiRequest(request: NextRequest, path: string, options
         if (scope.error) {
             return NextResponse.json({ error: { code: 'invalid_scope', message: scope.error } }, { status: 400 })
         }
-        if (scope.organizationId && !delegatedCaseRead) {
+        if (scope.organizationId && !delegatedCustomerRead) {
             const scopeError = await verifyDwmOrganizationScope(scope.organizationId, token, id, impersonationToken)
             if (scopeError) return scopeError
         }

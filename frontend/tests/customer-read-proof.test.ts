@@ -12,7 +12,7 @@ mock.module('@/utils/proxy/requireApiSession', () => ({ default: async () => {
     return { response: new Response('{}', { status: 401 }) }
 } }))
 mock.module('../src/app/api/findings/verifyDwmOrganizationScope', () => ({ verifyDwmOrganizationScope: async () => { scopeValidations++ } }))
-const { caseReadProof } = await import('../src/app/api/cases/caseReadProof')
+const { customerReadProof } = await import('../src/app/api/findings/customerReadProof')
 const { proxyTiRequest } = await import('../src/app/api/findings/_tiProxy')
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch; validations = 0; scopeValidations = 0 })
@@ -76,7 +76,28 @@ test('rejects mismatched target, method and unsupported impersonation before for
         { 'x-device-proof-method': 'POST' },
         { 'x-impersonation-token': 'synthetic-target' },
     ]) {
-        const result = caseReadProof(request(headers))
+        const result = customerReadProof(request(headers))
         expect('response' in result && result.response.status).toBe(401)
     }
+})
+
+test('Events alerts use their exact GET target and the same customer scope policy', async () => {
+    let sent: Request | undefined
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        sent = new Request(input, init)
+        return Response.json({ alerts: [] })
+    }) as typeof fetch
+    const req = new NextRequest('http://localhost:3000/api/findings/alerts', { headers: {
+        authorization: 'Bearer synthetic-session', id: 'synthetic-user', DPoP: 'synthetic-events-proof',
+        'x-device-proof-url': 'https://hanasand.com/api/findings/alerts', 'x-device-proof-method': 'GET',
+        'x-organization-id': 'synthetic-customer',
+    } })
+    expect((await proxyTiRequest(req, '/v1/dwm/alerts')).status).toBe(200)
+    expect(validations).toBe(0)
+    expect(scopeValidations).toBe(0)
+    expect(sent!.headers.get('dpop')).toBe('synthetic-events-proof')
+    expect(sent!.headers.get('x-device-proof-url')).toBe('https://hanasand.com/api/findings/alerts')
+    expect(new URL(sent!.url).pathname).toBe('/v1/dwm/alerts')
+    expect(new URL(sent!.url).searchParams.get('organizationId')).toBe('synthetic-customer')
+    expect((await proxyTiRequest(req, '/v1/cases')).status).toBe(401)
 })
