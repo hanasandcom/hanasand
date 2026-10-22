@@ -29,7 +29,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 
 `docker-compose.yml` includes `docker-compose.api.yml` and defines the service connections, ports, volumes and health checks. Use Docker Compose 2.33.1 or later. OpenResty terminates public HTTPS outside this Compose project. The root API forwards authentication routes to Identity over a private network, while the existing PostgreSQL records and public API paths stay in place. The API also integrates with external VM hosts, password lookup and other configured services. VM owners and editors can publish up to 1,000 services per VM through the shared port-443 gateway; see [VM public services](docs/vm-public-services.md).
 
-The VM builder supports Ubuntu 22.04, 24.04, 26.04 and Ubuntu Desktop 24.04, with Small (1 vCPU, 2 GiB RAM, 10 GiB disk), Standard (2 vCPU, 4 GiB RAM, 20 GiB disk), and Large (4 vCPU, 8 GiB RAM, 40 GiB disk) plans. The service catalog includes Node.js/npm, Bun, Python, Java, Go, PHP/Composer, Rust/Cargo, Ruby, C/C++ build tools, Docker, PostgreSQL, MySQL, SQLite, Redis, Nginx, a generated static website, and Minecraft Java. AI setup plans use these services, up to 12 packages from the selected Ubuntu archive, and a responsive static website draft with optional user-provided gallery images and a mail link; they do not execute generated shell commands or arbitrary code. Unsupported plans return an error and cannot silently create an empty VM. NixOS is unavailable on the current LXD 5.21 VM image source, and the 443 gateway currently supports Minecraft Java rather than arbitrary UDP game protocols.
+The VM builder supports Ubuntu 22.04, 24.04, 26.04 and Ubuntu Desktop 24.04, with Small (1 vCPU, 2 GiB RAM, 10 GiB disk), Standard (2 vCPU, 4 GiB RAM, 20 GiB disk), and Large (4 vCPU, 8 GiB RAM, 40 GiB disk) plans. The service catalog includes Node.js/npm, Bun, Python, Java, Go, PHP/Composer, Rust/Cargo, Ruby, C/C++ build tools, Docker, PostgreSQL, MySQL, SQLite, Redis, Nginx, a generated static website, and Minecraft Java. AI infrastructure setup plans use these services, up to 12 packages from the selected Ubuntu archive, and a responsive static website draft with optional user-provided gallery images and a mail link; they do not run generated shell commands on the host. The separate Next.js project flow validates a bounded file manifest and runs the fixed install, build and start steps as the unprivileged VM user, inside that VM. Unsupported plans return an error and cannot silently create an empty VM. NixOS is unavailable on the current LXD 5.21 VM image source, and the 443 gateway currently supports Minecraft Java rather than arbitrary UDP game protocols.
 
 The frontend sends AI workspace requests to the separate AI API. On the shared Docker network, its server-side URL defaults to `http://ai:19182/api`; set `FRONTEND_INTERNAL_AI_API` when a deployment uses another address.
 
@@ -91,7 +91,7 @@ The local API defaults to port 8080 and the frontend to 3000. A host process rea
 
 The model client uses `HANASAND_AI_CLIENT_API_WS`, `HANASAND_AI_OPENAI_BASE` and `HANASAND_AI_MODEL`. The model runtime is deployed separately from [the GPT repository](https://github.com/hanasandcom/gpt). Starting the client alone does not start an inference server.
 
-Generated projects include source, a README, environment examples, build commands and Docker configuration. Website output includes its page, layout and CSS. These are starting points: API records and worker queues currently use in-memory state, and external integrations require implementation. A generated project or passing source check is not evidence that a production integration works.
+Generated projects include source, a README, environment examples, build commands and Docker configuration. Website output includes its page, layout and CSS. The AI Next.js flow creates a repository, sends the validated project files to a VM, installs dependencies, builds the project, starts it on port 3000 and reports the preview only after the VM reports successful startup. Other generated projects are starting points: API records and worker queues currently use in-memory state, and external integrations require implementation. A generated project or passing source check is not evidence that a production integration works.
 
 
 ### Host and JSON monitoring
@@ -158,6 +158,25 @@ sh ../ops/scripts/hanasand/deploy-api.sh
 Do not use a stack-wide `docker compose up --build`. Do not replace the frontend directly through Compose; use the script to avoid a gap in service. API replacement can briefly interrupt requests and WebSockets.
 
 After deployment, check the affected page or endpoint, service logs and `docker compose ps`. The frontend alternates between ports 3000 and 3100, with OpenResty routing traffic to the active container. The API-only helper tags and retains the prior API image, then restores and verifies it if the new API fails startup. It reuses the prior database schema marker only when the release classifier finds no product DDL and the prior marker exists. An image rollback does not reverse database changes; any DDL from a failed release needs a separate recovery plan.
+
+### Hanasand app staging
+
+`docker-compose.staging.yml` runs the Hanasand app on a separate Compose project before production release. It has its own PostgreSQL volume, serves only on `127.0.0.1:3280` and `127.0.0.1:3282`, and connects only to the existing staging Identity and AI networks. It does not mount the production LXD socket, Docker socket, host cron, production database, or production environment file. The staging API runs in HTTP-only candidate mode so it applies its schema and serves requests without starting background workers.
+
+On Inspur, create `/home/hanasand/hanasand/.env.app.staging` with mode `0600`. It must contain newly generated, staging-only values for `DB_PASSWORD`, `VM_API_TOKEN`, and `PROMPT_PORTAL_WORKER_TOKEN`; never copy them from a production environment file. The staging database starts from the repository's schema and keeps its data in the `hanasand_app_staging_postgres_data` Docker volume. The API also reads the staging-only Identity service token and support key from `/home/hanasand/identity/.env.ai.staging`.
+
+From the clean `main` checkout, start or update the app staging stack with:
+
+```sh
+cd /home/hanasand/hanasand
+HANASAND_RELEASE_COMMIT=$(git rev-parse HEAD) docker compose \
+  --project-name hanasand-app-staging \
+  --env-file .env.app.staging \
+  -f docker-compose.yml -f docker-compose.staging.yml \
+  up -d --build frontend
+```
+
+Check `http://127.0.0.1:3282/health` and `http://127.0.0.1:3282/api/ai/health/inference` on the host. To review the staged UI from another machine, forward the loopback ports with SSH (`-L 3280:127.0.0.1:3280 -L 3282:127.0.0.1:3282`) and open `http://localhost:3280/ai`. Resetting the staged app database means removing only the `hanasand_app_staging_postgres_data` volume after stopping this Compose project; never remove the production `hanasand_postgres_data` volume.
 
 ## Data and operations
 

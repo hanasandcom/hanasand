@@ -85,7 +85,7 @@ export async function runWorkspaceTool(
             return vm?.status ? { status: String(vm.status).toLowerCase(), reason: vm.status_reason } : null
         })
         const deadline = Date.now() + 180_000
-        let state: { status: string, reason?: string } | null = null
+        let state: { status: string, reason?: string } | null
         do {
             state = await getProjectStatus(vmName).catch(() => null)
             const normalized = state?.status.toLowerCase()

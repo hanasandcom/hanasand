@@ -1,0 +1,134 @@
+# Isolated Hanasand app staging overlay. It uses a project-scoped database,
+# staging Identity and AI networks, and loopback-only host ports. In particular,
+# it does not inherit the production LXD, host Docker, mail, or cron mounts.
+services:
+  deploy-path-guard:
+    container_name: hanasand_app_staging_guard
+    environment:
+      HANASAND_DEPLOY_GUARD_CWD: /home/hanasand/hanasand
+    volumes: !override
+      - /home/hanasand/hanasand:/workspace:ro
+      - /etc/hostname:/host/etc-hostname:ro
+
+  frontend:
+    container_name: hanasand_app_staging_frontend
+    image: hanasand_app_staging_frontend:${HANASAND_RELEASE_COMMIT:?set HANASAND_RELEASE_COMMIT}
+    env_file: !override []
+    environment:
+      FRONTEND_AUTH_API: http://localhost:3282/api
+      FRONTEND_IDENTITY_API: http://hanasand_identity_staging_primary:8081/api
+      FRONTEND_INTERNAL_API: http://hanasand_app_staging_api:8080/api
+      FRONTEND_INTERNAL_AI_API: http://172.31.254.6:19182/api
+      NEXT_PUBLIC_API: http://localhost:3282/api
+      NEXT_PUBLIC_API_WS: ws://localhost:3282/api/ws
+      PROMPT_PORTAL_WORKER_TOKEN: ${PROMPT_PORTAL_WORKER_TOKEN:?set a staging-only prompt worker token}
+      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:?set HANASAND_RELEASE_COMMIT}
+    build:
+      args:
+        NEXT_PUBLIC_API: http://localhost:3282/api
+        NEXT_PUBLIC_API_WS: ws://localhost:3282/api/ws
+    ports: !override
+      - "127.0.0.1:3280:3000"
+    networks: !override
+      hanasandnet: {}
+      identity-staging:
+        ipv4_address: 172.31.254.7
+      ai-staging: {}
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    container_name: hanasand_app_staging_api
+    image: hanasand_app_staging_api:${HANASAND_RELEASE_COMMIT:?set HANASAND_RELEASE_COMMIT}
+    env_file: !override
+      - ${HANASAND_APP_STAGING_ENV_FILE:-/home/hanasand/hanasand/.env.app.staging}
+      - ${HANASAND_IDENTITY_STAGING_ENV_FILE:-/home/hanasand/identity/.env.ai.staging}
+    environment:
+      NODE_ENV: production
+      API_HTTP_ONLY: "1"
+      DEPLOYMENT_CANDIDATE_ONLY: "1"
+      SKIP_MAIL_PROVISIONING: "1"
+      SKIP_REPOSITORY_SYNC: "1"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_POOL_HOST: ""
+      DB_USER: hanasand
+      DB_PASSWORD: ${DB_PASSWORD:?set a staging-only DB_PASSWORD}
+      DB: hanasand
+      DB_MAX_CONN: "12"
+      DB_POOL_WARMUP_CONN: "0"
+      DB_IDENTITY_CACHE_TTL_SECONDS: "0"
+      API_PORT: "8080"
+      VM_API_TOKEN: ${VM_API_TOKEN:?set a staging-only VM_API_TOKEN}
+      LISTEN_HOST: 0.0.0.0
+      API_CORS_ALLOWED_ORIGINS: http://localhost:3280,http://127.0.0.1:3280
+      HANASAND_IDENTITY_SERVICE_URL: http://hanasand_identity_staging_primary:8081
+      HANASAND_IDENTITY_FDW_HOST: ""
+      HANASAND_IDENTITY_DB_ENABLED: "0"
+      AI_API_BASE: http://172.31.254.6:19182
+      VM_HOST_ID: staging-disabled
+      DWM_WEBHOOK_LIVE_DELIVERY: "false"
+      LOG_CATCHUP_WORKER_DISABLED: "1"
+      LOG_LIVE_WORKER_DISABLED: "1"
+      MAIL_INTERNAL_URL: http://127.0.0.1:1
+      MAIL_ADMIN_PASSWORD: ""
+      DB_BACKUP_WORKER_URL: http://127.0.0.1:1
+      HANASAND_MODEL_CLIENT_HEALTH_BASE: http://127.0.0.1:1
+    ports: !override
+      - "127.0.0.1:3282:8080"
+    volumes: !override
+      - api_state:/var/lib/hanasand
+    networks: !override
+      hanasandnet: {}
+      identity-staging: {}
+      ai-staging: {}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    container_name: hanasand_app_staging_postgres
+    image: postgres:15
+    command: !override
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - max_connections=40
+      - -c
+      - max_wal_size=1GB
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: "1.0"
+    shm_size: 256m
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hanasand
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set a staging-only DB_PASSWORD}
+      POSTGRES_DB: hanasand
+    ports: !override []
+    volumes: !override
+      - app_staging_postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./db/init:/docker-entrypoint-initdb.d/init:ro
+    networks: !override
+      hanasandnet: {}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hanasand -d hanasand"]
+      interval: 5s
+      retries: 10
+
+networks:
+  identity-staging:
+    external: true
+    name: hanasand_identity_staging_proxy
+  ai-staging:
+    external: true
+    name: hanasand_ai_staging_internal
+
+volumes:
+  app_staging_postgres_data:
+    name: hanasand_app_staging_postgres_data
