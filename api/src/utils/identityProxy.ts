@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
+import { identityProxyProofHeaders } from './identityProxyPolicy.ts'
 
 const IDENTITY_SERVICE_URL = (process.env.HANASAND_IDENTITY_SERVICE_URL || 'http://identity:8081').replace(/\/+$/, '')
 const forwardedRequestHeaders = [
@@ -31,6 +32,12 @@ export default async function proxyIdentityRequest(request: FastifyRequest, repl
         const value = request.headers[name]
         if (typeof value === 'string') headers.set(name, value)
         else if (Array.isArray(value)) headers.set(name, value.join(', '))
+    }
+
+    try {
+        for (const [name, value] of Object.entries(identityProxyProofHeaders(request))) headers.set(name, value)
+    } catch {
+        return reply.code(401).send({ code: 'invalid_device_proof_target', error: 'The device proof does not match this request.' })
     }
 
     headers.set('x-forwarded-for', request.ip)

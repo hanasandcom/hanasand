@@ -1,6 +1,7 @@
 import assignVmOrganization from '../handlers/vms/organization.ts'
 import getHostOverview from '../handlers/hostOverview.ts'
 import proxyIdentityRequest from '../utils/identityProxy.ts'
+import { identityProxyRouteConfig } from '../utils/identityProxyPolicy.ts'
 import getCertificate from '../handlers/certificates/get.ts'
 import postCertificate from '../handlers/certificates/post.ts'
 import putCertificate from '../handlers/certificates/put.ts'
@@ -67,9 +68,9 @@ import type { FastifyInstance } from 'fastify'
 
 export function registerOrganizationsAndComputeRoutes(fastify: FastifyInstance) {
     // Organizations
-    fastify.get('/auth/login-form.js', proxyIdentityRequest)
-    fastify.get('/management/organizations', proxyIdentityRequest)
-    fastify.get('/organizations', proxyIdentityRequest)
+    fastify.get('/auth/login-form.js', { config: identityProxyRouteConfig }, proxyIdentityRequest)
+    fastify.get('/management/organizations', { config: identityProxyRouteConfig }, proxyIdentityRequest)
+    fastify.get('/organizations', { config: identityProxyRouteConfig }, proxyIdentityRequest)
     fastify.post('/organizations', postOrganization)
     fastify.post('/organizations/invites/:inviteId/accept', postOrganizationInviteAccept)
     fastify.get('/organizations/:id/invites', getOrganizationInvites)
