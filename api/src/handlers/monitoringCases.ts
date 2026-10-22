@@ -52,11 +52,11 @@ export async function getMonitoringCases(req: FastifyRequest<{ Params: { id?: st
     const queriedAt = performance.now()
     const items = result.rows.map(row => ({
         canManage: row.can_manage === true, id: `HA-${row.id}`, caseNumber: `HA-${row.id}`, source: 'monitoring',
-        title: `HA-${row.id} · ${row.monitor_name}${row.check_count > 1 ? ` (+${row.check_count - 1} ${row.check_count === 2 ? 'check' : 'checks'})` : ''}`, summary: readableMonitoringMessage(row.summary),
+        title: `HA-${row.id} · ${row.monitor_name}${row.check_count > 1 ? ` (+${row.check_count - 1} ${row.check_count === 2 ? 'check' : 'checks'})` : ''}`, summary: readableMonitoringMessage(row.summary, { monitorName: row.monitor_name, targetUrl: row.target_url }),
         status: row.status_override || (row.resolved_at ? 'resolved' : 'open'), severity: row.severity_override || (row.kind === 'failure' ? 'high' : 'medium'),
         notificationsEnabled: row.notifications_enabled ?? true,
-        ...(!summary ? { comments: row.comments || [], diskDiagnostics: row.disk_diagnostics, history: monitoringCaseHistory(row) } : {}),
-        resolution: monitoringCaseResolution(row),
+        ...(!summary ? { comments: row.comments || [], diskDiagnostics: row.disk_diagnostics, history: monitoringCaseHistory(row, { monitorName: row.monitor_name, targetUrl: row.target_url }) } : {}),
+        resolution: monitoringCaseResolution(row, { monitorName: row.monitor_name, targetUrl: row.target_url }),
         assignedOwner: row.owner_id, organizationId: row.organization_id,
         createdAt: row.first_seen_at, lastSeenAt: row.last_seen_at, updatedAt: row.updated_at || (row.history || []).reduce((latest: string, event: { at: string }) => new Date(event.at) > new Date(latest) ? event.at : latest, row.last_seen_at), resolvedAt: row.resolved_at,
         occurrences: row.occurrences, automationId: row.automation_id,

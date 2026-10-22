@@ -24,7 +24,7 @@ test('one webhook message combines the ping, clickable case and diagnostic embed
     expect(requests[0].body).toMatchObject({
         content: '@everyone [HA-9050](https://hanasand.com/cases/HA-9050)',
         allowed_mentions: { parse: ['everyone'] },
-        embeds: [{ title: 'HA-9050 · Host GPU', url: 'https://hanasand.com/cases/HA-9050', description: issue.summary, color: 0xED4245 }],
+        embeds: [{ title: 'HA-9050 · Host GPU', url: 'https://hanasand.com/cases/HA-9050', description: 'Host GPU is high: 81% used (alert limit 80%). Check active GPU jobs and reduce sustained load.', color: 0xED4245 }],
     })
     expect(alert.embeds[0].fields).toContainEqual({ name: 'Occurrences', value: '3', inline: true })
     expect(alert.embeds[0].fields).toContainEqual({ name: 'First seen', value: '<t:1788804660:f>', inline: true })
@@ -50,6 +50,15 @@ test('invalid case timestamps stay readable and warning severity keeps its color
     expect(alert.embeds[0]).toMatchObject({ color: 0xFEE75C })
     expect(alert.embeds[0].fields).toContainEqual({ name: 'First seen', value: 'Unknown', inline: true })
     expect(alert.embeds[0].fields).toContainEqual({ name: 'Last seen', value: 'Unknown', inline: true })
+})
+
+test('monitoring-data warnings explain that host health is unknown', () => {
+    const alert = monitoringCaseDiscordAlert('HA-3', 'Inspur CPU', 'cpu-check', {
+        kind: 'warning', summary: 'Host metrics unavailable for Inspur CPU: the CPU reading (host.cpuPercent) is missing or invalid in the latest snapshot. Host status is unknown. Check the metrics collector and its latest snapshot.', occurrences: 2,
+        first_seen_at: '2026-09-07T18:11:00Z', last_seen_at: '2026-09-07T18:13:00Z',
+    }, null, { targetUrl: 'system:metrics' })
+    expect(alert.embeds[0]).toMatchObject({ description: expect.stringContaining('Host status is unknown'), color: 0xFEE75C })
+    expect(alert.embeds[0].fields).toContainEqual({ name: 'Severity', value: 'medium', inline: true })
 })
 
 test('existing text-only callers and disabled mentions are unchanged', async () => {

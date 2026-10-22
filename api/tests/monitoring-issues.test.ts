@@ -32,3 +32,11 @@ test('service check identity survives changing ages and source details', () => {
         .toBe(monitoringIssueFingerprint(collection, 'warning', 'Collection problems: sourceB, restrictedMetadata.'))
     expect(key('unavailable')).not.toBe(monitoringIssueFingerprint(collection, 'warning', 'unavailable'))
 })
+
+test('host telemetry warnings retain one case as the underlying JSON rule stays the same', () => {
+    const monitor = { target_url: 'system:metrics', monitoring_type: 'json' as const,
+        json_rule: { path: 'host.cpuPercent', aggregate: 'max', operator: 'gt', value: 80 } }
+    const fingerprint = (message: string) => monitoringIssueFingerprint(monitor, 'warning', message)
+    expect(fingerprint('Host metrics unavailable for Inspur CPU: the CPU reading is missing. Host status is unknown.'))
+        .toBe(fingerprint('Host metrics unavailable for Inspur CPU: the latest host metrics snapshot is stale. Host status is unknown.'))
+})

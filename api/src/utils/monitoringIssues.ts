@@ -2,7 +2,8 @@ import { attachDiskDiagnostics } from './monitoringDiskDiagnostics.ts'
 import { monitoringAlertReady } from './monitoringAlertPolicy.ts'
 import { correlationKey, isIntelHealthCheck, monitoringScope, monitoringTargetIdentity, monitoringTransportTarget } from './monitoringCorrelation.ts'
 import { monitoringCaseDiscordAlert } from './alerts/monitoringCase.ts'
-import { isHostThresholdMessage } from './hostCheckMessage.ts'
+import { isHostMetricsDataWarning, isHostThresholdMessage } from './hostCheckMessage.ts'
+import { readableMonitoringMessage } from './monitoringMessage.ts'
 import { createHash } from 'node:crypto'
 import run, { withTransaction } from '#db'
 import type { AutomationRow } from './automations.ts'
@@ -23,7 +24,7 @@ export function monitoringIssueFingerprint(automation: Pick<AutomationRow, 'targ
     // Group changing durations and retry counts, but retain HTTP codes and error details.
     // TI health and connection failures describe the same check. Keep its rule
     // in the identity so separate checks of the same source remain separate.
-    const reason = automation.monitoring_type === 'json' && (isIntelHealthCheck(automation) || targetUrl === 'system:recovery' || message.startsWith('JSON threshold exceeded:') || automation.target_url === 'system:metrics' && isHostThresholdMessage(message))
+    const reason = automation.monitoring_type === 'json' && (isIntelHealthCheck(automation) || targetUrl === 'system:recovery' || message.startsWith('JSON threshold exceeded:') || automation.target_url === 'system:metrics' && (isHostThresholdMessage(message) || isHostMetricsDataWarning(message)))
         ? JSON.stringify(automation.json_rule) : redactSecretBearingText(message)
             .replace(/ Failed after \d+ attempts?\.$/, '')
             .replace(/\b\d+(?:\.\d+)?\s*(?:milliseconds?|ms|seconds?|minutes?|hours?|days?)\b/gi, '<duration>')
@@ -108,7 +109,7 @@ export async function notifyMonitoringOutcome(automation: AutomationRow, runId: 
     const preferences = await run('SELECT notifications_enabled, kind, summary, occurrences, first_seen_at, last_seen_at, resolved_at, severity_override, status_override FROM monitoring_issues WHERE id = $1', [issue])
     const details = preferences.rows[0]
     if (!details || details.notifications_enabled === false) return
-    const alert = monitoringCaseDiscordAlert(`HA-${issue}`, automation.name || 'Health check', automation.id, details, automation.organization_id)
+    const alert = monitoringCaseDiscordAlert(`HA-${issue}`, automation.name || 'Health check', automation.id, details, automation.organization_id, { targetUrl: automation.target_url })
     const destinations = new Set(automation.notification_destinations?.length ? automation.notification_destinations : automation.model_name ? [automation.model_name] : [])
     for (const destination of destinations) {
         // Reserve in PostgreSQL before delivery: concurrent workers and restarts cannot send duplicates.
@@ -132,16 +133,17 @@ export async function notifyMonitoringOutcome(automation: AutomationRow, runId: 
 }
 
 export async function loadMonitoringIssues(automationId: string) {
-    const result = await run(`SELECT i.*, COALESCE((SELECT jsonb_agg(entry ORDER BY delivered_at DESC NULLS FIRST) FROM (
+    const result = await run(`SELECT i.*, a.name AS monitor_name, a.target_url, COALESCE((SELECT jsonb_agg(entry ORDER BY delivered_at DESC NULLS FIRST) FROM (
         SELECT jsonb_build_object('messageId', m.message_id, 'deliveredAt', m.delivered_at, 'message', m.message) AS entry, m.delivered_at
         FROM monitoring_issue_messages m WHERE m.issue_id = i.id
         UNION ALL
         SELECT jsonb_build_object('nextAttemptAt', n.next_attempt_at, 'error', n.last_error), NULL::timestamptz
         FROM monitoring_issue_notifications n WHERE n.issue_id = i.id AND (n.delivered_at IS NULL OR n.last_error IS NOT NULL)
         ) history), '[]'::jsonb) AS notifications
-        FROM monitoring_issues i WHERE i.merged_into IS NULL AND (i.automation_id = $1 OR EXISTS (SELECT 1 FROM monitoring_issue_checks c WHERE c.issue_id=i.id AND c.automation_id=$1)) ORDER BY i.last_seen_at DESC, i.id DESC`, [automationId])
+        FROM monitoring_issues i JOIN agent_automations a ON a.id=i.automation_id
+        WHERE i.merged_into IS NULL AND (i.automation_id = $1 OR EXISTS (SELECT 1 FROM monitoring_issue_checks c WHERE c.issue_id=i.id AND c.automation_id=$1)) ORDER BY i.last_seen_at DESC, i.id DESC`, [automationId])
     return result.rows.map(row => ({
-        id: row.id, caseNumber: `HA-${row.id}`, kind: row.kind, summary: row.summary,
+        id: row.id, caseNumber: `HA-${row.id}`, kind: row.kind, summary: readableMonitoringMessage(row.summary, { monitorName: row.monitor_name, targetUrl: row.target_url }),
         occurrences: row.occurrences, firstSeenAt: row.first_seen_at, lastSeenAt: row.last_seen_at,
         resolvedAt: row.resolved_at, notifications: row.notifications,
     }))

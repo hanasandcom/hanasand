@@ -1,15 +1,17 @@
 import { readableMonitoringMessage } from './monitoringMessage.ts'
 type Row = Record<string, any>
 
-export function monitoringCaseResolution(row: Row) {
+type MessageContext = { monitorName?: string | null, targetUrl?: string | null }
+
+export function monitoringCaseResolution(row: Row, context: MessageContext = {}) {
     if (row.resolution) return row.resolution.type === 'automation' && typeof row.resolution.note === 'string'
-        ? { ...row.resolution, note: readableMonitoringMessage(row.resolution.note) } : row.resolution
+        ? { ...row.resolution, note: readableMonitoringMessage(row.resolution.note, context) } : row.resolution
     if (row.status_override === 'closed' || row.status_override === 'resolved') return { type: 'unknown', note: 'This case was closed before resolver attribution was recorded.' }
     if (row.resolved_at && !row.status_override) return { type: 'automation', actor: 'Health monitoring', at: row.resolved_at, note: 'The health check recovered automatically. The original recovery comment was not recorded.' }
     return null
 }
 
-export function monitoringCaseHistory(row: Row) {
+export function monitoringCaseHistory(row: Row, context: MessageContext = {}) {
     const history = [...(row.history || [])]
     const events = [{ id: `created-${row.id}`, at: row.first_seen_at, actor: 'Health monitoring', action: 'created', note: 'First recorded health-check failure or warning.' }, ...history]
     for (const comment of row.comments || []) {
@@ -18,5 +20,7 @@ export function monitoringCaseHistory(row: Row) {
     if (row.resolved_at && !history.some(event => event.action === 'recovered' && new Date(event.at).getTime() === new Date(row.resolved_at).getTime())) {
         events.push({ id: `legacy-recovery-${row.id}`, at: row.resolved_at, actor: 'Health monitoring', action: 'recovered', note: 'Recovered according to the stored health-check timestamp. Detailed history was not recorded at the time.' })
     }
-    return events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+    return events.map(event => event.actor === 'Health monitoring' && typeof event.note === 'string'
+        ? { ...event, note: readableMonitoringMessage(event.note, context) }
+        : event).sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
 }
