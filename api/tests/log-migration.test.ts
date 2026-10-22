@@ -176,6 +176,31 @@ test('deletes source rows only after Logs acknowledges and processes every copie
     }])
 })
 
+test('deletes a source row when Logs durably acknowledges its drop-rule outcome', async () => {
+    let statusQueried = false
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/api/migration/status')) statusQueried = true
+        expect(String(input)).toBe('https://logs.hanasand.com/api/ingest')
+        expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${'i'.repeat(40)}`)
+        expect(JSON.parse(String(init?.body))).toMatchObject({ events: [{ sourceEventId: 'collector-event-1' }] })
+        return new Response(JSON.stringify({ ok: true, accepted: 1, droppedSourceEventIds: ['collector-event-1'] }), { status: 201 })
+    }) as typeof fetch
+
+    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
+
+    expect(result).toEqual({ moved: 1, remaining: true, retry: false })
+    expect(statusQueried).toBe(false)
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
+})
+
+test('retains source rows if Logs reports a dropped event outside the acknowledged batch', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, accepted: 1, droppedSourceEventIds: ['other-event'] }), { status: 201 })) as typeof fetch
+
+    await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
+        .rejects.toThrow('invalid dropped-event identities')
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
+})
+
 test('copies linked finding and analyst state before deleting its Hanasand row', async () => {
     sourceFindings = [{ id: 'finding-1', organization_id: 'tenant-a', finding_key: 'tenant-a:rule:event-1',
         rule_id: 'rule', severity: 'high', status: 'investigating', summary: 'Finding', evidence: { key: true },

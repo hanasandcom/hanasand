@@ -445,7 +445,16 @@ export async function moveOneBatch(url: string, token: string): Promise<Migratio
         throw permanentError(`Logs did not acknowledge the full migration batch (HTTP ${response.status}${body.error ? `: ${body.error}` : ''}).`)
     }
 
-    const targetIds = events.map(event => createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'))
+    const submittedSourceIds = new Set(events.map(event => event.sourceEventId))
+    const reportedDrops = body.droppedSourceEventIds === undefined ? [] : body.droppedSourceEventIds
+    if (!Array.isArray(reportedDrops) || !reportedDrops.every(id => typeof id === 'string' && submittedSourceIds.has(id))
+        || new Set(reportedDrops).size !== reportedDrops.length) {
+        throw permanentError('Logs returned invalid dropped-event identities; source rows remain in Hanasand.')
+    }
+    const droppedSourceIds = new Set(reportedDrops as string[])
+
+    const retainedEvents = events.filter(event => !droppedSourceIds.has(event.sourceEventId))
+    const targetIds = retainedEvents.map(event => createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'))
     if (new Set(targetIds).size !== targetIds.length) {
         throw permanentError('The source batch contains duplicate Logs identities; its rows remain in Hanasand.')
     }
