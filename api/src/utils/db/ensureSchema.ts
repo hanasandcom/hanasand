@@ -125,8 +125,19 @@ async function ensureIdentityDataBoundaryWithRetry() {
 }
 
 async function applySchema() {
-    // The host-scanning service and its data now live in the Scanner service.
-    // Remove the legacy Hanasand-only tables after their API has been removed.
+    // The scanning service and its data now live in the Scanner service.
+    // The one-time import copies legacy UVM records before this cleanup runs.
+    await queryOnce('DROP TABLE IF EXISTS uvm_assessment_steps')
+    await queryOnce('DROP TABLE IF EXISTS uvm_finding_observations')
+    await queryOnce('DROP TABLE IF EXISTS uvm_finding_triage_history')
+    await queryOnce('DROP TABLE IF EXISTS uvm_finding_sync_runs')
+    await queryOnce('DROP TABLE IF EXISTS uvm_network_runs')
+    await queryOnce('DROP TABLE IF EXISTS uvm_tenable_runs')
+    await queryOnce('DROP TABLE IF EXISTS uvm_findings')
+    await queryOnce('DROP TABLE IF EXISTS uvm_assessments')
+    await queryOnce('DROP TABLE IF EXISTS uvm_assets')
+    await queryOnce('DROP TABLE IF EXISTS uvm_migration_imports')
+    // Remove the legacy Hanasand-only scanner tables after their API is removed.
     await queryOnce('DROP TABLE IF EXISTS web_scan_findings')
     await queryOnce('DROP TABLE IF EXISTS web_scan_runs')
     await queryOnce('DROP TABLE IF EXISTS web_scan_targets')
