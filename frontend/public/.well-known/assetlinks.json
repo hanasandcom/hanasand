@@ -1,0 +1,17 @@
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "web",
+      "site": "https://hanasand.com"
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.hanasand.app",
+      "sha256_cert_fingerprints": ["6B:76:5F:2C:89:3E:CB:9A:45:14:EA:5B:56:B4:32:10:20:42:6E:59:4B:70:6D:B3:7D:42:65:38:57:17:66:A7"]
+    }
+  }
+]

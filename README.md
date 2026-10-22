@@ -201,3 +201,5 @@ Follow [AGENTS.md](AGENTS.md) and [copy style](docs/copy-style.md). Keep changes
 ### Authentication releases
 
 Authentication is deployed as part of the canonical full-stack release. Standalone recovery/auth replacement commands are intentionally removed; use `../ops/scripts/hanasand/deploy-all.sh` so the API, frontend, and supporting services stay on one main revision.
+
+The mobile app uses the same Identity passkey records and RP ID as the website. iOS credential sharing requires the app's `webcredentials:hanasand.com` entitlement and `public/.well-known/apple-app-site-association`; Android sharing requires `public/.well-known/assetlinks.json` to list the app signing certificate. Keep Identity's exact `PASSKEY_ALLOWED_ORIGINS` in sync with the Android signing key. Mobile SSO starts from `/api/auth/mobile/sso/start`; Identity binds its short-lived handoff code to the PKCE challenge and keeps the session token out of the deep link. Release the app, frontend association files, and Identity change together. When Google Play App Signing is enabled, include its signing certificate fingerprint as well as the EAS upload certificate.
