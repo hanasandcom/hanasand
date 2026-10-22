@@ -43,6 +43,7 @@ test('chat composer renders themed, accessible blocked and ready states', () => 
     expect(blocked).toContain('Reviewer mode')
     expect(blocked).toContain('disabled=""')
     expect(ready).toContain('aria-label="Send"')
+    expect(ready).toContain('rounded-t-3xl')
     expect(ready).not.toContain('disabled=""')
     expect(`${blocked}${ready}`).not.toMatch(/(?:bg|text)-white|#[\da-f]{3,8}/i)
 })
