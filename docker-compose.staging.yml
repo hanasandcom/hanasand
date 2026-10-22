@@ -54,6 +54,7 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_POOL_HOST: ""
+      DB_POOL_PORT: "5432"
       DB_USER: hanasand
       DB_PASSWORD: ${DB_PASSWORD:?set a staging-only DB_PASSWORD}
       DB: hanasand
