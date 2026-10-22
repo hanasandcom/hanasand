@@ -49,8 +49,10 @@ test('successful creation opens the terminal without waiting for a VM status fet
 test('organization VM creation explains and blocks the owner/admin-only action before submission', async () => {
     const [inventory, form] = await Promise.all([readFile(components, 'utf8'), readFile(createForm, 'utf8')])
     expect(inventory).toContain('[\'owner\', \'admin\'].includes(activeOrganization?.role || \'\')')
+    expect(inventory).toContain('const hasOrganizationContext = Boolean(organizationId || organizationName)')
+    expect(inventory).toContain('!organizationsLoading && !organizationsUnavailable')
     expect(inventory).toContain('Only an owner or admin of ${organizationName || \'this organization\'} can create VMs.')
-    expect(form).toContain('{organizationId && !canCreate && <p role=\'status\'')
+    expect(form).toContain('{!canCreate && <p role=\'status\'')
     expect(form).toContain('disabled={creating || !canCreate}')
 })
 

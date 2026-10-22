@@ -25,7 +25,8 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
     const { items, notify, dismiss } = useVmActionFeedback()
     const { organizationId, organizations, loading: organizationsLoading, unavailable: organizationsUnavailable, organizationName } = useWorkspace()
     const activeOrganization = organizations.find(organization => organization.id === organizationId)
-    const canCreateInWorkspace = !organizationId || (!organizationsLoading && !organizationsUnavailable && ['owner', 'admin'].includes(activeOrganization?.role || ''))
+    const hasOrganizationContext = Boolean(organizationId || organizationName)
+    const canCreateInWorkspace = !hasOrganizationContext || (!organizationsLoading && !organizationsUnavailable && ['owner', 'admin'].includes(activeOrganization?.role || ''))
     const createPermissionMessage = organizationsUnavailable
         ? 'Organization access could not be checked. Reload to try again.'
         : organizationsLoading
@@ -83,7 +84,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
                 </div>
             </div>
 
-            {organizationId && !canCreateInWorkspace && <p role='status' className='-mt-2 text-xs leading-5 text-ui-muted'>{createPermissionMessage}</p>}
+            {hasOrganizationContext && !canCreateInWorkspace && <p role='status' className='-mt-2 text-xs leading-5 text-ui-muted'>{createPermissionMessage}</p>}
 
             <VmCreateForm id={createFormId} visible={showCreate} organizationId={organizationId || null} canCreate={canCreateInWorkspace} permissionMessage={createPermissionMessage} notify={notify} onCreating={setCreating} onCreated={(vm, name) => {
                 if (vm) setVms(current => [vm, ...current.filter(item => item.name !== name)])

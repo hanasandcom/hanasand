@@ -225,6 +225,18 @@ test('organization VM creation checks owner or admin membership and saves the se
     expect(databaseCalls.find(call => /INSERT INTO vms/.test(call.sql))?.params).toEqual(['org-vm', 'member', 'member', '[]', 'approved-org'])
 })
 
+test('organization authorization is checked before validating a requested setup', async () => {
+    const denied = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: { name: 'org-vm', organization_id: 'other-org', os: 'unsupported-os', services: ['unknown-service'] },
+    })
+
+    expect(denied.statusCode).toBe(403)
+    expect(denied.json()).toEqual({ error: 'An organization owner or admin must create VMs.' })
+    expect(databaseCalls.every(call => !/INSERT INTO vms/.test(call.sql))).toBe(true)
+    expect(calls).toHaveLength(0)
+})
+
 test('VM creation reports a host queue failure instead of claiming setup was started', async () => {
     queuedProvisionResponses = [Response.json({ name: 'remote-vm', status: 'Provisioning' }, { status: 202 })]
     queuedStatusResponses = [Response.json({ status: 'Error' })]

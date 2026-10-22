@@ -31,8 +31,6 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         website?: unknown
     } ?? {}
     const { name, access_users } = body
-    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.custom_apt_packages, body.website)
-    if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
     let owner = body.owner
     let created_by = body.created_by
 
@@ -73,6 +71,9 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         `, [organizationId, actorId])
         if (!organization.rows[0]) return res.status(403).send({ error: 'An organization owner or admin must create VMs.' })
     }
+
+    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.custom_apt_packages, body.website)
+    if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
 
     if (!canAssignOwner && !/^[a-z][a-z0-9-]{0,61}[a-z0-9]$/.test(name)) return res.status(400).send({ error: 'Use 2–63 lowercase letters, numbers or hyphens, starting with a letter.' })
 
