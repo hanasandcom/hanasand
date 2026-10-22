@@ -113,7 +113,7 @@ mock.module('#db', () => ({
     withTransaction: async (work: (tx: typeof query) => unknown) => work(query),
 }))
 
-const { clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, moveOneBatch } = await import('../scripts/migrate-logs-to-service.ts')
+const { clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, moveOneBatch, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
 
 beforeEach(() => {
     statements.length = 0
@@ -146,6 +146,18 @@ test('reads the Logs-only estimate from PostgreSQL planner output and rejects ma
     expect(estimatedPlanRows([{ Plan: { 'Plan Rows': 123 } }])).toBe(123)
     expect(estimatedPlanRows([{ Plan: { 'Plan Rows': -1 } }])).toBeNull()
     expect(estimatedPlanRows(null)).toBeNull()
+})
+
+test('requires an accepting Logs API and its matching healthy worker before migration', async () => {
+    const health = { ok: true, accepting: true, release: 'logs-release', worker: { ok: true, release: 'logs-release' } }
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ...health, worker: { ...health.worker, ok: false } }), { status: 200 })) as typeof fetch
+    expect(await serviceReady('https://logs.hanasand.com')).toBe(false)
+
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ...health, worker: { ...health.worker, release: 'older-worker' } }), { status: 200 })) as typeof fetch
+    expect(await serviceReady('https://logs.hanasand.com')).toBe(false)
+
+    globalThis.fetch = (async () => new Response(JSON.stringify(health), { status: 200 })) as typeof fetch
+    expect(await serviceReady('https://logs.hanasand.com')).toBe(true)
 })
 
 test('builds and verifies the resumable migration cursor index outside a transaction', async () => {

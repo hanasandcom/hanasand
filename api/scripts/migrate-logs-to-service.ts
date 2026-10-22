@@ -414,11 +414,14 @@ export async function migrateLogRuntimeState(url: string, syncToken: string) {
     return { throughputSamples: migratedSamples, tuningSnapshots: migratedSnapshots }
 }
 
-async function serviceReady(url: string) {
+export async function serviceReady(url: string) {
     const response = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(5000) })
     if (!response.ok) return false
-    const body = await response.json() as { ok?: boolean }
-    return body.ok === true
+    const body = await response.json() as {
+        ok?: boolean, accepting?: boolean, release?: string, worker?: { ok?: boolean, release?: string | null }
+    }
+    return body.ok === true && body.accepting === true && body.worker?.ok === true
+        && typeof body.release === 'string' && body.worker.release === body.release
 }
 
 export async function moveOneBatch(url: string, token: string): Promise<MigrationBatchResult> {
