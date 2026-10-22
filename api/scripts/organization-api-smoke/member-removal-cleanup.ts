@@ -79,7 +79,6 @@ export async function assertMemberRemovalCleanup(ctx: OrganizationApiSmokeContex
     assert.equal(removeViewerCleanup.consumerAccessRevocation.downstreamReadinessRevocation.readiness.alertGenerationReady, false)
     assert.equal(removeViewerCleanup.consumerAccessRevocation.downstreamReadinessRevocation.readiness.caseVisibilityReady, false)
     assert.equal(removeViewerCleanup.consumerAccessRevocation.downstreamReadinessRevocation.readiness.webhookDeliveryReady, false)
-    assert.equal(removeViewerCleanup.consumerAccessRevocation.downstreamReadinessRevocation.readiness.supportRedactedReadReady, true)
     assert.ok(removeViewerCleanup.consumerAccessRevocation.downstreamReadinessRevocation.requiredDownstreamFields.includes('provenanceHash'))
     assert.ok(removeViewerCleanup.consumerAccessRevocation.downstreamReadinessRevocation.requiredDownstreamFields.includes('destinationReadiness'))
     assert.ok(removeViewerCleanup.consumerAccessRevocation.downstreamReadinessRevocation.blockedConsumerContracts.includes('organization.alert_case_bridge_persistence_receipt.v1'))

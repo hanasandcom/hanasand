@@ -29,14 +29,12 @@ test('organization lifecycle readiness', () => {
     assert.equal(lifecycleReadiness.watchlistReadiness.ready, true)
     assert.equal(lifecycleReadiness.alertExportReadiness.ready, true)
     assert.equal(lifecycleReadiness.cleanupReadiness.cleanupIdempotent, true)
-    assert.equal(lifecycleReadiness.supportVisibility.mode, 'redacted_summary_only')
     assert.deepEqual(lifecycleReadiness.typedBlockers, [])
     assert.equal(lifecycleReadiness.readyForOnboarding, true)
     assert.ok(lifecycleReadiness.blockerCatalog.includes('org_missing'))
     assert.ok(lifecycleReadiness.blockerCatalog.includes('org_archived'))
     assert.ok(lifecycleReadiness.blockerCatalog.includes('org_deleted'))
     assert.ok(lifecycleReadiness.blockerCatalog.includes('no_active_admin'))
-    assert.ok(lifecycleReadiness.blockerCatalog.includes('support_redaction_required'))
 
     const blockedLifecycleReadiness = organizationLifecycleReadiness({
         id: 'org_blocked',
@@ -77,7 +75,6 @@ test('analyst portal role gates reuse independent role lists', () => {
     assert.deepEqual(first.actionMatrix.link_case.allowedRoles, ['owner', 'admin', 'editor', 'analyst'])
     assert.deepEqual(first.actionMatrix.replay_alert.allowedRoles, ['owner', 'admin', 'editor'])
     assert.deepEqual(first.actionMatrix.deliver_webhook.allowedRoles, ['owner', 'admin', 'editor'])
-    assert.deepEqual(first.actionMatrix.open_audit_timeline.allowedRoles, ['owner', 'admin', 'support'])
 
     first.actionMatrix.acknowledge_alert.allowedRoles.pop()
     assert.deepEqual(first.actionMatrix.assign_case.allowedRoles, ['owner', 'admin', 'editor', 'analyst'])

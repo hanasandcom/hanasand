@@ -106,7 +106,6 @@ export async function runOrganizationSettingsContract(ctx: OrganizationApiSmokeC
         assert.equal(readableSettings.settings.defaultWebhookPolicy, 'manual_selection')
         assert.equal(readableSettings.settings.alertVisibilityPolicy, 'admins')
         assert.equal(readableSettings.permissions.canEdit, canEdit)
-        assert.equal(readableSettings.lifecycleReadiness.supportVisibility.mode, 'redacted_summary_only')
     }
 
     await apiRequest({

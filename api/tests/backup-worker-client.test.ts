@@ -5,7 +5,7 @@ import { backupWorkerCall } from '../src/utils/db/backupWorkerClient.ts'
 const previousUrl = process.env.DB_BACKUP_WORKER_URL
 const previousToken = process.env.DB_BACKUP_WORKER_TOKEN
 const targetDatabase = process.env.DB || 'hanasand'
-const testPort = 18191
+let testPort = 0
 process.env.DB_BACKUP_WORKER_URL = 'http://127.0.0.1:18190'
 process.env.DB_BACKUP_WORKER_TOKEN = 'unit-test-database-backup-token'
 const calls: unknown[] = []
@@ -20,7 +20,20 @@ const server = createServer(async (req, res) => {
     } else if (input.method === 'restore-live') res.end(JSON.stringify({ value: { kind: 'restore_live', file: 'verified.dump' } }))
     else res.end(JSON.stringify({ value: [{ file: 'verified.dump' }] }))
 })
-await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(testPort, '127.0.0.1', resolve) })
+await new Promise<void>((resolve, reject) => {
+    const onError = (error: Error) => reject(error)
+    server.once('error', onError)
+    server.listen(0, '127.0.0.1', () => {
+        server.off('error', onError)
+        const address = server.address()
+        if (!address || typeof address === 'string') {
+            reject(new Error('Backup worker test server did not receive a TCP port'))
+            return
+        }
+        testPort = address.port
+        resolve()
+    })
+})
 process.env.DB_BACKUP_WORKER_URL = `http://127.0.0.1:${testPort}/`
 afterAll(async () => {
     await new Promise<void>(resolve => server.close(() => resolve()))
