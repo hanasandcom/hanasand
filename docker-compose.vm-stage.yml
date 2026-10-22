@@ -50,7 +50,7 @@ services:
       DB_MAX_CONN: "10"
       VM_API_TOKEN: vm-stage-internal-only
       VM_HOST_ID: ovhcloud
-      LXD_PROJECT: hanasand-vm-stage
+      LXD_PROJECT: vms-staging-20261022
       HANASAND_IDENTITY_SERVICE_URL: http://vm-stage-identity:8081
       HANASAND_IDENTITY_SERVICE_TOKEN: vm-stage-identity-only
       FRONTEND_URL: http://127.0.0.1:3188
