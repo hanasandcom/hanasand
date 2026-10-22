@@ -24,10 +24,10 @@ function severityColor(severity: string) {
     return 0x5865F2
 }
 
-export function monitoringCaseDiscordAlert(caseId: string, monitorName: string, automationId: string, issue: CaseDetails, organizationId?: string | null, context: { targetUrl?: string | null } = {}) {
+export function monitoringCaseDiscordAlert(caseId: string, monitorName: string, automationId: string, issue: CaseDetails, organizationId?: string | null, context: { targetUrl?: string | null, timeoutSeconds?: number | null } = {}) {
     const organizationScope = organizationId ? `org=${encodeURIComponent(organizationId)}` : ''
     const url = `https://hanasand.com/cases/${encodeURIComponent(caseId)}${organizationScope ? `?${organizationScope}` : ''}`
-    const description = redactSecretBearingText(readableMonitoringMessage(issue.summary, { monitorName, targetUrl: context.targetUrl }))
+    const description = redactSecretBearingText(readableMonitoringMessage(issue.summary, { monitorName, targetUrl: context.targetUrl, timeoutSeconds: context.timeoutSeconds }))
     const monitorDataProblem = context.targetUrl === 'system:metrics' && isHostMetricsDataWarning(description)
     const stateUnknown = monitorDataProblem || isMonitoringStateUnknown(description)
     const severity = stateUnknown ? 'medium' : issue.severity_override || (issue.kind === 'failure' ? 'high' : 'medium')

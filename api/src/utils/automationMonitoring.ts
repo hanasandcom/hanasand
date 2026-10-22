@@ -12,7 +12,7 @@ function invertsMonitoringResult(automation: Pick<AutomationRow, 'upside_down' |
     return automation.upside_down || automation.expected_down
 }
 export async function runMonitoringCheck(automation: AutomationRow) {
-    const context = { monitorName: automation.name, targetUrl: automation.target_url, formatUnknown: true }
+    const context = { monitorName: automation.name, targetUrl: automation.target_url, timeoutSeconds: automation.timeout_seconds, formatUnknown: true }
     if (!automation.target_url) throw new Error(readableMonitoringMessage('Monitoring is missing the URL to check.', context))
     let target: URL | null
     let tlsTarget: URL | null
@@ -79,7 +79,7 @@ async function runJsonCheck(automation: AutomationRow, attempt: number) {
         snapshot = await sharedJsonSnapshot(automation, attempt)
     } catch (error) {
         if (error instanceof MonitoringResponseError) {
-            error.message = readableMonitoringMessage(error.message, { monitorName: automation.name, targetUrl: automation.target_url, formatUnknown: true })
+            error.message = readableMonitoringMessage(error.message, { monitorName: automation.name, targetUrl: automation.target_url, timeoutSeconds: automation.timeout_seconds, formatUnknown: true })
         }
         throw error
     }
@@ -94,7 +94,7 @@ async function runJsonCheck(automation: AutomationRow, attempt: number) {
             return { provider: 'hanasand-monitoring', model: 'json', message: hostMetricsDataWarning(automation.name, error), certificate, warning: true }
         }
         const message = error instanceof Error ? error.message : 'JSON check failed.'
-        throw Object.assign(new MonitoringResponseError(readableMonitoringMessage(message, { monitorName: automation.name, targetUrl: automation.target_url, formatUnknown: true }), { cause: error }), { certificate })
+        throw Object.assign(new MonitoringResponseError(readableMonitoringMessage(message, { monitorName: automation.name, targetUrl: automation.target_url, timeoutSeconds: automation.timeout_seconds, formatUnknown: true }), { cause: error }), { certificate })
     }
     const { exceeded, observed } = evaluated
     const inverted = invertsMonitoringResult(automation)
@@ -104,7 +104,7 @@ async function runJsonCheck(automation: AutomationRow, attempt: number) {
         ?? `JSON ${failed ? 'threshold exceeded' : 'check passed'}: ${rule.path} = ${observed}; alert ${rule.operator} ${rule.value} (${rule.aggregate}).`
     if (failed) {
         const readableMessage = readableMonitoringMessage(message, {
-            monitorName: automation.name, targetUrl: automation.target_url, jsonPayload: snapshot.payload,
+            monitorName: automation.name, targetUrl: automation.target_url, timeoutSeconds: automation.timeout_seconds, jsonPayload: snapshot.payload,
         })
         throw Object.assign(new MonitoringResponseError(readableMessage), { certificate })
     }

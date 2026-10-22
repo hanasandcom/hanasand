@@ -1,7 +1,7 @@
 import { readableMonitoringMessage } from './monitoringMessage.ts'
 type Row = Record<string, any>
 
-type MessageContext = { monitorName?: string | null, targetUrl?: string | null }
+type MessageContext = { monitorName?: string | null, targetUrl?: string | null, timeoutSeconds?: number | null }
 
 export function monitoringCaseResolution(row: Row, context: MessageContext = {}) {
     if (row.resolution) return row.resolution.type === 'automation' && typeof row.resolution.note === 'string'
