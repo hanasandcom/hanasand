@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { runNetworkTool } from './networkToolActions'
 import { runWorkspaceTool } from './workspaceToolActions'
+import postVM from '@/utils/vms/fetch/postVM'
 import type { WorkbenchState } from './useWorkbenchState'
 
 export function useAssistantToolRunner(
@@ -8,7 +9,7 @@ export function useAssistantToolRunner(
     scaffoldStarter: (template: 'nextjs_docker', projectName?: string | null, targetShareId?: string | null) => Promise<void>,
     runTerminalCommand: (shareId: string, command: string, timeoutMs?: number) => Promise<{ ok: boolean, output: string }>
 ) {
-    const { runToolCallRef, hydrateShareRef, setShareContents } = state
+    const { runToolCallRef, hydrateShareRef, setShareContents, setStatusNotice } = state
     useEffect(() => {
         runToolCallRef.current = async (conversation, toolCall) => {
             const networkResult = await runNetworkTool(toolCall)
@@ -18,8 +19,10 @@ export function useAssistantToolRunner(
                 setShareContents,
                 scaffoldStarter,
                 runTerminalCommand,
+                createVm: postVM,
+                setStatusNotice,
             })
             return workspaceResult || { ok: false, message: `Tool failed: unsupported action ${toolCall.action}.` }
         }
-    }, [hydrateShareRef, runToolCallRef, scaffoldStarter, setShareContents, runTerminalCommand])
+    }, [hydrateShareRef, runToolCallRef, scaffoldStarter, setShareContents, runTerminalCommand, setStatusNotice])
 }

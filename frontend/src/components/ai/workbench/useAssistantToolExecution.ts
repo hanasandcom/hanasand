@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { parseToolCalls } from './toolTags'
+import { resolveAssistantToolCalls } from './toolTags'
 import { updateConversationState } from './conversationModel'
 import type { WorkbenchState } from './useWorkbenchState'
 
@@ -10,7 +10,7 @@ export function useAssistantToolExecution(
     const { executeAssistantToolsRef, runToolCallRef, conversationsRef, setConversations } = state
     useEffect(() => {
         executeAssistantToolsRef.current = async (conversation, message) => {
-            const toolCalls = parseToolCalls(message.content)
+            const toolCalls = resolveAssistantToolCalls(message.content, conversation)
             if (!toolCalls.length) return
             for (const toolCall of toolCalls) {
                 const latestConversation = conversationsRef.current.find((entry) => entry.id === conversation.id) || conversation

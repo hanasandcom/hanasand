@@ -13,9 +13,11 @@ export async function runWorkspaceTool(
         setShareContents: React.Dispatch<React.SetStateAction<Record<string, string>>>
         scaffoldStarter: (template: 'nextjs_docker', projectName?: string | null, targetShareId?: string | null) => Promise<void>
         runTerminalCommand: (shareId: string, command: string, timeoutMs?: number) => Promise<{ ok: boolean, output: string }>
+        createVm: typeof postVM
+        setStatusNotice: (message: string) => void
     }
 ): Promise<ToolResult | null> {
-    const { hydrateShare, setShareContents, scaffoldStarter, runTerminalCommand } = dependencies
+    const { hydrateShare, setShareContents, scaffoldStarter, runTerminalCommand, createVm, setStatusNotice } = dependencies
     if (toolCall.action === 'read_share') {
         const shareId = toolCall.shareId || conversation.workspaceId || conversation.shareIds[0]
         if (!shareId) return { ok: false, message: 'Tool failed: no share is attached to this conversation.' }
@@ -39,16 +41,30 @@ export async function runWorkspaceTool(
     }
     if (toolCall.action === 'create_vm') {
         const vmName = slugify(toolCall.vmName || toolCall.projectName || conversation.title || 'hanasand-project')
-        const result = await postVM({ name: vmName })
+        const result = await createVm({ name: vmName })
         return { ok: result.status < 400 || result.status === 409, message: result.message }
     }
     if (toolCall.action === 'create_project') {
         const projectName = toolCall.projectName || conversation.title || 'hanasand-project'
         const vmName = slugify(toolCall.vmName || projectName)
-        const result = await postVM({ name: vmName })
-        if (result.status >= 400 && result.status !== 409) return { ok: false, message: result.message }
         await scaffoldStarter('nextjs_docker', projectName, toolCall.shareId || conversation.workspaceId || null)
-        return { ok: true, message: `Created project workspace for ${projectName} and prepared launch target ${vmName}. ${result.message}` }
+        setStatusNotice(`Provisioning ${vmName} with Node.js and Docker...`)
+        const result = await createVm({
+            name: vmName,
+            os: 'ubuntu-24.04',
+            resources: { cpu: '1', memory: '2GiB', disk: '10GiB' },
+            services: ['nodejs', 'docker'],
+        })
+        if (result.status >= 400) {
+            return {
+                ok: false,
+                message: `Created the ${projectName} workspace, but VM provisioning could not start: ${result.message}`,
+            }
+        }
+        return {
+            ok: true,
+            message: `Created the ${projectName} workspace and requested VM ${vmName} with Node.js and Docker. VM setup is provisioning in the background; check its status before running the app.`,
+        }
     }
     if (toolCall.action === 'run_terminal_command') {
         const shareId = toolCall.shareId || conversation.workspaceId || conversation.shareIds[0]

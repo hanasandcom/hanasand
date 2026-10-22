@@ -57,6 +57,7 @@ export const productTasks: TestTask[] = [
     { id: 'ai-github-requests', title: 'AI GitHub request and error contracts', command: [bun, 'test', 'tests/ai-github-requests.test.ts'] },
     { id: 'share-git-workspace-operations', title: 'Share Git operation lifecycle and sync metadata', command: [bun, 'test', 'tests/share-git-workspace-operations.test.ts'] },
     { id: 'ai-tool-completion-text', title: 'AI tool completion messages stay consistent across browser flows', command: [bun, 'test', 'tests/ai-project-tools/toolCompletionText.test.ts'] },
+    { id: 'ai-project-creation', title: 'AI creates requested Next.js workspaces and provisions their VM with required services', command: [bun, 'test', 'tests/ai-project-tools/projectCreation.test.ts'] },
     { id: 'ai-conversation-title', title: 'Shared AI conversation title normalization', command: [bun, 'test', 'tests/ai-conversation-title.test.ts'] },
     { id: 'ai-runtime-state', title: 'AI runtime state selects the newest matching message', command: [bun, 'test', 'tests/ai-runtime-state.test.ts'] },
     { id: 'ai-conversation-state-sync', title: 'AI conversation state and live ref remain synchronized', command: [bun, 'test', 'tests/ai-conversation-state-sync.test.ts'] },
