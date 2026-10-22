@@ -13,7 +13,7 @@ import { provisionLocalLxdInstance } from '#utils/vms/lxd.ts'
 import { clearLocalProvisionState, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
-import { isSupportedSetupService, supportedSetupServices, type SupportedVmSetupService } from '#utils/vms/supportedSetupServices.ts'
+import { isSupportedSetupService, supportedSetupServices } from '#utils/vms/supportedSetupServices.ts'
 import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
 import { isVmWebsitePlan, renderVmWebsite } from '#utils/vms/website.ts'
 import { normalizeNextjsProjectFiles } from '#utils/vms/nextjsProject.ts'
@@ -124,7 +124,6 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             if (existing && !canAssignOwner) {
                 if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
-                await ensureSetupPublicRoutes(name, actorId, provisionOptions.services || [], Boolean(provisionOptions.nextjsProjectFiles?.length))
                 await queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
                 return res.status(201).send(existing)
             }
@@ -145,7 +144,6 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 RETURNING *
             `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
-                if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || nextCreatedBy, provisionOptions.services || [], Boolean(provisionOptions.nextjsProjectFiles?.length))
                 if (body.provision_local !== false) await queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
 
                 await recordSystemEvent(req, {
@@ -205,7 +203,6 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
             if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
-            if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || created_by, provisionOptions.services || [], Boolean(provisionOptions.nextjsProjectFiles?.length))
             if (body.provision_local !== false) await queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
 
             await recordSystemEvent(req, {
@@ -237,22 +234,6 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         void recordVmProvisioningError(name || 'unknown', error, 'create_or_provision')
         if (error instanceof VmProvisionQueueError) return res.status(503).send({ error: error.message })
         return res.status(500).send({ error: 'Internal server error' })
-    }
-}
-
-async function ensureSetupPublicRoutes(vmName: string, createdBy: string, services: SupportedVmSetupService[], hasNextjsProject = false) {
-    const defaults = [
-        ...(services.includes('website') ? [{ type: 'http', port: 80, prefix: 'site' }] : []),
-        ...(hasNextjsProject ? [{ type: 'http', port: 3000, prefix: 'app' }] : []),
-        ...(services.includes('minecraft-java') ? [{ type: 'minecraft-java', port: 25565, prefix: 'mc' }] : []),
-    ]
-    for (const route of defaults) {
-        const existing = await run('SELECT 1 FROM vm_public_ports WHERE vm_name = $1 AND route_type = $2 AND guest_port = $3 LIMIT 1', [vmName, route.type, route.port])
-        if (existing.rows.length) continue
-        const routeName = route.prefix === 'app'
-            ? `app-${vmName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 36)}`
-            : `${route.prefix}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`
-        await run('INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by, short_hostname) VALUES ($1, $2, $3, $4, $5, TRUE)', [vmName, routeName, route.type, route.port, createdBy])
     }
 }
 

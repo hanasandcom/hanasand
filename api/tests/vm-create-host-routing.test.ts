@@ -94,7 +94,7 @@ test('VM creation forwards the selected OS and services to its assigned host', a
     })
 })
 
-test('Next.js creation forwards bounded project files to the assigned VM host and opens port 3000', async () => {
+test('Next.js creation forwards bounded project files to the assigned VM host', async () => {
     const projectFiles = [
         {
             path: 'package.json',
@@ -117,9 +117,7 @@ test('Next.js creation forwards bounded project files to the assigned VM host an
         minecraftEulaAccepted: false,
         nextjsProjectFiles: projectFiles,
     })
-    expect(databaseCalls.find(call => call.sql.includes('INSERT INTO vm_public_ports'))?.params).toEqual([
-        'next-demo', 'app-next-demo', 'http', 3000, 'member',
-    ])
+    expect(databaseCalls.every(call => !call.sql.includes('INSERT INTO vm_public_ports'))).toBe(true)
 })
 
 test('VM creation rejects unsafe or incomplete Next.js project manifests before provisioning', async () => {
@@ -213,10 +211,7 @@ test('AI website content is escaped before it crosses the authenticated host bou
     expect(forwarded.websiteHtml).toContain('<figcaption>Still life</figcaption>')
     expect(forwarded.websiteHtml).toContain('href="mailto:hello%40example.com"')
     expect(forwarded.websiteHtml).not.toContain('<script>')
-    const routeInsert = databaseCalls.find(call => call.sql.includes('INSERT INTO vm_public_ports'))
-    expect(routeInsert?.params[0]).toBe('remote-vm')
-    expect(String(routeInsert?.params[1])).toMatch(/^site-[a-f0-9]{16}$/)
-    expect(routeInsert?.params.slice(2)).toEqual(['http', 80, 'member'])
+    expect(databaseCalls.every(call => !call.sql.includes('INSERT INTO vm_public_ports'))).toBe(true)
 
     const invalid = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
@@ -231,7 +226,7 @@ test('AI website content is escaped before it crosses the authenticated host bou
     expect(unsafeImage.statusCode).toBe(400)
 })
 
-test('Minecraft setup creates its port-443 public route with the guest server port', async () => {
+test('Minecraft setup leaves public port selection to the VM hostname and guest listener', async () => {
     const response = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
         payload: {
@@ -242,8 +237,7 @@ test('Minecraft setup creates its port-443 public route with the guest server po
     })
 
     expect(response.statusCode).toBe(201)
-    const routeInsert = databaseCalls.find(call => call.sql.includes('INSERT INTO vm_public_ports'))
-    expect(routeInsert?.params).toEqual(['survival', expect.stringMatching(/^mc-[a-f0-9]{16}$/), 'minecraft-java', 25565, 'member'])
+    expect(databaseCalls.every(call => !call.sql.includes('INSERT INTO vm_public_ports'))).toBe(true)
     expect(calls[0]?.body).toContain('"minecraftServerType":"PAPER"')
 })
 

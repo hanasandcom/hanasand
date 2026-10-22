@@ -1,19 +1,16 @@
 import config from '@/config'
 import { getCookie } from 'hanasand/cookies'
 
-export type VmPublicService = { id: string, name: string, type: 'minecraft-java' | 'tls' | 'http', port: number, hostname: string, createdAt: string }
-export type VmPublicServicesResponse = { services: VmPublicService[], canManage: boolean }
+export type VmPublicServicesResponse = { hostname: string, portAlias: string, note: string }
 
-export async function requestVmPublicServices(vmName: string, method: 'GET' | 'POST' | 'DELETE', data?: unknown) {
+export async function requestVmPublicServices(vmName: string) {
     const token = getCookie('access_token')
     const userId = getCookie('id')
-    if (!token || !userId) throw new Error('Sign in again to manage public services.')
-    const response = await fetch(`${config.url.api}/vm/${encodeURIComponent(vmName)}/public-services${method === 'DELETE' && data ? `/${encodeURIComponent(String(data))}` : ''}`, {
-        method,
-        headers: { Authorization: `Bearer ${token}`, id: userId, ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) },
-        body: method === 'POST' ? JSON.stringify(data) : undefined,
+    if (!token || !userId) throw new Error('Sign in again to view the VM public address.')
+    const response = await fetch(`${config.url.api}/vm/${encodeURIComponent(vmName)}/public-services`, {
+        headers: { Authorization: `Bearer ${token}`, id: userId },
     })
     const result = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Unable to update public services.')
-    return result as VmPublicServicesResponse | VmPublicService | { ok: true }
+    if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Unable to load the VM public address.')
+    return result as VmPublicServicesResponse
 }

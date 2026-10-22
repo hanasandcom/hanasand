@@ -95,13 +95,13 @@ export async function runWorkspaceTool(
 
         if (state?.status.toLowerCase() === 'running') {
             const preview = await (dependencies.getProjectPreview || (async (name: string) => {
-                const result = await requestVmPublicServices(name, 'GET')
-                return 'services' in result ? result.services.find((service) => service.port === 3000 && service.type === 'http')?.hostname || null : null
+                const result = await requestVmPublicServices(name)
+                return result.portAlias.replace('<port>', '3000')
             }))(vmName).catch(() => null)
             return {
                 ok: Boolean(preview),
                 message: preview
-                    ? `Created ${projectName}, installed its dependencies, built it, and confirmed the app responds on the VM. Preview: https://${preview}`
+                    ? `Created ${projectName}, installed its dependencies, built it, and confirmed the app responds on the VM. Preview: http://${preview}`
                     : `Created ${projectName} and confirmed the VM reports the app build and startup complete, but the public preview address could not be read. Check VM ${vmName}'s public services.`,
             }
         }

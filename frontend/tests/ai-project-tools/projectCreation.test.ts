@@ -49,7 +49,7 @@ test('creates the repository and runs a Next.js app in an Ubuntu VM', async () =
         },
         setStatusNotice: (message) => statusCalls.push(message),
         getProjectStatus: async () => ({ status: 'running' }),
-        getProjectPreview: async () => 'demo-app.hanasand.com',
+        getProjectPreview: async () => '3000-demo-app.hanasand.com',
     })
 
     expect(result?.ok).toBe(true)
@@ -63,7 +63,7 @@ test('creates the repository and runs a Next.js app in an Ubuntu VM', async () =
     }])
     expect(statusCalls).toEqual(['Creating demo-app, installing dependencies, building the app, and starting the preview...'])
     expect(result?.message).toContain('confirmed the app responds on the VM')
-    expect(result?.message).toContain('https://demo-app.hanasand.com')
+    expect(result?.message).toContain('http://3000-demo-app.hanasand.com')
 })
 
 test('does not report a pre-existing VM as newly provisioned', async () => {
