@@ -10,7 +10,7 @@
 
 ## Workflow and coordination
 
-- Shared task workflows: use the personal [Compress repository](../compress/README.md) and its relevant workflow. This file keeps Hanasand-specific context and tailoring.
+- Shared task workflows: use the adopted Compress workflows and their relevant references. This file keeps Hanasand-specific context and tailoring.
 - Local tailoring: optional role, handoff, and experience records are used when a task or project has them; they are not mandatory files for every change.
 - For small, cohesive changes, work directly. For broad reviews/refactors, use parallel agents early for genuinely independent areas; keep a ready queue of authorized work, monitor results, and reassign useful follow-up or review work while it remains. Do not serialize independent reviews behind one agent or create busywork when no useful work remains.
 - Give every agent exclusive file/path ownership or an isolated worktree. In a shared checkout, do not allow concurrent edits to the same paths. Assign independent review to a different agent from the author. Use traditional Norwegian given names for delegated agents, as requested by the owner.
