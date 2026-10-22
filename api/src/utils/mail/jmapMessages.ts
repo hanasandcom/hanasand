@@ -1,6 +1,6 @@
 import type { MailAttachment, MailMessage, MailMessageSummary } from './types.ts'
 import type { EmailRecord, JmapSession } from './jmapTypes.ts'
-import { attributeContactSenders, contactTicketId } from './contactSender.ts'
+import { attributeContactSenders } from './contactSender.ts'
 import { normalizeMessageText, stripHtml } from './helpers.ts'
 import { getMailSession, jmapCall } from './jmapSession.ts'
 
@@ -34,14 +34,9 @@ async function queryMessagePageWithSession(username: string, password: string, s
     const pageIds = ids.slice(0, limit)
     const messages = pageIds.length ? await getEmailsByIds(username, password, session, accountId, pageIds, false) : []
     const byId = new Map(messages.map(message => [message.id, message]))
-    const contactCandidates = messages.filter(message => contactTicketId(message))
-    const contactDetails = contactCandidates.length
-        ? await getEmailsByIds(username, password, session, accountId, contactCandidates.map(message => message.id))
-        : []
-    const contactById = new Map(contactDetails.map(message => [message.id, message]))
     return {
         messages: pageIds.flatMap(id => {
-            const message = contactById.get(id) || byId.get(id)
+            const message = byId.get(id)
             return message ? [toSummary(message)] : []
         }),
         nextCursor: ids.length > limit ? pageIds.at(-1)! : null,

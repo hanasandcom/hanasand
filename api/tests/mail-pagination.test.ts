@@ -34,6 +34,30 @@ test('a missing anchor is an error, not a false empty mailbox', async () => {
     await expect(listMessagePage('user', 'secret', 'inbox', 'deleted')).rejects.toThrow('Mail request failed')
 })
 
+test('contact-ticket summaries avoid body fetches and leave sender attribution for message open', async () => {
+    const emailRequests: Record<string, unknown>[] = []
+    globalThis.fetch = (async (_url, init) => {
+        if (!init?.body) return Response.json({ apiUrl: 'http://localhost/jmap', primaryAccounts: { 'urn:ietf:params:jmap:mail': 'account' } })
+        const [method, args] = JSON.parse(String(init.body)).methodCalls[0]
+        if (method === 'Email/query') return Response.json({ methodResponses: [[method, { ids: ['contact-ticket'] }, 'q']] })
+        emailRequests.push(args)
+        return Response.json({ methodResponses: [[method, { list: [{
+            id: 'contact-ticket',
+            subject: '[HS-20261021-BFA59C81] Contact request',
+            from: [{ email: 'noreply@hanasand.com', name: 'Hanasand' }],
+            preview: 'Ticket details',
+        }] }, 'get']] })
+    }) as typeof fetch
+
+    const page = await listMessagePage('user', 'secret', 'inbox')
+
+    expect(page.messages).toHaveLength(1)
+    expect(page.messages[0].from).toEqual([{ email: 'noreply@hanasand.com', name: 'Hanasand' }])
+    expect(emailRequests).toHaveLength(1)
+    expect(emailRequests[0].properties).not.toContain('bodyValues')
+    expect(emailRequests[0]).not.toHaveProperty('fetchAllBodyValues')
+})
+
 test('mail search scopes JMAP text search to the selected mailbox and paginates', async () => {
     let queryArgs: Record<string, unknown> | undefined
     globalThis.fetch = (async (_url, init) => {

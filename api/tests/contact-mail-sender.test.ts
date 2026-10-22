@@ -29,6 +29,7 @@ describe('contact notification attribution', () => {
             { ...message(), from: [{ email: 'attacker@example.com' }] },
             { ...message(), subject: `[${contact.ticket_id}] Other subject` },
             { ...message(), bodyValues: { '1': { value: 'Unrelated content' } } },
+            { ...message(), textBody: [], bodyValues: {} },
         ]) {
             const before = structuredClone(altered)
             applyContactSender(altered, contact)
