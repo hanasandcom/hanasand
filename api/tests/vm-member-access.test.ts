@@ -10,7 +10,7 @@ mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: a
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async (req: any) => ({ valid: req.headers.id === 'admin' }) }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false }))
 mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
-mock.module('../src/utils/vms/lxd.ts', () => ({ lxdRequest: async () => { throw new Error('Unexpected host inventory') }, refreshLocalLxdDetails: async () => { throw new Error('Unexpected host refresh') }, getLocalLxdInstance: async () => ({ config: {} }), updateLocalLxdConfig: async () => {}, canUseLocalLxd: async () => true, provisionLocalLxdInstance: async (name: string) => { provisioned = name } }))
+mock.module('../src/utils/vms/lxd.ts', () => ({ lxdRequest: async () => { throw new Error('Unexpected host inventory') }, lxdProjectPath: (path: string) => path, refreshLocalLxdDetails: async () => { throw new Error('Unexpected host refresh') }, getLocalLxdInstance: async () => ({ config: {} }), updateLocalLxdConfig: async () => {}, canUseLocalLxd: async () => true, provisionLocalLxdInstance: async (name: string) => { provisioned = name } }))
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
     internalHostFetch: async (_host: string, path: string) => {
         const match = /^\/vms\/internal\/([^/]+)\/provision$/.exec(path)
