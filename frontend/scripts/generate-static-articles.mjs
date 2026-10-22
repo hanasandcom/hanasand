@@ -3,7 +3,8 @@ import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join, resolve, relative } from 'node:path'
 
 const repoRoot = process.env.HANASAND_REPO_ROOT || resolve(process.cwd(), '..')
-const articlesDirectory = join(repoRoot, 'articles')
+const articlesRepoRoot = resolve(process.env.ARTICLES_SOURCE_REPO_PATH || join(repoRoot, '..', 'articles'))
+const articlesDirectory = join(articlesRepoRoot, 'articles')
 const outputPath = resolve(process.cwd(), 'src/utils/articles/staticArticles.json')
 const filenames = (await readdir(articlesDirectory)).filter((filename) => filename.endsWith('.md')).sort()
 const previousArticles = await readPreviousArticles(outputPath)
@@ -16,9 +17,9 @@ const articles = await Promise.all(filenames.map(async (filename) => {
     const source = await readFile(filePath, 'utf8')
     const { metadata, content } = parseMarkdown(source)
     const heading = content.match(/^#\s+(.*)$/m)?.[1]?.trim() || 'Untitled'
-    const relativePath = relative(repoRoot, filePath)
-    const created = gitDate(repoRoot, ['log', '--diff-filter=A', '--follow', '--format=%aI', '--', relativePath])
-    const modified = gitDate(repoRoot, ['log', '-1', '--format=%aI', '--', relativePath])
+    const relativePath = relative(articlesRepoRoot, filePath)
+    const created = gitDate(articlesRepoRoot, ['log', '--diff-filter=A', '--follow', '--format=%aI', '--', relativePath])
+    const modified = gitDate(articlesRepoRoot, ['log', '-1', '--format=%aI', '--', relativePath])
     const fallbackDate = (await stat(filePath)).mtime.toISOString()
     const previous = previousById.get(filename)
     const wordCount = content.trim().split(/\s+/).filter(Boolean).length

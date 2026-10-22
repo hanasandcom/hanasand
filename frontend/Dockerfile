@@ -1,4 +1,5 @@
 FROM oven/bun:1.3.11 AS deps
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 COPY .git/HEAD /tmp/hanasand-source-head
 RUN test "$(cat /tmp/hanasand-source-head)" = "ref: refs/heads/main" || { echo "Production image builds are allowed only from the main branch." >&2; exit 1; }
 
@@ -15,11 +16,16 @@ FROM deps AS builder
 WORKDIR /workspace/frontend
 ARG HANASAND_RELEASE_COMMIT=unknown
 ARG FRONTEND_INTERNAL_API=http://api:8080/api
+ARG ARTICLES_REPO_URL=https://github.com/hanasandcom/articles.git
+ARG ARTICLES_REPO_BRANCH=main
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV FRONTEND_INTERNAL_API=$FRONTEND_INTERNAL_API
 ENV HANASAND_REPO_ROOT=/repository
+ENV ARTICLES_SOURCE_REPO_PATH=/articles-source
 ENV NEXT_PUBLIC_HANASAND_RELEASE_COMMIT=$HANASAND_RELEASE_COMMIT
+
+RUN git clone --branch "$ARTICLES_REPO_BRANCH" "$ARTICLES_REPO_URL" "$ARTICLES_SOURCE_REPO_PATH"
 
 # The deploy test index intentionally checks a few cross-package contracts
 # before building. Keep the Docker build context at the repository root so

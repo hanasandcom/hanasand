@@ -7,8 +7,6 @@
 !api/**
 !docker-compose.yml
 !docker-compose.api.yml
-!articles/
-!articles/**
 frontend/node_modules
 frontend/node_modules/**
 frontend/.next

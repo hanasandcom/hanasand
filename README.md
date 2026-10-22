@@ -6,7 +6,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 
 | Component | Source | Responsibility |
 | --- | --- | --- |
-| Frontend | `frontend/` | Public pages, dashboard including native mail at `/mail`, AI editor, shared projects, articles, notes and thesis |
+| Frontend | `frontend/` | Public pages, dashboard including native mail at `/mail`, AI editor, shared projects, the static archive generated from the [Articles repository](https://github.com/hanasandcom/articles), notes and thesis |
 | API | `api/` | Authorization, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
 | Identity | [Identity repository](https://github.com/hanasandcom/identity) | Login, sessions, password reset, passkeys, social/SSO and signup; separate workers, using the existing account database through PgBouncer |
 | Threat intelligence | [TI repository](https://github.com/hanasandcom/ti) | Standalone web application and API; source collection, evidence, search, alerts and investigation cases run with a dedicated database and scraper |
