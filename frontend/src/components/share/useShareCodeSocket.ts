@@ -138,7 +138,6 @@ export function useShareCodeSocket({
             console.log('WebSocket error:', error)
             setIsConnected(false)
         }
-
         const messageContext = {
             latestContentRef,
             saveStateRef,
@@ -153,12 +152,10 @@ export function useShareCodeSocket({
             onSaveStateChange,
         }
         ws.onmessage = event => handleShareCodeMessage(event.data, messageContext)
-
         return () => {
             ws.close()
         }
     }, [enabled, onSaveStateChange, reconnect, setConflict, setEditingContent, setIsConnected, setParticipants, setPresenceUsers, setRemoteNotice, setSelfClientId, setShare, shareId])
-
     function sendEdit(content: string) {
         if (wsRef.current?.readyState !== WebSocket.OPEN) {
             pendingEditRef.current = content
@@ -166,7 +163,6 @@ export function useShareCodeSocket({
             onSaveStateChange?.('queued')
             return 'queued'
         }
-
         const target = wsRef.current
         void (async () => {
             try {
@@ -185,7 +181,6 @@ export function useShareCodeSocket({
         if (wsRef.current?.readyState !== WebSocket.OPEN) {
             return
         }
-
         const { line, column } = getCursorPosition(content, selectionStart)
         wsRef.current.send(JSON.stringify({
             type: 'cursor',
