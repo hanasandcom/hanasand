@@ -56,7 +56,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
             ]),
             group('Security tools', [
                 link('Sandbox', '/sandbox'),
-                link('Security Scanner', canManageSystem ? '/scanner' : '/solutions/scanner'),
+                link('Security Scanner', '/scanner'),
                 link('Check Password', '/pwned'),
                 link('Load test', '/test'),
             ]),
@@ -93,7 +93,6 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
             ]),
             group('Health', [
                 link('AI Metrics', '/system/ai', canManageSystem),
-                link('Vulnerabilities', '/vulnerabilities', canManageSystem),
                 link('Rate Limits', '/system/rates', isAdmin),
                 link('Load Testing', '/load-testing', canManageSystem),
             ]),

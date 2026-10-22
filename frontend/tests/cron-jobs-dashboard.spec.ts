@@ -22,12 +22,6 @@ test('cron jobs dashboard renders unified scheduled operations and controls', as
             : { ...fixtureJobs[0], enabled: false, status: 'paused' }
         await route.fulfill({ json: { job: nextJob, jobs: [nextJob, ...fixtureJobs.slice(1)] } })
     })
-    await page.route('**/api/backend/system/cron/api-vulnerability-scanner**', async route => {
-        updates.push(await route.request().postDataJSON())
-        const scanner = fixtureJobs.find(job => job.id === 'api-vulnerability-scanner')!
-        const nextScanner = { ...scanner, status: 'running', running: true }
-        await route.fulfill({ json: { job: nextScanner, jobs: fixtureJobs.map(job => job.id === 'api-vulnerability-scanner' ? nextScanner : job) } })
-    })
     await page.route('**/api/backend/system/cron/ti-source-pack-worker**', async route => {
         updates.push(await route.request().postDataJSON())
         const sourcePack = fixtureJobs.find(job => job.id === 'ti-source-pack-worker')!
@@ -45,17 +39,14 @@ test('cron jobs dashboard renders unified scheduled operations and controls', as
     await page.goto('/automation/cron', { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByRole('heading', { name: 'Cron jobs' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '1 job needs review' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'All scheduled jobs operating normally' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Next safe action' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Public TI collection loop' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Exposure parser bridge' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'DWM source-pack worker' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'DWM alert generation readiness' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Vulnerability image scanner' })).toBeVisible()
-    await expect(page.getByRole('link', { name: /Vulnerability image scanner/ })).toContainText('Docker socket is unavailable at /var/run/docker.sock')
     await expect(page.getByText(/Last success/).first()).toBeVisible()
-    await expect(page.getByText('blocked', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'DWM exposure queue collection' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Forgejo standby sync' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Alerts' })).toBeVisible()

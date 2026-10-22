@@ -11,7 +11,6 @@ test('detects scheduler declarations without treating cron references as recurri
     expect(isScheduledCodeCandidate('schedule(\'* * * * *\', refresh)')).toBe(true)
     expect(isScheduledCodeCandidate('setInterval(refresh, 30000)')).toBe(true)
     expect(isScheduledCodeCandidate('targetUrl?.startsWith(\'system:cron:\')')).toBe(false)
-    expect(isScheduledCodeCandidate('export async function runDueWebScan() {}')).toBe(false)
     expect(isScheduledCodeCandidate('description: \'Persisted daily UTC schedule (checked every minute)\'')).toBe(false)
 })
 

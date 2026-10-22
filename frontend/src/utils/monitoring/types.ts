@@ -80,10 +80,6 @@ export type GetVulnerabilities = {
     legacyImportComplete?: boolean
 }
 
-export type WebScanSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
-export type WebScanCheck = { id: string, status: string, severity: WebScanSeverity, title: string, explanation?: string, evidence: Record<string, unknown> }
-export type WebScanRun = { scanId: string, status: string, startedAt: string, finishedAt: string | null, durationMs: number | null, target: string, targets: Array<{ target: string, status: string, checks: WebScanCheck[], ports: Array<{ port: number, open: boolean, elapsedMs: number }> }>, severityCounts: Record<WebScanSeverity, number>, error: string | null }
-export type WebScanReport = { current: WebScanRun | null, history: WebScanRun[], schedule: { enabled: boolean, intervalMinutes: number, nextRunAt: string | null, lastRunAt: string | null, target: string, scope: 'global' }, error: string | null }
 
 export type UvmAsset = {
     id: string
@@ -96,8 +92,9 @@ export type UvmAsset = {
     scanAuthorizedAt: string | null
     authorizedAddresses: string[]
     scheduleEnabled: boolean
-    scheduleEngine: 'nmap' | 'tenable-vm'
+    scheduleEngine: 'nmap' | 'tenable-vm' | 'gvm'
     scheduleScanId: string | null
+    scheduleProfile: 'tcp-top-100' | 'tcp-top-1000'
     intervalMinutes: number
     nextRunAt: string | null
     createdAt: string
@@ -110,7 +107,7 @@ export type UvmTenableIntegration = { provider: 'tenable-vm', configured: boolea
 export type UvmTenableScan = { id: string, scheduleUuid: string | null, name: string, enabled: boolean, status: string | null, scannerName: string | null, targets: string }
 export type UvmFinding = { id: string, assetId: string | null, asset: string, address: string | null, engine: string, externalId: string, title: string, severity: string, cvssScore: number | null, cveIds: string[], description: string | null, solution: string | null, evidence: string | null, status: 'open' | 'in_progress' | 'pending_verification' | 'accepted_risk' | 'false_positive' | 'resolved', triageNote: string | null, firstSeen: string | null, lastSeen: string | null, updatedAt: string }
 export type UvmRun = { id: string, scannerRunId: string | null, requestId: string, assetId: string, target: string, engine: string, profile: string, source: 'manual' | 'scheduled', status: string, createdAt: string, startedAt: string | null, finishedAt: string | null, error: string | null, hosts: UvmHost[], findings?: UvmTenableFinding[], engineVersion: string | null, rawXmlSha256: string | null, coverage: { known?: boolean, requestedAddresses?: number, attemptedAddresses: number, completedAddresses: number, completedAddressList?: string[], missingAddresses?: string[], unattemptedAddresses?: string[], openPorts?: number } | null }
-export type UvmAssessment = { id: string, requestId: string, status: 'queued' | 'running' | 'succeeded' | 'partial' | 'failed' | 'cancelled', createdAt: string, startedAt: string | null, finishedAt: string | null, jobs: Array<{ id: string, assetId: string, asset: string, engine: 'nmap' | 'tenable-vm' | 'gvm', profile: string, runId: string | null, status: string, error: string | null, createdAt: string, startedAt: string | null, finishedAt: string | null }> }
+export type UvmAssessment = { id: string, requestId: string, status: 'queued' | 'running' | 'cancelling' | 'succeeded' | 'partial' | 'failed' | 'cancelled', createdAt: string, startedAt: string | null, finishedAt: string | null, jobs: Array<{ id: string, assetId: string, asset: string, engine: 'nmap' | 'tenable-vm' | 'gvm', profile: string, stageIndex: number, stage: string, runId: string | null, status: string, error: string | null, attemptCount: number, nextAttemptAt: string | null, createdAt: string, startedAt: string | null, finishedAt: string | null }> }
 export type UvmDashboard = { assets: UvmAsset[], engines: UvmEngine[], runs: UvmRun[], assessments: UvmAssessment[], scannerError: string | null, tenableIntegration: UvmTenableIntegration | null, tenableScans: UvmTenableScan[], findings: UvmFinding[] }
 
 export type TrafficMetric = {

@@ -11,7 +11,7 @@ export function assertOfflineRegistry(jobs: ScheduledJobs) {
         'ti-public-canary-collection', 'ti-restricted-metadata-collection',
         'ti-exposure-queue-collection', 'ti-exposure-parser', 'ti-dwm-alert-generation',
         'ti-automatic-review', 'ti-automatic-evaluation', 'api-agent-automations',
-        'api-vulnerability-scanner', 'api-database-backup',
+        'api-database-backup',
     ]
     for (const id of registeredIds) assert.ok(byId.has(id), `${id} should be registered.`)
 
@@ -38,10 +38,6 @@ export function assertOfflineRegistry(jobs: ScheduledJobs) {
     assert.equal(byId.get('api-hot-cache-refresh')?.controlMode, 'observable_only', 'Fastify cache refresh stays audit-only because it needs server instance state.')
     assert.equal(byId.get('ti-source-pack-worker')?.controlMode, 'run_only', 'Source-pack worker should expose the existing pack_worker_run contract.')
     assert.ok(byId.get('ti-source-pack-worker')?.controls.includes('run_now'), 'Source-pack worker should expose safe run-now control.')
-    assert.equal(byId.get('api-vulnerability-scanner')?.controlMode, 'safe_control')
-    assert.ok(byId.get('api-vulnerability-scanner')?.controls.includes('run_now'), 'Vulnerability scanner should expose manual run control.')
-    assert.equal(byId.get('api-vulnerability-scanner')?.status, 'blocked', 'A never-run vulnerability scanner should be visible as blocked/stale.')
-    assert.match(byId.get('api-vulnerability-scanner')?.lastError || '', /No vulnerability scan has completed|Docker|Scout|socket|Previous vulnerability scan|HANASAND_SCANNER_URL is not configured/, 'Vulnerability scanner should expose the stale reason or exact scanner blocker.')
     assert.equal(byId.get('api-database-backup')?.category, 'Backup/Database')
     assert.equal(byId.get('api-database-backup')?.schedule, '23 2 * * * UTC')
     assert.ok(byId.get('api-database-backup')?.controls.includes('resume'), 'Disabled backup schedule should expose a persisted resume control.')

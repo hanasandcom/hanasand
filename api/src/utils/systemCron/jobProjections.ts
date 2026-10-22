@@ -1,7 +1,6 @@
 import { getBackgroundJobRuntime, type BackgroundJobRuntime } from '../backgroundJobRuntime.ts'
 import { canRunApiCronJobNow, isApiCronJobPaused } from '../cron.ts'
 import { collectDatabaseBackupServices, DATABASE_BACKUP_JOB_ID } from '../db/backups.ts'
-import { getVulnerabilityReport } from '../vulnerabilities/scanner.ts'
 import { ageMs, costEstimate, scheduledJobControlMode } from './jobMetrics.ts'
 import type { ApiBackgroundJobDefinition } from './apiJobDefinitions/types.ts'
 import type { ScheduledJobControl, UnifiedScheduledJob } from './types.ts'
@@ -118,47 +117,5 @@ async function databaseBackupScheduledJob(definition: ApiBackgroundJobDefinition
         },
         costEstimate: costEstimate(18, 'Uses the shared API process and PostgreSQL client during an active operation.'),
         assumptions: ['Schedule, next run, attempt, success, failure, and retention evidence come from the persisted backup ledger.'],
-    }
-}
-
-
-export async function vulnerabilityScannerJob(definition: ApiBackgroundJobDefinition): Promise<UnifiedScheduledJob> {
-    const telemetry = getBackgroundJobRuntime(definition.id)
-    const report = await getVulnerabilityReport()
-    const scan = report.scanStatus
-    const enabled = scan.enabled && !scan.paused
-    const running = telemetry.running || scan.isRunning
-    const issue = scan.blocker || scan.lastError || scan.staleReason || telemetry.lastError
-    return {
-        ...apiBackgroundJobDefinitionFields(definition, 'hanasand-scanner'),
-        schedule: scan.schedule || definition.schedule,
-        cadenceSeconds: scan.cadenceSeconds || definition.cadenceSeconds,
-        enabled,
-        running,
-        status: running ? 'running' : !enabled ? 'paused' : scan.blocker || scan.stale ? 'blocked' : scan.lastError ? 'failed' : 'enabled',
-        lastRunAt: telemetry.lastRunAt || scan.startedAt,
-        lastSuccessAt: scan.lastSuccessAt || telemetry.lastSuccessAt,
-        lastFinishedAt: scan.finishedAt || telemetry.lastFinishedAt,
-        nextRunAt: enabled ? scan.nextRunAt : null,
-        currentRunDurationMs: currentDurationMs(telemetry) || (scan.isRunning ? ageMs(scan.startedAt) : null),
-        averageRuntimeMs: telemetry.averageRuntimeMs,
-        failureCount: scan.failureCount || telemetry.failureCount,
-        lastError: issue,
-        logExcerpt: scan.logs.at(-1)?.message || issue || telemetry.logExcerpt,
-        controls: [enabled ? 'pause' : 'resume', 'run_now'],
-        controlMode: 'safe_control',
-        resourceUsage: {
-            scope: 'service',
-            cpuPercent: null,
-            memoryRssMb: null,
-            memoryUsedMb: null,
-            queueDepth: scan.targetCount,
-            note: 'Scanner service CPU is capped by its Compose container; image-level CPU is not exposed by Docker Scout or Trivy.',
-        },
-        costEstimate: costEstimate(20, 'Estimated Scanner service draw while scheduled; exact scanner power is not metered per job.'),
-        assumptions: [
-            'Pause/resume updates the Scanner service schedule; an already-running scan is allowed to finish.',
-            scan.blockerAction || scan.staleReason || 'Trivy and Docker Scout scan local images from the Docker Engine.',
-        ],
     }
 }

@@ -30,7 +30,7 @@ export function ScheduleControl({ asset, props, canSchedule, scheduleEngine, sch
     asset: UvmAsset
     props: AssetViewProps
     canSchedule: boolean
-    scheduleEngine: 'nmap' | 'tenable-vm'
+    scheduleEngine: 'nmap' | 'tenable-vm' | 'gvm'
     scheduleScanId: string
 }) {
     const { data, busy, authorization } = props
@@ -39,10 +39,13 @@ export function ScheduleControl({ asset, props, canSchedule, scheduleEngine, sch
             <input type='number' min='5' max='1440' value={props.intervals[asset.id] ?? String(asset.intervalMinutes)} onChange={event => props.setIntervals(current => ({ ...current, [asset.id]: event.target.value }))} className='h-8 w-28 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text' />
         </label>
         <label className='grid gap-1 text-[11px] text-ui-muted'>Schedule engine
-            <select value={scheduleEngine} onChange={event => props.setScheduleEngines(current => ({ ...current, [asset.id]: event.target.value as 'nmap' | 'tenable-vm' }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'>
-                <option value='nmap'>Nmap · TCP top 100</option><option value='tenable-vm'>Nessus scans via Tenable VM</option>
+            <select value={scheduleEngine} onChange={event => props.setScheduleEngines(current => ({ ...current, [asset.id]: event.target.value as 'nmap' | 'tenable-vm' | 'gvm' }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'>
+                <option value='nmap'>Nmap service inventory</option><option value='gvm'>Greenbone vulnerability scan</option><option value='tenable-vm'>Nessus scan via Tenable VM</option>
             </select>
         </label>
+        {scheduleEngine === 'nmap' && <label className='grid gap-1 text-[11px] text-ui-muted'>Nmap schedule coverage
+            <select value={props.scheduleProfiles[asset.id] || asset.scheduleProfile || 'tcp-top-1000'} onChange={event => props.setScheduleProfiles(current => ({ ...current, [asset.id]: event.target.value as 'tcp-top-100' | 'tcp-top-1000' }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'><option value='tcp-top-1000'>Standard · top 1,000</option><option value='tcp-top-100'>Quick · top 100</option></select>
+        </label>}
         {scheduleEngine === 'tenable-vm' && <label className='grid gap-1 text-[11px] text-ui-muted'>Scheduled Tenable template
             <select value={scheduleScanId} onChange={event => props.setScheduleScanIds(current => ({ ...current, [asset.id]: event.target.value }))} disabled={!data.tenableIntegration?.configured || !data.tenableScans.some(scan => scan.enabled)} className='h-8 min-w-44 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'>
                 <option value=''>Choose an enabled template</option>{data.tenableScans.filter(scan => scan.enabled).map(scan => <option key={scan.id} value={scan.id}>{scan.name}</option>)}

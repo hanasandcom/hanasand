@@ -18,7 +18,6 @@ import { maintainVmFailover, VM_FAILOVER_JOB_ID } from './vms/failover.ts'
 import { monitorVmLifecycle, vmLifecycleMonitorIsConfigured, VM_LIFECYCLE_MONITOR_JOB_ID } from './vms/lifecycleMonitor.ts'
 
 export const HOST_UPDATE_MONITOR_JOB_ID = 'api-host-update-monitor'
-export const WEB_SCAN_JOB_ID = 'api-web-security-scanner'
 
 const apiMinuteCronRunners: Record<string, () => Promise<unknown> | unknown> = {
     [RAW_LOG_RETENTION_JOB_ID]: async() => ({ service: await retainRawLogs(), traffic: await retainTrafficLogs() }),

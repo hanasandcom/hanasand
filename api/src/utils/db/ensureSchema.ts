@@ -13,7 +13,6 @@ import ensureAuthenticationSchema from './authenticationSchema.ts'
 import ensureShareSchema from './shareSchema.ts'
 import ensurePasswordResetSchema from './passwordResetSchema.ts'
 import ensureOperationsMonitoringSchema from './operationsMonitoringSchema.ts'
-import ensureWebScanSchema from './webScanSchema.ts'
 import ensureTrafficDesktopSchema from './trafficDesktopSchema.ts'
 import ensureAgentAutomationSchema from './agentAutomationSchema.ts'
 import ensureCaseDevelopmentSchema from './caseDevelopmentSchema.ts'
@@ -126,6 +125,11 @@ async function ensureIdentityDataBoundaryWithRetry() {
 }
 
 async function applySchema() {
+    // The host-scanning service and its data now live in the Scanner service.
+    // Remove the legacy Hanasand-only tables after their API has been removed.
+    await queryOnce('DROP TABLE IF EXISTS web_scan_findings')
+    await queryOnce('DROP TABLE IF EXISTS web_scan_runs')
+    await queryOnce('DROP TABLE IF EXISTS web_scan_targets')
     await ensurePlatformSchema()
     await ensureLoadTestSchema()
     await ensureBillingSchema()
@@ -138,7 +142,6 @@ async function applySchema() {
     await ensureShareSchema()
     await ensurePasswordResetSchema()
     await ensureOperationsMonitoringSchema()
-    await ensureWebScanSchema()
     await ensureTrafficDesktopSchema()
     await ensureAgentAutomationSchema()
     await ensureCaseDevelopmentSchema()

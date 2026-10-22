@@ -8,6 +8,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | --- | --- | --- |
 | Frontend | `frontend/` | Public pages, dashboard including native mail at `/mail`, AI editor, shared projects, the static archive generated from the [Articles repository](https://github.com/hanasandcom/articles), notes and thesis |
 | API | `api/` | Authorization, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
+| Scanner UI | `frontend/src/app/dashboard/scanner/` | Browser interface at `/scanner`; calls the independent [Scanner service](https://github.com/hanasandcom/scanner) API and does not run scans through the Hanasand API |
 | Logs | [Logs repository](https://github.com/hanasandcom/logs) | Independent log ingestion, PostgreSQL database, API and processing worker. The Hanasand frontend can route supported search, realtime, service, throughput metric and tuning reads directly to Logs when `FRONTEND_LOGS_API_URL` is configured. |
 | Identity | [Identity repository](https://github.com/hanasandcom/identity) | Login, sessions, password reset, passkeys, social/SSO and signup; separate workers, using the existing account database through PgBouncer |
 | Threat intelligence | [TI repository](https://github.com/hanasandcom/ti) | Standalone web application and API; source collection, evidence, search, alerts and investigation cases run with a dedicated database and scraper |

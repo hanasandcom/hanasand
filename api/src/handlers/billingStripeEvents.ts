@@ -4,7 +4,6 @@ import run from '#db'
 const plans = {
     'threat-intelligence': { quotas: { searchesPerDay: 100 }, features: ['actor profiles', 'intelligence search', 'API access', 'saved searches'] },
     monitoring: { quotas: { watchTerms: 25 }, features: ['customer watchlists', 'evidence-backed alerts', 'case workflow', 'source freshness'] },
-    scanner: { quotas: { monitoredTargets: 10 }, features: ['scheduled scans', 'severity findings', 'scan history', 'run-now controls'] },
 } as const
 
 type StripeEvent = { id: string, type?: string, data?: { object?: Record<string, unknown> } }

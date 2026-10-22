@@ -17,7 +17,7 @@ export async function checkScheduledJobRegistry(candidateFiles?: string[]) {
         const message = [
             'Unregistered scheduled/background code candidates:',
             ...unregistered.map(file => `- ${file}`),
-            'Add intentional recurring work to scheduledJobRegistryGuardrailEntries()/listUnifiedScheduledJobs, or add a narrow scanner exception.',
+            'Add intentional recurring work to scheduledJobRegistryGuardrailEntries()/listUnifiedScheduledJobs.',
         ].join('\n')
         throw new Error(message)
     } else {

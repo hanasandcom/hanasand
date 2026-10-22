@@ -23,7 +23,7 @@ const query = async (sql: string, p: any[] = []) => {
     if (sql.includes('SET case_delivery_attempted_at')) {
         expect(sql).toContain('event.ingestion_id = \'logs\'')
         expect(sql).toContain('finding.evidence->>\'restrictedLog\' IS DISTINCT FROM \'true\'')
-        return { rows: findings.filter(row => !row.case_id && row.rule_id !== 'scanner.hanasand_validation.v1' && !row.evidence?.restrictedLog && !events.some(event => event.ingestion_id === 'logs' && event.organization_id === row.organization_id && row.event_ids.includes(event.id))) }
+        return { rows: findings.filter(row => !row.case_id && !row.evidence?.restrictedLog && !events.some(event => event.ingestion_id === 'logs' && event.organization_id === row.organization_id && row.event_ids.includes(event.id))) }
     }
     if (sql.includes('FROM events') && sql.includes('ANY')) {
         expect(p[0]).toBe('org-a')

@@ -31,33 +31,3 @@ export function expectedTrafficProbePredicate() {
         )
     )`
 }
-
-export function scannerHttpProbePredicate(metadata = 'metadata') {
-    return `(
-        NULLIF(${metadata}->>'status_code', '')::int = 404
-        AND (
-            ${metadata}->>'error_code' = 'project_not_found'
-            OR ${metadata}->>'error_code' = 'share_not_found'
-            OR ${metadata}->>'path' ~ '^/api/project/[^/]+$'
-            OR ${metadata}->>'path' ~ '^/api/share(/tree)?/[^/]+$'
-        )
-    )`
-}
-
-export function scannerTrafficProbePredicate() {
-    return `(
-        status = 404
-        AND (
-            path ~ '^/api/project/[^/]+$'
-            OR path ~ '^/api/share(/tree)?/[^/]+$'
-        )
-    )`
-}
-
-export function scannerProjectSummaryPredicate() {
-    return '(status_code = 404 AND (error_code = \'project_not_found\' OR path ~ \'^/api/project/[^/]+$\'))'
-}
-
-export function scannerShareSummaryPredicate() {
-    return '(status_code = 404 AND (error_code = \'share_not_found\' OR path ~ \'^/api/share(/tree)?/[^/]+$\'))'
-}
