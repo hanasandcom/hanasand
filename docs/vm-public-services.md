@@ -2,6 +2,8 @@
 
 Open a VM detail page and add a service under **Public services**. Choose a short name, service type and guest port. New services use `<name>.hanasand.com:443`; copy that address into the client people will use. The gateway refreshes route changes within a few seconds. Existing services keep their `port-<name>.hanasand.com` addresses.
 
+Service hostnames use the existing `*.hanasand.com` wildcard DNS record to reach OpenResty. The Hanasand API supplies the per-service routes to OpenResty; adding or removing a service does not create or change a DNS-provider record.
+
 Each VM can have up to 1,000 public service mappings. Selecting **Website** when creating a VM publishes its starter page automatically as an HTTPS address. The address appears in the VM's **Public services** panel when the VM record is ready.
 
 VMs currently sit behind a private network and do not have individual public IPv6 addresses. This shared 443 gateway is the supported way to publish the service.
