@@ -35,6 +35,7 @@ services:
       dockerfile: ./api/Dockerfile
       args:
         HANASAND_RELEASE_COMMIT: vm-stage
+        HANASAND_STAGE_BUILD: "1"
     restart: unless-stopped
     environment:
       API_HTTP_ONLY: "1"
@@ -80,6 +81,7 @@ services:
       dockerfile: ./frontend/Dockerfile
       args:
         HANASAND_RELEASE_COMMIT: vm-stage
+        HANASAND_STAGE_BUILD: "1"
         FRONTEND_INTERNAL_API: http://vm-stage-api:8080/api
         NEXT_PUBLIC_API: http://127.0.0.1:8188/api
         NEXT_PUBLIC_API_WS: ws://127.0.0.1:8188/api/ws
