@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { UvmDashboard } from '../src/utils/monitoring/types'
 import UvmPanel, { filterAndSortUvmFindings } from '../src/app/dashboard/scanner/uvmPanel'
-import { UvmAssessmentStarter } from '../src/app/dashboard/scanner/uvmPanelViews'
+import { UvmAssessmentStarter, UvmHelp } from '../src/app/dashboard/scanner/uvmPanelViews'
 
 const data: UvmDashboard = {
     assets: [{
@@ -50,7 +50,7 @@ const data: UvmDashboard = {
 
 const noop = async() => ({}) as never
 
-test('overview shows asset coverage, current scan state, and clear next actions', () => {
+test('overview shows compact readiness, honest coverage, and clear next actions', () => {
     const html = renderToStaticMarkup(<UvmPanel initialData={data}
         refreshAction={async() => data}
         createAssetAction={noop}
@@ -67,25 +67,23 @@ test('overview shows asset coverage, current scan state, and clear next actions'
     />)
 
     expect(html).toContain('example.com')
-    expect(html).toContain('Vulnerability assessments')
-    expect(html).toContain('do not validate exploitability or constitute a complete penetration test')
-    expect(html).toContain('Verified assets')
-    expect(html).toContain('1 / 1')
-    expect(html).toContain('Start an authorized assessment')
-    expect(html).toContain('Verify the target, confirm authorization, then choose the available engines. The service rechecks DNS at launch and limits scans to public IPv4 addresses.')
+    expect(html).toContain('Security scanner')
+    expect(html).toContain('Nmap inventories TCP services; GVM and Tenable VM check vulnerabilities.')
+    expect(html).toContain('About Assessment scope and engines')
+    expect(html).toContain('Scans do not validate exploitability.')
+    expect(html).toContain('1 verified asset')
+    expect(html).toContain('New assessment')
     expect(html).toContain('Choose scope and scanners')
-    expect(html).toContain('Nessus scan configurations run through Tenable VM')
-    expect(html).toContain('Standalone Nessus Pro hosts are not connected.')
-    expect(html).toContain('Scans in progress')
-    expect(html).toContain('Findings needing attention')
-    expect(html).toContain('Coverage state')
-    expect(html).toContain('An unscanned asset, partial run, or unavailable engine does not count as a clean result.')
+    expect(html).toContain('Standalone Nessus Pro is not connected.')
+    expect(html).toContain('About Latest scan')
+    expect(html).toContain('A partial or unreported result does not confirm that an asset is clear.')
+    expect(html).toContain('Active scans')
+    expect(html).toContain('Open findings')
     expect(html).toContain('Address coverage 1/1')
-    expect(html).toContain('Review scan history')
-    expect(html).toContain('Manage assets')
-    expect(html).toContain('Triage findings')
+    expect(html).toContain('Scan history')
+    expect(html).toContain('Assets')
     expect(html).toContain('Findings')
-    expect(html).toContain('Recent scanner runs')
+    expect(html).not.toContain('Recent scanner runs')
     expect(html).not.toContain('Cancel scan')
 })
 
@@ -104,6 +102,14 @@ test('finding filters default to actionable statuses and order severity before a
     expect(results.map(finding => finding.id)).toEqual(['finding-high', 'finding-low'])
 })
 
+test('technical help uses a named keyboard-operable disclosure', () => {
+    const html = renderToStaticMarkup(<UvmHelp label='Nmap coverage' text='Nmap reports TCP service inventory.' />)
+    expect(html).toContain('<details')
+    expect(html).toContain('aria-label="About Nmap coverage"')
+    expect(html).toContain('Nmap reports TCP service inventory.')
+    expect(html).not.toContain('<details open')
+})
+
 test('first-run guide points to asset verification and scanner setup when neither is ready', () => {
     const html = renderToStaticMarkup(<UvmAssessmentStarter
         data={{ ...data, assets: [], engines: [], scannerError: null }}
@@ -114,7 +120,7 @@ test('first-run guide points to asset verification and scanner setup when neithe
 
     expect(html).toContain('0 verified assets')
     expect(html).toContain('Add and verify an asset')
-    expect(html).toContain('No engines are currently available.')
+    expect(html).toContain('0 engines ready · 0 unavailable')
     expect(html).toContain('Scanner setup')
 
     const configureHtml = renderToStaticMarkup(<UvmAssessmentStarter
@@ -135,6 +141,6 @@ test('configured Tenable without an enabled scan is not shown as a ready engine'
     />)
 
     expect(html).toContain('Configure a scanner')
-    expect(html).toContain('No engines are currently available.')
-    expect(html).toContain('No enabled network scan configurations.')
+    expect(html).toContain('0 engines ready · 1 unavailable')
+    expect(html).toContain('Connect Tenable VM and enable a network scan configuration.')
 })

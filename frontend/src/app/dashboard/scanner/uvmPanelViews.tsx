@@ -1,6 +1,7 @@
 'use client'
 
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
+import { HelpCircle } from 'lucide-react'
 import type { UvmAsset, UvmDashboard, UvmFinding } from '@/utils/monitoring/types'
 import { formatDate, type UvmFindingFilters } from './uvmPanelHelpers'
 import { DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
@@ -35,11 +36,8 @@ export function UvmAssetsView(props: AssetViewProps) {
     return <>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
             <div className='flex flex-wrap items-start justify-between gap-3'>
-                <div>
-                    <h2 className='text-lg font-semibold'>Assets and scan authorization</h2>
-                    <p className='mt-1 max-w-3xl text-sm text-ui-muted'>Register a domain and prove control with DNS. Network engines run only against its resolved public IPv4 addresses after authorization.</p>
-                </div>
-                <button type='button' onClick={props.onRefresh} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold'>Refresh</button>
+                <h2 className='text-lg font-semibold'>Assets</h2>
+                <div className='flex items-center gap-2'><UvmHelp label='Asset verification' text='Verify domain control with DNS. Scans use only the asset’s current public IPv4 addresses after you confirm authorization.' /><button type='button' onClick={props.onRefresh} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold'>Refresh</button></div>
             </div>
             <form onSubmit={props.onAddAsset} className='mt-4 flex flex-wrap gap-2'>
                 <label className='sr-only' htmlFor='uvm-hostname'>Domain name</label>
@@ -71,15 +69,15 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
                     <h3 className='text-base font-semibold'>{asset.hostname}</h3>
                     <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${asset.verificationStatus === 'verified' ? 'bg-ui-success/15 text-ui-success' : 'bg-ui-warning/15 text-ui-warning'}`}>{asset.verificationStatus}</span>
                 </div>
-                <p className='mt-1 text-xs text-ui-muted'>{asset.verificationMethod === 'internal' ? 'Hanasand managed asset' : `Added ${formatDate(asset.createdAt)}`}{asset.scanAuthorizedAt ? ` · previously authorized IPs: ${asset.authorizedAddresses.join(', ') || 'none'}` : ''}</p>
+                <p className='mt-1 text-xs text-ui-muted'>{asset.verificationMethod === 'internal' ? 'Hanasand managed asset' : `Added ${formatDate(asset.createdAt)}`}{asset.scanAuthorizedAt ? ` · authorized IPs: ${asset.authorizedAddresses.join(', ') || 'none'}` : ''}</p>
             </div>
-            <button type='button' onClick={() => props.onVerify(asset.id)} disabled={busy === asset.id || asset.verificationMethod === 'internal'} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === asset.id ? 'Working…' : 'Check DNS verification'}</button>
+            <div className='flex items-center gap-2'><UvmHelp label={`${asset.hostname} verification`} text='A DNS TXT record proves control of this domain before network scans can run.' /><button type='button' onClick={() => props.onVerify(asset.id)} disabled={busy === asset.id || asset.verificationMethod === 'internal'} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === asset.id ? 'Working…' : 'Check DNS verification'}</button></div>
         </div>
         {asset.verificationMethod !== 'internal' && asset.verificationStatus !== 'verified' && <DnsRecord asset={asset} />}
         <div className='mt-3 flex flex-wrap items-end gap-3'>
             <label className='flex items-start gap-2 text-xs text-ui-muted'><input type='checkbox' checked={authorized} onChange={event => setAuthorization(current => ({ ...current, [asset.id]: event.target.checked }))} className='mt-0.5 accent-ui-primary' /><span>I am authorized to scan this asset and its currently resolved IP addresses.</span></label>
             <button type='button' onClick={() => props.onScan(asset)} disabled={busy === asset.id || !canScan || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>Nmap inventory · TCP top 100</button>
-            <p className='text-[11px] text-ui-muted'>Uses <a href='https://nmap.org/' target='_blank' rel='noopener noreferrer' className='underline underline-offset-2'>Nmap Security Scanner</a> to perform these checks.</p>
+            <UvmHelp label='Nmap inventory' text='Nmap checks the top 100 TCP ports and reports reachable services. This profile does not confirm vulnerabilities.' />
             {data.tenableIntegration?.configured && data.tenableScans.length > 0 && <TenableScanControl asset={asset} props={props} />}
             <ScheduleControl asset={asset} props={props} canSchedule={canSchedule} scheduleEngine={scheduleEngine} scheduleScanId={scheduleScanId} />
         </div>
@@ -102,8 +100,8 @@ export function UvmFindingsView(props: FindingsViewProps) {
     const { data, attentionCount, busy, filters, setFilters, visibleFindings, findingUpdates, setFindingUpdates } = props
     return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
-            <div><h2 className='text-lg font-semibold'>Findings</h2><p className='mt-1 text-sm text-ui-muted'>Scanner observations stay linked to their engine, asset, evidence, and scan history.</p></div>
-            <span className='rounded-full bg-ui-warning/15 px-2 py-1 text-xs font-semibold text-ui-warning'>{attentionCount} need attention</span>
+            <h2 className='text-lg font-semibold'>Findings</h2>
+            <div className='flex items-center gap-2'><UvmHelp label='Finding coverage' text='Findings retain their source, asset and evidence. An empty list does not mean an asset is clear if a scan is missing or partial.' /><span className='rounded-full bg-ui-warning/15 px-2 py-1 text-xs font-semibold text-ui-warning'>{attentionCount} open</span></div>
         </div>
         <div className='mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
             <label className='grid gap-1 text-xs text-ui-muted sm:col-span-2 xl:col-span-1'>Search findings<input aria-label='Search findings' value={filters.query} onChange={event => setFilters(current => ({ ...current, query: event.target.value }))} placeholder='Title, asset, CVE…' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text' /></label>
@@ -112,10 +110,10 @@ export function UvmFindingsView(props: FindingsViewProps) {
             <label className='grid gap-1 text-xs text-ui-muted'>Status<select aria-label='Filter by status' value={filters.status} onChange={event => setFilters(current => ({ ...current, status: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='actionable'>Unresolved</option><option value='all'>All statuses</option><option value='open'>Open</option><option value='in_progress'>In progress</option><option value='pending_verification'>Pending verification</option><option value='accepted_risk'>Accepted risk</option><option value='false_positive'>False positive</option><option value='resolved'>Resolved</option></select></label>
             <label className='grid gap-1 text-xs text-ui-muted'>Asset<select aria-label='Filter by asset' value={filters.asset} onChange={event => setFilters(current => ({ ...current, asset: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='all'>All assets</option>{[...new Map(data.findings.map(finding => [finding.assetId || finding.asset, finding.asset])).entries()].sort((left, right) => left[1].localeCompare(right[1])).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
         </div>
-        <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ui-muted'><p aria-live='polite'>{visibleFindings.length} shown · {data.findings.length} loaded · sorted by severity, triage state, then age</p><p>Filters search the loaded set; the API currently returns up to 200 findings.</p></div>
+        <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ui-muted'><p aria-live='polite'>{visibleFindings.length} shown · {data.findings.length} loaded</p><p>Sorted by severity, status, then age.</p></div>
         <div className='mt-3 grid gap-3'>
             {visibleFindings.map(finding => <FindingCard key={finding.id} finding={finding} busy={busy} update={findingUpdates[finding.id] || { status: finding.status, note: finding.triageNote || '' }} setFindingUpdates={setFindingUpdates} onUpdate={() => props.onUpdate(finding)} />)}
-            {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>No findings have been imported from a completed scan yet. Check asset authorization, scanner availability, and scan coverage before treating an empty queue as a clean result.</p>}
+            {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>No findings imported. Check authorization, engine status and scan coverage before treating this as clear.</p>}
             {data.findings.length > 0 && !visibleFindings.length && <div className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'><p>No findings match these filters.</p><button type='button' onClick={() => setFilters({ query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold text-ui-text'>Clear filters</button></div>}
         </div>
     </section>
@@ -137,21 +135,25 @@ export function UvmAssessmentStarter({ data, onManageAssets, onConfigureScanners
 
     return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
         <div className='flex flex-wrap items-start justify-between gap-4'>
-            <div>
-                <h2 className='text-base font-semibold'>Start an authorized assessment</h2>
-                <p className='mt-1 max-w-3xl text-sm text-ui-muted'>Verify the target, confirm authorization, then choose the available engines. The service rechecks DNS at launch and limits scans to public IPv4 addresses.</p>
+            <div className='flex items-center gap-2'>
+                <h2 className='text-base font-semibold'>Assessment readiness</h2>
             </div>
-            <button type='button' onClick={nextAction} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas'>{nextLabel}</button>
+            <div className='flex items-center gap-2'><UvmHelp label='Assessment scope and engines' text='DNS is rechecked at launch. Nmap inventories TCP services; GVM and Tenable VM check vulnerabilities. Standalone Nessus Pro is not connected. Scans do not validate exploitability.' /><button type='button' onClick={nextAction} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas'>{nextLabel}</button></div>
         </div>
-        <ol className='mt-4 grid gap-3 sm:grid-cols-3'>
-            <li className='rounded-md bg-ui-raised p-3 text-sm'><span className='font-semibold'>1. Verify scope</span><p className='mt-1 text-xs text-ui-muted'>{verifiedAssets} verified asset{verifiedAssets === 1 ? '' : 's'} · DNS is rechecked at launch and restricted to public IPv4 addresses.</p></li>
-            <li className='rounded-md bg-ui-raised p-3 text-sm'><span className='font-semibold'>2. Confirm authorization</span><p className='mt-1 text-xs text-ui-muted'>Confirm permission for every selected asset and its current public IP addresses.</p></li>
-            <li className='rounded-md bg-ui-raised p-3 text-sm'><span className='font-semibold'>3. Select engines</span><p className='mt-1 text-xs text-ui-muted'>{readyEngines.length ? readyEngines.map(engine => engine.name).join(' · ') : 'No engines are currently available.'}</p></li>
-        </ol>
-        {!readyEngines.length && <p className='mt-3 text-sm text-ui-warning'>{data.scannerError || 'Connect or configure an engine to continue.'} <button type='button' onClick={onConfigureScanners} className='font-semibold underline underline-offset-2'>Scanner setup</button></p>}
-        {unavailableEngines.length > 0 && <details className='mt-3 text-xs text-ui-muted'><summary className='cursor-pointer'>{unavailableEngines.length} engine{unavailableEngines.length === 1 ? '' : 's'} not ready</summary><ul className='mt-2 grid gap-1'>{unavailableEngines.map(engine => <li key={engine.id}><span className='font-semibold'>{engine.name}:</span> {engine.id === 'tenable-vm' && !tenableReady ? 'No enabled network scan configurations.' : engine.reason || engine.status}</li>)}</ul></details>}
-        <p className='mt-3 text-xs text-ui-muted'>Nmap provides service inventory. Nessus scan configurations run through Tenable VM; standalone Nessus Pro hosts are not connected. Automated scans do not validate exploitability or amount to a complete penetration test.</p>
+        <p className='mt-2 text-sm text-ui-muted'>{verifiedAssets} verified asset{verifiedAssets === 1 ? '' : 's'} · {readyEngines.length} engines ready · {unavailableEngines.length} unavailable</p>
+        <p className='mt-1 text-xs text-ui-muted'>Nmap inventory · Greenbone and Tenable vulnerability checks · no exploit validation</p>
+        {!readyEngines.length && <p className='mt-2 text-sm text-ui-warning'>{data.scannerError || 'Configure an engine to continue.'} <button type='button' onClick={onConfigureScanners} className='font-semibold underline underline-offset-2'>Scanner setup</button></p>}
+        {unavailableEngines.length > 0 && <ul className='mt-2 grid gap-1 text-xs text-ui-warning' aria-label='Unavailable scanners'>{unavailableEngines.map(engine => <li key={engine.id}><span className='font-semibold'>{engine.name}:</span> {engine.id === 'tenable-vm' && !tenableReady ? 'Connect Tenable VM and enable a network scan configuration.' : engine.reason || engine.status}</li>)}</ul>}
     </section>
+}
+
+export function UvmHelp({ label, text }: { label: string, text: string }) {
+    return <details className='relative inline-flex shrink-0 text-ui-muted'>
+        <summary aria-label={`About ${label}`} className='grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full border border-ui-border text-xs font-semibold hover:bg-ui-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary [&::-webkit-details-marker]:hidden'>
+            <HelpCircle aria-hidden='true' className='h-4 w-4' />
+        </summary>
+        <p className='absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-ui-border bg-ui-panel p-3 text-xs leading-5 text-ui-text shadow-lg'>{text}</p>
+    </details>
 }
 
 function FindingCard({ finding, busy, update, setFindingUpdates, onUpdate }: {
