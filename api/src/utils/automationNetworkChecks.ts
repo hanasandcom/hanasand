@@ -25,7 +25,10 @@ export async function runSocketCheck(automation: AutomationRow, timeoutMs: numbe
         const finish = (value: { up: boolean, detail: string }) => { if (!settled) { settled = true; socket.destroy(); resolve(value) } }
         socket.setTimeout(timeoutMs, () => socket.destroy(new Error(`Connection timed out after ${automation.timeout_seconds} seconds.`)))
         socket.once('connect', () => {
-            if (automation.monitoring_type === 'ssh') socket.once('data', data => finish({ up: /^SSH-/.test(data.toString()), detail: 'accepted an SSH connection' }))
+            if (automation.monitoring_type === 'ssh') socket.once('data', data => {
+                const hasSshBanner = /^SSH-/.test(data.toString())
+                finish({ up: hasSshBanner, detail: hasSshBanner ? 'returned an SSH banner' : 'did not return an SSH banner' })
+            })
             else finish({ up: true, detail: `accepted a TCP connection on port ${port}` })
         })
         socket.once('error', error => reject(new Error(`Connection failed: ${error.message}`)))

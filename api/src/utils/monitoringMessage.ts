@@ -1,6 +1,6 @@
 import { hostMetricsDataWarning } from './hostCheckMessage.ts'
 
-type MonitoringMessageContext = { monitorName?: string | null, targetUrl?: string | null, jsonPayload?: unknown }
+type MonitoringMessageContext = { monitorName?: string | null, targetUrl?: string | null, jsonPayload?: unknown, formatUnknown?: boolean }
 
 function fieldLabel(path: string) {
     const known: Record<string, string> = {
@@ -98,11 +98,70 @@ function aggregateLabel(path: string, aggregate?: string) {
 
 function httpFailure(code: string, context: MonitoringMessageContext) {
     const name = monitorName(context)
-    if (code === '401' || code === '403') return `${name} was rejected with HTTP ${code}. Check the monitor’s authentication and route permissions.`
-    if (code === '404') return `${name} returned HTTP 404. Check the health-check URL and route.`
-    if (code === '429') return `${name} was rate-limited with HTTP 429. Check the monitor interval and endpoint limits.`
-    if (code === '503') return `${name} returned HTTP 503 in its health check. Check the endpoint and required dependencies.`
-    return `${name} returned HTTP ${code}. Check the endpoint and its recent service logs.`
+    if (code === '401' || code === '403') return `${name} received HTTP ${code} from the target. Check access requirements for the health-check route.`
+    if (code === '404') return `${name} received HTTP 404 from the target. Check the health-check route and deployment.`
+    if (code === '429') return `${name} received HTTP 429 from the target. Check request limits and the monitor interval.`
+    if (code === '503') return `${name} received HTTP 503 from the target. Check the endpoint and required dependencies.`
+    if (Number(code) >= 500) return `${name} received HTTP ${code} from the target. Check the service and its recent logs.`
+    return `${name} received HTTP ${code} from the target. Check the endpoint and its recent service logs.`
+}
+
+function monitoringError(message: string, context: MonitoringMessageContext) {
+    const name = monitorName(context)
+    const retries = / Failed after (\d+) attempts?\.$/i.exec(message)
+    const attempts = retries ? ` after ${retries[1]} attempt${retries[1] === '1' ? '' : 's'}` : ''
+    const detail = message.replace(/ Failed after \d+ attempts?\.$/i, '').trim()
+    const retryNote = (sentence: string) => retries ? sentence.replace(/\.$/, `${attempts}.`) : sentence
+
+    if (/^Monitoring is missing the URL to check\.$/.test(detail)) {
+        return `${name} has no target URL configured. Add the health-check endpoint and check the monitor settings.`
+    }
+    if (/^Monitoring target URL is invalid\.$/.test(detail)) {
+        return `${name} has an invalid target URL. Check the hostname, protocol, and port in the monitor settings.`
+    }
+    if (/^(?:JSON checks need a field and comparison\.|Use a dot-separated JSON field|Invalid JSON comparison\.|Invalid JSON aggregation\.|Invalid comparison value\.|This comparison needs a number\.|Monitoring URLs must use HTTP or HTTPS)/i.test(detail)) {
+        return `${name} has an invalid health-check configuration. Check its JSON rule and target URL.`
+    }
+    if (/Monitoring destinations must resolve only to public IP addresses|could not resolve|no public IP/i.test(detail)) {
+        return `${name} could not check the target because its address is not publicly reachable by the monitor. Check the hostname and DNS configuration.`
+    }
+    if (/^(?:JSON source returned invalid JSON\.|Invalid JSON response\.)$/i.test(detail)) {
+        return `${name} returned a response that is not valid JSON. The target’s health state is unknown. Check the health endpoint response and recent service logs.`
+    }
+    if (/Monitoring source exceeds the (?:1 MiB|redirect|content-encoding)|Unsupported monitoring response encoding|Monitoring response ended before the body was complete/i.test(detail)) {
+        return `${name} returned a response the monitor could not read completely. The target’s health state is unknown. Check the endpoint response size and encoding.`
+    }
+    const failedHttpCheck = /^(?:HTTP|FETCH|POST) check failed: \S+ returned HTTP (\d{3})\.$/.exec(detail)
+    if (failedHttpCheck) return retryNote(httpFailure(failedHttpCheck[1], context))
+    const sourceHttp = /^JSON source returned HTTP (\d{3})\.$/.exec(detail)
+    if (sourceHttp) return retryNote(httpFailure(sourceHttp[1], context))
+
+    if (/^SSH check failed: .+ did not return an SSH banner\.$/.test(detail)) {
+        return retryNote(`${name} accepted a connection but did not return a valid SSH banner. Check the SSH service and port.`)
+    }
+    if (/\b(?:EAI_AGAIN|EAI_FAIL|ENOTFOUND)\b|name or service not known|temporary failure in name resolution/i.test(detail)) {
+        return retryNote(`${name} could not resolve the target hostname. Check DNS and the monitoring service’s network.`)
+    }
+    if (/\b(?:ECONNREFUSED)\b|^Connection refused\.?$|Connection failed: Connection refused|connect ECONNREFUSED/i.test(detail)) {
+        return retryNote(`${name} could not connect because the target refused the connection. Check that the service is listening and the port is reachable.`)
+    }
+    if (/\b(?:EHOSTUNREACH|ENETUNREACH)\b|network is unreachable|no route to host/i.test(detail)) {
+        return retryNote(`${name} could not reach the target over the network. Check routing and firewall rules.`)
+    }
+    if (/\b(?:ECONNRESET|EPIPE)\b|socket hang up|response ended before the body was complete|Connection failed:/i.test(detail)) {
+        return retryNote(`${name} lost its connection before the health check completed. The target’s health state is unknown. Check connectivity and recent service logs.`)
+    }
+    if (/\bETIMEDOUT\b|\btimeout\b/i.test(detail)) {
+        return retryNote(`${name} timed out before it could confirm the target’s health. Check the monitor timeout and target response time.`)
+    }
+    if (/^Monitoring (?:request )?failed\.$|^JSON source unavailable\.$|^Monitoring check failed\.$/i.test(detail)) {
+        return `${name} failed before it could confirm the target’s health. The target’s status is unknown. Check the monitor’s latest result and target connectivity.`
+    }
+
+    if (!context.formatUnknown) return message
+    const conciseDetail = detail.replace(/\s+/g, ' ').replace(/[.\s]+$/, '').slice(0, 160)
+    const explanation = conciseDetail ? `: ${conciseDetail}` : ''
+    return `${name} could not complete its health check${explanation}. The target’s status is unknown. Check the monitor configuration and target response.`
 }
 
 // Translate stored machine-generated output for cases, events, and Discord.
@@ -129,6 +188,14 @@ export function readableMonitoringMessage(message: string, context: MonitoringMe
         return `${monitorName(context)} timed out${timing} before it returned a result. Target status is unknown. Check the monitor endpoint and its dependencies.`
     }
 
+    const httpCheck = /^(?:HTTP|FETCH|POST) check failed: \S+ returned HTTP (\d{3})\.$/.exec(message)
+    if (httpCheck) return httpFailure(httpCheck[1], context)
+    const successfulHttpCheck = /^(HTTP|FETCH|POST) check passed: \S+ returned HTTP (\d{3})\.$/.exec(message)
+    if (successfulHttpCheck) return `${monitorName(context)} passed its ${successfulHttpCheck[1]} health check (HTTP ${successfulHttpCheck[2]}).`
+    const successfulSocketCheck = /^(TCP|SSH) check passed: \S+ (accepted a TCP connection on port (\d+)|returned an SSH banner)\.$/.exec(message)
+    if (successfulSocketCheck) return successfulSocketCheck[1] === 'SSH'
+        ? `${monitorName(context)} returned a valid SSH banner.`
+        : `${monitorName(context)} accepted a TCP connection on port ${successfulSocketCheck[3]}.`
     const http = /^JSON source returned HTTP (\d{3})\.$/.exec(message)
     if (http) return httpFailure(http[1], context)
 
@@ -156,6 +223,7 @@ export function readableMonitoringMessage(message: string, context: MonitoringMe
                     : 'Check the processes driving sustained CPU load.'
         return `${label} is high: ${observed}% used (alert limit ${threshold}%). ${action}`
     }
+    if (/^(?:RAM|CPU|GPU|Storage) usage is normal: |^Temperature is normal: |^Power usage is normal: /.test(message)) return message
 
     const timeout = /^(?:Monitoring request timed out after (.+?)\.|Connection timed out after (.+?)\.) Failed after (\d+) attempts?\.$/.exec(message)
     if (timeout) {
@@ -166,10 +234,13 @@ export function readableMonitoringMessage(message: string, context: MonitoringMe
         const duration = /^Monitoring request timed out after (.+?)\.$/.exec(message)![1]
         return `${monitorName(context)} did not respond within ${duration}. Check connectivity and target response time.`
     }
-    if (/^Connection failed: Connection refused/.test(message)) return `${monitorName(context)} could not connect to the target. Check that it is listening and reachable from the monitoring service.`
+    if (/^SSH check failed: .+ did not return an SSH banner\.$/.test(message)) {
+        return `${monitorName(context)} accepted a connection but did not return a valid SSH banner. Check the SSH service and port.`
+    }
+    if (/^Connection failed: Connection refused/.test(message)) return `${monitorName(context)} could not connect because the target refused the connection. Check that it is listening and reachable from the monitoring service.`
     if (/^TLS certificate validation failed for ([\w.-]+)\.$/.test(message)) {
         const hostname = /^TLS certificate validation failed for ([\w.-]+)\.$/.exec(message)![1]
         return `${monitorName(context)} could not verify the TLS certificate for ${hostname}. Check certificate validity and hostname configuration.`
     }
-    return message
+    return monitoringError(message, context)
 }

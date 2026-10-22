@@ -61,6 +61,15 @@ test('monitoring-data warnings explain that host health is unknown', () => {
     expect(alert.embeds[0].fields).toContainEqual({ name: 'Severity', value: 'medium', inline: true })
 })
 
+test('Logs throughput case embeds retain the breached metrics from the stored summary', () => {
+    const summary = 'Logs throughput is outside its configured limits: incoming event rate 135 above 100 events/s; processing rate 120 below 200 logs/s. Pending backlog: 320. Check incoming traffic, processing workers, and the pending backlog.'
+    const alert = monitoringCaseDiscordAlert('HA-5', 'Log throughput thresholds', 'logs-throughput', {
+        kind: 'failure', summary, occurrences: 2,
+        first_seen_at: '2026-10-22T13:10:00Z', last_seen_at: '2026-10-22T13:11:00Z',
+    })
+    expect(alert.embeds[0].description).toBe(summary)
+})
+
 test('legacy host telemetry errors do not appear as high-severity host failures', () => {
     const alert = monitoringCaseDiscordAlert('HA-4', 'Inspur CPU', 'cpu-check', {
         kind: 'failure', summary: 'JSON field unavailable: host.cpuPercent.', occurrences: 31526,

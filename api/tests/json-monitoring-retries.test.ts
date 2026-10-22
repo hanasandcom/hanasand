@@ -37,11 +37,12 @@ for (const kind of ['http', 'invalid-json']) {
         if (kind === 'http') responseStatus = 503
         else responseBody = 'invalid json'
         const source = { owner_id: 'owner', target_url: 'http://example.test/health', user_agent: null, follow_redirects: true, timeout_seconds: 5 }
-        const { MonitoringResponseError } = await import('../src/utils/monitoringResponseError.ts')
         for (let i = 0; i < 2; i++) {
-            await expect(runMonitoringCheck({ ...source, monitoring_type: 'json', retry_count: 4,
+            const check = runMonitoringCheck({ ...source, name: 'Logs health', monitoring_type: 'json', retry_count: 4,
                 json_rule: { path: 'ok', operator: 'eq', value: false, aggregate: 'first' },
-            } as AutomationRow)).rejects.toBeInstanceOf(MonitoringResponseError)
+            } as AutomationRow)
+            if (kind === 'http') await expect(check).rejects.toThrow('Logs health received HTTP 503 from the target. Check the endpoint and required dependencies.')
+            else await expect(check).rejects.toThrow('Logs health returned a response that is not valid JSON. The target’s health state is unknown.')
         }
         expect(requests).toBe(1)
     })

@@ -56,7 +56,7 @@ test('a slow successful HTTP response does not become a warning', async () => {
 })
 test('five failures use 1/2/3/4 second delays with no final delay', async () => {
     unavailable = 5
-    await expect(check()).rejects.toThrow('Failed after 5 attempts.')
+    await expect(check()).rejects.toThrow('The health check could not connect because the target refused the connection. Check that the service is listening and the port is reachable after 5 attempts.')
     expect(requests).toBe(5)
     expect(waits).toEqual([1000, 2000, 3000, 4000])
 })
@@ -69,7 +69,7 @@ test('recovery stops retries and backoff does not create a slow-response warning
 test('five timeouts fit the 35-second attempt and delay budget', async () => {
     requestDuration = 5000
     throwTimeout = true
-    await expect(check()).rejects.toThrow('timed out after 5 seconds. Failed after 5 attempts.')
+    await expect(check()).rejects.toThrow('The health check timed out within 5 seconds (5 attempts) before it returned a result. Target status is unknown. Check the monitor endpoint and its dependencies.')
     expect(clock).toBe(35000)
 })
 test('certificate preflight runs in parallel without shrinking the request budget', async () => {
@@ -79,7 +79,7 @@ test('certificate preflight runs in parallel without shrinking the request budge
 })
 test('a received HTTP failure is final even if the next response would pass', async () => {
     failures = 1
-    await expect(check()).rejects.toThrow('returned HTTP 503.')
+    await expect(check()).rejects.toThrow('The health check received HTTP 503 from the target. Check the endpoint and required dependencies.')
     expect(requests).toBe(1)
     expect(waits).toEqual([])
 })

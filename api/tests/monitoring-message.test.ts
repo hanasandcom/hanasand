@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { readableMonitoringMessage } from '../src/utils/monitoringMessage.ts'
-import { monitoringCaseResolution } from '../src/utils/monitoringCaseWorkflow.ts'
+import { monitoringCaseHistory, monitoringCaseResolution } from '../src/utils/monitoringCaseWorkflow.ts'
 
 const recovery = 'JSON check passed: ok = true; alert ne true (first).'
 test('existing JSON recovery notes read naturally without changing stored evidence', () => {
@@ -47,7 +47,29 @@ test('system checks describe known conditions and actions', () => {
         .toBe('TI delivery has 12 retained incidents waiting for a first report, above the alert limit of 10. Review the timeliness dashboard and report backlog.')
 })
 test('HTTP errors name the monitor and suggest a relevant check', () => {
-    expect(readableMonitoringMessage('JSON source returned HTTP 503.', { monitorName: 'Model health' })).toBe('Model health returned HTTP 503 in its health check. Check the endpoint and required dependencies.')
-    expect(readableMonitoringMessage('JSON source returned HTTP 401.', { monitorName: 'Model health' })).toBe('Model health was rejected with HTTP 401. Check the monitor’s authentication and route permissions.')
-    for (const message of ['ETIMEDOUT', 'RAM usage is normal: 8% used (alert at 80%).', 'A person wrote JSON check passed in a comment.']) expect(readableMonitoringMessage(message)).toBe(message)
+    expect(readableMonitoringMessage('JSON source returned HTTP 503.', { monitorName: 'Model health' })).toBe('Model health received HTTP 503 from the target. Check the endpoint and required dependencies.')
+    expect(readableMonitoringMessage('JSON source returned HTTP 401.', { monitorName: 'Model health' })).toBe('Model health received HTTP 401 from the target. Check access requirements for the health-check route.')
+    expect(readableMonitoringMessage('HTTP check failed: https://api.example.com/health returned HTTP 500.', { monitorName: 'API health' }))
+        .toBe('API health received HTTP 500 from the target. Check the service and its recent logs.')
+})
+test('transport and unreadable response errors explain what is unknown and what to check', () => {
+    expect(readableMonitoringMessage('ETIMEDOUT', { monitorName: 'API health' }))
+        .toBe('API health timed out before it could confirm the target’s health. Check the monitor timeout and target response time.')
+    expect(readableMonitoringMessage('getaddrinfo EAI_AGAIN api.example.com Failed after 2 attempts.', { monitorName: 'API health' }))
+        .toBe('API health could not resolve the target hostname. Check DNS and the monitoring service’s network after 2 attempts.')
+    expect(readableMonitoringMessage('JSON source returned invalid JSON.', { monitorName: 'Logs health' }))
+        .toBe('Logs health returned a response that is not valid JSON. The target’s health state is unknown. Check the health endpoint response and recent service logs.')
+    expect(readableMonitoringMessage('Monitoring is missing the URL to check.', { monitorName: 'API health' }))
+        .toBe('API health has no target URL configured. Add the health-check endpoint and check the monitor settings.')
+    expect(readableMonitoringMessage('Unexpected failure in monitor adapter.', { monitorName: 'API health' }))
+        .toBe('Unexpected failure in monitor adapter.')
+    expect(readableMonitoringMessage('Unexpected failure in monitor adapter.', { monitorName: 'API health', formatUnknown: true }))
+        .toBe('API health could not complete its health check: Unexpected failure in monitor adapter. The target’s status is unknown. Check the monitor configuration and target response.')
+    expect(readableMonitoringMessage('RAM usage is normal: 8% used (alert at 80%).')).toBe('RAM usage is normal: 8% used (alert at 80%).')
+})
+test('human-authored case comments remain unchanged', () => {
+    const history = monitoringCaseHistory({ id: 1, first_seen_at: '2026-01-01T00:00:00Z', comments: [
+        { id: 'human-note', createdAt: '2026-01-01T00:01:00Z', author: 'Operator', body: 'ETIMEDOUT was in an earlier message.' },
+    ] })
+    expect(history.find(event => event.id === 'human-note')?.note).toBe('ETIMEDOUT was in an earlier message.')
 })

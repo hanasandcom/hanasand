@@ -77,7 +77,8 @@ async function fetchJson(source: JsonSource) {
         if (response.status < 200 || response.status >= 300) throw new Error(`JSON source returned HTTP ${response.status}.`)
         return { payload: JSON.parse(response.body) as unknown, certificate }
     } catch (error) {
-        throw Object.assign(new MonitoringResponseError(error instanceof Error ? error.message : 'Invalid JSON response.', { cause: error }), { certificate })
+        const message = error instanceof SyntaxError ? 'JSON source returned invalid JSON.' : error instanceof Error ? error.message : 'JSON source unavailable.'
+        throw Object.assign(new MonitoringResponseError(message, { cause: error }), { certificate })
     }
 }
 

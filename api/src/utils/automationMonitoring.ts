@@ -12,9 +12,16 @@ function invertsMonitoringResult(automation: Pick<AutomationRow, 'upside_down' |
     return automation.upside_down || automation.expected_down
 }
 export async function runMonitoringCheck(automation: AutomationRow) {
-    if (!automation.target_url) throw new Error('Monitoring is missing the URL to check.')
-    const target = ['tcp', 'ssh', 'json'].includes(automation.monitoring_type) ? null : new URL(automation.target_url)
-    const tlsTarget = automation.monitoring_type === 'json' ? null : certificateTarget(automation)
+    const context = { monitorName: automation.name, targetUrl: automation.target_url, formatUnknown: true }
+    if (!automation.target_url) throw new Error(readableMonitoringMessage('Monitoring is missing the URL to check.', context))
+    let target: URL | null
+    let tlsTarget: URL | null
+    try {
+        target = ['tcp', 'ssh', 'json'].includes(automation.monitoring_type) ? null : new URL(automation.target_url)
+        tlsTarget = automation.monitoring_type === 'json' ? null : certificateTarget(automation)
+    } catch {
+        throw new Error(readableMonitoringMessage('Monitoring target URL is invalid.', context))
+    }
     let certificate: Awaited<ReturnType<typeof checkCertificate>> | { status: 'not_applicable' | 'invalid', subject: null, issuer: null, expiresAt: null } | null = tlsTarget ? null : /^http:/i.test(automation.target_url) ? { status: 'invalid', subject: null, issuer: null, expiresAt: null } : { status: 'not_applicable', subject: null, issuer: null, expiresAt: null }
     let lastError: unknown
     for (let attempt = 0; attempt <= automation.retry_count; attempt += 1) {
@@ -34,13 +41,17 @@ export async function runMonitoringCheck(automation: AutomationRow) {
             const requestPromise = target ? runHttpCheck(target, automation, timeoutMs) : runSocketCheck(automation, timeoutMs)
             const [checkedCertificate, result] = await Promise.all([certificatePromise, requestPromise])
             certificate = checkedCertificate
-            if (certificate.status === 'invalid' && tlsTarget) throw new MonitoringResponseError(`TLS certificate validation failed for ${tlsTarget.hostname}.`)
+            if (certificate.status === 'invalid' && tlsTarget) {
+                const message = readableMonitoringMessage(`TLS certificate validation failed for ${tlsTarget.hostname}.`, context)
+                throw new MonitoringResponseError(message)
+            }
             const healthy = invertsMonitoringResult(automation) ? !result.up : result.up
             const message = `${automation.monitoring_type.toUpperCase()} check ${healthy ? 'passed' : 'failed'}: ${automation.target_url} ${result.detail}.`
-            if (!healthy) throw new MonitoringResponseError(message)
+            const readableMessage = readableMonitoringMessage(message, context)
+            if (!healthy) throw new MonitoringResponseError(readableMessage)
             // A successful HTTP/TCP check is healthy regardless of response latency.
             // Latency alerts need an explicit per-check threshold, not an implicit warning.
-            return { provider: 'hanasand-monitoring', model: automation.monitoring_type, message, certificate: certificate!, warning: false }
+            return { provider: 'hanasand-monitoring', model: automation.monitoring_type, message: readableMessage, certificate: certificate!, warning: false }
         } catch (error) {
             if (error instanceof MonitoringResponseError) throw Object.assign(error, { certificate: getCertificateFromError(error) ?? certificate })
             lastError = error instanceof DOMException && error.name === 'TimeoutError'
@@ -56,13 +67,22 @@ export async function runMonitoringCheck(automation: AutomationRow) {
             certificate: certificate!, warning: true,
         }
     }
-    const failure = Object.assign(new Error(`${message} Failed after ${automation.retry_count + 1} attempt${automation.retry_count ? 's' : ''}.`), { certificate: getCertificateFromError(lastError) ?? certificate })
+    const detail = `${message} Failed after ${automation.retry_count + 1} attempt${automation.retry_count ? 's' : ''}.`
+    const failure = Object.assign(new Error(readableMonitoringMessage(detail, context)), { certificate: getCertificateFromError(lastError) ?? certificate })
     throw failure
 }
 
 async function runJsonCheck(automation: AutomationRow, attempt: number) {
     // Retry unavailable snapshots, but evaluate each received snapshot exactly once.
-    const snapshot = await sharedJsonSnapshot(automation, attempt)
+    let snapshot: Awaited<ReturnType<typeof sharedJsonSnapshot>>
+    try {
+        snapshot = await sharedJsonSnapshot(automation, attempt)
+    } catch (error) {
+        if (error instanceof MonitoringResponseError) {
+            error.message = readableMonitoringMessage(error.message, { monitorName: automation.name, targetUrl: automation.target_url, formatUnknown: true })
+        }
+        throw error
+    }
     const certificate = snapshot.certificate
     let rule: ReturnType<typeof normalizeJsonRule>
     let evaluated: ReturnType<typeof evaluateJsonRule>
@@ -73,7 +93,8 @@ async function runJsonCheck(automation: AutomationRow, attempt: number) {
         if (automation.target_url === 'system:metrics') {
             return { provider: 'hanasand-monitoring', model: 'json', message: hostMetricsDataWarning(automation.name, error), certificate, warning: true }
         }
-        throw Object.assign(new MonitoringResponseError(error instanceof Error ? error.message : 'JSON check failed.', { cause: error }), { certificate })
+        const message = error instanceof Error ? error.message : 'JSON check failed.'
+        throw Object.assign(new MonitoringResponseError(readableMonitoringMessage(message, { monitorName: automation.name, targetUrl: automation.target_url, formatUnknown: true }), { cause: error }), { certificate })
     }
     const { exceeded, observed } = evaluated
     const inverted = invertsMonitoringResult(automation)
