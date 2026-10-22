@@ -14,12 +14,15 @@ test('login renders shared credentials and auth methods before hydration', () =>
         onChangeMode: () => {},
     }))
 
-    expect(html).toContain('name="username"')
-    expect(html).toContain('name="password"')
-    expect(html).toContain('placeholder="Username"')
-    expect(html).toContain('Continue with Google')
-    expect(html).toContain('Sign in with passkey')
-    expect(html).not.toContain('<hanasand-login-form')
+    expect(html).toContain('action="/api/auth/login"')
+    expect(html).toContain('method="post"')
+    expect(html).toContain('<hanasand-login-form')
+    expect(html).toContain('identifier-label="Username"')
+    expect(html).toContain('identifier-placeholder="Username"')
+    expect(html).toContain('passkey-options-url="/api/auth/passkeys/authenticate/options"')
+    expect(html).toContain('passkey-verify-url="/api/auth/passkeys/authenticate/verify"')
+    expect(html).toContain('sso-href="/api/auth/sso/start"')
+    expect(html).toContain('disabled=""')
 })
 
 test('reset request shares the auth submit loading and disabled presentation', () => {
