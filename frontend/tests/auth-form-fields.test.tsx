@@ -14,15 +14,10 @@ test('login renders the shared Identity form and keeps redirect handling outside
         onChangeMode: () => {},
     }))
 
-    expect(html).toContain('<hanasand-login-form')
-    expect(html).toContain('identifier-label="Username"')
-    expect(html).toContain('identifier-placeholder="Username"')
-    expect(html).toContain('submit-label="Log in"')
-    expect(html).toContain('login-url="/api/auth/login"')
-    expect(html).toContain('passkey-options-url="/api/auth/passkeys/authenticate/options"')
-    expect(html).toContain('passkey-verify-url="/api/auth/passkeys/authenticate/verify"')
-    expect(html).toContain('sso-href="/api/auth/sso/start"')
-    expect(html).toContain('redirect-path="/dashboard"')
+    expect(html).toContain('name="username"')
+    expect(html).toContain('name="password"')
+    expect(html).toContain('Continue with Google')
+    expect(html).toContain('Sign in with passkey')
 })
 
 test('reset request shares the auth submit loading and disabled presentation', () => {

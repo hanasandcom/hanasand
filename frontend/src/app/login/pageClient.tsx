@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Script from 'next/script'
 import { usePathname, useRouter } from 'next/navigation'
 import ErrorNotice from '@/components/error/errorNotice'
 import Notify from '@/components/notify/notify'
@@ -60,7 +59,6 @@ export default function LoginPage({
 
     return (
         <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-5 py-12 font-sans text-ui-text sm:px-8'>
-            <Script src='https://api.hanasand.com/api/auth/login-form.js' strategy='afterInteractive' />
             <div className='grid w-full max-w-[26rem] gap-7'>
                 <div className='grid justify-items-center gap-2 pb-3 text-center'>
                     <h1 className='text-[34px] font-semibold leading-none tracking-[-0.045em] text-ui-primary'>Hanasand</h1>
