@@ -43,12 +43,12 @@ const data: UvmDashboard = {
     findings: [
         { id: 'finding-1', assetId: 'asset-1', asset: 'example.com', address: '8.8.8.8', engine: 'tenable-vm', externalId: '12345:8.8.8.8', title: 'Example plugin finding', severity: 'high', cvssScore: 8.1, cveIds: ['CVE-2025-0001'], description: 'Affected version detected.', solution: 'Update the package.', evidence: 'Plugin output', status: 'open', triageNote: null, firstSeen: new Date(0).toISOString(), lastSeen: new Date(0).toISOString(), updatedAt: new Date(0).toISOString() },
         { id: 'finding-2', assetId: 'asset-1', asset: 'example.com', address: null, engine: 'hanasand-web', externalId: 'https://example.com:header.csp', title: 'Content-Security-Policy is present', severity: 'medium', cvssScore: null, cveIds: [], description: 'The response did not include a Content-Security-Policy header.', solution: null, evidence: '{"value":null}', status: 'open', triageNote: null, firstSeen: new Date(0).toISOString(), lastSeen: new Date(0).toISOString(), updatedAt: new Date(0).toISOString() },
-    ], findingSyncError: null,
+    ],
 }
 
 const noop = async() => ({}) as never
 
-test('asset scanner view shows verified scope, engine coverage, and service evidence', () => {
+test('overview shows asset coverage, current scan state, and clear next actions', () => {
     const html = renderToStaticMarkup(<UvmPanel initialData={data}
         refreshAction={async() => data}
         createAssetAction={noop}
@@ -63,19 +63,17 @@ test('asset scanner view shows verified scope, engine coverage, and service evid
     />)
 
     expect(html).toContain('example.com')
-    expect(html).toContain('verified')
-    expect(html).toContain('TCP ports and service versions')
-    expect(html).toContain('No vulnerability checks were performed by this run.')
-    expect(html).toContain('8.8.8.8')
-    expect(html).toContain('443/tcp')
-    expect(html).toContain('Raw Nmap XML SHA-256')
+    expect(html).toContain('Verified assets')
+    expect(html).toContain('1 / 1')
+    expect(html).toContain('Scans in progress')
+    expect(html).toContain('Findings needing attention')
+    expect(html).toContain('Coverage state')
+    expect(html).toContain('An unscanned asset, partial run, or unavailable engine does not count as a clean result.')
+    expect(html).toContain('Address coverage 1/1')
+    expect(html).toContain('Review scan history')
+    expect(html).toContain('Manage assets')
+    expect(html).toContain('Triage findings')
     expect(html).toContain('Findings')
-    expect(html).toContain('Example plugin finding')
-    expect(html).toContain('Content-Security-Policy is present')
-    expect(html).toContain('Run Tenable assessment')
-    expect(html).toContain('Schedule engine')
-    expect(html).toContain('Tenable Vulnerability Management</option>')
-    expect(html).toContain('Uses <a href="https://nmap.org/"')
-    expect(html).toContain('Nmap Security Scanner</a> to perform these checks.')
+    expect(html).toContain('Recent scanner runs')
     expect(html).not.toContain('Cancel scan')
 })
