@@ -34,6 +34,8 @@ test('repositories exposes workspace open and delete actions', async ({ browser,
         await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible()
         await expect(page.locator(`a[href="/p/${projectId}"]`)).toBeVisible()
         await expect(page.getByText(projectId).first()).toBeVisible()
+        await expect(page.getByText('Untitled project')).toHaveCount(0)
+        await expect(page.getByRole('button', { name: `Delete project ${projectId}` })).toHaveCount(0)
         await expect(page.getByText(fileId).first()).toBeVisible()
 
         await Promise.all([
@@ -42,10 +44,10 @@ test('repositories exposes workspace open and delete actions', async ({ browser,
                 response.request().method() === 'DELETE' &&
                 response.ok()
             ),
-            page.getByRole('button', { name: `Delete project ${projectId}` }).click(),
+            page.getByRole('button', { name: `Delete repository ${projectId}` }).click(),
         ])
 
-        await expect(page.getByText('No projects yet.')).toBeVisible()
+        await expect(page.getByText('Create your first repository now.')).toBeVisible()
         await expect(page.getByText(projectId)).toHaveCount(0)
     } finally {
         await context.close()

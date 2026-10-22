@@ -96,6 +96,26 @@ The local API defaults to port 8080 and the frontend to 3000. A host process rea
 
 The model client uses `HANASAND_AI_CLIENT_API_WS`, `HANASAND_AI_OPENAI_BASE` and `HANASAND_AI_MODEL`. The model runtime is deployed separately from [the GPT repository](https://github.com/hanasandcom/gpt). Starting the client alone does not start an inference server.
 
+ChatGPT replies use the same conversation transcript as Hanasand GPT, with a separate worker thread for each chat: `threadId` is `chatgpt-<conversationId>`. A worker claims the next queued message with `GET https://hanasand.com/api/prompt/worker` and `Authorization: Bearer <PROMPT_PORTAL_WORKER_TOKEN>`. A successful response includes `item.context` and the exact `threadId`; each GET claims one queued item and marks it running. After generating the reply, post it to the same endpoint:
+
+```http
+POST https://hanasand.com/api/prompt/worker
+Authorization: Bearer <PROMPT_PORTAL_WORKER_TOKEN>
+Content-Type: application/json
+```
+
+```json
+{
+  "action": "complete",
+  "id": "<item.id>",
+  "threadId": "<threadId returned by GET>",
+  "status": "done",
+  "result": "<assistant response>"
+}
+```
+
+Use `status: "error"` when the worker cannot answer. The `id` and `threadId` must match the claimed item; do not combine messages from different threads. Configure the same worker token in the app's `PROMPT_PORTAL_WORKER_TOKEN` environment variable.
+
 Generated projects include source, a README, environment examples, build commands and Docker configuration. Website output includes its page, layout and CSS. The AI Next.js flow creates a repository, sends the validated project files to a VM, installs dependencies, builds the project, starts it on port 3000 and reports the preview only after the VM reports successful startup. Other generated projects are starting points: API records and worker queues currently use in-memory state, and external integrations require implementation. A generated project or passing source check is not evidence that a production integration works.
 
 

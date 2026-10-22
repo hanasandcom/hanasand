@@ -3,7 +3,13 @@ import { aiClientRequest } from '@/utils/ai/client'
 import { createConversation, toConversationPayload } from './conversationModel'
 import { promoteDraftOnce, readPendingConversationDraft, reusePendingConversationDraft } from './conversationDraftStorage'
 import type { WorkbenchState } from './useWorkbenchState'
-import { buildRecoveryNotice } from './recoveryNotice'
+import {
+    buildRecoveryNotice,
+    readRecoveryNoticeHistory,
+    RECOVERY_NOTICE_STORAGE_KEY,
+    rememberRecoveryNotice,
+    serializeRecoveryNoticeHistory,
+} from './recoveryNotice'
 export { buildRecoveryNotice } from './recoveryNotice'
 
 export function useConversationStartup(state: WorkbenchState) {
@@ -56,13 +62,18 @@ export function useConversationStartup(state: WorkbenchState) {
             return
         }
         const resumedConversation = conversationsRef.current.find((conversation) => conversation.id === nextConversationId) || null
-        let lastShownKey: string | null = null
+        let shownRecoveryKeys: string[] = []
         try {
-            lastShownKey = window.localStorage.getItem('hanasand.ai.lastRecoveryNotice')
+            shownRecoveryKeys = readRecoveryNoticeHistory(window.localStorage.getItem(RECOVERY_NOTICE_STORAGE_KEY))
+            const legacyKey = window.localStorage.getItem('hanasand.ai.lastRecoveryNotice')
+            if (legacyKey) shownRecoveryKeys = rememberRecoveryNotice(shownRecoveryKeys, legacyKey)
         } catch { /* Continue without persisting notice history when storage is unavailable. */ }
-        const notice = buildRecoveryNotice(savedConversationId, nextConversationId, resumedConversation, initialRuntimeState, lastShownKey)
+        const notice = buildRecoveryNotice(savedConversationId, nextConversationId, resumedConversation, initialRuntimeState, shownRecoveryKeys)
         if (notice) {
-            try { window.localStorage.setItem('hanasand.ai.lastRecoveryNotice', notice.recoveryKey) } catch { /* The current notice remains useful without persistent storage. */ }
+            try {
+                const nextHistory = rememberRecoveryNotice(shownRecoveryKeys, notice.recoveryKey)
+                window.localStorage.setItem(RECOVERY_NOTICE_STORAGE_KEY, serializeRecoveryNoticeHistory(nextHistory))
+            } catch { /* The current notice remains useful without persistent storage. */ }
             setResumeNotice({ message: notice.message, conversationId: notice.conversationId, workspaceId: notice.workspaceId })
         }
         setConversationDraftRestored(true)

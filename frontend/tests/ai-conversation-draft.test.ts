@@ -8,6 +8,7 @@ import {
     reusePendingConversationDraft,
     writePendingConversationDraft,
 } from '../src/components/ai/workbench/conversationDraftStorage'
+import { handoffDraftPrompt } from '../src/components/ai/workbench/usePromptActions'
 
 function memoryStorage() {
     const values = new Map<string, string>()
@@ -55,4 +56,48 @@ test('concurrent promotion sends share one request and a failed request can retr
     fail = false
     assert.equal(await promote(), 'created')
     assert.deepEqual(requestIds, ['draft-1', 'draft-1'])
+})
+
+test('a draft is published and promoted only after the socket accepts its first prompt', async () => {
+    const storage = memoryStorage()
+    writePendingConversationDraft({ conversation: draft, composer: 'Keep this text' }, storage)
+    let visibleConversation: AIConversation | null = null
+    let responseObserved = false
+    let finishPromotion: (() => void) | null = null
+    const events: string[] = []
+
+    const promotion = handoffDraftPrompt(
+        () => { events.push('send') },
+        () => {
+            events.push('publish')
+            visibleConversation = draft
+            queueMicrotask(() => {
+                responseObserved = Boolean(visibleConversation)
+                events.push('response')
+            })
+        },
+        () => {
+            events.push('promote')
+            return new Promise<void>((resolve) => { finishPromotion = resolve })
+        }
+    )
+
+    assert.deepEqual(events, ['send', 'publish', 'promote'])
+    await Promise.resolve()
+    assert.equal(responseObserved, true)
+    assert.equal(visibleConversation?.id, draft.id)
+    finishPromotion?.()
+    await promotion
+
+    let published = false
+    let promoted = false
+    assert.throws(() => handoffDraftPrompt(
+        () => { throw new Error('socket rejected prompt') },
+        () => { published = true },
+        async () => { promoted = true }
+    ), /socket rejected prompt/)
+    assert.equal(published, false)
+    assert.equal(promoted, false)
+    assert.equal(readPendingConversationDraft(storage)?.conversation.id, draft.id)
+    assert.equal(reusePendingConversationDraft(null, readPendingConversationDraft(storage), () => ({ ...draft, id: 'second-draft' })).id, draft.id)
 })
