@@ -93,21 +93,32 @@ class StagePreflight(unittest.TestCase):
         self.assertEqual(SOURCE.count('\nassert_unused_subnet\n'), 2)
         self.assertIn('assert_unused_subnet\ndocker network create', SOURCE)
 
-    def test_build_uses_actual_main_and_private_target(self):
+    def test_build_uses_exact_candidate_and_private_dockerfile(self):
         args = command('docker buildx build')
         self.assertEqual(args[:3], ['docker', 'buildx', 'build'])
-        self.assertEqual(args[args.index('--target') + 1], 'app-runtime')
         self.assertEqual(args[args.index('--tag') + 1], '$runtime_tag')
-        self.assertEqual(args[args.index('--file') + 1], '$build_source/api/Dockerfile')
-        self.assertEqual(args[-1], '$build_source')
-        self.assertIn('HANASAND_RELEASE_COMMIT=$core_revision', args)
+        self.assertEqual(args[args.index('--file') + 1], '$root/api/Dockerfile.proof-stage')
+        self.assertEqual(args[-1], '$root')
+        self.assertIn('HANASAND_RELEASE_COMMIT=$expected', args)
         self.assertNotIn('--build-context', args)
-        self.assertIn('git clone --depth 1 --single-branch --branch main "$core_origin"', SOURCE)
-        self.assertIn('test "$(git -C "$build_source" rev-parse HEAD)" = "$core_revision"', SOURCE)
-        self.assertIn('for source_path in api api/package.json api/bun.lock api/Dockerfile', SOURCE)
-        self.assertIn('cmp "$build_source/api/bun.lock" "$stage_root/built-bun.lock"', SOURCE)
-        self.assertNotIn('git switch', SOURCE)
-        self.assertNotIn('git checkout', SOURCE)
+        self.assertNotIn('--target', args)
+        self.assertIn('test "$(git -C "$root" rev-parse HEAD)" = "$expected"', SOURCE)
+        self.assertIn('test -z "$(git -C "$root" status --porcelain=v1)"', SOURCE)
+        self.assertIn('cmp "$root/api/bun.lock" "$stage_root/built-bun.lock"', SOURCE)
+        for forbidden in ('git switch', 'git checkout', 'git clone', 'HANASAND_STAGE_BUILD', 'core_revision'):
+            self.assertNotIn(forbidden, SOURCE)
+        dockerfile = SCRIPT.parent.parent / 'Dockerfile.proof-stage'
+        instructions = [line for line in dockerfile.read_text().splitlines() if line and not line.startswith('#')]
+        self.assertEqual(instructions, [
+            'FROM oven/bun:1.3.13-alpine',
+            'ARG HANASAND_RELEASE_COMMIT',
+            'LABEL org.opencontainers.image.revision=$HANASAND_RELEASE_COMMIT',
+            'WORKDIR /app',
+            'COPY api/package.json api/bun.lock api/bunfig.toml ./',
+            'RUN bun install --frozen-lockfile',
+            'COPY api/ ./',
+            'CMD ["bun", "test", "/app/tests/identity-proxy-postgres.test.ts"]'
+        ])
 
     def test_database_and_runner_are_isolated(self):
         database = command('docker run -d --name "$db"')
@@ -121,7 +132,7 @@ class StagePreflight(unittest.TestCase):
                 self.assertNotIn(forbidden, args)
             self.assertIn('$label=$owner', args)
         volumes = [runner[i + 1] for i, arg in enumerate(runner) if arg == '-v']
-        self.assertEqual(len(volumes), 6)
+        self.assertEqual(volumes, ['$stage_root/identity:/identity:ro'])
         self.assertTrue(all(value.endswith(':ro') for value in volumes))
         self.assertTrue(all('/.env' not in value and '/var/lib/' not in value for value in volumes))
 
