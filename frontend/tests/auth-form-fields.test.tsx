@@ -9,22 +9,20 @@ import SignupForm from '../src/app/login/SignupForm'
 test('login renders the shared Identity form and keeps redirect handling outside it', () => {
     const html = renderToStaticMarkup(createElement(LoginForm, {
         redirectPath: '/dashboard',
-        usernameRef: { current: null },
         hydrated: false,
-        busy: false,
         ssoHref: '/api/auth/sso/start',
-        onSubmit: () => {},
         onChangeMode: () => {},
-        onPasskeyLogin: () => {},
     }))
 
-    expect(html).toContain('<form class="flex w-full flex-col gap-4 self-center" action="/api/auth/login"')
-    expect(html).toContain('name="redirectPath" value="/dashboard"')
     expect(html).toContain('<hanasand-login-form')
     expect(html).toContain('identifier-label="Username"')
     expect(html).toContain('identifier-placeholder="Username"')
     expect(html).toContain('submit-label="Log in"')
-    expect(html).not.toContain('name="password"')
+    expect(html).toContain('login-url="/api/auth/login"')
+    expect(html).toContain('passkey-options-url="/api/auth/passkeys/authenticate/options"')
+    expect(html).toContain('passkey-verify-url="/api/auth/passkeys/authenticate/verify"')
+    expect(html).toContain('sso-href="/api/auth/sso/start"')
+    expect(html).toContain('redirect-path="/dashboard"')
 })
 
 test('reset request shares the auth submit loading and disabled presentation', () => {
