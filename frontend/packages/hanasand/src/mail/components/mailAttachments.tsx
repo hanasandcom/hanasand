@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMailUiApi, type MailDraftAttachment } from '../api.js'
 import type { MailAttachment, MailMessage, MailReputation } from '../types.js'
+import { isMailReputationClear } from '../reputation.js'
 import { prettyBytes } from './mailFormatting.js'
 
 export async function fileToDraftAttachment(file: File): Promise<MailDraftAttachment> {
@@ -17,7 +18,7 @@ export function AttachmentPreview({ attachment, mailboxUser, reputation, checkin
     const api = useMailUiApi()
     const [url, setUrl] = useState('')
     const [error, setError] = useState(false)
-    const allowedByReputation = !checking && Boolean(reputation && reputation.status !== 'unavailable' && (reputation.status === 'unknown' || (reputation.flagged ?? 0) === 0))
+    const allowedByReputation = !checking && isMailReputationClear(reputation)
     useEffect(() => {
         const controller = new AbortController()
         let objectUrl = ''
@@ -40,11 +41,9 @@ export function AttachmentPreview({ attachment, mailboxUser, reputation, checkin
 
     const blockedMessage = checking
         ? 'Checking VirusTotal…'
-        : !reputation || reputation.status === 'unavailable'
-            ? 'VirusTotal status unavailable; download blocked.'
-            : reputation.status === 'known' && (reputation.flagged ?? 0) > 0
+        : reputation?.status === 'known' && (reputation.flagged ?? 0) > 0
                 ? 'Download blocked because VirusTotal found a potential threat.'
-                : 'Loading attachment…'
+                : 'VirusTotal could not confirm this attachment is clear, so it remains blocked.'
 
     if (inlineAttachmentTypes.has(attachment.type.split(';', 1)[0].trim().toLowerCase())) {
         return (

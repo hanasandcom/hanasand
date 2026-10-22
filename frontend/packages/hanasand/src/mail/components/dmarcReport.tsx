@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useMailUiApi } from '../api.js'
 import { extractReportXml, parseDmarcReport, readReportResponse, MAX_ARCHIVE_BYTES, type DmarcReport } from '../utils/dmarc.js'
 import type { MailAttachment, MailMessage, MailReputation } from '../types.js'
+import { isMailReputationClear } from '../reputation.js'
 
 export function reportAttachments(message: MailMessage) {
     const isReport = /dmarc|report domain:/i.test(message.subject) || message.from.some(address => /dmarc/i.test(address.email))
@@ -23,7 +24,7 @@ export default function DmarcReportPreview({ attachment, mailboxUser, reputation
             setError('This report is too large to preview. Download the attachment to read it.')
             return
         }
-        const safeToRead = !checking && reputation && reputation.status !== 'unavailable' && (reputation.status === 'unknown' || (reputation.flagged ?? 0) === 0)
+        const safeToRead = !checking && isMailReputationClear(reputation)
         if (!safeToRead) {
             setError(checking ? 'Checking VirusTotal before loading this report.' : 'VirusTotal could not confirm this report is clear, so it remains blocked.')
             return
