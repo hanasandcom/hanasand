@@ -48,7 +48,8 @@ test('internal page route accepts Hanasand editors and rejects user-role-only ac
             const id = target.pathname.split('/').pop() || ''
             const token = tokenById.get(id)
             if (!token) return Response.json({}, { status: 401 })
-            return Response.json({ token })
+            const canViewInternalPages = id === 'hanasand-editor'
+            return Response.json({ token, canViewInternalPages, canEditInternalPages: canViewInternalPages })
         }
         if (target.pathname.endsWith('/management/organizations')) {
             const allowed = new Headers(init?.headers).get('id') === 'hanasand-editor'
@@ -58,7 +59,12 @@ test('internal page route accepts Hanasand editors and rejects user-role-only ac
     }) as typeof fetch
 
     const makeRequest = (id: string, token: string) => new NextRequest('https://hanasand.com/logs/realtime', {
-        headers: { cookie: `id=${id}; access_token=${token}; roles=%5B%7B%22id%22%3A%22system_admin%22%7D%5D` },
+        headers: {
+            cookie: `id=${id}; access_token=${token}; roles=%5B%7B%22id%22%3A%22system_admin%22%7D%5D`,
+            DPoP: `proof-${id}`,
+            'x-device-proof-url': 'https://hanasand.com/logs/realtime',
+            'x-device-proof-method': 'GET',
+        },
     })
 
     try {
@@ -71,16 +77,19 @@ test('internal page route accepts Hanasand editors and rejects user-role-only ac
         const editorResponse = await proxy(makeRequest('hanasand-editor', 'token-org-editor'))
         assert.equal(editorResponse.status, 200)
         assert.equal(editorResponse.headers.has('location'), false)
+        const editorValidation = calls.find(({ target }) => target.pathname.endsWith('/auth/token/hanasand-editor'))
+        assert.equal(editorValidation?.headers.get('DPoP'), 'proof-hanasand-editor')
+        assert.equal(editorValidation?.headers.get('x-device-proof-url'), 'https://hanasand.com/logs/realtime')
+        assert.equal(editorValidation?.headers.get('x-device-proof-method'), 'GET')
 
         const customerResponse = await proxy(new NextRequest('https://hanasand.com/findings', {
             headers: { cookie: 'id=role-only-user; access_token=token-role-only' },
         }))
         assert.equal(customerResponse.status, 200)
         assert.equal(customerResponse.headers.has('location'), false)
-        assert(calls.some(({ target, headers }) => target.pathname.endsWith('/management/organizations')
-            && target.searchParams.get('internalPages') === '1'
+        assert(calls.some(({ target, headers }) => target.pathname.endsWith('/auth/token/role-only-user')
             && headers.get('authorization') === 'Bearer token-role-only'
-            && headers.get('id') === 'role-only-user'))
+            && headers.get('DPoP') === 'proof-role-only-user'))
     } finally {
         globalThis.fetch = originalFetch
     }

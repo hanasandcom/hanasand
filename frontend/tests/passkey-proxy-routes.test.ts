@@ -41,7 +41,7 @@ test('cookie-authenticated enrollment and credential routes retain headers, meth
         requests.push({ url: String(input), init })
         return Response.json({ error: 'Credential is already registered.' }, { status: 409 })
     }) as typeof fetch
-    const enroll = await registerOptions()
+    const enroll = await registerOptions(new NextRequest('https://site.test/api/auth/passkeys/register/options'))
     expect(enroll.status).toBe(409)
     expect(await enroll.json()).toEqual({ error: 'Credential is already registered.' })
     const enrollmentRequest = requests[0]!
@@ -96,7 +96,7 @@ test('registration verification retains text body and maps malformed upstream JS
 
 test('a rejected upstream fetch maps to the existing service unavailable response', async () => {
     globalThis.fetch = (() => Promise.reject(new Error('offline'))) as typeof fetch
-    const response = await listPasskeys()
+    const response = await listPasskeys(new NextRequest('https://site.test/api/auth/passkeys'))
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({ error: 'Authentication service is unavailable.' })
 })

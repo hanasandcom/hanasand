@@ -162,7 +162,7 @@ export function useShareCodeSocket({
         const target = wsRef.current
         void (async () => {
             try {
-                if (!await sendShareEditWithProof(target, shareId, content, `${config.url.api_wss}/share/${shareId}`)) { pendingEditRef.current = content; setReconnect(true); onSaveStateChange?.('queued'); return }
+                if (!await sendShareEditWithProof(target, shareId!, content, `${config.url.api_wss}/share/${shareId}`)) { pendingEditRef.current = content; setReconnect(true); onSaveStateChange?.('queued'); return }
                 pendingEditRef.current = null
             } catch { pendingEditRef.current = content; setReconnect(true); onSaveStateChange?.('queued') }
         })()

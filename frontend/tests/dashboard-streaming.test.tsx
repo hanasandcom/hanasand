@@ -13,7 +13,7 @@ mock.module('@/app/api/organizations/_organizationApiProxy', () => ({ proxyOrgan
 } }))
 mock.module('@/utils/proxy/tokenIsValid', () => ({ default: async () => validation }))
 let release: (value: unknown) => void = () => {}
-mock.module('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: 'test' }) }) }))
+mock.module('next/headers', () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => ({ value: 'test' }) }) }))
 mock.module('@/utils/status/getStatus', () => ({ default: async (options: { summary?: boolean }) => {
     statusCalls++
     assert.equal(options.summary, true)
