@@ -8,7 +8,7 @@ export function useConversationView(state: WorkbenchState, createNewConversation
     const {
         conversations, search, activeConversationId, isAuthenticated, setConversations,
         setActiveConversationId, setStatusNotice, shareTrees, shareFileContents, shareContents,
-        clients, runtimeSnapshot, participants, statusNotice,
+        clients, runtimeSnapshot, participants, statusNotice, pendingConversationDraft,
     } = state
     const filteredConversations = useMemo(() => {
         const query = search.trim().toLowerCase()
@@ -19,11 +19,12 @@ export function useConversationView(state: WorkbenchState, createNewConversation
         return conversations.filter((conversation) => Boolean(conversation.archivedAt) && matchesQuery(conversation, query))
     }, [conversations, search])
     const resolvedActiveConversationId = useMemo(() => {
-        if (activeConversationId && conversations.some((conversation) => conversation.id === activeConversationId)) {
+        if (activeConversationId && (conversations.some((conversation) => conversation.id === activeConversationId)
+            || pendingConversationDraft?.id === activeConversationId)) {
             return activeConversationId
         }
-        return conversations.find((conversation) => !conversation.archivedAt)?.id || conversations[0]?.id || null
-    }, [activeConversationId, conversations])
+        return conversations.find((conversation) => !conversation.archivedAt)?.id || conversations[0]?.id || pendingConversationDraft?.id || null
+    }, [activeConversationId, conversations, pendingConversationDraft])
     const actions = useConversationActions({
         conversations,
         isAuthenticated,
@@ -34,8 +35,9 @@ export function useConversationView(state: WorkbenchState, createNewConversation
         createConversationFallback: createNewConversation,
     })
     const activeConversation = useMemo(
-        () => conversations.find((conversation) => conversation.id === resolvedActiveConversationId) || null,
-        [resolvedActiveConversationId, conversations]
+        () => conversations.find((conversation) => conversation.id === resolvedActiveConversationId)
+            || (pendingConversationDraft?.id === resolvedActiveConversationId ? pendingConversationDraft : null),
+        [resolvedActiveConversationId, conversations, pendingConversationDraft]
     )
     const selectedRepoFilePath = readWorkspaceMetadata(activeConversation).selectedFilePath
     const activeWorkspaceId = activeConversation?.workspaceId || null
