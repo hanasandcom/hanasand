@@ -52,7 +52,7 @@ export function AIPageNotices({
                             <p>{resumeNotice.message}</p>
                             {resumeNotice.workspaceId ? (
                                 <Link href={`/s/${resumeNotice.workspaceId}`} className='mt-2 inline-flex items-center gap-2 text-xs font-semibold text-ui-primary underline-offset-4 hover:underline'>
-                                    Open recovered workspace
+                                    Open repository
                                     <SquareArrowOutUpRight className='h-3.5 w-3.5' />
                                 </Link>
                             ) : null}

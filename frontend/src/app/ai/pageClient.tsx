@@ -103,8 +103,8 @@ export default function AIPageClient({
 
                     {showWorkspaceRail && detailsOpen ? (
                         <>
-                            <button type='button' aria-label='Close repository details' onClick={() => setDetailsOpen(false)} className='fixed inset-0 z-30 bg-ui-scrim/60 xl:hidden' />
-                            <div className='fixed inset-y-0 right-0 z-40 h-full w-[min(25rem,92vw)] min-w-0 overflow-hidden p-2 xl:static xl:col-span-1 xl:w-auto xl:p-0'>
+                            <button type='button' aria-label='Close repository details' onClick={() => setDetailsOpen(false)} className='absolute inset-0 z-30 bg-ui-scrim/60 xl:hidden' />
+                            <div className='absolute inset-y-0 right-0 z-40 h-full w-[min(25rem,100%)] min-w-0 overflow-hidden p-2 xl:static xl:col-span-1 xl:w-auto xl:p-0'>
                                 <WorkspacePane
                                     activeConversation={ai.activeConversation}
                                     importedRepos={ai.importedRepos}
