@@ -10,6 +10,7 @@ import type { BrowserRunOverride } from './BrowserWorkspaceTypes'
 import { handleBrowserConnectionMessage } from './browserSocketConnection'
 import { handleBrowserEvidenceMessage } from './browserSocketEvidence'
 import { handleBrowserStatusMessage } from './browserSocketStatus'
+import { ensureBrowserIdentitySession } from '../browserSession'
 
 type Setter<T> = Dispatch<SetStateAction<T>>
 type BrowserMetadata = { userAgent: string; width: number; height: number; locale: string; timezoneId: string; platform: string; isMobile?: boolean; hasTouch?: boolean }
@@ -20,9 +21,16 @@ type BrowserSessionStartOptions = {
 
 export function useBrowserSessionStart(options: BrowserSessionStartOptions) {
     const { target, setTarget, selectedProfile, browserMetadata, quota, socketRef, replacementRef, recoveryDeadlineRef, recoveryAttemptsRef, receivedEvidenceRef, stoppedRunRef, stoppedEarlyRef, setShowStoredResult, setQuickRun, setSelectedProfileId, setCurrentRunId, setShareStatus, setShareUrl, setShareError, setCaptures, setConsoleEvents, setProviderConsoleEvents, setActiveImage, setReportOpen, setStartupStage, setRunBlocker, setStreamUrl, setStreamHasFrame, setStreamStats, setRunTiming, setRunStartedAt, setActiveUrl, setRemoteTabUrls, setActiveSandboxTab, setCapacity, setSessionState, setSocketState, setClockNow, setHistory, setQuota, setActiveFrame, pushEvent, pushConsoleEvent, refreshRunStats } = options
-    const startRun = useCallback(function startRun(override?: BrowserRunOverride) {
+    const startRun = useCallback(async function startRun(override?: BrowserRunOverride) {
         const url = normalizeTarget(override?.target ?? target)
         if (!url) return
+        try {
+            await ensureBrowserIdentitySession()
+        } catch (error) {
+            setRunBlocker(error instanceof Error ? error.message : 'Could not use your current Identity session in Browser.')
+            setSessionState('failed')
+            return
+        }
         setShowStoredResult(false)
         if (replacementRef.current) clearTimeout(replacementRef.current)
         replacementRef.current = null

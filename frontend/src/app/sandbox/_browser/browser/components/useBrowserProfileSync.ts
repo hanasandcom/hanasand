@@ -4,6 +4,7 @@ import { useEffect, type Dispatch, type SetStateAction } from 'react'
 import type { SandboxProfile } from '../types'
 import { defaultProfiles, profileApiPath, storageKey } from '../browserSetup'
 import { isDefaultProfile, mergeProfiles, sanitizeProfiles } from '../browserProfiles'
+import { ensureBrowserIdentitySession } from '../browserSession'
 
 type ProfileSyncOptions = {
     profiles: SandboxProfile[]; setProfiles: Dispatch<SetStateAction<SandboxProfile[]>>; profilesLoaded: boolean; setProfilesLoaded: Dispatch<SetStateAction<boolean>>
@@ -25,7 +26,7 @@ export function useBrowserProfileSync({ profiles, setProfiles, profilesLoaded, s
             setProfilesLoaded(true)
         }
 
-        fetch(profileApiPath, { credentials: 'include', cache: 'no-store' })
+        ensureBrowserIdentitySession().then(() => fetch(profileApiPath, { credentials: 'include', cache: 'no-store' }))
             .then(async response => {
                 if (cancelled) return
                 if (response.status === 401 || response.status === 403) {

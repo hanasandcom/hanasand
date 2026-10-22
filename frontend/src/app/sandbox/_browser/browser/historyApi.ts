@@ -1,4 +1,5 @@
 import { historyApiPath } from './browserSetup'
+import { ensureBrowserIdentitySession } from './browserSession'
 import { runHistoryValue } from './historyData'
 import type { BrowserRunHistory } from './types'
 
@@ -7,6 +8,7 @@ export type PagedBrowserHistory = { runs: PagedBrowserHistoryRun[]; nextOffset: 
 export type RecentBrowserHistory = { runs: unknown[]; quota: unknown }
 
 export async function fetchPagedBrowserHistory(clientId: string, offset: number, signal: AbortSignal): Promise<PagedBrowserHistory> {
+    await ensureBrowserIdentitySession()
     const query = new URLSearchParams({ history: 'all', offset: String(offset), clientId })
     const response = await fetch(`${historyApiPath}?${query}`, { credentials: 'include', signal })
     if (!response.ok) throw new Error('Could not load history.')
@@ -14,6 +16,7 @@ export async function fetchPagedBrowserHistory(clientId: string, offset: number,
 }
 
 export async function fetchRecentBrowserHistory(clientId: string): Promise<RecentBrowserHistory> {
+    await ensureBrowserIdentitySession()
     const response = await fetch(`${historyApiPath}?clientId=${encodeURIComponent(clientId)}`, {
         credentials: 'include',
         cache: 'no-store',
