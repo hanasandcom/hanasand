@@ -27,7 +27,7 @@ export default function useAiWorkbench(initialData: AIWorkbenchInitialData) {
 
 
     const markUnauthorized = useWorkbenchApiAccess(state)
-    const { createNewConversation, promotePendingDraft } = useConversationStartup(state)
+    const { createNewConversation } = useConversationStartup(state)
     useWorkbenchPolling(state, markUnauthorized)
     useWorkbenchConnection(state)
 
@@ -57,7 +57,7 @@ export default function useAiWorkbench(initialData: AIWorkbenchInitialData) {
 
     const rollbackRelease = useReleaseActions(state)
 
-    const { setPreferredModel, setModelStrategy, sendPrompt } = usePromptActions(state, activeConversation, patchConversation, persistMessage, promotePendingDraft)
+    const { setPreferredModel, setModelStrategy, sendPrompt } = usePromptActions(state, activeConversation, patchConversation, persistMessage)
 
     const persistAssistantMessageFromEvent = useAssistantMessagePersistence(state, persistMessage)
 

@@ -58,7 +58,7 @@ export default async function Projects({ emptyTitle = 'Projects' }: { emptyTitle
                     <div className='mt-2 grid gap-2'>
                         {sortedProjects.slice(0, 5).map((project) => (
                             <Link key={project.alias} href={`/p/${project.alias}`} className='block rounded-md border border-ui-border bg-ui-canvas px-3 py-2 hover:border-ui-border hover:bg-ui-primary/10'>
-                                <p className='truncate text-sm font-semibold text-ui-text'>{project.alias || 'Untitled project'}</p>
+                                <p className='truncate text-sm font-semibold text-ui-text'>{project.alias || 'Untitled repository'}</p>
                                 <p className='truncate text-xs text-ui-muted'>{prettyDate(project.last_updated)}</p>
                             </Link>
                         ))}

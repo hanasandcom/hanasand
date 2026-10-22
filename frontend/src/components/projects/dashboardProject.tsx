@@ -24,7 +24,7 @@ export default function DashboardProject({ project }: { project: Project }) {
             <div className='grid gap-2 rounded-md border border-ui-border bg-ui-canvas px-3 py-2 transition hover:border-ui-border hover:bg-ui-primary/10 lg:grid-cols-[minmax(0,1.5fr)_7rem_8rem_8rem_auto] lg:items-center'>
                 <div className='flex min-w-0 flex-1 flex-col gap-1 text-ui-muted sm:flex-row sm:items-center sm:justify-between sm:gap-3'>
                     <div className='min-w-0'>
-                        <h3 className='truncate text-sm font-semibold text-ui-text'>{project.alias || 'Untitled project'}</h3>
+                        <h3 className='truncate text-sm font-semibold text-ui-text'>{project.alias || 'Untitled repository'}</h3>
                         <p className='mt-0.5 truncate text-xs text-ui-muted'>Owner {project.owner || 'attaching'}</p>
                     </div>
                 </div>
@@ -36,7 +36,7 @@ export default function DashboardProject({ project }: { project: Project }) {
                         <ExternalLink className='h-3.5 w-3.5' />
                         Open
                     </Link>
-                    <button type='button' onClick={() => void handleDelete()} aria-label={`Delete project ${project.alias}`} className='inline-flex h-8 w-8 items-center justify-center rounded-md border border-ui-danger/35 bg-ui-raised/10 text-ui-text hover:bg-ui-raised/15'>
+                    <button type='button' onClick={() => void handleDelete()} aria-label={`Delete repository ${project.alias}`} className='inline-flex h-8 w-8 items-center justify-center rounded-md border border-ui-danger/35 bg-ui-raised/10 text-ui-text hover:bg-ui-raised/15'>
                         <Trash2 className='h-4 w-4' />
                     </button>
                 </div>

@@ -1,16 +1,16 @@
 import { useCallback } from 'react'
 import { useRef } from 'react'
+import { aiClientRequest } from '@/utils/ai/client'
 import { appendError, buildSystemPrompt, buildWorkspaceContext, resolveModelName } from './helpers'
-import { updateConversationState } from './conversationModel'
+import { promoteDraftOnce } from './conversationDraftStorage'
+import { toConversationPayload, updateConversationState } from './conversationModel'
 import type { WorkbenchState } from './useWorkbenchState'
-import type { useConversationStartup } from './useConversationStartup'
 
 export function usePromptActions(
     state: WorkbenchState,
     activeConversation: AIConversation | null,
     patchConversation: (id: string, patch: Partial<AIConversation>) => Promise<void>,
-    persistMessage: (conversationId: string, message: AIConversationMessage) => Promise<void>,
-    promotePendingDraft: ReturnType<typeof useConversationStartup>['promotePendingDraft']
+    persistMessage: (conversationId: string, message: AIConversationMessage) => Promise<void>
 ) {
     const {
         composer, setComposer, clients, socketRef, setConversations, conversationsRef,
@@ -18,6 +18,7 @@ export function usePromptActions(
         pendingConversationDraft, setPendingConversationDraft,
     } = state
     const sendingRef = useRef(false)
+    const draftPromotionsRef = useRef(new Map<string, Promise<void>>())
 
     const setPreferredModel = useCallback(async (preferredModel: string | null) => {
         if (!activeConversation) return
@@ -51,15 +52,11 @@ export function usePromptActions(
         sendingRef.current = true
         try {
             const isDraft = pendingConversationDraft?.id === activeConversation.id
-            let conversation = activeConversation
-            if (isDraft) {
-                try {
-                    conversation = await promotePendingDraft(activeConversation, prompt.slice(0, 72), resolvedModel)
-                } catch (error) {
-                    setStatusNotice(error instanceof Error ? error.message : 'Couldn’t start a chat. Your draft is still here; try sending again.')
-                    return
-                }
+            if (isDraft && !state.isAuthenticated) {
+                setStatusNotice('Sign in to start a chat.')
+                return
             }
+            const conversation = activeConversation
             const userMessage: AIConversationMessage = {
                 id: crypto.randomUUID(),
                 role: 'user',
@@ -102,7 +99,7 @@ export function usePromptActions(
                 updatedAt: optimisticUpdatedAt,
                 messages: [...conversation.messages, userMessage, assistantMessage],
             }
-            try {
+            const publishPrompt = () => {
                 socket.send(JSON.stringify({
                     type: 'prompt_request',
                     conversationId: conversation.id,
@@ -111,30 +108,91 @@ export function usePromptActions(
                     maxTokens: 1024,
                     temperature: 0.35,
                 }))
-            } catch {
-                setStatusNotice('Couldn’t send your message. Your draft is still here; try again.')
-                return
             }
             const nextConversations = conversationsRef.current.some((item) => item.id === conversation.id)
                 ? conversationsRef.current.map((item) => item.id === conversation.id ? optimisticConversation : item)
                 : [optimisticConversation, ...conversationsRef.current]
-            conversationsRef.current = nextConversations
-            updateConversationState(conversationsRef, setConversations, () => nextConversations)
-            setComposer('')
-            if (isDraft) setPendingConversationDraft(null)
-            void Promise.all([
-                patchConversation(conversation.id, { activeModel: resolvedModel, title: optimisticTitle }),
-                persistMessage(conversation.id, userMessage),
-                persistMessage(conversation.id, assistantMessage),
-            ]).catch(() => {
-                setStatusNotice('Chat history is syncing slowly. The live response was still sent to the model.')
-            })
+            const publishOptimisticConversation = () => {
+                conversationsRef.current = nextConversations
+                updateConversationState(conversationsRef, setConversations, () => nextConversations)
+                setComposer('')
+                if (isDraft) setPendingConversationDraft(optimisticConversation)
+            }
+            let promotion: Promise<void> | null = null
+            try {
+                if (isDraft) {
+                    promotion = handoffDraftPrompt(publishPrompt, publishOptimisticConversation, () => (
+                        promoteDraftOnce(conversation.id, draftPromotionsRef.current, async () => {
+                            const response = await aiClientRequest('/ai/conversations', {
+                                method: 'POST',
+                                body: JSON.stringify(toConversationPayload({
+                                    ...optimisticConversation,
+                                    title: optimisticTitle,
+                                    activeModel: resolvedModel,
+                                })),
+                            })
+                            if (!response.ok) throw new Error('Couldn’t save the new chat.')
+
+                            // The model can answer before the conversation POST completes. Read the
+                            // current ref after creation so that response events are included here.
+                            const latestConversation = conversationsRef.current.find((item) => item.id === conversation.id)
+                            for (const message of latestConversation?.messages || optimisticConversation.messages) {
+                                const messageResponse = await aiClientRequest(`/ai/conversations/${conversation.id}/messages`, {
+                                    method: 'PUT',
+                                    body: JSON.stringify({
+                                        id: message.id,
+                                        role: message.role,
+                                        content: message.content,
+                                        pending: Boolean(message.pending),
+                                        error: Boolean(message.error),
+                                        modelName: message.modelName || null,
+                                        metadata: message.metadata || {},
+                                        createdAt: message.createdAt,
+                                    }),
+                                })
+                                if (!messageResponse.ok) throw new Error('Chat history is still syncing.')
+                            }
+                        })
+                    ))
+                } else {
+                    publishPrompt()
+                    publishOptimisticConversation()
+                }
+            } catch {
+                setStatusNotice('Couldn’t send your message. Your draft is still here; try again.')
+                return
+            }
+            if (isDraft) {
+                void promotion?.then(() => {
+                    setPendingConversationDraft(null)
+                }).catch((error) => {
+                    const latestConversation = conversationsRef.current.find((item) => item.id === conversation.id)
+                    if (latestConversation) setPendingConversationDraft(latestConversation)
+                    setStatusNotice(error instanceof Error && error.message === 'Chat history is still syncing.'
+                        ? 'Your message was sent, but chat history is still syncing. The draft is still here.'
+                        : 'Your message was sent, but the chat could not be saved. The draft is still here.')
+                })
+            } else {
+                void Promise.all([
+                    patchConversation(conversation.id, { activeModel: resolvedModel, title: optimisticTitle }),
+                    persistMessage(conversation.id, userMessage),
+                    persistMessage(conversation.id, assistantMessage),
+                ]).catch(() => {
+                    setStatusNotice('Chat history is syncing slowly. The live response was still sent to the model.')
+                })
+            }
         } finally {
             sendingRef.current = false
         }
     }, [activeConversation, composer, clients, importedRepos, patchConversation, persistMessage,
         setComposer, setConversations, setStatusNotice, shareContents, shareFileContents, shareTrees,
-        socketRef, conversationsRef, pendingConversationDraft, promotePendingDraft, setPendingConversationDraft])
+        socketRef, conversationsRef, pendingConversationDraft, setPendingConversationDraft, state.isAuthenticated])
 
     return { setPreferredModel, setModelStrategy, sendPrompt }
+}
+
+export function handoffDraftPrompt<T>(send: () => void, publish: () => void, persist: () => Promise<T>) {
+    send()
+    publish()
+    return persist()
 }
