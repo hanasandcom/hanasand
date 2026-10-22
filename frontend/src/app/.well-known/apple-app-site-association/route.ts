@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 
 const association = {
     webcredentials: {
-        apps: ['8VBNY258K7.com.hanasand.app'],
+        apps: [
+            '8VBNY258K7.com.hanasand.app',
+            '8VBNY258K7.com.hanasand.desktop',
+        ],
     },
 }
 

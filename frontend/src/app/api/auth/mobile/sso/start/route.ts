@@ -8,12 +8,16 @@ export async function GET(req: NextRequest) {
     if (!codeChallenge || !/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) {
         return noStore(NextResponse.json({ error: 'Mobile sign-in could not be started.' }, { status: 400 }))
     }
+    const client = req.nextUrl.searchParams.get('client') || 'mobile'
+    if (!['mobile', 'desktop'].includes(client)) {
+        return noStore(NextResponse.json({ error: 'Mobile sign-in could not be started.' }, { status: 400 }))
+    }
 
     const binding = randomBytes(32).toString('base64url')
-    const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/mobile/start`, {
+    const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/start`, {
         method: 'POST',
         headers: { ...clientHeaders(req), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ binding, codeChallenge }),
+        body: JSON.stringify({ binding, redirectPath: '/' }),
         cache: 'no-store',
         redirect: 'error',
     }).catch(() => null)
@@ -30,6 +34,20 @@ export async function GET(req: NextRequest) {
         secure: true,
         sameSite: 'none',
         domain: '.hanasand.com',
+        path: '/',
+        maxAge: 600,
+    })
+    response.cookies.set('__Host-sso-mobile-challenge', codeChallenge, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 600,
+    })
+    response.cookies.set('__Host-sso-mobile-client', client, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
         path: '/',
         maxAge: 600,
     })
