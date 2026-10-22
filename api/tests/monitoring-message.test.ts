@@ -35,6 +35,10 @@ test('legacy metric field errors and collection timeouts are labelled as monitor
         .toContain('Host status is unknown')
     expect(readableMonitoringMessage('The operation timed out. Failed after 1 attempt.', { monitorName: 'Collection', targetUrl: 'system:ti-collection' }))
         .toBe('TI collection health check timed out after 1 attempt before it could read collection status. The collection state is unknown. Check the scraper’s last completed run and recent source errors.')
+    expect(readableMonitoringMessage('Timed out after 2 seconds. Failed after 3 attempts.', { monitorName: 'Collection', targetUrl: 'system:ti-collection' }))
+        .toContain('timed out within 2 seconds (3 attempts)')
+    expect(readableMonitoringMessage('timeout exceeded when trying to connect Failed after 1 attempt.', { monitorName: 'API health' }))
+        .toContain('API health timed out after 1 attempt before it returned a result')
 })
 test('system checks describe known conditions and actions', () => {
     expect(readableMonitoringMessage('JSON threshold exceeded: collection.critical = true; alert eq true (first).', { monitorName: 'TI Collection', targetUrl: 'system:ti-collection' }))
