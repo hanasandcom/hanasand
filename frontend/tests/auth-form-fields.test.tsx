@@ -6,7 +6,7 @@ import LoginForm from '../src/app/login/LoginForm'
 import ResetRequestForm from '../src/app/login/ResetRequestForm'
 import SignupForm from '../src/app/login/SignupForm'
 
-test('login inputs keep their labels, browser autocomplete, and hydration submit gate', () => {
+test('login renders the shared Identity form and keeps redirect handling outside it', () => {
     const html = renderToStaticMarkup(createElement(LoginForm, {
         redirectPath: '/dashboard',
         usernameRef: { current: null },
@@ -18,16 +18,13 @@ test('login inputs keep their labels, browser autocomplete, and hydration submit
         onPasskeyLogin: () => {},
     }))
 
-    expect(html).toContain('<label class="grid gap-3" for="login-username">')
-    expect(html).toContain('type="text" placeholder="Username"')
-    expect(html).toContain('name="username"')
-    expect(html).toContain('autoComplete="username"')
-    expect(html).toContain('<label class="grid gap-3" for="login-password">')
-    expect(html).toContain('type="password"')
-    expect(html).toContain('name="password"')
-    expect(html).toContain('autoComplete="current-password"')
-    expect(html).toContain('type="submit" disabled=""')
-    expect(html).toContain('Log in')
+    expect(html).toContain('<form class="flex w-full flex-col gap-4 self-center" action="/api/auth/login"')
+    expect(html).toContain('name="redirectPath" value="/dashboard"')
+    expect(html).toContain('<hanasand-login-form')
+    expect(html).toContain('identifier-label="Username"')
+    expect(html).toContain('identifier-placeholder="Username"')
+    expect(html).toContain('submit-label="Log in"')
+    expect(html).not.toContain('name="password"')
 })
 
 test('reset request shares the auth submit loading and disabled presentation', () => {
