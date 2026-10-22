@@ -46,10 +46,10 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('role=\'alert\' className=\'rounded-lg border border-ui-danger/25')
     expect(source).toContain('setProjectFiles(plan.projectFiles || [])')
     expect(source).toContain('project_files: projectFiles.length ? projectFiles : undefined')
-    expect(source).toContain("const requiresFourGiB = selectedServices.includes('minecraft-java') || projectFiles.length > 0")
-    expect(source).toContain("if (plan.projectFiles?.length && resourcePlan === 'small') setResourcePlan('standard')")
+    expect(source).toContain('const requiresFourGiB = selectedServices.includes(\'minecraft-java\') || projectFiles.length > 0')
+    expect(source).toContain('if (plan.projectFiles?.length && resourcePlan === \'small\') setResourcePlan(\'standard\')')
     expect(source).toContain('a custom app')
-    expect(source).toContain("disabled={projectFiles.length > 0 && ['nodejs', 'website', 'minecraft-java'].includes(service.id)}")
+    expect(source).toContain('disabled={projectFiles.length > 0 && [\'nodejs\', \'website\', \'minecraft-java\'].includes(service.id)}')
 })
 
 test('successful creation opens the terminal without waiting for a VM status fetch', async () => {
