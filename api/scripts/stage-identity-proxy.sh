@@ -59,6 +59,7 @@ done
 identity_image=$(docker inspect -f '{{.Image}}' hanasand_auth_primary)
 identity_release=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$identity_image")
 test "$identity_release" = "$identity_revision" || { echo 'Identity runtime base changed; stopping.' >&2; exit 1; }
+assert_unused_subnet() {
 docker network inspect $(docker network ls -q) > "$stage_root/docker-networks.json"
 ip -j -4 route show table all > "$stage_root/host-routes.json"
 python3 - "$subnet" "$stage_root/docker-networks.json" "$stage_root/host-routes.json" <<'PY'
@@ -71,6 +72,8 @@ current.extend(ipaddress.ip_network(r['dst'],strict=False) for r in routes if r.
 assert not any(proposed.overlaps(x) for x in current if x.version==proposed.version), 'Stage subnet overlaps an existing Docker network or host route'
 print('phase=subnet-confirmed-unused-docker-and-host-routes')
 PY
+}
+assert_unused_subnet
 phase "phase=main-provenance-verified runtime-source=$core_revision api-equivalent-to=$core_baseline identity=$identity_release"
 cleanup() {
  failed=0
@@ -115,7 +118,7 @@ docker cp "$extract:/app/node_modules" "$stage_root/identity/node_modules"
 phase "phase=build-private-main-runtime source=$core_revision image=$runtime_tag"
 # Preserve the established Dockerfile. Its non-frozen bun install is checked
 # below by comparing the built lock against the exact Git lock before testing.
-docker buildx build --load --target app-runtime --build-context "database_schema=$build_source/db" \
+docker buildx build --load --target app-runtime \
  --build-arg "HANASAND_RELEASE_COMMIT=$core_revision" --label "$label=$owner" \
  --iidfile "$stage_root/runtime-image-id" --tag "$runtime_tag" --file "$build_source/api/Dockerfile" "$build_source"
 core_image=$(cat "$stage_root/runtime-image-id")
@@ -124,6 +127,7 @@ docker create --name "$pin" --label "$label=$owner" --network none "$core_image"
 docker cp "$pin:/app/bun.lock" "$stage_root/built-bun.lock"
 cmp "$build_source/api/bun.lock" "$stage_root/built-bun.lock"
 phase "phase=private-runtime-ready source=$core_revision digest=$core_image lock-unchanged=true candidate=$expected"
+assert_unused_subnet
 docker network create --internal --label "$label=$owner" --subnet "$subnet" "$network" >/dev/null
 docker run -d --name "$db" --label "$label=$owner" --network "$network" --tmpfs /var/lib/postgresql/data -e POSTGRES_DB=core_organization_proof_test -e POSTGRES_USER=synthetic -e POSTGRES_PASSWORD=synthetic-local-only postgres:15-alpine >/dev/null
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
