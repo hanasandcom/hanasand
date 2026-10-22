@@ -125,7 +125,6 @@ export default function TestPageClient({ serverId, created, missingTestId }: { s
         path={path}
         scenarioId={scenarioId}
         scenarios={scenarioPresets}
-        selectedScenario={selectedScenario}
         quotaLabel={quotaLabel}
         missingTestId={missingTestId}
         error={error}
