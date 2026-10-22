@@ -14,7 +14,7 @@ test('returns each linked run with original diagnostics and bounded pagination',
     expect(result.events.map(e => e.id)).toEqual(['run-1','run-2','run-3'])
     expect(result.events[0]).toMatchObject({ outcome: 'failure', durationMs: 100, details: { endpoint: 'https://old.example/' }, message: 'ETIMEDOUT token=[redacted]' })
     expect(queries[0][1]).toEqual(['12',100,'2026-09-12T12:00:00Z'])
-    expect(queries[0][0]).toContain('WHERE issue_id = $1')
+    expect(queries[0][0]).toContain('WHERE r.issue_id = $1')
     expect(queries[0][0]).toContain('LIMIT 50')
 })
 test('check snapshots exclude URL credentials and arbitrary query secrets', () => {

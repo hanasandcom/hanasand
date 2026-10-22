@@ -1,6 +1,6 @@
 import { setTimeout as retryDelay } from 'node:timers/promises'
 import { normalizeJsonRule, evaluateJsonRule, sharedJsonSnapshot } from './jsonMonitoring.ts'
-import { hostCheckMessage } from './hostCheckMessage.ts'
+import { hostCheckMessage, hostMetricsDataWarning } from './hostCheckMessage.ts'
 import { recoveryCheckMessage } from './recoveryMonitoring.ts'
 import { MonitoringResponseError } from './monitoringResponseError.ts'
 import type { AutomationRow } from './automationTypes.ts'
@@ -48,6 +48,13 @@ export async function runMonitoringCheck(automation: AutomationRow) {
         }
     }
     const message = lastError instanceof Error ? lastError.message : 'Monitoring request failed.'
+    if (automation.target_url === 'system:metrics') {
+        return {
+            provider: 'hanasand-monitoring', model: 'json',
+            message: hostMetricsDataWarning(automation.name, lastError),
+            certificate: certificate!, warning: true,
+        }
+    }
     const failure = Object.assign(new Error(`${message} Failed after ${automation.retry_count + 1} attempt${automation.retry_count ? 's' : ''}.`), { certificate: getCertificateFromError(lastError) ?? certificate })
     throw failure
 }
@@ -56,17 +63,23 @@ async function runJsonCheck(automation: AutomationRow, attempt: number) {
     // Retry unavailable snapshots, but evaluate each received snapshot exactly once.
     const snapshot = await sharedJsonSnapshot(automation, attempt)
     const certificate = snapshot.certificate
+    let rule: ReturnType<typeof normalizeJsonRule>
+    let evaluated: ReturnType<typeof evaluateJsonRule>
     try {
-        const rule = normalizeJsonRule(automation.json_rule)
-        const { exceeded, observed } = evaluateJsonRule(snapshot.payload, rule)
-        const inverted = invertsMonitoringResult(automation)
-        const failed = inverted ? !exceeded : exceeded
-        const message = (automation.target_url === 'system:metrics' ? hostCheckMessage(rule, observed, failed, inverted) : null)
-            ?? (automation.target_url === 'system:recovery' ? recoveryCheckMessage(snapshot.payload, rule, inverted) : null)
-            ?? `JSON ${failed ? 'threshold exceeded' : 'check passed'}: ${rule.path} = ${observed}; alert ${rule.operator} ${rule.value} (${rule.aggregate}).`
-        if (failed) throw new Error(message)
-        return { provider: 'hanasand-monitoring', model: 'json', message, certificate, warning: false }
+        rule = normalizeJsonRule(automation.json_rule)
+        evaluated = evaluateJsonRule(snapshot.payload, rule)
     } catch (error) {
+        if (automation.target_url === 'system:metrics') {
+            return { provider: 'hanasand-monitoring', model: 'json', message: hostMetricsDataWarning(automation.name, error), certificate, warning: true }
+        }
         throw Object.assign(new MonitoringResponseError(error instanceof Error ? error.message : 'JSON check failed.', { cause: error }), { certificate })
     }
+    const { exceeded, observed } = evaluated
+    const inverted = invertsMonitoringResult(automation)
+    const failed = inverted ? !exceeded : exceeded
+    const message = (automation.target_url === 'system:metrics' ? hostCheckMessage(rule, observed, failed, inverted) : null)
+        ?? (automation.target_url === 'system:recovery' ? recoveryCheckMessage(snapshot.payload, rule, inverted) : null)
+        ?? `JSON ${failed ? 'threshold exceeded' : 'check passed'}: ${rule.path} = ${observed}; alert ${rule.operator} ${rule.value} (${rule.aggregate}).`
+    if (failed) throw Object.assign(new MonitoringResponseError(message), { certificate })
+    return { provider: 'hanasand-monitoring', model: 'json', message, certificate, warning: false }
 }

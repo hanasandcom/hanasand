@@ -18,19 +18,21 @@ export function monitoringCheckDetails(automation: AutomationRow) {
 }
 
 export async function loadMonitoringCaseEvents(issueId: string, page: number, snapshot = new Date().toISOString()) {
-    const result = await run(`SELECT id, started_at, completed_at, duration_ms, status, warning, error, result, check_details
-        FROM agent_automation_runs WHERE issue_id = $1 AND started_at <= $3::timestamptz AND (completed_at IS NULL OR completed_at <= $3::timestamptz) ORDER BY started_at DESC, id DESC LIMIT 50 OFFSET $2`, [issueId, page * 50, snapshot])
+    const result = await run(`SELECT r.id, r.started_at, r.completed_at, r.duration_ms, r.status, r.warning, r.error, r.result, r.check_details,
+        a.name AS monitor_name, a.target_url FROM agent_automation_runs r JOIN agent_automations a ON a.id = r.automation_id
+        WHERE r.issue_id = $1 AND r.started_at <= $3::timestamptz AND (r.completed_at IS NULL OR r.completed_at <= $3::timestamptz)
+        ORDER BY r.started_at DESC, r.id DESC LIMIT 50 OFFSET $2`, [issueId, page * 50, snapshot])
     const count = await run('SELECT count(*)::int AS total FROM agent_automation_runs WHERE issue_id = $1 AND started_at <= $2::timestamptz AND (completed_at IS NULL OR completed_at <= $2::timestamptz)', [issueId, snapshot])
     return { events: result.rows.map(row => ({ id: row.id, startedAt: row.started_at, completedAt: row.completed_at,
         durationMs: row.duration_ms, outcome: row.status === 'failed' ? 'failure' : row.warning ? 'warning' : row.status,
-        message: readableMonitoringMessage(redactSecretBearingText(row.error || row.result || '')), details: row.check_details })),
+        message: readableMonitoringMessage(redactSecretBearingText(row.error || row.result || 'No result recorded at this time.'), { monitorName: row.monitor_name, targetUrl: row.target_url }), details: row.check_details })),
     eventTotal: count.rows[0].total as number, eventPage: page, eventSnapshot: snapshot }
 }
 
 // Shared outages can include several monitors. Read each result at recovery time,
 // so later runs cannot replace the evidence shown for the recovered case.
 export async function loadMonitoringRelatedChecks(issueId: string, snapshot: string) {
-    const result = await run(`SELECT a.id, a.name, r.status, r.warning, r.error, r.result, r.completed_at
+    const result = await run(`SELECT a.id, a.name, a.target_url, r.status, r.warning, r.error, r.result, r.completed_at
         FROM monitoring_issue_checks c
         JOIN agent_automations a ON a.id = c.automation_id
         JOIN monitoring_issues i ON i.id = c.issue_id
@@ -46,6 +48,6 @@ export async function loadMonitoringRelatedChecks(issueId: string, snapshot: str
     return result.rows.map(row => ({
         id: row.id, name: row.name || row.id, completedAt: row.completed_at,
         outcome: row.status === 'failed' ? 'failure' : row.warning ? 'warning' : row.status,
-        message: readableMonitoringMessage(redactSecretBearingText(row.error || row.result || 'No result recorded at this time.')),
+        message: readableMonitoringMessage(redactSecretBearingText(row.error || row.result || 'No result recorded at this time.'), { monitorName: row.name, targetUrl: row.target_url }),
     }))
 }
