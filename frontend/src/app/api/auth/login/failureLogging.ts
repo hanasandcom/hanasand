@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
 import { safeRedirectPath } from './requestHelpers'
 
 type AuthFailureInput = {
@@ -47,13 +46,14 @@ export async function recordFrontendAuthFailure(input: AuthFailureInput) {
         redirect_path: safeRedirectPath(input.redirectPath),
     }))
 
-    const token = process.env.VM_API_TOKEN
-    if (!token) return
+    const logsUrl = process.env.LOGS_SERVICE_URL?.trim().replace(/\/+$/, '')
+    const token = process.env.LOGS_SERVICE_INGEST_TOKEN
+    if (!logsUrl || !token || token.length < 32) return
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 750)
     try {
-        await fetch(`${authApiUrl().replace(/\/$/, '')}/logs/ingest`, {
+        await fetch(`${logsUrl}/api/ingest`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

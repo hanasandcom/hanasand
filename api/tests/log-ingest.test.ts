@@ -15,13 +15,20 @@ mock.module('#db', () => ({ isTransientDatabaseError: () => false, withTransacti
     } catch (error) { stored.length = start; operations.push('rollback'); throw error }
 } }))
 const previousToken = process.env.LOG_INGEST_TOKEN
+const previousRemoteOnly = process.env.LOGS_OUTBOX_REMOTE_ONLY
+const previousLogsUrl = process.env.LOGS_SERVICE_URL
 mock.module('#utils/auth/internalToken.ts', () => ({ default: (req: any) => req.headers.authorization === 'Bearer existing-internal-token' }))
 mock.module('#utils/logs/recordLog.ts', () => ({ recordLogBatch: async (events: unknown[], query: unknown) => { expect(query).toBe(transactionQuery); if (fail) throw new Error('Database unavailable'); stored.push(...events) } }))
 const { default: ingestLog, hasLogIngestToken, logIngestCapacity } = await import('../src/handlers/logs/ingest.ts')
 const app = Fastify()
 app.post('/logs/ingest', ingestLog)
-beforeEach(() => { stored = []; fail = false; failCommit = false; operations.length = 0; process.env.LOG_INGEST_TOKEN = 'dedicated-log-token' })
-afterAll(async () => { await app.close(); if (previousToken === undefined) delete process.env.LOG_INGEST_TOKEN; else process.env.LOG_INGEST_TOKEN = previousToken })
+beforeEach(() => { stored = []; fail = false; failCommit = false; operations.length = 0; process.env.LOG_INGEST_TOKEN = 'dedicated-log-token'; delete process.env.LOGS_OUTBOX_REMOTE_ONLY })
+afterAll(async () => {
+    await app.close()
+    if (previousToken === undefined) delete process.env.LOG_INGEST_TOKEN; else process.env.LOG_INGEST_TOKEN = previousToken
+    if (previousRemoteOnly === undefined) delete process.env.LOGS_OUTBOX_REMOTE_ONLY; else process.env.LOGS_OUTBOX_REMOTE_ONLY = previousRemoteOnly
+    if (previousLogsUrl === undefined) delete process.env.LOGS_SERVICE_URL; else process.env.LOGS_SERVICE_URL = previousLogsUrl
+})
 const payload = { service: 'audit', host: 'inspur', message: 'whoami', metadata: { process: { executable: '/usr/bin/whoami' } } }
 const send = (authorization: string, body: unknown = payload) => app.inject({ method: 'POST', url: '/logs/ingest', headers: { authorization }, payload: body as any })
 test('scoped ingestion token and existing internal clients are accepted', async () => {
@@ -32,6 +39,17 @@ test('scoped ingestion token and existing internal clients are accepted', async 
     for (const token of ['', 'dedicated-log-token', 'Bearer wrong', 'Bearer dedicated-log-tokem']) expect((await send(token)).statusCode).toBe(401)
     delete process.env.LOG_INGEST_TOKEN
     expect((await send('Bearer dedicated-log-token')).statusCode).toBe(401)
+})
+test('remote-only mode retires Hanasand ingestion and directs senders to Logs', async () => {
+    process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
+    process.env.LOGS_SERVICE_URL = 'https://logs.hanasand.com'
+    const response = await send('Bearer dedicated-log-token')
+    expect(response.statusCode).toBe(410)
+    expect(response.json()).toEqual({
+        error: 'Logs ingestion has moved to the independent Logs API.',
+        ingestUrl: 'https://logs.hanasand.com/api/ingest',
+    })
+    expect(operations).toEqual([])
 })
 test('validates the full batch before storage and only acknowledges durable writes', async () => {
     expect((await send('Bearer dedicated-log-token', { events: [payload, { ...payload, metadata: 'bad' }] })).statusCode).toBe(400)

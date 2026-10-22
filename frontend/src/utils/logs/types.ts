@@ -16,5 +16,5 @@ export type RuntimeLog = {
     message: string
     metadata?: Record<string, unknown>
     created_at: string
-    source: 'runtime' | 'native'
+    source: 'runtime' | 'native' | 'logs_ingestion'
 }

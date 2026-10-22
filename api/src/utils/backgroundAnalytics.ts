@@ -21,14 +21,20 @@ function refreshRuleHitsInBackground(logger: Pick<FastifyBaseLogger, 'warn'>) {
     return () => { active = false; clearTimeout(timer) }
 }
 
-export async function startBackgroundAnalytics(logger: Pick<FastifyBaseLogger, 'warn'>) {
+export async function startBackgroundAnalytics(
+    logger: Pick<FastifyBaseLogger, 'warn'>,
+    options: { includeLogAnalytics?: boolean } = {},
+) {
+    const includeLogAnalytics = options.includeLogAnalytics !== false
     // Recovery servers answer requested reads; they must not continuously scan
     // the primary or their recovering replica to populate unused local caches.
     if (process.env.RECOVERY_ESSENTIAL_ONLY === '1') return () => {}
-    void warmLogSnapshots().catch(error => logger.warn({ error }, 'Log startup snapshots will retry in the background'))
-    const stopLogs = refreshLogSnapshots()
+    if (includeLogAnalytics) {
+        void warmLogSnapshots().catch(error => logger.warn({ error }, 'Log startup snapshots will retry in the background'))
+    }
+    const stopLogs = includeLogAnalytics ? refreshLogSnapshots() : () => {}
     if (process.env.AUTH_SERVICE_ONLY === '1') return stopLogs
-    const stopRuleHits = refreshRuleHitsInBackground(logger)
+    const stopRuleHits = includeLogAnalytics ? refreshRuleHitsInBackground(logger) : () => {}
     void warmTrafficStatistics().catch(error => logger.warn({ error }, 'Traffic startup snapshots will retry in the background'))
     const stopTraffic = refreshTrafficHistory()
     const timer = setInterval(() => {

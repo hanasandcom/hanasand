@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import config from '@/config'
 import { authCookieOptions, setAuthCookie } from '@/utils/proxy/authResponses'
+import { applyOrganizationId, backendTargetBase } from '@/utils/proxy/backendTarget'
 import { vmCreateProxyTimeoutMs, vmCreateTimeoutMessage, vmLifecycleProxyTimeoutMs, vmSetupPlanProxyTimeoutMs } from '@/utils/vms/proxyTimeout'
 
 type Context = {
@@ -42,7 +43,9 @@ async function handler(req: NextRequest, context: Context) {
     }
 
     const path = pathSegments.map(segment => encodeURIComponent(segment)).join('/')
-    const targetBase = pathSegments[0] === 'ai' ? config.url.ai : config.url.api
+    const impersonationToken = cookieStore.get('impersonation_token')?.value
+    const routing = backendTargetBase(pathSegments, config.url.api, config.url.ai, process.env.FRONTEND_LOGS_API_URL, !impersonationToken)
+    const targetBase = routing.url
     const target = new URL(`${targetBase}/${path}`)
     target.search = req.nextUrl.search
     const longLogSearch = pathSegments[0] === 'logs' && pathSegments[1] === 'search'
@@ -54,6 +57,10 @@ async function handler(req: NextRequest, context: Context) {
     if (['events', 'rules'].includes(pathSegments[0]) && !target.searchParams.has('organizationId')) {
         const organizationId = await activeOrganizationId()
         if (organizationId) target.searchParams.set('organizationId', organizationId)
+    }
+    if (routing.directLogsRead && !target.searchParams.has('organizationId')) {
+        const organizationId = await activeOrganizationId()
+        applyOrganizationId(target, organizationId)
     }
 
     const headers = new Headers()
@@ -76,7 +83,6 @@ async function handler(req: NextRequest, context: Context) {
         if (organizationId) headers.set('x-organization-id', organizationId)
     }
 
-    const impersonationToken = cookieStore.get('impersonation_token')?.value
     if (impersonationToken) {
         headers.set('x-impersonation-token', impersonationToken)
     }

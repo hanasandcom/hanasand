@@ -4,6 +4,7 @@ import { hasLogIngestToken } from '#utils/auth/logIngestToken.ts'
 export { hasLogIngestToken } from '#utils/auth/logIngestToken.ts'
 import hasInternalToken from '#utils/auth/internalToken.ts'
 import { recordLogBatch } from '#utils/logs/recordLog.ts'
+import { logsOutboxRemoteOnly, logsServiceConfiguration } from '#utils/logs/logOutboxConfig.ts'
 import config from '#constants'
 
 // Each batch holds a connection through up to 200 writes. Leave capacity for
@@ -39,6 +40,13 @@ function isLogEvent(value: unknown): value is LogEvent {
 export default async function ingestLog(req: FastifyRequest, res: FastifyReply) {
     if (!hasLogIngestToken(req) && !hasInternalToken(req)) {
         return res.status(401).send({ error: 'Unauthorized.' })
+    }
+    if (logsOutboxRemoteOnly()) {
+        const { url } = logsServiceConfiguration()
+        return res.status(410).send({
+            error: 'Logs ingestion has moved to the independent Logs API.',
+            ingestUrl: url ? `${url}/api/ingest` : undefined,
+        })
     }
 
     const body = req.body as Record<string, unknown> | undefined

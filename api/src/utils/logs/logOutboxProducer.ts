@@ -4,7 +4,7 @@ import type { Organization } from './logOutboxTypes.ts'
 import { logsOutboxEnabled, logsServiceConfiguration } from './logOutboxConfig.ts'
 import { enqueueOrganizationSnapshots } from './logOutboxSnapshots.ts'
 import { redactLogText, redactLogValue } from './redact.ts'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 
 type Query = typeof run
 
@@ -24,7 +24,10 @@ export async function enqueueLogsForIndependentService(entries: LogRecordEntry[]
         ...entry,
         service: entry.service || process.env.SERVICE_NAME || 'hanasand-api',
         host: entry.host || process.env.HOSTNAME || 'local',
-        sourceEventId: createHash('sha256').update(`service:${entry.sourceEventId || randomUUID()}`).digest('hex'),
+        // Logs computes the same stable event primary key as Hanasand from this
+        // source identity. Hashing it here would double-hash the Logs key and
+        // make dual-write migration create a second copy of each application log.
+        sourceEventId: entry.sourceEventId || randomUUID(),
     }))
     const requestedIds = [...new Set(normalized.map(requestedOrganizationId).filter((id): id is string => Boolean(id)))]
     const platformId = process.env.PLATFORM_LOG_ORGANIZATION_ID || null
