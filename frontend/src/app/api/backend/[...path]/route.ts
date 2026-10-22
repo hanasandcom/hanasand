@@ -1,3 +1,4 @@
+import { backendDeviceProofTarget } from '@/utils/auth/backendDeviceProofTarget'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
@@ -27,6 +28,8 @@ const hopByHopHeaders = new Set([
 const BACKEND_PROXY_TIMEOUT_MS = Number(process.env.BACKEND_PROXY_TIMEOUT_MS || 12_000)
 
 async function handler(req: NextRequest, context: Context) {
+    const proofTarget = backendDeviceProofTarget(req)
+    if (!proofTarget) return NextResponse.json({ error: 'Invalid device proof request target.' }, { status: 400 })
     const cookieStore = await cookies()
     // Prefer credentials explicitly sent for this request. Client-side AI calls
     // keep refreshed credentials in document.cookie and send them as headers;
@@ -73,8 +76,8 @@ async function handler(req: NextRequest, context: Context) {
     // The device proof is signed for the browser-facing Next route. Preserve
     // that request target when forwarding it to the API service, whose URL is
     // different behind this proxy.
-    headers.set('x-device-proof-url', `${req.nextUrl.origin}${req.nextUrl.pathname}`)
-    headers.set('x-device-proof-method', req.method)
+    headers.set('x-device-proof-url', proofTarget.url)
+    headers.set('x-device-proof-method', proofTarget.method)
     if (token) headers.set('Authorization', `Bearer ${token}`)
     if (id) headers.set('id', id)
     if (['notes', 'share', 'article', 'articles', 'thought', 'thoughts'].includes(pathSegments[0])) {
