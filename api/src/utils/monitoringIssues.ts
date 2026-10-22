@@ -116,7 +116,7 @@ export async function notifyMonitoringOutcome(automation: AutomationRow, runId: 
     const preferences = await run('SELECT notifications_enabled, kind, summary, occurrences, first_seen_at, last_seen_at, resolved_at, severity_override, status_override FROM monitoring_issues WHERE id = $1', [issue])
     const details = preferences.rows[0]
     if (!details || details.notifications_enabled === false) return
-    const alert = monitoringCaseDiscordAlert(`HA-${issue}`, automation.name || 'Health check', automation.id, details, automation.organization_id, { targetUrl: automation.target_url })
+    const alert = monitoringCaseDiscordAlert(`HA-${issue}`, automation.name || 'Health check', automation.id, details, automation.organization_id, { targetUrl: automation.target_url, timeoutSeconds: automation.timeout_seconds })
     const destinations = new Set(automation.notification_destinations?.length ? automation.notification_destinations : automation.model_name ? [automation.model_name] : [])
     for (const destination of destinations) {
         // Reserve in PostgreSQL before delivery: concurrent workers and restarts cannot send duplicates.
@@ -140,7 +140,7 @@ export async function notifyMonitoringOutcome(automation: AutomationRow, runId: 
 }
 
 export async function loadMonitoringIssues(automationId: string) {
-    const result = await run(`SELECT i.*, a.name AS monitor_name, a.target_url, COALESCE((SELECT jsonb_agg(entry ORDER BY delivered_at DESC NULLS FIRST) FROM (
+    const result = await run(`SELECT i.*, a.name AS monitor_name, a.target_url, a.timeout_seconds, COALESCE((SELECT jsonb_agg(entry ORDER BY delivered_at DESC NULLS FIRST) FROM (
         SELECT jsonb_build_object('messageId', m.message_id, 'deliveredAt', m.delivered_at, 'message', m.message) AS entry, m.delivered_at
         FROM monitoring_issue_messages m WHERE m.issue_id = i.id
         UNION ALL
@@ -150,7 +150,7 @@ export async function loadMonitoringIssues(automationId: string) {
         FROM monitoring_issues i JOIN agent_automations a ON a.id=i.automation_id
         WHERE i.merged_into IS NULL AND (i.automation_id = $1 OR EXISTS (SELECT 1 FROM monitoring_issue_checks c WHERE c.issue_id=i.id AND c.automation_id=$1)) ORDER BY i.last_seen_at DESC, i.id DESC`, [automationId])
     return result.rows.map(row => ({
-        id: row.id, caseNumber: `HA-${row.id}`, kind: row.kind, summary: readableMonitoringMessage(row.summary, { monitorName: row.monitor_name, targetUrl: row.target_url }),
+        id: row.id, caseNumber: `HA-${row.id}`, kind: row.kind, summary: readableMonitoringMessage(row.summary, { monitorName: row.monitor_name, targetUrl: row.target_url, timeoutSeconds: row.timeout_seconds }),
         occurrences: row.occurrences, firstSeenAt: row.first_seen_at, lastSeenAt: row.last_seen_at,
         resolvedAt: row.resolved_at, notifications: row.notifications,
     }))

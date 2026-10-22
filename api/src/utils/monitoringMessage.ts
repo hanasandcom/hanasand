@@ -1,6 +1,6 @@
 import { hostMetricsDataWarning } from './hostCheckMessage.ts'
 
-type MonitoringMessageContext = { monitorName?: string | null, targetUrl?: string | null, jsonPayload?: unknown, formatUnknown?: boolean }
+type MonitoringMessageContext = { monitorName?: string | null, targetUrl?: string | null, timeoutSeconds?: number | null, jsonPayload?: unknown, formatUnknown?: boolean }
 
 function fieldLabel(path: string) {
     const known: Record<string, string> = {
@@ -151,8 +151,17 @@ function monitoringError(message: string, context: MonitoringMessageContext) {
     if (/\b(?:ECONNRESET|EPIPE)\b|socket hang up|response ended before the body was complete|Connection failed:/i.test(detail)) {
         return retryNote(`${name} lost its connection before the health check completed. The target’s health state is unknown. Check connectivity and recent service logs.`)
     }
-    if (/\bETIMEDOUT\b|\btimeout\b/i.test(detail)) {
-        return retryNote(`${name} timed out before it could confirm the target’s health. Check the monitor timeout and target response time.`)
+    if (/\bETIMEDOUT\b|\btimeout\b|\btimed out\b/i.test(detail)) {
+        const limit = typeof context.timeoutSeconds === 'number' && context.timeoutSeconds > 0
+            ? ` within the configured ${context.timeoutSeconds}-second request limit`
+            : ''
+        if (context.targetUrl === 'system:ti-collection') {
+            return retryNote(`${name} timed out${limit} before it could read source collection status. Collection freshness is unknown. Check the scraper’s last completed run and recent source errors.`)
+        }
+        if (/log.*throughput/i.test(name)) {
+            return retryNote(`The Logs metrics check timed out${limit}. Current throughput and backlog are unknown because no fresh metrics were returned. Check the Logs metrics endpoint and processing workers.`)
+        }
+        return retryNote(`${name} timed out${limit} before it could return health data. Target status is unknown. Check the endpoint response time and the monitor timeout.`)
     }
     if (/^Monitoring (?:request )?failed\.$|^JSON source unavailable\.$|^Monitoring check failed\.$/i.test(detail)) {
         return `${name} failed before it could confirm the target’s health. The target’s status is unknown. Check the monitor’s latest result and target connectivity.`
@@ -167,6 +176,12 @@ function monitoringError(message: string, context: MonitoringMessageContext) {
 // Translate stored machine-generated output for cases, events, and Discord.
 // Persisted evidence and user-authored comments remain unchanged.
 export function readableMonitoringMessage(message: string, context: MonitoringMessageContext = {}): string {
+    // Older case summaries persisted this generic wrapper before their raw timeout
+    // detail was recognized. Reformat the known wrapper so saved cases improve too.
+    const name = monitorName(context).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const genericFailure = new RegExp(`^${name} could not complete its health check: ([\\s\\S]+?)\\. The target’s status is unknown\\. Check the monitor configuration and target response\\.$`).exec(message)
+    if (genericFailure) return monitoringError(`${genericFailure[1]}.`, context)
+
     if (context.targetUrl === 'system:metrics' && /^JSON field (?:unavailable|is not numeric|type does not match the comparison): [\w*.-]+\.$/.test(message)) {
         return hostMetricsDataWarning(context.monitorName || 'the monitored host', new Error(message))
     }
