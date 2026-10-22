@@ -5,7 +5,6 @@ import { createDeviceProof } from '@/utils/auth/deviceProof'
 import { prepareVmConsole } from '@/utils/vms/prepareConsole'
 import { useVmConsoleBootLog } from './useVmConsoleBootLog'
 import { useVmProvisioningStatus } from './useVmProvisioningStatus'
-
 export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
     const container = useRef<HTMLDivElement>(null)
     const boot = useVmConsoleBootLog()
@@ -14,7 +13,6 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
     const [username, setUsername] = useState('')
     const [opening, setOpening] = useState(true)
     const provisioning = useVmProvisioningStatus(name)
-
     useEffect(() => {
         let disposed = false
         const controller = new AbortController()
@@ -86,7 +84,6 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
                 }
                 return false
             })
-
             let followOutput = true
             let pendingWrites = 0
             const scroll = terminal.onScroll(position => {
@@ -172,8 +169,7 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
                         } else if (message.type === 'boot-output') {
                             boot.setError('')
                             boot.setOutput(previous => (previous + message.data).slice(-65536))
-                        } else if (message.type === 'boot-error') boot.setError(message.message)
-                        else if (message.type === 'closed') setStatus('Console disconnected. Reconnecting…')
+                        } else if (message.type === 'boot-error') boot.setError(message.message) else if (message.type === 'closed') setStatus('Console disconnected. Reconnecting…')
                     } catch {
                         setStatus('Invalid console response. Reconnect to try again.')
                     }
@@ -200,6 +196,5 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
             disposeTerminal?.()
         }
     }, [name, host])
-
     return { container, boot, reconnect, status, setStatus, username, opening, provisioning }
 }
