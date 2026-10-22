@@ -5,7 +5,7 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 
-const publicSshHost = process.env.VM_PUBLIC_SSH_HOST || process.env.VM_PUBLIC_HOST || 'hanasand.com'
+const publicSshHost = process.env.VM_PUBLIC_SSH_HOST || process.env.VM_PUBLIC_HOST || 'ssh.hanasand.com'
 
 export default async function getVmConnection(req: FastifyRequest, res: FastifyReply) {
     const { valid, id } = await tokenWrapper(req, res)
