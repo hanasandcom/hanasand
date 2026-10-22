@@ -42,7 +42,7 @@ export async function runWorkspaceTool(
     if (toolCall.action === 'create_vm') {
         const vmName = slugify(toolCall.vmName || toolCall.projectName || conversation.title || 'hanasand-project')
         const result = await createVm({ name: vmName })
-        return { ok: result.status < 400 || result.status === 409, message: result.message }
+        return { ok: result.status < 400, message: result.message }
     }
     if (toolCall.action === 'create_project') {
         const projectName = toolCall.projectName || conversation.title || 'hanasand-project'
@@ -55,6 +55,12 @@ export async function runWorkspaceTool(
             resources: { cpu: '1', memory: '2GiB', disk: '10GiB' },
             services: ['nodejs', 'docker'],
         })
+        if (result.status === 409) {
+            return {
+                ok: false,
+                message: `Created the ${projectName} workspace, but VM ${vmName} already exists. No new VM setup was started; choose another VM name or manage the existing VM.`,
+            }
+        }
         if (result.status >= 400) {
             return {
                 ok: false,
@@ -63,16 +69,22 @@ export async function runWorkspaceTool(
         }
         return {
             ok: true,
-            message: `Created the ${projectName} workspace and requested VM ${vmName} with Node.js and Docker. VM setup is provisioning in the background; check its status before running the app.`,
+            message: `Created the ${projectName} repository and requested VM ${vmName}. Hanasand is installing Node.js and Docker in the background. Check the VM status before running the app; the repository files are not copied to the VM yet.`,
         }
     }
     if (toolCall.action === 'run_terminal_command') {
         const shareId = toolCall.shareId || conversation.workspaceId || conversation.shareIds[0]
         if (!shareId || !toolCall.command) return { ok: false, message: 'Tool failed: run_terminal_command requires a target share and command.' }
         const result = await runTerminalCommand(shareId, toolCall.command, toolCall.timeoutMs)
+        const unsupportedCommand = /command is not available in this browser terminal/i.test(result.output)
         return {
-            ok: result.ok,
-            message: [`Ran terminal command on share ${shareId}.`, `Command: ${toolCall.command}`, 'Output:', result.output].join('\n\n'),
+            ok: result.ok && !unsupportedCommand,
+            message: [
+                unsupportedCommand ? `Could not run ${toolCall.command} on share ${shareId}.` : `Ran terminal command on share ${shareId}.`,
+                `Command: ${toolCall.command}`,
+                'Output:',
+                result.output,
+            ].join('\n\n'),
         }
     }
     return null

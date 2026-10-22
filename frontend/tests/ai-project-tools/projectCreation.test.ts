@@ -21,7 +21,7 @@ test('executes only direct Next.js app creation requests when the model omitted 
         .toEqual([{ action: 'scaffold_nextjs_docker' }])
 })
 
-test('creates the workspace and requests an Ubuntu VM with Node.js and Docker', async () => {
+test('creates the repository and requests an Ubuntu VM with Node.js and Docker', async () => {
     const scaffoldCalls: unknown[][] = []
     const vmCalls: unknown[] = []
     const statusCalls: string[] = []
@@ -51,7 +51,47 @@ test('creates the workspace and requests an Ubuntu VM with Node.js and Docker', 
         services: ['nodejs', 'docker'],
     }])
     expect(statusCalls).toEqual(['Provisioning demo-app with Node.js and Docker...'])
-    expect(result?.message).toContain('provisioning in the background')
+    expect(result?.message).toContain('installing Node.js and Docker in the background')
+    expect(result?.message).toContain('repository files are not copied to the VM yet')
+})
+
+test('does not report a pre-existing VM as newly provisioned', async () => {
+    const result = await runWorkspaceTool({
+        id: 'conversation-1', ownerId: 'user-1', title: 'Demo App', preferredModel: null, activeModel: null,
+        modelStrategy: 'auto', workspaceId: null, workspaceKind: null, shareIds: [], workspaceMeta: {},
+        messages: [], collaboration: { role: 'owner', canInvite: true, seatLimit: 1, seatCount: 1, remainingSeats: 0, collaborators: [] },
+        metrics: {} as GPT_ModelMetrics, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    }, { action: 'create_project' }, {
+        hydrateShare: async () => null,
+        setShareContents: (() => {}) as React.Dispatch<React.SetStateAction<Record<string, string>>>,
+        scaffoldStarter: async () => {},
+        runTerminalCommand: async () => ({ ok: true, output: '' }),
+        createVm: async () => ({ status: 409, message: 'VM already exists.' }),
+        setStatusNotice: () => {},
+    })
+
+    expect(result?.ok).toBe(false)
+    expect(result?.message).toContain('already exists')
+    expect(result?.message).toContain('No new VM setup was started')
+})
+
+test('reports unsupported terminal commands as failed checks', async () => {
+    const result = await runWorkspaceTool({
+        id: 'conversation-1', ownerId: 'user-1', title: 'Demo App', preferredModel: null, activeModel: null,
+        modelStrategy: 'auto', workspaceId: 'workspace-1', workspaceKind: 'share', shareIds: ['workspace-1'], workspaceMeta: {},
+        messages: [], collaboration: { role: 'owner', canInvite: true, seatLimit: 1, seatCount: 1, remainingSeats: 0, collaborators: [] },
+        metrics: {} as GPT_ModelMetrics, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    }, { action: 'run_terminal_command', command: 'npm install' }, {
+        hydrateShare: async () => null,
+        setShareContents: (() => {}) as React.Dispatch<React.SetStateAction<Record<string, string>>>,
+        scaffoldStarter: async () => {},
+        runTerminalCommand: async () => ({ ok: true, output: 'npm: command is not available in this browser terminal' }),
+        createVm: async () => ({ status: 201, message: 'Created VM demo-app.' }),
+        setStatusNotice: () => {},
+    })
+
+    expect(result?.ok).toBe(false)
+    expect(result?.message).toContain('Could not run npm install')
 })
 
 test('reports VM failures without claiming the VM is ready', async () => {
