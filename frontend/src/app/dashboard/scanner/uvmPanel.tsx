@@ -1,14 +1,13 @@
 'use client'
 import { useEffect, useState } from 'react'
 import type { UvmAsset, UvmAssessment, UvmDashboard, UvmFinding, UvmRun } from '@/utils/monitoring/types'
-import { filterAndSortUvmFindings, formatDate, formatRunCoverage, RunCard, type UvmFindingFilters } from './uvmPanelHelpers'
+import { filterAndSortUvmFindings, formatDate, RunCard, SummaryCard, type UvmFindingFilters } from './uvmPanelHelpers'
 import { UvmAssessmentStarter, UvmAssetsView, UvmFindingsView, UvmHelp } from './uvmPanelViews'
 import { UvmAssessmentEngineChoices, type UvmAssessmentEngineId } from './uvmPanelAssessmentControls'
 export { filterAndSortUvmFindings } from './uvmPanelHelpers'
 export type { UvmFindingFilters } from './uvmPanelHelpers'
-export default function UvmPanel({ initialData, servicesPaused = false, refreshAction, createAssetAction, verifyAssetAction, runScanAction, scheduleAction, configureTenableAction, disconnectTenableAction, runTenableScanAction, updateFindingAction, cancelRunAction, startAssessmentAction, cancelAssessmentAction }: {
+export default function UvmPanel({ initialData, refreshAction, createAssetAction, verifyAssetAction, runScanAction, scheduleAction, configureTenableAction, disconnectTenableAction, runTenableScanAction, updateFindingAction, cancelRunAction, startAssessmentAction, cancelAssessmentAction }: {
     initialData: UvmDashboard
-    servicesPaused?: boolean
     refreshAction: () => Promise<UvmDashboard>
     createAssetAction: (input: { hostname: string }) => Promise<{ asset: UvmAsset }>
     verifyAssetAction: (assetId: string) => Promise<{ asset: UvmAsset }>
@@ -46,61 +45,40 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
     const [message, setMessage] = useState('')
     const [view, setView] = useState<'overview' | 'assessments' | 'assets' | 'scanners' | 'runs' | 'findings'>('overview')
     const activeRuns = data.runs.filter(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status))
-    const activeAssessments = data.assessments.filter(assessment => ['queued', 'running', 'cancelling'].includes(assessment.status))
-    const actionsAvailable = !servicesPaused && !data.scannerError
+    const activeAssessments = data.assessments.some(assessment => ['queued', 'running', 'cancelling'].includes(assessment.status))
     const attentionFindings = data.findings.filter(finding => !['resolved', 'false_positive', 'accepted_risk'].includes(finding.status))
     const visibleFindings = filterAndSortUvmFindings(data.findings, findingFilters)
     const latestRun = data.runs[0]
-    const latestRunByAsset = new Map<string, UvmRun>()
-    for (const run of data.runs) {
-        const previous = latestRunByAsset.get(run.assetId)
-        const runTime = Date.parse(run.finishedAt || run.startedAt || run.createdAt) || 0
-        const previousTime = previous ? Date.parse(previous.finishedAt || previous.startedAt || previous.createdAt) || 0 : -1
-        if (!previous || runTime > previousTime) latestRunByAsset.set(run.assetId, run)
-    }
-    const overviewAssets = [...data.assets].sort((left, right) => Number(right.verificationStatus === 'verified') - Number(left.verificationStatus === 'verified') || left.hostname.localeCompare(right.hostname)).slice(0, 6)
-    const priorityFindings = filterAndSortUvmFindings(data.findings, { query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' }).slice(0, 5)
-    const activeRunIds = new Set(activeRuns.map(run => run.id))
-    const queuedAssessmentJobs = activeAssessments.flatMap(assessment => assessment.jobs).filter(job =>
-        ['queued', 'retrying', 'launching', 'running', 'exporting', 'cancelling'].includes(job.status) && (!job.runId || !activeRunIds.has(job.runId)),
-    ).length
-    const activeJobCount = activeRuns.length + queuedAssessmentJobs
     const selectableAssessmentEngines = assessmentEngines.filter(engine => {
         const info = data.engines.find(item => item.id === engine)
         return info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
     })
     useEffect(() => { setData(initialData) }, [initialData])
     useEffect(() => {
-        if (!actionsAvailable) return
-        if (!data.runs.some(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status)) && !activeAssessments.length) return
+        if (!data.runs.some(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status)) && !activeAssessments) return
         const timer = setInterval(() => { void refreshAction().then(setData).catch(() => undefined) }, 3000)
         return () => clearInterval(timer)
-    }, [actionsAvailable, activeAssessments.length, data.runs, refreshAction])
+    }, [activeAssessments, data.runs, refreshAction])
     async function refresh() { setData(await refreshAction()) }
     async function addAsset(event: React.FormEvent<HTMLFormElement>) {
-        event.preventDefault()
-        if (!actionsAvailable) return
-        setBusy('add'); setMessage('')
+        event.preventDefault(); setBusy('add'); setMessage('')
         try { await createAssetAction({ hostname }); setHostname(''); await refresh(); setMessage('Asset added. Publish its DNS TXT record, then verify control.') }
         catch (error) { setMessage(error instanceof Error ? error.message : 'Asset could not be added.') }
         finally { setBusy('') }
     }
     async function verify(assetId: string) {
-        if (!actionsAvailable) return
         setBusy(assetId); setMessage('')
         try { const result = await verifyAssetAction(assetId); setData(current => ({ ...current, assets: current.assets.map(asset => asset.id === assetId ? result.asset : asset) })); setMessage(result.asset.verificationStatus === 'verified' ? 'Domain control verified.' : 'TXT record not found yet. DNS changes can take time to propagate.') }
         catch (error) { setMessage(error instanceof Error ? error.message : 'Verification lookup failed.') }
         finally { setBusy('') }
     }
     async function scan(asset: UvmAsset) {
-        if (!actionsAvailable) return
         setBusy(asset.id); setMessage('')
         try { await runScanAction(asset.id, authorization[asset.id] === true, assetNmapProfiles[asset.id] || 'tcp-top-1000'); await refresh(); setMessage(`Nmap scan queued for ${asset.hostname}.`) }
         catch (error) { setMessage(error instanceof Error ? error.message : 'Scan could not start.') }
         finally { setBusy('') }
     }
     async function schedule(asset: UvmAsset, enabled: boolean) {
-        if (!actionsAvailable) return
         setBusy(asset.id); setMessage('')
         try {
             const intervalMinutes = Number(intervals[asset.id] || asset.intervalMinutes)
@@ -114,9 +92,7 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
         finally { setBusy('') }
     }
     async function saveTenable(event: React.FormEvent<HTMLFormElement>) {
-        event.preventDefault()
-        if (!actionsAvailable) return
-        setBusy('tenable'); setMessage('')
+        event.preventDefault(); setBusy('tenable'); setMessage('')
         try {
             await configureTenableAction({ region: tenableRegion, accessKey: tenableAccessKey, secretKey: tenableSecretKey })
             setTenableAccessKey(''); setTenableSecretKey(''); await refresh()
@@ -125,14 +101,12 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
         finally { setBusy('') }
     }
     async function disconnectTenable() {
-        if (!actionsAvailable) return
         setBusy('tenable'); setMessage('')
         try { await disconnectTenableAction(); await refresh(); setMessage('Tenable connection removed.') }
         catch (error) { setMessage(error instanceof Error ? error.message : 'Tenable connection could not be removed.') }
         finally { setBusy('') }
     }
     async function scanWithTenable(asset: UvmAsset) {
-        if (!actionsAvailable) return
         const scanId = tenableScanIds[asset.id] || data.tenableScans[0]?.id
         if (!scanId) return
         setBusy(`${asset.id}:tenable`); setMessage('')
@@ -141,7 +115,6 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
         finally { setBusy('') }
     }
     async function updateFinding(finding: UvmFinding) {
-        if (!actionsAvailable) return
         const update = findingUpdates[finding.id] || { status: finding.status, note: finding.triageNote || '' }
         setBusy(`finding:${finding.id}`); setMessage('')
         try { await updateFindingAction(finding.id, update); await refresh(); setMessage('Finding status updated.') }
@@ -149,16 +122,13 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
         finally { setBusy('') }
     }
     async function cancelRun(run: UvmRun) {
-        if (!actionsAvailable) return
         setBusy(`run:${run.id}`); setMessage('')
         try { await cancelRunAction(run.id); await refresh(); setMessage(`Cancellation requested for ${run.target}.`) }
         catch (error) { setMessage(error instanceof Error ? error.message : 'The scan could not be cancelled.') }
         finally { setBusy('') }
     }
     async function startAssessment(event: React.FormEvent<HTMLFormElement>) {
-        event.preventDefault()
-        if (!actionsAvailable) return
-        setBusy('assessment'); setMessage('')
+        event.preventDefault(); setBusy('assessment'); setMessage('')
         if (!assessmentAssetIds.length || !selectableAssessmentEngines.length) { setMessage('Choose at least one verified asset and one available engine.'); setBusy(''); return }
         if (selectableAssessmentEngines.includes('tenable-vm') && !assessmentScanId) { setMessage('Choose an enabled Tenable scan configuration.'); setBusy(''); return }
         try {
@@ -171,81 +141,48 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
         finally { setBusy('') }
     }
     async function cancelAssessment(assessment: UvmAssessment) {
-        if (!actionsAvailable) return
         setBusy(`assessment:${assessment.id}`); setMessage('')
         try { await cancelAssessmentAction(assessment.id); await refresh(); setMessage('Assessment cancellation requested.') }
         catch (error) { setMessage(error instanceof Error ? error.message : 'The assessment could not be cancelled.') }
         finally { setBusy('') }
     }
     return <div className='grid gap-4'>
-        <header className='flex flex-wrap items-center justify-between gap-3'><h1 className='text-2xl font-semibold'>Security scanner</h1><button type='button' onClick={() => setView('assessments')} disabled={!actionsAvailable} className='rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>New assessment</button></header>
+        <header className='flex flex-wrap items-center justify-between gap-3'><h1 className='text-2xl font-semibold'>Security scanner</h1><button type='button' onClick={() => setView('assessments')} className='rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas'>New assessment</button></header>
         <nav aria-label='Vulnerability management views' className='flex flex-wrap gap-2 border-b border-ui-border pb-2'>{([['overview', 'Overview'], ['assessments', `Assessments (${data.assessments.length})`], ['assets', 'Assets'], ['scanners', 'Scanners'], ['runs', 'Scan history'], ['findings', `Findings (${attentionFindings.length})`]] as const).map(([id, label]) => <button key={id} type='button' onClick={() => setView(id)} aria-current={view === id ? 'page' : undefined} className={`rounded-md px-3 py-2 text-sm font-semibold ${view === id ? 'bg-ui-text text-ui-canvas' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}>{label}</button>)}</nav>
         {view === 'overview' && <section className='grid gap-4'>
-            <UvmAssessmentStarter data={data} actionsAvailable={actionsAvailable} onManageAssets={() => setView('assets')} onConfigureScanners={() => setView('scanners')} onStartAssessment={() => setView('assessments')} />
-            <div className='grid gap-4 xl:grid-cols-3'>
-                <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-                    <div className='flex items-center justify-between gap-2'><div className='flex items-center gap-2'><h2 className='text-base font-semibold'>Asset activity</h2><UvmHelp label='Asset run status' text='Each row shows one asset’s latest run in the loaded history. Coverage is specific to that engine and profile; it does not represent every check for the asset.' /></div><button type='button' onClick={() => setView('assets')} className='text-xs font-semibold underline underline-offset-2'>All assets · {data.assets.length}</button></div>
-                    <p className='mt-1 text-xs text-ui-muted'>{data.assets.filter(asset => asset.verificationStatus === 'verified').length} verified · status from the latest loaded run</p>
-                    <div className='mt-3 grid gap-2'>{overviewAssets.map(asset => {
-                        const run = latestRunByAsset.get(asset.id)
-                        return <div key={asset.id} className='border-t border-ui-border pt-2'>
-                            <div className='flex flex-wrap items-center justify-between gap-2'><strong className='text-sm'>{asset.hostname}</strong><span className='text-[11px] text-ui-muted'>{asset.verificationStatus}</span></div>
-                            <p className='mt-1 text-xs text-ui-muted'>{run ? `${run.engine} · ${formatRunCoverage(run)} · ${formatDate(run.finishedAt || run.startedAt || run.createdAt)}` : 'No run in the loaded history'}</p>
-                            {run?.error && <p className='mt-1 text-xs text-ui-warning'>{run.error}</p>}
-                        </div>
-                    })}{!overviewAssets.length && <p className='text-sm text-ui-muted'>Add an asset to track scan coverage.</p>}</div>
-                </section>
-                <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-                    <div className='flex items-center justify-between gap-2'><h2 className='text-base font-semibold'>Assessment activity</h2><button type='button' onClick={() => setView('assessments')} className='text-xs font-semibold underline underline-offset-2'>History · {data.assessments.length}</button></div>
-                    <p className='mt-1 text-xs text-ui-muted'>{activeAssessments.length} active assessments · {activeJobCount} active scanner jobs</p>
-                    <div className='mt-3 grid gap-2'>{(activeAssessments.length ? activeAssessments : data.assessments.slice(0, 3)).slice(0, 3).map(assessment => {
-                        const finishedJobs = assessment.jobs.filter(job => ['succeeded', 'partial', 'failed', 'cancelled', 'skipped'].includes(job.status)).length
-                        const activeJobs = assessment.jobs.filter(job => ['queued', 'retrying', 'launching', 'running', 'exporting', 'cancelling'].includes(job.status))
-                        return <div key={assessment.id} className='border-t border-ui-border pt-2'>
-                            <div className='flex flex-wrap items-center justify-between gap-2'><strong className='text-sm'>{assessment.jobs.length} jobs</strong><span className='text-xs'>{assessment.status}</span></div>
-                            <p className='mt-1 text-xs text-ui-muted'>{finishedJobs}/{assessment.jobs.length} finished · {formatDate(assessment.startedAt || assessment.createdAt)}</p>
-                            {activeJobs.slice(0, 2).map(job => <p key={job.id} className='mt-1 text-xs text-ui-muted'>{job.asset} · {job.engine} · {job.status}</p>)}
-                        </div>
-                    })}{!data.assessments.length && <p className='text-sm text-ui-muted'>{activeRuns.length ? `${activeRuns.length} scanner runs are active.` : 'No assessments yet.'}</p>}</div>
-                </section>
-                <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-                    <div className='flex items-center justify-between gap-2'><h2 className='text-base font-semibold'>Priority findings</h2><button type='button' onClick={() => setView('findings')} className='text-xs font-semibold underline underline-offset-2'>All findings · {attentionFindings.length}</button></div>
-                    <p className='mt-1 text-xs text-ui-muted'>Unresolved, ordered by severity then age</p>
-                    <div className='mt-3 grid gap-2'>{priorityFindings.map(finding => <div key={finding.id} className='border-t border-ui-border pt-2'>
-                        <div className='flex flex-wrap items-center justify-between gap-2'><strong className='text-sm'>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 text-[11px] font-semibold text-ui-warning'>{finding.severity}</span></div>
-                        <p className='mt-1 text-xs text-ui-muted'>{finding.asset} · {finding.engine}{finding.cveIds[0] ? ` · ${finding.cveIds[0]}` : ''}</p>
-                    </div>)}{!priorityFindings.length && <p className='text-sm text-ui-muted'>{data.findings.length ? 'No unresolved findings in the loaded results.' : 'No findings loaded. Check scan coverage before treating this as clear.'}</p>}</div>
-                </section>
+            <UvmAssessmentStarter data={data} onManageAssets={() => setView('assets')} onConfigureScanners={() => setView('scanners')} onStartAssessment={() => setView('assessments')} />
+            <div className='grid gap-3 sm:grid-cols-2'>
+                <SummaryCard label='Active scans' value={String(activeRuns.length)} detail={activeRuns.length ? 'Updating automatically' : 'No active jobs'} />
+                <SummaryCard label='Open findings' value={String(attentionFindings.length)} detail={attentionFindings.length ? `${attentionFindings.filter(finding => finding.severity === 'critical' || finding.severity === 'high').length} critical or high` : 'None need triage'} />
             </div>
-            {latestRun && <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-                <div className='flex items-start justify-between gap-3'><h2 className='text-base font-semibold'>Latest scan</h2><UvmHelp label='Latest scan' text='Coverage is reported per run and scanner. Partial or unreported results do not confirm that an asset is clear.' /></div>
-                <div className='mt-2 flex flex-wrap items-center gap-2 text-sm'><strong>{latestRun.target}</strong><span>{latestRun.engine} · {latestRun.profile}</span><span className='text-xs text-ui-muted'>{latestRun.status} · {formatDate(latestRun.finishedAt || latestRun.startedAt || latestRun.createdAt)}</span><span className='text-xs text-ui-muted'>{formatRunCoverage(latestRun)}</span></div>
-                {latestRun.error && <p className='mt-2 text-sm text-ui-warning'>{latestRun.error}</p>}
-            </section>}
+            <div className='grid gap-4 lg:grid-cols-2'>
+                <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><div className='flex items-start justify-between gap-3'><h2 className='text-base font-semibold'>Latest scan</h2><UvmHelp label='Latest scan' text='Coverage counts completed target addresses. A partial or unreported result does not confirm that an asset is clear.' /></div>
+                    {latestRun ? <div className='mt-3'><div className='flex flex-wrap items-center gap-2'><strong>{latestRun.target}</strong><span className='rounded-full bg-ui-raised px-2 py-1 text-xs'>{latestRun.status}</span></div><p className='mt-1 text-sm text-ui-muted'>{latestRun.engine} · {latestRun.profile} · {formatDate(latestRun.finishedAt || latestRun.startedAt || latestRun.createdAt)}</p><p className='mt-2 text-sm text-ui-muted'>{latestRun.coverage ? `Address coverage ${latestRun.coverage.completedAddresses}/${latestRun.coverage.requestedAddresses ?? latestRun.coverage.attemptedAddresses ?? 0}` : ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(latestRun.status) ? 'Address coverage pending' : 'Coverage was not reported'}</p>{latestRun.error && <p className='mt-2 text-sm text-ui-warning'>{latestRun.error}</p>}</div> : <p className='mt-2 text-sm text-ui-muted'>No scan runs yet.</p>}</section>
+            </div>
         </section>}
         {view === 'assessments' && <section className='grid gap-4'><section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-start justify-between gap-3'><h2 className='text-lg font-semibold'>New assessment</h2><UvmHelp label='Assessment engines and scope' text='Nmap inventories the selected TCP ports. Greenbone uses Full and Fast; Tenable VM runs an enabled Nessus configuration. Scanner rechecks DNS and public IP scope at launch. Results are not a complete penetration test.' /></div>
+            <div className='flex items-start justify-between gap-3'><h2 className='text-lg font-semibold'>Start an authorized assessment</h2><UvmHelp label='Assessment engines and scope' text='Nmap inventories the selected TCP ports. Greenbone uses Full and Fast; Tenable VM runs an enabled Nessus configuration. Scanner rechecks DNS and public IP scope at launch. Results are not a complete penetration test.' /></div><p className='mt-1 text-sm text-ui-muted'>Select verified assets, confirm their current IPs, then choose the engines to run.</p>
             <form onSubmit={event => void startAssessment(event)} className='mt-4 grid gap-4'>
                 <fieldset className='grid gap-2'><legend className='text-sm font-semibold'>Verified assets</legend>{data.assets.filter(asset => asset.verificationStatus === 'verified').map(asset => <label key={asset.id} className='flex items-start gap-2 text-sm'><input type='checkbox' checked={assessmentAssetIds.includes(asset.id)} onChange={event => setAssessmentAssetIds(current => event.target.checked ? [...current, asset.id] : current.filter(id => id !== asset.id))} className='mt-1 accent-ui-primary' /><span>{asset.hostname}<small className='block text-xs text-ui-muted'>Authorized IPs: {asset.authorizedAddresses.join(', ') || 'resolved at launch'}</small></span></label>)}{!data.assets.some(asset => asset.verificationStatus === 'verified') && <p className='text-sm text-ui-muted'>Add and verify an asset first.</p>}</fieldset>
                 <label className='flex items-start gap-2 text-sm'><input type='checkbox' checked={assessmentAssetIds.length > 0 && assessmentAssetIds.every(id => authorization[id] === true)} onChange={event => setAuthorization(current => Object.fromEntries([...new Set([...Object.keys(current), ...assessmentAssetIds])].map(id => [id, assessmentAssetIds.includes(id) ? event.target.checked : current[id] || false])))} className='mt-1 accent-ui-primary' /><span>I confirm that I am authorized to scan each selected asset and its current public IP addresses.</span></label>
                 <UvmAssessmentEngineChoices data={data} selectedEngines={assessmentEngines} setSelectedEngines={setAssessmentEngines} scanId={assessmentScanId} setScanId={setAssessmentScanId} nmapProfile={assessmentNmapProfile} setNmapProfile={setAssessmentNmapProfile} onSetup={() => setView('scanners')} />
                 {message && <p role='status' className='text-sm text-ui-primary'>{message}</p>}
-                <button type='submit' disabled={!actionsAvailable || busy === 'assessment' || !assessmentAssetIds.length || !selectableAssessmentEngines.length || !assessmentAssetIds.every(id => authorization[id] === true) || (selectableAssessmentEngines.includes('tenable-vm') && !assessmentScanId)} className='w-fit rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{!actionsAvailable ? servicesPaused ? 'Paused pending disk expansion' : 'Scanner unavailable' : busy === 'assessment' ? 'Starting…' : `Start assessment · ${assessmentAssetIds.length} assets × ${selectableAssessmentEngines.length} engines`}</button>
+                <button type='submit' disabled={busy === 'assessment' || !assessmentAssetIds.length || !selectableAssessmentEngines.length || !assessmentAssetIds.every(id => authorization[id] === true) || (selectableAssessmentEngines.includes('tenable-vm') && !assessmentScanId)} className='w-fit rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{busy === 'assessment' ? 'Starting…' : `Start assessment · ${assessmentAssetIds.length} assets × ${selectableAssessmentEngines.length} engines`}</button>
             </form>
         </section>
-        <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><h2 className='text-lg font-semibold'>Assessment history</h2><div className='mt-3 grid gap-3'>{data.assessments.map(assessment => <article key={assessment.id} className='rounded-md border border-ui-border bg-ui-raised p-3'><div className='flex flex-wrap items-start justify-between gap-2'><div><strong>{assessment.jobs.length} scanner jobs</strong><span className='ml-2 rounded-full bg-ui-canvas px-2 py-1 text-xs'>{assessment.status}</span><p className='mt-1 text-xs text-ui-muted'>Started {formatDate(assessment.startedAt || assessment.createdAt)}{assessment.finishedAt ? ` · Finished ${formatDate(assessment.finishedAt)}` : ''}</p></div>{['queued', 'running'].includes(assessment.status) && <button type='button' onClick={() => void cancelAssessment(assessment)} disabled={!actionsAvailable || busy === `assessment:${assessment.id}`} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `assessment:${assessment.id}` ? 'Cancelling…' : 'Cancel assessment'}</button>}</div><div className='mt-3 grid gap-2'>{assessment.jobs.map(job => <div key={job.id} className='flex flex-wrap items-center justify-between gap-2 border-t border-ui-border pt-2 text-sm'><span>Stage {job.stageIndex + 1} · {job.asset} · {job.engine} · {job.profile}</span><span className='text-xs text-ui-muted'>{job.status}{job.attemptCount > 1 ? ` · attempt ${job.attemptCount}` : ''}{job.error ? ` · ${job.error}` : ''}</span></div>)}</div></article>)}{!data.assessments.length && <p className='text-sm text-ui-muted'>No assessments yet.</p>}</div></section>
+        <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><h2 className='text-lg font-semibold'>Assessment history</h2><div className='mt-3 grid gap-3'>{data.assessments.map(assessment => <article key={assessment.id} className='rounded-md border border-ui-border bg-ui-raised p-3'><div className='flex flex-wrap items-start justify-between gap-2'><div><strong>{assessment.jobs.length} scanner jobs</strong><span className='ml-2 rounded-full bg-ui-canvas px-2 py-1 text-xs'>{assessment.status}</span><p className='mt-1 text-xs text-ui-muted'>Started {formatDate(assessment.startedAt || assessment.createdAt)}{assessment.finishedAt ? ` · Finished ${formatDate(assessment.finishedAt)}` : ''}</p></div>{['queued', 'running'].includes(assessment.status) && <button type='button' onClick={() => void cancelAssessment(assessment)} disabled={busy === `assessment:${assessment.id}`} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `assessment:${assessment.id}` ? 'Cancelling…' : 'Cancel assessment'}</button>}</div><div className='mt-3 grid gap-2'>{assessment.jobs.map(job => <div key={job.id} className='flex flex-wrap items-center justify-between gap-2 border-t border-ui-border pt-2 text-sm'><span>Stage {job.stageIndex + 1} · {job.asset} · {job.engine} · {job.profile}</span><span className='text-xs text-ui-muted'>{job.status}{job.attemptCount > 1 ? ` · attempt ${job.attemptCount}` : ''}{job.error ? ` · ${job.error}` : ''}</span></div>)}</div></article>)}{!data.assessments.length && <p className='text-sm text-ui-muted'>No assessments yet.</p>}</div></section>
         </section>}
-        {view === 'findings' && <UvmFindingsView data={data} attentionCount={attentionFindings.length} busy={busy} servicePaused={!actionsAvailable} filters={findingFilters} setFilters={setFindingFilters} visibleFindings={visibleFindings} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} onUpdate={finding => void updateFinding(finding)} />}
-        {view === 'assets' && <UvmAssetsView data={data} busy={busy} message={message} servicePaused={!actionsAvailable} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} scheduleEngines={scheduleEngines} setScheduleEngines={setScheduleEngines} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
+        {view === 'findings' && <UvmFindingsView data={data} attentionCount={attentionFindings.length} busy={busy} filters={findingFilters} setFilters={setFindingFilters} visibleFindings={visibleFindings} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} onUpdate={finding => void updateFinding(finding)} />}
+        {view === 'assets' && <UvmAssetsView data={data} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} scheduleEngines={scheduleEngines} setScheduleEngines={setScheduleEngines} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
         {view === 'scanners' && <>
             <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
                 <div className='flex flex-wrap items-start justify-between gap-3'><div className='flex items-center gap-2'><h2 className='text-lg font-semibold'>Nessus via Tenable VM</h2><UvmHelp label='Tenable VM connection' text='This connects a Tenable cloud account and launches its enabled Nessus scan configurations. Standalone Nessus Pro hosts are not connected.' /></div><span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${data.tenableIntegration?.configured ? 'bg-ui-success/15 text-ui-success' : 'bg-ui-warning/15 text-ui-warning'}`}>{data.tenableIntegration?.configured ? `Connected · ${data.tenableIntegration.region}` : 'Not configured'}</span></div>
                 {!data.tenableIntegration?.configured ? <form onSubmit={event => void saveTenable(event)} className='mt-4 grid gap-3 sm:grid-cols-2'>
-                    <label className='grid gap-1 text-xs text-ui-muted'>Cloud region<select disabled={!actionsAvailable} value={tenableRegion} onChange={event => setTenableRegion(event.target.value as typeof tenableRegion)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text disabled:opacity-60'><option value='us'>United States</option><option value='eu'>Europe</option><option value='de'>Germany</option><option value='au'>Australia</option><option value='ca'>Canada</option><option value='jp'>Japan</option></select></label><div />
-                    <label className='grid gap-1 text-xs text-ui-muted'>Access key<input disabled={!actionsAvailable} autoComplete='off' value={tenableAccessKey} onChange={event => setTenableAccessKey(event.target.value)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text disabled:opacity-60' /></label>
-                    <label className='grid gap-1 text-xs text-ui-muted'>Secret key<input disabled={!actionsAvailable} autoComplete='new-password' type='password' value={tenableSecretKey} onChange={event => setTenableSecretKey(event.target.value)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text disabled:opacity-60' /></label>
-                    <button disabled={!actionsAvailable || busy === 'tenable' || !tenableAccessKey.trim() || !tenableSecretKey.trim()} className='h-10 w-fit rounded-md bg-ui-text px-4 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{busy === 'tenable' ? 'Checking…' : 'Connect Tenable'}</button>
-                </form> : <div className='mt-3 flex flex-wrap items-center gap-3 text-xs text-ui-muted'><span>Access key {data.tenableIntegration.accessKeyHint || 'stored'}</span><span>Last checked {formatDate(data.tenableIntegration.testedAt)}</span><button type='button' onClick={() => void disconnectTenable()} disabled={!actionsAvailable || busy === 'tenable'} className='rounded-md border border-ui-border px-3 py-2 font-semibold text-ui-text disabled:opacity-50'>Disconnect</button></div>}
+                    <label className='grid gap-1 text-xs text-ui-muted'>Cloud region<select value={tenableRegion} onChange={event => setTenableRegion(event.target.value as typeof tenableRegion)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text'><option value='us'>United States</option><option value='eu'>Europe</option><option value='de'>Germany</option><option value='au'>Australia</option><option value='ca'>Canada</option><option value='jp'>Japan</option></select></label><div />
+                    <label className='grid gap-1 text-xs text-ui-muted'>Access key<input autoComplete='off' value={tenableAccessKey} onChange={event => setTenableAccessKey(event.target.value)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text' /></label>
+                    <label className='grid gap-1 text-xs text-ui-muted'>Secret key<input autoComplete='new-password' type='password' value={tenableSecretKey} onChange={event => setTenableSecretKey(event.target.value)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text' /></label>
+                    <button disabled={busy === 'tenable' || !tenableAccessKey.trim() || !tenableSecretKey.trim()} className='h-10 w-fit rounded-md bg-ui-text px-4 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{busy === 'tenable' ? 'Checking…' : 'Connect Tenable'}</button>
+                </form> : <div className='mt-3 flex flex-wrap items-center gap-3 text-xs text-ui-muted'><span>Access key {data.tenableIntegration.accessKeyHint || 'stored'}</span><span>Last checked {formatDate(data.tenableIntegration.testedAt)}</span><button type='button' onClick={() => void disconnectTenable()} disabled={busy === 'tenable'} className='rounded-md border border-ui-border px-3 py-2 font-semibold text-ui-text'>Disconnect</button></div>}
                 {data.tenableIntegration?.error && <p className='mt-2 text-xs text-ui-warning'>{data.tenableIntegration.error}</p>}
                 {data.tenableIntegration?.configured && !data.tenableScans.length && <p className='mt-3 text-sm text-ui-muted'>{data.scannerError || 'No Tenable scan templates are available. Check the Tenable account and scanner permissions.'}</p>}
             </section>
@@ -259,5 +196,5 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
                 {!data.engines.length && <p className='mt-2 text-sm text-ui-warning'>{data.scannerError || 'No scanner engines are available.'}</p>}
             </section>
         </>}
-        {view === 'runs' && <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><div className='flex items-center justify-between gap-2'><h2 className='text-lg font-semibold'>Scanner runs</h2><span className='text-xs text-ui-muted'>{data.runs.length} recent</span></div><div className='mt-3 grid gap-3'>{data.runs.map((run, index) => <RunCard key={run.id} run={run} defaultOpen={index === 0} cancelBusy={busy === `run:${run.id}`} servicesPaused={!actionsAvailable} onCancel={() => void cancelRun(run)} />)}{!data.runs.length && <p className='text-sm text-ui-muted'>No scanner runs yet.</p>}</div></section>}
+        {view === 'runs' && <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><div className='flex items-center justify-between gap-2'><h2 className='text-lg font-semibold'>Scanner runs</h2><span className='text-xs text-ui-muted'>{data.runs.length} recent</span></div><div className='mt-3 grid gap-3'>{data.runs.map((run, index) => <RunCard key={run.id} run={run} defaultOpen={index === 0} cancelBusy={busy === `run:${run.id}`} onCancel={() => void cancelRun(run)} />)}{!data.runs.length && <p className='text-sm text-ui-muted'>No scanner runs yet.</p>}</div></section>}
     </div>}

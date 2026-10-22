@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { UvmDashboard } from '@/utils/monitoring/types'
 import UvmPanel from './uvmPanel'
-import ScannerPauseNotice, { SCANNER_SERVICES_PAUSED } from './scannerPauseNotice'
+import ScannerPauseNotice from './scannerPauseNotice'
 import {
     cancelScannerAssessment, cancelScannerRun, configureScannerTenable, createScannerAsset,
     disconnectScannerTenable, emptyUvmDashboard, getScannerDashboard, runScannerAsset,
@@ -27,10 +27,9 @@ export default function ScannerWorkspace() {
     }, [])
 
     return <div className='grid gap-4'>
-        {SCANNER_SERVICES_PAUSED && <ScannerPauseNotice />}
+        <ScannerPauseNotice />
         <UvmPanel
             initialData={data}
-            servicesPaused={SCANNER_SERVICES_PAUSED}
             refreshAction={refresh}
             createAssetAction={createScannerAsset}
             verifyAssetAction={verifyScannerAsset}
