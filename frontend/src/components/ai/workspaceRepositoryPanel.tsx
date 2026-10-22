@@ -36,14 +36,14 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
     const availableCount = importedRepos.length + standaloneFiles.length
 
     return <Panel icon={<FolderGit2 className='h-4 w-4' />} title='Repositories' subtitle={`${availableCount} available`} grow>
-        <div className='grid min-w-0 grid-cols-2 gap-3'>
+        <div className='grid min-w-0 grid-cols-1 gap-3'>
             <form className='grid min-w-0 content-start gap-2' onSubmit={event => { event.preventDefault(); void onImportRepo() }}>
                 <label htmlFor='workspace-repository-url' className='text-xs font-medium text-ui-text'>Attach repository</label>
                 <input id='workspace-repository-url' value={importInput} onChange={event => onImportInputChange(event.target.value)} placeholder='owner/repo or repository URL' className='min-w-0 w-full rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
                 <WorkspacePrimaryAction type='submit' disabled={importPending} className='w-full min-w-0 text-xs'>{importPending ? 'Importing' : 'Attach repository'}</WorkspacePrimaryAction>
                 <input aria-label='GitHub token for a private repository (optional)' value={githubToken} onChange={event => onGitHubTokenChange(event.target.value)} placeholder='GitHub token for a private repository (optional)' type='password' autoComplete='off' spellCheck={false} className='min-w-0 w-full rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
-                <div className='col-span-2 text-xs text-ui-muted'>The token is sent with the current repository request and cleared after successful use.</div>
-                {importError ? <div className='col-span-2'><ErrorNotice compact message={importError} /></div> : null}
+                <div className='text-xs text-ui-muted'>The token is sent with the current repository request and cleared after successful use.</div>
+                {importError ? <div><ErrorNotice compact message={importError} /></div> : null}
             </form>
 
             <form className='grid min-w-0 content-start gap-2' onSubmit={event => { event.preventDefault(); if (repositoryName.trim()) void onCreateRepository(repositoryName.trim()) }}>

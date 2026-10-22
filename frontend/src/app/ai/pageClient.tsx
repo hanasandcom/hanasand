@@ -188,7 +188,6 @@ export default function AIPageClient({
                 {usingChatGPT ? null : <AIPageNotices
                     statusNotice={ai.statusNotice}
                     resumeNotice={ai.resumeNotice}
-                    runtimeState={ai.runtimeState}
                     onDismissResumeNotice={() => ai.setResumeNotice(null)}
                 />}
 

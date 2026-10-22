@@ -72,9 +72,12 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
     return <Fragment>
         <section className='relative flex min-h-0 w-full max-w-full min-w-0 flex-1 flex-col overflow-hidden'>
             <ChatHeader conversation={activeConversation} isThinking={isThinking} showWorkspaceDetails={showWorkspaceDetails} workspaceDetailsOpen={workspaceDetailsOpen} onToggleWorkspaceDetails={onToggleWorkspaceDetails} onToggleMobileChats={onToggleMobileChats} showArtifacts={showArtifacts} latestArtifacts={latestArtifacts} onToggleArtifacts={() => setShowArtifacts(previous => !previous)} />
-            <div className={`grid min-h-0 w-full max-w-full flex-1 ${showArtifacts ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem]' : 'grid-cols-1'}`}>
+            <div className={`relative grid min-h-0 w-full max-w-full flex-1 ${showArtifacts ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem]' : 'grid-cols-1'}`}>
                 <ChatTranscript conversation={activeConversation} scrollRef={scrollRef} hasReadyModel={hasReadyModel} isAuthenticated={isAuthenticated} onEditPrompt={onEditPrompt} onDeletePrompt={onDeletePrompt} onMovePrompt={onMovePrompt} onPreview={setPreviewArtifact} />
-                {showArtifacts ? <ArtifactSidebar groups={groupedArtifacts} onPreview={setPreviewArtifact} /> : null}
+                {showArtifacts ? <>
+                    <div aria-hidden='true' onClick={() => setShowArtifacts(false)} className='absolute inset-0 z-20 bg-ui-scrim/40 xl:hidden' />
+                    <ArtifactSidebar groups={groupedArtifacts} onPreview={setPreviewArtifact} onClose={() => setShowArtifacts(false)} />
+                </> : null}
             </div>
             <ChatComposer value={composer} blockedReason={blockedReason} awaitingResponse={provider === 'chatgpt' ? false : awaitingResponse} readOnly={readOnly} provider={provider} canUseChatGPT={canUseChatGPT} promptPriority={promptPriority} promptFiles={promptFiles} promptBusy={promptBusy} promptError={promptError} onProviderChange={onProviderChange} onPromptPriorityChange={onPromptPriorityChange} onPromptFilesChange={onPromptFilesChange} onRefreshPrompts={onRefreshPrompts} onChange={onComposerChange} onSend={onSend} />
         </section>

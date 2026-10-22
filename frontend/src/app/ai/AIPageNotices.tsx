@@ -12,16 +12,13 @@ type ResumeNotice = {
 export function AIPageNotices({
     statusNotice,
     resumeNotice,
-    runtimeState,
     onDismissResumeNotice,
 }: {
     statusNotice: string | null
     resumeNotice: ResumeNotice
-    runtimeState: AIRuntimeState
     onDismissResumeNotice: () => void
 }) {
     const dismissResumeNoticeRef = useRef(onDismissResumeNotice)
-    const hasRuntimeNotice = !statusNotice && (runtimeState.lastFailure || runtimeState.lastToolRun)
 
     useEffect(() => {
         dismissResumeNoticeRef.current = onDismissResumeNotice
@@ -34,7 +31,7 @@ export function AIPageNotices({
         return () => window.clearTimeout(timeout)
     }, [resumeNotice])
 
-    if (!statusNotice && !resumeNotice && !hasRuntimeNotice) return null
+    if (!statusNotice && !resumeNotice) return null
 
     return (
         <div className='pointer-events-none absolute right-4 top-20 z-20 grid w-[min(32rem,calc(100%-2rem))] gap-3'>
@@ -68,20 +65,6 @@ export function AIPageNotices({
                     </button>
                 </div>
             ) : null}
-
-            {hasRuntimeNotice ? (
-                <div className={`pointer-events-auto rounded-lg border px-4 py-3 text-sm shadow-md backdrop-blur-xl ${runtimeState.lastFailure ? 'border-ui-danger/30 bg-ui-panel/95 text-ui-text' : 'border-ui-border bg-ui-panel/95 text-ui-muted'}`}>
-                    {runtimeState.lastFailure?.message || runtimeState.lastToolRun?.detail || runtimeStateSummary(runtimeState)}
-                </div>
-            ) : null}
         </div>
     )
-}
-
-function runtimeStateSummary(runtimeState: AIRuntimeState) {
-    if (runtimeState.connectedClientCount > 0) {
-        return `${runtimeState.connectedClientCount} connection${runtimeState.connectedClientCount === 1 ? '' : 's'} online`
-    }
-
-    return 'Hanasand GPT is unavailable'
 }

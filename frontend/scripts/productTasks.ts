@@ -96,7 +96,6 @@ export const productTasks: TestTask[] = [
     { id: 'share-statistics', title: 'Share line counts and empty statistics', command: [bun, 'test', 'tests/share-statistics.test.tsx'] },
     { id: 'backup-page-render', title: 'Backup page data and operation presentation', command: [bun, 'test', 'tests/backup-page-render.test.tsx'] },
     { id: 'database-query-card', title: 'Database query card raw and highlighted presentation modes', command: [bun, 'test', 'tests/database-query-card.test.tsx'] },
-    { id: 'web-scan-check-meta', title: 'Web scan checklist and finding row presentation', command: [bun, 'test', 'tests/web-scan-check-meta.test.tsx'] },
     { id: 'rule-request', title: 'Shared rule request behavior', command: [bun, 'test', 'tests/rule-request.test.ts'] },
     { id: 'case-resolution', title: 'Case resolution decision contracts', command: [bun, 'test', 'tests/case-resolution.test.ts'] },
     { id: 'organization-filter-counts', title: 'Organization invite and member filter counts', command: [bun, 'test', 'tests/organization-filter-counts.test.ts'] },

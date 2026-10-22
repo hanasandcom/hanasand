@@ -2,6 +2,7 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ChatPane from '../src/components/ai/chatPane'
+import { ArtifactSidebar } from '../src/components/ai/chat/artifactSidebar'
 import { ArtifactList, groupArtifacts } from '../src/components/ai/chat/chatArtifacts'
 import { ChatComposer } from '../src/components/ai/chat/chatComposer'
 import { ChatHeader } from '../src/components/ai/chat/chatHeader'
@@ -111,6 +112,14 @@ test('artifact groups keep their display labels and stable kind order', () => {
         ['link', 'Links'],
         ['diff', 'Diffs'],
     ])
+})
+
+test('repository output opens as a right drawer with a mobile close control', () => {
+    const html = renderToStaticMarkup(<ArtifactSidebar groups={[]} onPreview={noPreview} onClose={noPreview} />)
+    expect(html).toContain('aria-label="Repository output"')
+    expect(html).toContain('absolute inset-y-0 right-0')
+    expect(html).toContain('xl:relative')
+    expect(html).toContain('aria-label="Close repository output"')
 })
 
 test('browser verification renders success and issue tones with bounded diagnostics', () => {

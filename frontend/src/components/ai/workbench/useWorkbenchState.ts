@@ -35,7 +35,7 @@ export function useWorkbenchState({
     const [isConnected, setIsConnected] = useState(Boolean(initialRuntimeState?.connectedClientCount))
     const [statusNotice, setStatusNotice] = useState<string | null>(initialWorkspaceUnavailable
         ? 'Couldn’t load your chats. Refresh to try again.'
-        : initialRuntimeState?.lastFailure?.message || null)
+        : null)
     const [runtimeSnapshot, setRuntimeSnapshot] = useState<AIRuntimeState | null>(initialRuntimeState)
     const [aiApiAvailable, setAiApiAvailable] = useState(isAuthenticated)
     const [conversations, setConversations] = useState<AIConversation[]>(initialConversations)

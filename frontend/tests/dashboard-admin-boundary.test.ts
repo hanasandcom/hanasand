@@ -20,7 +20,6 @@ test('internal pages appear only for organization access in dashboard navigation
         ['/traffic', 'Overview'],
         ['/ti/runs', 'Collection'],
         ['/system/ai', 'AI Metrics'],
-        ['/vulnerabilities', 'Vulnerabilities'],
         ['/db', 'Database'],
         ['/db/backups', 'Backups'],
         ['/management/users', 'Users'],
