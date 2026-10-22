@@ -1,44 +1,8 @@
 'use server'
 
-import type {
-    GetVulnerabilities,
-    TrafficDomains,
-    TrafficMetrics,
-    TrafficRecords,
-    WebScanReport,
-} from './types'
+import type { TrafficDomains, TrafficMetrics, TrafficRecords } from './types'
 import { isTrafficDomains, isTrafficMetrics, isTrafficRecords } from './trafficValidation'
 import { requestService } from './serviceApi'
-
-export async function getVulnerabilities() {
-    return await requestService<GetVulnerabilities>('internal', 'vulnerabilities', {
-        signal: AbortSignal.timeout(30_000),
-    })
-}
-
-export async function triggerVulnerabilityScan() {
-    return await requestService<{ message: string, status: GetVulnerabilities['scanStatus'] }>(
-        'internal',
-        'vulnerabilities/scan',
-        { method: 'POST', body: JSON.stringify({}) }
-    )
-}
-
-export async function getWebScan() {
-    const result = await requestService<WebScanReport>('internal', 'vulnerabilities/web-scan')
-    if (typeof result === 'string') throw new Error(result)
-    return result
-}
-export async function triggerWebScan() {
-    const result = await requestService<{ message: string, status: WebScanReport }>('internal', 'vulnerabilities/web-scan', { method: 'POST', body: JSON.stringify({}) })
-    if (typeof result === 'string') throw new Error(result)
-    return result
-}
-export async function updateWebScanSchedule(input: { enabled?: boolean, intervalMinutes?: number }) {
-    const result = await requestService<WebScanReport>('internal', 'vulnerabilities/web-scan/schedule', { method: 'PUT', body: JSON.stringify(input) })
-    if (typeof result === 'string') throw new Error(result)
-    return result
-}
 
 export async function getTrafficDomains() {
     return await requestService<TrafficDomains>('cdn', 'traffic/domains')

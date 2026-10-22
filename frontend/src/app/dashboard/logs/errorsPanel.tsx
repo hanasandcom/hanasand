@@ -22,11 +22,6 @@ export default function ErrorsPanel({
 
     return (
         <section className='grid select-text gap-4'>
-            <div className='grid gap-3 sm:grid-cols-2'>
-                <SummaryCard icon={<Bug className='h-4 w-4' />} label='Scans against projects' value={events.summary.project_scans} note='404 probes folded out of errors' />
-                <SummaryCard icon={<ShieldAlert className='h-4 w-4' />} label='Scans against shares' value={events.summary.share_scans} note='Share and tree 404 probes' />
-            </div>
-
             <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
                 <SummaryCard icon={<Bug className='h-4 w-4' />} label='Errors' value={events.summary.total} note='API, auth, and website' />
                 <SummaryCard icon={<Activity className='h-4 w-4' />} label='Last hour' value={events.summary.last_hour} note='Fresh incidents' />

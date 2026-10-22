@@ -49,7 +49,6 @@ const coreTasks: TestTask[] = [
             DB_BACKUP_ENABLED: 'false',
         },
     },
-    scriptTask('vulnerability-scanner', 'Vulnerability scanner registry contract', 'smoke-vulnerability-scanner.ts'),
     scriptTask('lxd-lifecycle', 'LXD lifecycle contract', 'test-lxd-lifecycle.ts'),
 ]
 

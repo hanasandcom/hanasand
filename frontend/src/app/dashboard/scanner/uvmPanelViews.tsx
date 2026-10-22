@@ -16,8 +16,12 @@ export type AssetViewProps = {
     setAuthorization: Dispatch<SetStateAction<Record<string, boolean>>>
     intervals: Record<string, string>
     setIntervals: Dispatch<SetStateAction<Record<string, string>>>
-    scheduleEngines: Record<string, 'nmap' | 'tenable-vm'>
-    setScheduleEngines: Dispatch<SetStateAction<Record<string, 'nmap' | 'tenable-vm'>>>
+    scheduleEngines: Record<string, 'nmap' | 'tenable-vm' | 'gvm'>
+    setScheduleEngines: Dispatch<SetStateAction<Record<string, 'nmap' | 'tenable-vm' | 'gvm'>>>
+    scheduleProfiles: Record<string, 'tcp-top-100' | 'tcp-top-1000'>
+    setScheduleProfiles: Dispatch<SetStateAction<Record<string, 'tcp-top-100' | 'tcp-top-1000'>>>
+    assetNmapProfiles: Record<string, 'tcp-top-100' | 'tcp-top-1000'>
+    setAssetNmapProfiles: Dispatch<SetStateAction<Record<string, 'tcp-top-100' | 'tcp-top-1000'>>>
     scheduleScanIds: Record<string, string>
     setScheduleScanIds: Dispatch<SetStateAction<Record<string, string>>>
     tenableScanIds: Record<string, string>
@@ -59,7 +63,11 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
     const scheduleScanId = props.scheduleScanIds[asset.id] || asset.scheduleScanId || data.tenableScans.find(scan => scan.enabled)?.id || ''
     const tenableReady = data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.id === scheduleScanId && scan.enabled)
     const canScan = asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'nmap' && engine.status === 'available')
-    const canSchedule = scheduleEngine === 'nmap' ? canScan : asset.verificationStatus === 'verified' && tenableReady
+    const canSchedule = scheduleEngine === 'nmap'
+        ? canScan
+        : scheduleEngine === 'tenable-vm'
+            ? asset.verificationStatus === 'verified' && tenableReady
+            : asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'gvm' && engine.status === 'available')
     const authorized = authorization[asset.id] === true
 
     return <article className='rounded-lg border border-ui-border bg-ui-panel p-4'>
@@ -76,8 +84,8 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
         {asset.verificationMethod !== 'internal' && asset.verificationStatus !== 'verified' && <DnsRecord asset={asset} />}
         <div className='mt-3 flex flex-wrap items-end gap-3'>
             <label className='flex items-start gap-2 text-xs text-ui-muted'><input type='checkbox' checked={authorized} onChange={event => setAuthorization(current => ({ ...current, [asset.id]: event.target.checked }))} className='mt-0.5 accent-ui-primary' /><span>I am authorized to scan this asset and its currently resolved IP addresses.</span></label>
-            <button type='button' onClick={() => props.onScan(asset)} disabled={busy === asset.id || !canScan || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>Nmap inventory · TCP top 100</button>
-            <UvmHelp label='Nmap inventory' text='Nmap checks the top 100 TCP ports and reports reachable services. This profile does not confirm vulnerabilities.' />
+            <label className='grid gap-1 text-[11px] text-ui-muted'>Nmap coverage<select aria-label={`Nmap coverage for ${asset.hostname}`} value={props.assetNmapProfiles[asset.id] || 'tcp-top-1000'} onChange={event => props.setAssetNmapProfiles(current => ({ ...current, [asset.id]: event.target.value as 'tcp-top-100' | 'tcp-top-1000' }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'><option value='tcp-top-1000'>Standard · top 1,000</option><option value='tcp-top-100'>Quick · top 100</option></select></label>
+            <button type='button' onClick={() => props.onScan(asset)} disabled={busy === asset.id || !canScan || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>Run Nmap inventory</button>
             {data.tenableIntegration?.configured && data.tenableScans.length > 0 && <TenableScanControl asset={asset} props={props} />}
             <ScheduleControl asset={asset} props={props} canSchedule={canSchedule} scheduleEngine={scheduleEngine} scheduleScanId={scheduleScanId} />
         </div>
@@ -141,7 +149,6 @@ export function UvmAssessmentStarter({ data, onManageAssets, onConfigureScanners
             <div className='flex items-center gap-2'><UvmHelp label='Assessment scope and engines' text='DNS is rechecked at launch. Nmap inventories TCP services; GVM and Tenable VM check vulnerabilities. Standalone Nessus Pro is not connected. Scans do not validate exploitability.' /><button type='button' onClick={nextAction} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas'>{nextLabel}</button></div>
         </div>
         <p className='mt-2 text-sm text-ui-muted'>{verifiedAssets} verified asset{verifiedAssets === 1 ? '' : 's'} · {readyEngines.length} engines ready · {unavailableEngines.length} unavailable</p>
-        <p className='mt-1 text-xs text-ui-muted'>Nmap inventory · Greenbone and Tenable vulnerability checks · no exploit validation</p>
         {!readyEngines.length && <p className='mt-2 text-sm text-ui-warning'>{data.scannerError || 'Configure an engine to continue.'} <button type='button' onClick={onConfigureScanners} className='font-semibold underline underline-offset-2'>Scanner setup</button></p>}
         {unavailableEngines.length > 0 && <ul className='mt-2 grid gap-1 text-xs text-ui-warning' aria-label='Unavailable scanners'>{unavailableEngines.map(engine => <li key={engine.id}><span className='font-semibold'>{engine.name}:</span> {engine.id === 'tenable-vm' && !tenableReady ? 'Connect Tenable VM and enable a network scan configuration.' : engine.reason || engine.status}</li>)}</ul>}
     </section>

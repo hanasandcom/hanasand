@@ -36,13 +36,6 @@ const automationDetail = {
         model: null, startedAt: date, completedAt: date, durationMs: 10 }],
     issues: [], total: 1, nextPage: null,
 }
-const scan = {
-    current: null,
-    history: [{ scanId: 'scan-1', status: 'completed', startedAt: date, finishedAt: date, durationMs: 10, target: 'example.com',
-        targets: [], severityCounts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 }, error: null }],
-    schedule: { enabled: true, intervalMinutes: 15, nextRunAt: nextDate, lastRunAt: date, target: 'example.com', scope: 'global' },
-    error: null,
-}
 const tuning = { organizationId: 'proof-org', generatedAt: date, logs: [], pending: false, refreshing: false }
 const backups = [{ id: 'backup', name: 'Database backup', status: 'healthy', lastAttempt: date, lastSuccess: date, lastFailure: null,
     nextBackup: nextDate, schedule: '0 2 * * *', scheduleTimezone: 'UTC', scheduleEnabled: true, operations: [] }]
@@ -52,7 +45,6 @@ const api = Bun.serve({ port: 0, hostname: '127.0.0.1', async fetch(request) {
     await delay(120)
     if (path === '/management/organizations' || path === '/management/organizations?access=1') return Response.json({ allowed: false })
     if (path === '/vms/dashboard-render-proof-user') return Response.json(vms)
-    if (path === '/vulnerabilities/web-scan') return Response.json(scan)
     if (path === '/logs/tuning') return Response.json(tuning)
     if (path === '/backup') return Response.json(backups)
     if (path === '/backup/files') return Response.json([{ service: 'backup', file: 'backup.tar', mtime: date, verified: true }])

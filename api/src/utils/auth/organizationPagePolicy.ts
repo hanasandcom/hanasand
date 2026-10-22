@@ -39,7 +39,6 @@ const internalPageRoutes = [
     '/users',
     '/vm',
     '/vms',
-    '/vulnerabilities',
     '/ai',
     '/cases/monitoring',
 ]

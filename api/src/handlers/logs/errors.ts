@@ -7,8 +7,6 @@ import {
     authStatusCode,
     expectedHttpProbePredicate,
     expectedTrafficProbePredicate,
-    scannerHttpProbePredicate,
-    scannerTrafficProbePredicate,
 } from './errorPredicates.ts'
 
 type ErrorQuery = {
@@ -62,7 +60,6 @@ async function queryErrorEvents(query: ErrorQuery) {
               AND ($3::text IS NULL OR normalized->'metadata'->>'error_code' = $3)
               AND ($4::text IS NULL OR normalized->>'message' ILIKE '%' || $4 || '%' OR (normalized->'metadata')::text ILIKE '%' || $4 || '%')
               AND ($5::boolean OR NOT COALESCE(${expectedHttpProbePredicate('normalized->\'metadata\'')}, FALSE))
-              AND ($5::boolean OR NOT COALESCE(${scannerHttpProbePredicate('normalized->\'metadata\'')}, FALSE))
             ORDER BY event_timestamp DESC
             LIMIT $6
         `, [surface, normalizedStatus, code, q, includeExpected, limit]),
@@ -112,7 +109,6 @@ async function queryErrorEvents(query: ErrorQuery) {
               AND ($3::text IS NULL OR ('http_' || status::text) = $3)
               AND ($4::text IS NULL OR path ILIKE '%' || $4 || '%')
               AND ($5::boolean OR NOT ${expectedTrafficProbePredicate()})
-              AND ($5::boolean OR NOT ${scannerTrafficProbePredicate()})
             ORDER BY created_at DESC
             LIMIT $6
         `, [surface, normalizedStatus, code, q, includeExpected, Math.min(limit, 100)]),

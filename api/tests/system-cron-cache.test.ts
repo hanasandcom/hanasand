@@ -5,8 +5,6 @@ const tiBaseUrl = 'https://ti.test'
 const previousEnvironment = {
     DB_BACKUP_WORKER_TOKEN: process.env.DB_BACKUP_WORKER_TOKEN,
     DB_BACKUP_WORKER_URL: process.env.DB_BACKUP_WORKER_URL,
-    HANASAND_SCANNER_SERVICE_TOKEN: process.env.HANASAND_SCANNER_SERVICE_TOKEN,
-    HANASAND_SCANNER_URL: process.env.HANASAND_SCANNER_URL,
     MAIL_ADMIN_PASSWORD: process.env.MAIL_ADMIN_PASSWORD,
     LOG_LIVE_WORKER_DISABLED: process.env.LOG_LIVE_WORKER_DISABLED,
     TI_SCRAPER_API_BASE: process.env.TI_SCRAPER_API_BASE,
@@ -19,8 +17,6 @@ let backupRequestCount = 0
 
 process.env.DB_BACKUP_WORKER_TOKEN = 'test-token'
 process.env.DB_BACKUP_WORKER_URL = managedCronUrl
-delete process.env.HANASAND_SCANNER_SERVICE_TOKEN
-delete process.env.HANASAND_SCANNER_URL
 process.env.TI_SCRAPER_API_BASE = tiBaseUrl
 
 mock.module('../src/utils/cron.ts', () => ({
@@ -62,8 +58,6 @@ afterAll(() => {
     globalThis.fetch = originalFetch
     restoreEnvironment('DB_BACKUP_WORKER_TOKEN', previousEnvironment.DB_BACKUP_WORKER_TOKEN)
     restoreEnvironment('DB_BACKUP_WORKER_URL', previousEnvironment.DB_BACKUP_WORKER_URL)
-    restoreEnvironment('HANASAND_SCANNER_SERVICE_TOKEN', previousEnvironment.HANASAND_SCANNER_SERVICE_TOKEN)
-    restoreEnvironment('HANASAND_SCANNER_URL', previousEnvironment.HANASAND_SCANNER_URL)
     restoreEnvironment('MAIL_ADMIN_PASSWORD', previousEnvironment.MAIL_ADMIN_PASSWORD)
     restoreEnvironment('LOG_LIVE_WORKER_DISABLED', previousEnvironment.LOG_LIVE_WORKER_DISABLED)
     restoreEnvironment('TI_SCRAPER_API_BASE', previousEnvironment.TI_SCRAPER_API_BASE)
@@ -79,7 +73,6 @@ test('fast snapshots stay provisional while concurrent reads share the active re
         })
         expect(fastSnapshot.find(job => job.id === 'api-cron-health-monitor')).toMatchObject({ controls: ['run_now'], controlMode: 'run_only' })
         expect(fastSnapshot.find(job => job.id === 'api-agent-automations')).toMatchObject({ controls: ['run_now'], controlMode: 'run_only' })
-        expect(fastSnapshot.find(job => job.id === 'api-vulnerability-scanner')).toMatchObject({ controls: ['run_now'], controlMode: 'run_only' })
         expect(fastSnapshot.find(job => job.id === 'api-live-log-processor')?.enabled).toBe(false)
         delete process.env.LOG_LIVE_WORKER_DISABLED
         expect(fastSnapshot.some(job => job.id === 'api-mail-account-provisioning')).toBe(false)

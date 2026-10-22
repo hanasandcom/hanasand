@@ -2,10 +2,9 @@ import { canRunApiCronJobNow } from '../cron.ts'
 import { listTiScheduledJobs } from './tiScheduledJobs.ts'
 import { apiBackgroundJobDefinitions } from './apiJobDefinitions/index.ts'
 import { listManagedCronJobs } from './managedCrontabState.ts'
-import { apiBackgroundJob, vulnerabilityScannerJob } from './jobProjections.ts'
+import { apiBackgroundJob } from './jobProjections.ts'
 import { managedHostCronJob } from './managedHostProjection.ts'
 import { fastUnifiedScheduledJobs } from './fastSnapshot.ts'
-import { VULNERABILITY_SCAN_JOB_ID } from '../vulnerabilities/scanner.ts'
 import type { UnifiedScheduledJob } from './types.ts'
 
 const UNIFIED_CRON_CACHE_TTL_MS = 5_000
@@ -44,9 +43,7 @@ async function refreshUnifiedScheduledJobs(): Promise<UnifiedScheduledJob[]> {
         listTiScheduledJobs(),
     ])
     const apiDefinitions = visibleApiBackgroundJobDefinitions()
-    const apiJobs = await Promise.all(apiDefinitions.map(job => job.id === VULNERABILITY_SCAN_JOB_ID
-        ? vulnerabilityScannerJob(job)
-        : apiBackgroundJob(job)))
+    const apiJobs = await Promise.all(apiDefinitions.map(job => apiBackgroundJob(job)))
     const jobs = [...tiJobs, ...apiJobs, ...forgejoJobs.map(managedHostCronJob)]
     unifiedCronCache = { jobs, expiresAt: Date.now() + UNIFIED_CRON_CACHE_TTL_MS }
     return jobs

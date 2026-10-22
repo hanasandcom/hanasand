@@ -23,8 +23,6 @@ export type ErrorEventSummary = {
     status_counts: Array<{ status_code: number, count: number }>
     surface_counts: Array<{ surface: string, count: number }>
     code_counts: Array<{ error_code: string, count: number }>
-    project_scans: number
-    share_scans: number
 }
 
 export type ErrorEventsResponse = { generated_at: string, summary: ErrorEventSummary, errors: ErrorEvent[] }
@@ -41,8 +39,6 @@ export function emptyErrorEvents(): ErrorEventsResponse {
             status_counts: [],
             surface_counts: [],
             code_counts: [],
-            project_scans: 0,
-            share_scans: 0,
         },
         errors: [],
     }

@@ -17,7 +17,6 @@ export async function deliverCases() {
             AND finding.evidence->>'restrictedLog' IS DISTINCT FROM 'true'
             AND NOT EXISTS (SELECT 1 FROM events event WHERE event.organization_id = finding.organization_id
                 AND event.id = ANY(finding.event_ids) AND event.ingestion_id = 'logs')
-            AND rule_id <> 'scanner.hanasand_validation.v1'
             AND (case_delivery_attempted_at IS NULL OR case_delivery_attempted_at < NOW() - INTERVAL '5 minutes')
             ORDER BY case_delivery_attempted_at NULLS FIRST, created_at LIMIT 20 FOR UPDATE SKIP LOCKED)
         RETURNING *`)

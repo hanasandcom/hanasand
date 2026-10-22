@@ -9,7 +9,6 @@ import { getDatabaseBackupDashboard, getDatabaseBackupFiles, getDatabaseBackups,
 import { getDatabaseHealth, getDatabaseRows, postDatabaseQuery } from '../handlers/database/query.ts'
 import getDatabaseBrowse from '../handlers/database/browse.ts'
 import getDocker from '../handlers/docker/getDocker.ts'
-import { getVulnerabilities, getWebScanner, postVulnerabilityScan, postWebScanner, putWebScannerSchedule } from '../handlers/vulnerabilities.ts'
 import getStatus from '../handlers/status/get.ts'
 import ingestStatus from '../handlers/status/ingest.ts'
 import httpRequestTool from '../handlers/tools/httpRequest.ts'
@@ -89,11 +88,6 @@ export function registerPlatformOperationsRoutes(fastify: FastifyInstance) {
 
     // Docker stats
     fastify.get('/docker', getDocker)
-    fastify.get('/vulnerabilities', getVulnerabilities)
-    fastify.post('/vulnerabilities/scan', postVulnerabilityScan)
-    fastify.get('/vulnerabilities/web-scan', getWebScanner)
-    fastify.post('/vulnerabilities/web-scan', postWebScanner)
-    fastify.put('/vulnerabilities/web-scan/schedule', putWebScannerSchedule)
     fastify.get('/system/cron', getSystemCronJobs)
     fastify.post('/system/cron/monitor', postSystemCronMonitor)
     fastify.put('/system/cron/:id', putSystemCronJob)

@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { UvmDashboard } from '../src/utils/monitoring/types'
 import UvmPanel, { filterAndSortUvmFindings } from '../src/app/dashboard/scanner/uvmPanel'
-import { UvmAssessmentStarter, UvmHelp } from '../src/app/dashboard/scanner/uvmPanelViews'
+import { UvmAssessmentStarter, UvmAssetsView, UvmHelp } from '../src/app/dashboard/scanner/uvmPanelViews'
 
 const data: UvmDashboard = {
     assets: [{
@@ -11,7 +11,7 @@ const data: UvmDashboard = {
         verificationRecordName: '_hanasand-security-verification.example.com',
         verificationRecordValue: 'hanasand-security-verification=challenge', verificationMethod: 'dns_txt',
         verifiedAt: new Date(0).toISOString(), scanAuthorizedAt: new Date(0).toISOString(),
-        authorizedAddresses: ['8.8.8.8'], scheduleEnabled: false, scheduleEngine: 'nmap', scheduleScanId: null, intervalMinutes: 60,
+        authorizedAddresses: ['8.8.8.8'], scheduleEnabled: false, scheduleEngine: 'nmap', scheduleScanId: null, scheduleProfile: 'tcp-top-1000', intervalMinutes: 60,
         nextRunAt: null, createdAt: new Date(0).toISOString(),
     }],
     engines: [{ id: 'nmap', name: 'Nmap', status: 'available', version: '7.98', reason: null,
@@ -143,4 +143,18 @@ test('configured Tenable without an enabled scan is not shown as a ready engine'
     expect(html).toContain('Configure a scanner')
     expect(html).toContain('0 engines ready · 1 unavailable')
     expect(html).toContain('Connect Tenable VM and enable a network scan configuration.')
+})
+
+test('asset controls expose standard Nmap coverage and recurring Greenbone scans', () => {
+    const noopSetter = (() => undefined) as never
+    const html = renderToStaticMarkup(<UvmAssetsView
+        data={{ ...data, engines: [...data.engines, { id: 'gvm', name: 'Greenbone', status: 'available', version: null, reason: null, profiles: [], coverage: [], notCovered: [] }] }}
+        busy='' message='' hostname='' setHostname={noopSetter} authorization={{ 'asset-1': true }} setAuthorization={noopSetter}
+        intervals={{}} setIntervals={noopSetter} scheduleEngines={{}} setScheduleEngines={noopSetter} scheduleProfiles={{}} setScheduleProfiles={noopSetter}
+        assetNmapProfiles={{}} setAssetNmapProfiles={noopSetter} scheduleScanIds={{}} setScheduleScanIds={noopSetter} tenableScanIds={{}} setTenableScanIds={noopSetter}
+        onRefresh={() => undefined} onAddAsset={() => undefined} onVerify={() => undefined} onScan={() => undefined} onScanWithTenable={() => undefined} onSchedule={() => undefined}
+    />)
+    expect(html).toContain('Standard · top 1,000')
+    expect(html).toContain('Greenbone vulnerability scan')
+    expect(html).toContain('Quick · top 100')
 })

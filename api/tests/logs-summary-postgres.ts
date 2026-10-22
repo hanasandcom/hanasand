@@ -37,15 +37,13 @@ const fixtures = `service_logs AS (
 try {
     for (const includeExpected of [false, true]) {
         const { rows: [summary] } = await execute(summarySql.replace('WITH raw_events', `WITH ${fixtures}raw_events`), [includeExpected])
-        assert.equal(summary.total, includeExpected ? 9 : 4)
-        assert.equal(summary.last_hour, includeExpected ? 8 : 3)
+        assert.equal(summary.total, includeExpected ? 9 : 7)
+        assert.equal(summary.last_hour, includeExpected ? 8 : 6)
         assert.equal(summary.server_errors, 2)
-        assert.equal(summary.client_errors, includeExpected ? 7 : 2)
-        assert.equal(summary.project_scans, 2)
-        assert.equal(summary.share_scans, 1)
+        assert.equal(summary.client_errors, includeExpected ? 7 : 5)
         for (const key of ['status_counts', 'surface_counts', 'code_counts']) {
             assert.equal(summary[key].reduce((total: number, row: any) => total + row.count, 0), summary.total)
         }
     }
-    console.log('Log summary PostgreSQL fixtures passed: totals, time window, scanners, probes, distributions.')
+    console.log('Log summary PostgreSQL fixtures passed: totals, time window, probes, distributions.')
 } finally { await closeDatabase() }

@@ -45,6 +45,11 @@ test('Sandbox remains available from the dashboard sidebar', () => {
     assert.equal(links.some(link => link.label === 'Sandbox' && link.href === '/sandbox'), true)
 })
 
+test('Scanner opens its own role-authorized workspace for signed-in users', () => {
+    const links = navigationLinks(getDashboardNavigation({ id: 'member' }))
+    assert.equal(links.some(link => link.label === 'Security Scanner' && link.href === '/scanner'), true)
+})
+
 test('feeds remain reachable without the removed collection targets entry', () => {
     const links = navigationLinks(getDashboardNavigation({ id: 'admin', canViewInternalPages: true }))
     assert.equal(links.filter(link => link.href === '/ti/sources').length, 1)

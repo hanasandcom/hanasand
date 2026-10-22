@@ -13,7 +13,6 @@ const organizationProtectedPaths = [
     '/dashboard/ti',
     '/dashboard/system/',
     '/dashboard/vulnerabilities',
-    '/dashboard/scanner',
     '/dashboard/backup',
 ]
 

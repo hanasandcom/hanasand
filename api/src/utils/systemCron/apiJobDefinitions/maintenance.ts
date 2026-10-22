@@ -8,9 +8,7 @@ import { VM_METRICS_JOB_ID } from '../../vms/collectMetrics.ts'
 import { VM_FAILOVER_JOB_ID } from '../../vms/failover.ts'
 import { vmLifecycleMonitorIsConfigured, VM_LIFECYCLE_MONITOR_JOB_ID } from '../../vms/lifecycleMonitor.ts'
 import { HOST_UPDATE_MONITOR_JOB_ID } from '../../cron.ts'
-import { VULNERABILITY_SCAN_CADENCE_SECONDS, VULNERABILITY_SCAN_JOB_ID } from '../../vulnerabilities/scanner.ts'
 import { DATABASE_BACKUP_JOB_ID } from '../../db/backups.ts'
-import { secondsSchedule } from '../jobMetrics.ts'
 
 export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
     {
@@ -135,16 +133,6 @@ export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
         cadenceSeconds: API_CRON_CADENCE_SECONDS,
         source: 'api/src/utils/vms/ensureAlwaysRunning.ts',
         controls: [],
-    },
-    {
-        id: VULNERABILITY_SCAN_JOB_ID,
-        name: 'Vulnerability image scanner',
-        description: 'Scans running container images with Trivy and Docker Scout, then stores reports in the standalone Scanner service.',
-        category: 'Other/System',
-        schedule: secondsSchedule(VULNERABILITY_SCAN_CADENCE_SECONDS),
-        cadenceSeconds: VULNERABILITY_SCAN_CADENCE_SECONDS,
-        source: 'https://github.com/hanasandcom/scanner',
-        controls: ['pause', 'resume', 'run_now'],
     },
     {
         id: DATABASE_BACKUP_JOB_ID,

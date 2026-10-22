@@ -1,6 +1,5 @@
 import { canRunApiCronJobNow, runApiCronJobNow, setApiCronJobPaused } from '../cron.ts'
 import { DATABASE_BACKUP_JOB_ID, createDatabaseBackup, setDatabaseBackupSchedulePaused } from '../db/backups.ts'
-import { VULNERABILITY_SCAN_JOB_ID, setVulnerabilityScannerPaused, startTrackedVulnerabilityScan } from '../vulnerabilities/scanner.ts'
 import { managedCronDefinitions } from './managedDefinitions.ts'
 import { readManagedCronState, listManagedCronJobs } from './managedCrontabState.ts'
 import { normalizeSchedule, replaceManagedBlock } from '../systemCronCrontab.ts'
@@ -11,12 +10,6 @@ import { updateExternallyManagedCronJob, updatedScheduledJob } from './externalJ
 import { VM_LIFECYCLE_MONITOR_JOB_ID } from '../vms/lifecycleMonitor.ts'
 
 export async function updateManagedCronJob(id: string, input: ManagedCronUpdate) {
-    if (id === VULNERABILITY_SCAN_JOB_ID) {
-        return updateExternallyManagedCronJob(id, input, {
-            runNow: { run: startTrackedVulnerabilityScan, label: 'vulnerability scanner' },
-            setPaused: setVulnerabilityScannerPaused,
-        })
-    }
     if (id === 'ti-public-canary-collection') {
         await updateTiCollectionScheduler(input)
         return updatedScheduledJob(id)

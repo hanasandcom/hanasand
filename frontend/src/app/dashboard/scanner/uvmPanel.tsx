@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { UvmAsset, UvmAssessment, UvmDashboard, UvmFinding, UvmRun } from '@/utils/monitoring/types'
 import { filterAndSortUvmFindings, formatDate, RunCard, SummaryCard, type UvmFindingFilters } from './uvmPanelHelpers'
 import { UvmAssessmentStarter, UvmAssetsView, UvmFindingsView, UvmHelp } from './uvmPanelViews'
+import { UvmAssessmentEngineChoices, type UvmAssessmentEngineId } from './uvmPanelAssessmentControls'
 export { filterAndSortUvmFindings } from './uvmPanelHelpers'
 export type { UvmFindingFilters } from './uvmPanelHelpers'
 export default function UvmPanel({ initialData, refreshAction, createAssetAction, verifyAssetAction, runScanAction, scheduleAction, configureTenableAction, disconnectTenableAction, runTenableScanAction, updateFindingAction, cancelRunAction, startAssessmentAction, cancelAssessmentAction }: {
@@ -10,37 +11,41 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
     refreshAction: () => Promise<UvmDashboard>
     createAssetAction: (input: { hostname: string }) => Promise<{ asset: UvmAsset }>
     verifyAssetAction: (assetId: string) => Promise<{ asset: UvmAsset }>
-    runScanAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
-    scheduleAction: (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engine: 'nmap' | 'tenable-vm', scanId?: string }) => Promise<{ asset: UvmAsset }>
+    runScanAction: (assetId: string, authorized: boolean, profile: 'tcp-top-100' | 'tcp-top-1000') => Promise<{ run: UvmRun }>
+    scheduleAction: (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engine: 'nmap' | 'tenable-vm' | 'gvm', scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }) => Promise<{ asset: UvmAsset }>
     configureTenableAction: (input: { region: 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp', accessKey: string, secretKey: string }) => Promise<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>
     disconnectTenableAction: () => Promise<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>
     runTenableScanAction: (assetId: string, scanId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     updateFindingAction: (findingId: string, input: { status: UvmFinding['status'], note: string }) => Promise<unknown>
     cancelRunAction: (runId: string) => Promise<{ run: UvmRun }>
-    startAssessmentAction: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: 'nmap' | 'gvm' | 'tenable-vm', scanId?: string }>, authorized: boolean }) => Promise<{ assessment: UvmAssessment }>
+    startAssessmentAction: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: 'nmap' | 'gvm' | 'tenable-vm', scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }>, authorized: boolean }) => Promise<{ assessment: UvmAssessment }>
     cancelAssessmentAction: (assessmentId: string) => Promise<{ assessment: UvmAssessment }>
 }) {
     const [data, setData] = useState(initialData)
     const [hostname, setHostname] = useState('')
     const [authorization, setAuthorization] = useState<Record<string, boolean>>({})
     const [intervals, setIntervals] = useState<Record<string, string>>({})
-    const [scheduleEngines, setScheduleEngines] = useState<Record<string, 'nmap' | 'tenable-vm'>>({})
+    const [scheduleEngines, setScheduleEngines] = useState<Record<string, 'nmap' | 'tenable-vm' | 'gvm'>>({})
+    const [scheduleProfiles, setScheduleProfiles] = useState<Record<string, 'tcp-top-100' | 'tcp-top-1000'>>({})
     const [scheduleScanIds, setScheduleScanIds] = useState<Record<string, string>>({})
     const [tenableRegion, setTenableRegion] = useState<'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp'>('us')
     const [tenableAccessKey, setTenableAccessKey] = useState('')
     const [tenableSecretKey, setTenableSecretKey] = useState('')
     const [tenableScanIds, setTenableScanIds] = useState<Record<string, string>>({})
     const [assessmentAssetIds, setAssessmentAssetIds] = useState<string[]>([])
-    const [assessmentEngines, setAssessmentEngines] = useState<Array<'nmap' | 'gvm' | 'tenable-vm'>>(
+    const [assessmentEngines, setAssessmentEngines] = useState<UvmAssessmentEngineId[]>(
         initialData.engines.some(engine => engine.id === 'nmap' && engine.status === 'available') ? ['nmap'] : [],
     )
     const [assessmentScanId, setAssessmentScanId] = useState('')
+    const [assessmentNmapProfile, setAssessmentNmapProfile] = useState<'tcp-top-100' | 'tcp-top-1000'>('tcp-top-1000')
+    const [assetNmapProfiles, setAssetNmapProfiles] = useState<Record<string, 'tcp-top-100' | 'tcp-top-1000'>>({})
     const [findingUpdates, setFindingUpdates] = useState<Record<string, { status: UvmFinding['status'], note: string }>>({})
     const [findingFilters, setFindingFilters] = useState<UvmFindingFilters>({ query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })
     const [busy, setBusy] = useState('')
     const [message, setMessage] = useState('')
     const [view, setView] = useState<'overview' | 'assessments' | 'assets' | 'scanners' | 'runs' | 'findings'>('overview')
     const activeRuns = data.runs.filter(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status))
+    const activeAssessments = data.assessments.some(assessment => ['queued', 'running', 'cancelling'].includes(assessment.status))
     const attentionFindings = data.findings.filter(finding => !['resolved', 'false_positive', 'accepted_risk'].includes(finding.status))
     const visibleFindings = filterAndSortUvmFindings(data.findings, findingFilters)
     const latestRun = data.runs[0]
@@ -50,10 +55,10 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
     })
     useEffect(() => { setData(initialData) }, [initialData])
     useEffect(() => {
-        if (!data.runs.some(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status))) return
+        if (!data.runs.some(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status)) && !activeAssessments) return
         const timer = setInterval(() => { void refreshAction().then(setData).catch(() => undefined) }, 3000)
         return () => clearInterval(timer)
-    }, [data.runs, refreshAction])
+    }, [activeAssessments, data.runs, refreshAction])
     async function refresh() { setData(await refreshAction()) }
     async function addAsset(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault(); setBusy('add'); setMessage('')
@@ -69,7 +74,7 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
     }
     async function scan(asset: UvmAsset) {
         setBusy(asset.id); setMessage('')
-        try { await runScanAction(asset.id, authorization[asset.id] === true); await refresh(); setMessage(`Nmap scan queued for ${asset.hostname}.`) }
+        try { await runScanAction(asset.id, authorization[asset.id] === true, assetNmapProfiles[asset.id] || 'tcp-top-1000'); await refresh(); setMessage(`Nmap scan queued for ${asset.hostname}.`) }
         catch (error) { setMessage(error instanceof Error ? error.message : 'Scan could not start.') }
         finally { setBusy('') }
     }
@@ -79,7 +84,8 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
             const intervalMinutes = Number(intervals[asset.id] || asset.intervalMinutes)
             const engine = scheduleEngines[asset.id] || asset.scheduleEngine || 'nmap'
             const scanId = engine === 'tenable-vm' ? (scheduleScanIds[asset.id] || asset.scheduleScanId || data.tenableScans.find(scan => scan.enabled)?.id) : undefined
-            const result = await scheduleAction(asset.id, { enabled, intervalMinutes, authorized: authorization[asset.id] === true, engine, scanId })
+            const profile = scheduleProfiles[asset.id] || asset.scheduleProfile || 'tcp-top-1000'
+            const result = await scheduleAction(asset.id, { enabled, intervalMinutes, authorized: authorization[asset.id] === true, engine, scanId, profile })
             setData(current => ({ ...current, assets: current.assets.map(item => item.id === asset.id ? result.asset : item) }))
             setMessage(enabled ? `Schedule enabled for ${asset.hostname}.` : `Schedule paused for ${asset.hostname}.`)
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Schedule could not be saved.') }
@@ -126,7 +132,9 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
         if (!assessmentAssetIds.length || !selectableAssessmentEngines.length) { setMessage('Choose at least one verified asset and one available engine.'); setBusy(''); return }
         if (selectableAssessmentEngines.includes('tenable-vm') && !assessmentScanId) { setMessage('Choose an enabled Tenable scan configuration.'); setBusy(''); return }
         try {
-            const engines = selectableAssessmentEngines.map(engine => engine === 'tenable-vm' ? { engine, scanId: assessmentScanId } : { engine })
+            const engines = selectableAssessmentEngines.map(engine => engine === 'tenable-vm'
+                ? { engine, scanId: assessmentScanId }
+                : engine === 'nmap' ? { engine, profile: assessmentNmapProfile } : { engine })
             await startAssessmentAction({ requestId: crypto.randomUUID(), assetIds: assessmentAssetIds, engines, authorized: true })
             setAssessmentAssetIds([]); await refresh(); setMessage('Authorized assessment queued. Scanner results will update as each job completes.')
         } catch (error) { setMessage(error instanceof Error ? error.message : 'The assessment could not start.') }
@@ -153,26 +161,19 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
             </div>
         </section>}
         {view === 'assessments' && <section className='grid gap-4'><section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-start justify-between gap-3'><h2 className='text-lg font-semibold'>Start an authorized assessment</h2><UvmHelp label='Assessment engines' text='Nmap checks the top 100 TCP ports only. Greenbone uses Full and Fast; Nessus runs an enabled Tenable VM scan configuration. Standalone Nessus Pro is not connected.' /></div><p className='mt-1 text-sm text-ui-muted'>Choose verified assets and confirm public IP scope. Nmap inventories services; Greenbone and Tenable check vulnerabilities. Automated scans do not replace a penetration test or validate exploitability. DNS is rechecked at launch.</p>
+            <div className='flex items-start justify-between gap-3'><h2 className='text-lg font-semibold'>Start an authorized assessment</h2><UvmHelp label='Assessment engines and scope' text='Nmap inventories the selected TCP ports. Greenbone uses Full and Fast; Tenable VM runs an enabled Nessus configuration. Scanner rechecks DNS and public IP scope at launch. Results are not a complete penetration test.' /></div><p className='mt-1 text-sm text-ui-muted'>Select verified assets, confirm their current IPs, then choose the engines to run.</p>
             <form onSubmit={event => void startAssessment(event)} className='mt-4 grid gap-4'>
                 <fieldset className='grid gap-2'><legend className='text-sm font-semibold'>Verified assets</legend>{data.assets.filter(asset => asset.verificationStatus === 'verified').map(asset => <label key={asset.id} className='flex items-start gap-2 text-sm'><input type='checkbox' checked={assessmentAssetIds.includes(asset.id)} onChange={event => setAssessmentAssetIds(current => event.target.checked ? [...current, asset.id] : current.filter(id => id !== asset.id))} className='mt-1 accent-ui-primary' /><span>{asset.hostname}<small className='block text-xs text-ui-muted'>Authorized IPs: {asset.authorizedAddresses.join(', ') || 'resolved at launch'}</small></span></label>)}{!data.assets.some(asset => asset.verificationStatus === 'verified') && <p className='text-sm text-ui-muted'>Add and verify an asset first.</p>}</fieldset>
                 <label className='flex items-start gap-2 text-sm'><input type='checkbox' checked={assessmentAssetIds.length > 0 && assessmentAssetIds.every(id => authorization[id] === true)} onChange={event => setAuthorization(current => Object.fromEntries([...new Set([...Object.keys(current), ...assessmentAssetIds])].map(id => [id, assessmentAssetIds.includes(id) ? event.target.checked : current[id] || false])))} className='mt-1 accent-ui-primary' /><span>I confirm that I am authorized to scan each selected asset and its current public IP addresses.</span></label>
-                <fieldset className='grid gap-2'><legend className='text-sm font-semibold'>Engines</legend><div className='grid gap-2 sm:grid-cols-2'>{data.engines.map(engine => {
-                    const tenableReady = engine.id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled))
-                    const ready = engine.status === 'available' && tenableReady
-                    const selected = ready && assessmentEngines.includes(engine.id as 'nmap' | 'gvm' | 'tenable-vm')
-                    const label = engine.id === 'nmap' ? 'Nmap · TCP top 100 service inventory' : engine.id === 'gvm' ? 'Greenbone · Full and Fast vulnerability scan' : 'Nessus via Tenable VM'
-                    const reason = engine.id === 'tenable-vm' && !tenableReady ? 'Connect Tenable VM and enable a network scan configuration.' : engine.reason || 'Engine is unavailable.'
-                    return <label key={engine.id} className={`grid gap-1 rounded-md border border-ui-border p-3 text-sm ${ready ? 'cursor-pointer' : 'opacity-75'}`}><span className='flex items-start gap-2'><input type='checkbox' checked={selected} disabled={!ready} onChange={event => setAssessmentEngines(current => event.target.checked ? [...current, engine.id as 'nmap' | 'gvm' | 'tenable-vm'] : current.filter(id => id !== engine.id))} className='mt-1 accent-ui-primary' /><span className='font-semibold'>{label}<small className={`block font-normal ${ready ? 'text-ui-success' : 'text-ui-warning'}`}>{ready ? engine.status : reason}</small></span></span>{ready && engine.id === 'tenable-vm' && selected && <span className='ml-6 grid gap-1 text-xs text-ui-muted'>Enabled scan configuration<select aria-label='Tenable scan configuration' value={assessmentScanId} onChange={event => setAssessmentScanId(event.target.value)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value=''>Choose configuration</option>{data.tenableScans.filter(scan => scan.enabled).map(scan => <option key={scan.id} value={scan.id}>{scan.name}</option>)}</select></span>}</label>
-                })}</div>{!data.engines.length && <p className='text-sm text-ui-warning'>{data.scannerError || 'No scanner engines are available.'} <button type='button' onClick={() => setView('scanners')} className='font-semibold underline'>Scanner setup</button></p>}</fieldset>
+                <UvmAssessmentEngineChoices data={data} selectedEngines={assessmentEngines} setSelectedEngines={setAssessmentEngines} scanId={assessmentScanId} setScanId={setAssessmentScanId} nmapProfile={assessmentNmapProfile} setNmapProfile={setAssessmentNmapProfile} onSetup={() => setView('scanners')} />
                 {message && <p role='status' className='text-sm text-ui-primary'>{message}</p>}
                 <button type='submit' disabled={busy === 'assessment' || !assessmentAssetIds.length || !selectableAssessmentEngines.length || !assessmentAssetIds.every(id => authorization[id] === true) || (selectableAssessmentEngines.includes('tenable-vm') && !assessmentScanId)} className='w-fit rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{busy === 'assessment' ? 'Starting…' : `Start assessment · ${assessmentAssetIds.length} assets × ${selectableAssessmentEngines.length} engines`}</button>
             </form>
         </section>
-        <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><h2 className='text-lg font-semibold'>Assessment history</h2><div className='mt-3 grid gap-3'>{data.assessments.map(assessment => <article key={assessment.id} className='rounded-md border border-ui-border bg-ui-raised p-3'><div className='flex flex-wrap items-start justify-between gap-2'><div><strong>{assessment.jobs.length} scanner jobs</strong><span className='ml-2 rounded-full bg-ui-canvas px-2 py-1 text-xs'>{assessment.status}</span><p className='mt-1 text-xs text-ui-muted'>Started {formatDate(assessment.startedAt || assessment.createdAt)}{assessment.finishedAt ? ` · Finished ${formatDate(assessment.finishedAt)}` : ''}</p></div>{['queued', 'running'].includes(assessment.status) && <button type='button' onClick={() => void cancelAssessment(assessment)} disabled={busy === `assessment:${assessment.id}`} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `assessment:${assessment.id}` ? 'Cancelling…' : 'Cancel assessment'}</button>}</div><div className='mt-3 grid gap-2'>{assessment.jobs.map(job => <div key={job.id} className='flex flex-wrap items-center justify-between gap-2 border-t border-ui-border pt-2 text-sm'><span>{job.asset} · {job.engine} · {job.profile}</span><span className='text-xs text-ui-muted'>{job.status}{job.error ? ` · ${job.error}` : ''}</span></div>)}</div></article>)}{!data.assessments.length && <p className='text-sm text-ui-muted'>No assessments yet.</p>}</div></section>
+        <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><h2 className='text-lg font-semibold'>Assessment history</h2><div className='mt-3 grid gap-3'>{data.assessments.map(assessment => <article key={assessment.id} className='rounded-md border border-ui-border bg-ui-raised p-3'><div className='flex flex-wrap items-start justify-between gap-2'><div><strong>{assessment.jobs.length} scanner jobs</strong><span className='ml-2 rounded-full bg-ui-canvas px-2 py-1 text-xs'>{assessment.status}</span><p className='mt-1 text-xs text-ui-muted'>Started {formatDate(assessment.startedAt || assessment.createdAt)}{assessment.finishedAt ? ` · Finished ${formatDate(assessment.finishedAt)}` : ''}</p></div>{['queued', 'running'].includes(assessment.status) && <button type='button' onClick={() => void cancelAssessment(assessment)} disabled={busy === `assessment:${assessment.id}`} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `assessment:${assessment.id}` ? 'Cancelling…' : 'Cancel assessment'}</button>}</div><div className='mt-3 grid gap-2'>{assessment.jobs.map(job => <div key={job.id} className='flex flex-wrap items-center justify-between gap-2 border-t border-ui-border pt-2 text-sm'><span>Stage {job.stageIndex + 1} · {job.asset} · {job.engine} · {job.profile}</span><span className='text-xs text-ui-muted'>{job.status}{job.attemptCount > 1 ? ` · attempt ${job.attemptCount}` : ''}{job.error ? ` · ${job.error}` : ''}</span></div>)}</div></article>)}{!data.assessments.length && <p className='text-sm text-ui-muted'>No assessments yet.</p>}</div></section>
         </section>}
         {view === 'findings' && <UvmFindingsView data={data} attentionCount={attentionFindings.length} busy={busy} filters={findingFilters} setFilters={setFindingFilters} visibleFindings={visibleFindings} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} onUpdate={finding => void updateFinding(finding)} />}
-        {view === 'assets' && <UvmAssetsView data={data} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} scheduleEngines={scheduleEngines} setScheduleEngines={setScheduleEngines} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
+        {view === 'assets' && <UvmAssetsView data={data} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} scheduleEngines={scheduleEngines} setScheduleEngines={setScheduleEngines} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
         {view === 'scanners' && <>
             <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
                 <div className='flex flex-wrap items-start justify-between gap-3'><div className='flex items-center gap-2'><h2 className='text-lg font-semibold'>Nessus via Tenable VM</h2><UvmHelp label='Tenable VM connection' text='This connects a Tenable cloud account and launches its enabled Nessus scan configurations. Standalone Nessus Pro hosts are not connected.' /></div><span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${data.tenableIntegration?.configured ? 'bg-ui-success/15 text-ui-success' : 'bg-ui-warning/15 text-ui-warning'}`}>{data.tenableIntegration?.configured ? `Connected · ${data.tenableIntegration.region}` : 'Not configured'}</span></div>
@@ -196,5 +197,4 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
             </section>
         </>}
         {view === 'runs' && <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><div className='flex items-center justify-between gap-2'><h2 className='text-lg font-semibold'>Scanner runs</h2><span className='text-xs text-ui-muted'>{data.runs.length} recent</span></div><div className='mt-3 grid gap-3'>{data.runs.map((run, index) => <RunCard key={run.id} run={run} defaultOpen={index === 0} cancelBusy={busy === `run:${run.id}`} onCancel={() => void cancelRun(run)} />)}{!data.runs.length && <p className='text-sm text-ui-muted'>No scanner runs yet.</p>}</div></section>}
-    </div>
-}
+    </div>}
