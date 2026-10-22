@@ -4,7 +4,69 @@ import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPagePolicy.ts'
 import type { WebScanRun } from '../webScanner.ts'
 import { normalizeUvmHostname } from '../uvmScope.ts'
 import type { TenableRun } from '../scanner.ts'
-import { ensureUvmSchema, type UvmTriageStatus } from './shared.ts'
+import { getNetworkScannerRun, getTenableRun } from '../scanner.ts'
+import { ensureUvmSchema, errorMessage, type UvmTriageStatus } from './shared.ts'
+
+export async function reconcileUvmRuns() {
+    await ensureUvmSchema()
+    const networkRuns = await run(`SELECT id, scanner_run_id FROM uvm_network_runs
+        WHERE organization_id = $1 AND scanner_run_id IS NOT NULL
+          AND status IN ('queued', 'launching', 'running', 'exporting') ORDER BY created_at LIMIT 100`, [HANASAND_ORGANIZATION_ID])
+    const tenableRuns = await run(`SELECT id, scanner_run_id FROM uvm_tenable_runs
+        WHERE organization_id = $1 AND scanner_run_id IS NOT NULL
+          AND (status IN ('queued', 'running') OR (status IN ('succeeded', 'partial') AND NOT EXISTS (
+            SELECT 1 FROM uvm_finding_sync_runs s WHERE s.organization_id = uvm_tenable_runs.organization_id
+              AND s.run_id = uvm_tenable_runs.scanner_run_id
+          ))) ORDER BY created_at LIMIT 500`, [HANASAND_ORGANIZATION_ID])
+    let reconciled = 0
+    let failures = 0
+    for (const row of networkRuns.rows) {
+        try {
+            const remote = await getNetworkScannerRun(row.scanner_run_id, HANASAND_ORGANIZATION_ID)
+            await run(`UPDATE uvm_network_runs SET status = $2, error = $3, started_at = COALESCE(started_at, $4),
+                    finished_at = CASE WHEN $5 THEN COALESCE(finished_at, $6) ELSE finished_at END
+                WHERE id = $1 AND organization_id = $7`,
+            [row.id, persistedRunStatus(remote.status), remote.error, remote.startedAt, ['succeeded', 'partial', 'failed', 'cancelled'].includes(remote.status), remote.finishedAt, HANASAND_ORGANIZATION_ID])
+            reconciled += 1
+        } catch (error) {
+            failures += 1
+            console.error('UVM network run reconciliation failed', { runId: row.id, error: errorMessage(error) })
+        }
+    }
+    for (const row of tenableRuns.rows) {
+        try {
+            const remote = await getTenableRun(row.scanner_run_id, HANASAND_ORGANIZATION_ID)
+            await run(`UPDATE uvm_tenable_runs SET status = $2, error = $3, started_at = COALESCE(started_at, $4),
+                    finished_at = CASE WHEN $5 THEN COALESCE(finished_at, $6) ELSE finished_at END
+                WHERE id = $1 AND organization_id = $7`,
+            [row.id, persistedRunStatus(remote.status), remote.error, remote.startedAt, ['succeeded', 'partial', 'failed', 'cancelled'].includes(remote.status), remote.finishedAt, HANASAND_ORGANIZATION_ID])
+            if (['succeeded', 'partial'].includes(remote.status)) await importTenableFindings(remote)
+            reconciled += 1
+        } catch (error) {
+            failures += 1
+            console.error('UVM Tenable run reconciliation failed', { runId: row.id, error: errorMessage(error) })
+        }
+    }
+    try {
+        const { getWebScanReport } = await import('../webScanner.ts')
+        const report = await getWebScanReport()
+        const webScans = [...report.history, ...(report.current ? [report.current] : [])]
+            .filter(scan => scan.status === 'completed' && !scan.error)
+        const alreadyImported = webScans.length ? await run(`SELECT run_id FROM uvm_finding_sync_runs
+            WHERE organization_id = $1 AND run_id = ANY($2::text[])`, [HANASAND_ORGANIZATION_ID, webScans.map(scan => scan.scanId)]) : { rows: [] }
+        const importedIds = new Set(alreadyImported.rows.map(row => row.run_id))
+        for (const scan of webScans) if (!importedIds.has(scan.scanId)) await importWebScanFindings(scan, true)
+    } catch (error) {
+        failures += 1
+        console.error('UVM web scan findings reconciliation failed', { error: errorMessage(error) })
+    }
+    if (failures) throw new Error(`UVM run reconciliation completed with ${failures} failed item(s); ${reconciled} scanner run(s) were reconciled.`)
+    return { reconciled }
+}
+
+function persistedRunStatus(status: string) {
+    return status === 'launching' || status === 'exporting' ? 'running' : status
+}
 
 export async function updateUvmFinding(input: { findingId: string, status: UvmTriageStatus, note: string }) {
     await ensureUvmSchema()
@@ -60,10 +122,12 @@ export async function importTenableFindings(scan: TenableRun) {
     await run('INSERT INTO uvm_finding_sync_runs (organization_id, run_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [HANASAND_ORGANIZATION_ID, scan.runId])
 }
 
-export async function importWebScanFindings(scan: WebScanRun) {
+export async function importWebScanFindings(scan: WebScanRun, alreadyChecked = false) {
     if (scan.status !== 'completed' || scan.error) return
-    const alreadyImported = await run('SELECT 1 FROM uvm_finding_sync_runs WHERE organization_id = $1 AND run_id = $2', [HANASAND_ORGANIZATION_ID, scan.scanId])
-    if (alreadyImported.rows.length) return
+    if (!alreadyChecked) {
+        const alreadyImported = await run('SELECT 1 FROM uvm_finding_sync_runs WHERE organization_id = $1 AND run_id = $2', [HANASAND_ORGANIZATION_ID, scan.scanId])
+        if (alreadyImported.rows.length) return
+    }
     for (const target of scan.targets) {
         let hostname: string
         try { hostname = normalizeUvmHostname(new URL(target.target).hostname) }
