@@ -153,6 +153,7 @@ export function PrivacyLifecyclePanel({ organization, privacy, retentionDays, ca
                 <div className='rounded-md border border-ui-border bg-ui-raised p-3 dark:border-ui-border dark:bg-ui-canvas sm:col-span-2 lg:col-span-4'>
                     <p className='text-xs font-semibold uppercase tracking-[0.08em] text-ui-muted dark:text-ui-muted'>Protection contract</p>
                     <p className='mt-1 text-sm text-ui-text dark:text-ui-text'>{explanation}</p>
+                    {privacy?.protection?.immutable_log_events_available === false && <p role='status' data-org-privacy-count-unavailable className='mt-2 text-xs text-ui-muted'>The immutable log count is temporarily unavailable. Other retention details remain available.</p>}
                     <p className='mt-2 text-xs text-ui-muted dark:text-ui-muted'>Last run: {runAt ? formatDate(runAt) : 'waiting for first scheduled or manual run'}{requestStatus ? ` · Latest privacy request: ${requestStatus.replaceAll('_', ' ')}` : ''}</p>
                 </div>
                 {(privacy?.runs?.length || 0) > 0 && <div className='overflow-x-auto rounded-md border border-ui-border dark:border-ui-border sm:col-span-2 lg:col-span-4' data-org-privacy-history>
