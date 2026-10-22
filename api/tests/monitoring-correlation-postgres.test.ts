@@ -204,6 +204,7 @@ test('manual merge keeps every case field and routes later throughput samples to
     const summaries = [
         'Logs throughput is outside its configured limits: NPPS (incoming load ÷ checked throughput) 0 below 100×; processing rate 0 below 200 logs/s. Pending backlog: 9943432. Check incoming traffic, processing workers, and the pending backlog.',
         'Logs throughput is outside its configured limits: NPPS (incoming load ÷ checked throughput) 0 below 100×; processing rate 0 below 200 logs/s. Pending backlog: 9943434. Check incoming traffic, processing workers, and the pending backlog.',
+        'Logs throughput is outside its configured limits: NPPS (incoming load ÷ checked throughput) 0 below 100×; processing rate 0 below 200 logs/s. Pending backlog: 9943438. Check incoming traffic, processing workers, and the pending backlog.',
     ]
     const ids: string[] = []
     for (const [index, summary] of summaries.entries()) {
@@ -220,19 +221,21 @@ test('manual merge keeps every case field and routes later throughput samples to
         await q(`INSERT INTO monitoring_issue_notifications(issue_id,destination,next_attempt_at,delivered_at,message_id,mentioned_everyone)
             VALUES($1,'test',NOW()+($2 * interval '1 hour'),NOW()-interval '1 hour',$3,true)`, [id, 22 + index, `throughput-message-${index}`])
     }
-    const result = await mergeMonitoringCaseSet({ targetId: ids[0]!, sourceIds: [ids[1]!], includeAll: true, viewerId: 'owner', organizationId: null, actor: 'owner', actorType: 'human' })
-    expect(result).toEqual({ targetId: `HA-${ids[0]}`, mergedIds: [`HA-${ids[1]}`] })
+    const result = await mergeMonitoringCaseSet({ targetId: ids[0]!, sourceIds: ids.slice(1), includeAll: true, viewerId: 'owner', organizationId: null, actor: 'owner', actorType: 'human' })
+    expect(result).toEqual({ targetId: `HA-${ids[0]}`, mergedIds: ids.slice(1).map(id => `HA-${id}`) })
     const canonical = (await q('SELECT * FROM monitoring_issues WHERE id=$1', [ids[0]])).rows[0]
-    expect(canonical).toMatchObject({ occurrences: 3, kind: 'failure', status_override: 'in_progress', severity_override: 'critical' })
-    expect(canonical.summary).toBe(summaries[1])
-    expect(canonical.comments).toHaveLength(3)
+    expect(canonical).toMatchObject({ occurrences: 6, kind: 'failure', status_override: 'in_progress', severity_override: 'critical' })
+    expect(canonical.summary).toBe(summaries[2])
+    expect(canonical.comments).toHaveLength(4)
     expect(canonical.comments.at(-1).body).toContain(summaries[0]!)
     expect(canonical.comments.at(-1).body).toContain(summaries[1]!)
+    expect(canonical.comments.at(-1).body).toContain(summaries[2]!)
     expect(canonical.history).toContainEqual(expect.objectContaining({ action: 'cases_merged', mergedCases: expect.any(Array) }))
-    expect((await q('SELECT merged_into FROM monitoring_issues WHERE id=$1', [ids[1]])).rows[0].merged_into).toBe(ids[0])
-    expect((await q('SELECT count(*)::int AS total FROM agent_automation_runs WHERE issue_id=$1', [ids[0]])).rows[0].total).toBe(2)
-    expect((await q('SELECT count(*)::int AS total FROM monitoring_issue_messages WHERE issue_id=$1', [ids[0]])).rows[0].total).toBe(2)
-    expect(new Date((await q('SELECT next_attempt_at FROM monitoring_issue_notifications WHERE issue_id=$1 AND destination=\'test\'', [ids[0]])).rows[0].next_attempt_at).getTime()).toBeGreaterThan(Date.now() + 22 * 60 * 60 * 1000)
+    for (const id of ids.slice(1)) expect((await q('SELECT merged_into FROM monitoring_issues WHERE id=$1', [id])).rows[0].merged_into).toBe(ids[0])
+    expect((await q('SELECT count(*)::int AS total FROM agent_automation_runs WHERE issue_id=$1', [ids[0]])).rows[0].total).toBe(3)
+    expect((await q('SELECT count(*)::int AS total FROM monitoring_issue_messages WHERE issue_id=$1', [ids[0]])).rows[0].total).toBe(3)
+    expect((await q('SELECT count(*)::int AS total FROM monitoring_issue_notifications WHERE issue_id=$1 AND destination=\'test\'', [ids[0]])).rows[0].total).toBe(1)
+    expect(new Date((await q('SELECT next_attempt_at FROM monitoring_issue_notifications WHERE issue_id=$1 AND destination=\'test\'', [ids[0]])).rows[0].next_attempt_at).getTime()).toBeGreaterThan(Date.now() + 24 * 60 * 60 * 1000)
     await q('INSERT INTO agent_automation_runs(id,automation_id,status) VALUES($1,$2,\'failed\')', ['throughput-after-manual-merge', automation.id])
     expect(await record(automation, 'throughput-after-manual-merge', 'failure', summaries[1]!)).toBe(ids[0])
     expect((await q('SELECT count(*)::int AS total FROM monitoring_issues WHERE automation_id=$1 AND merged_into IS NULL', [automation.id])).rows[0].total).toBe(1)

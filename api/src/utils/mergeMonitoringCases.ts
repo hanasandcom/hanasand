@@ -96,13 +96,16 @@ export async function mergeMonitoringCaseSet(input: ManualMergeInput) {
         }
 
         await query(`INSERT INTO monitoring_issue_checks(issue_id,automation_id,active)
-            SELECT $2,automation_id,active FROM monitoring_issue_checks WHERE issue_id=ANY($1::bigint[])
+            SELECT $2,automation_id,BOOL_OR(active) FROM monitoring_issue_checks WHERE issue_id=ANY($1::bigint[])
+            GROUP BY automation_id
             ON CONFLICT(issue_id,automation_id) DO UPDATE SET active=monitoring_issue_checks.active OR EXCLUDED.active`, [sourceIds, input.targetId])
         await query('UPDATE agent_automation_runs SET issue_id=$2 WHERE issue_id=ANY($1::bigint[])', [sourceIds, input.targetId])
         await query('UPDATE monitoring_issue_messages SET issue_id=$2 WHERE issue_id=ANY($1::bigint[])', [sourceIds, input.targetId])
         await query(`INSERT INTO monitoring_issue_notifications(issue_id,destination,next_attempt_at,delivered_at,last_error,message_id,mentioned_everyone)
             SELECT $2,destination,next_attempt_at,delivered_at,last_error,message_id,mentioned_everyone
-            FROM monitoring_issue_notifications WHERE issue_id=ANY($1::bigint[])
+            FROM (SELECT destination,MAX(next_attempt_at) AS next_attempt_at,MAX(delivered_at) AS delivered_at,
+                MAX(last_error) AS last_error,MAX(message_id) AS message_id,BOOL_OR(mentioned_everyone IS TRUE) AS mentioned_everyone
+                FROM monitoring_issue_notifications WHERE issue_id=ANY($1::bigint[]) GROUP BY destination) merged_notifications
             ON CONFLICT(issue_id,destination) DO UPDATE SET
                 next_attempt_at=GREATEST(monitoring_issue_notifications.next_attempt_at,EXCLUDED.next_attempt_at),
                 delivered_at=GREATEST(monitoring_issue_notifications.delivered_at,EXCLUDED.delivered_at),
