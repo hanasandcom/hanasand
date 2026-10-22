@@ -28,6 +28,9 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('websitePlan.sections.length >= 5')
     expect(source).toContain('This creates a simple static page.')
     expect(source).toContain('Generate setup')
+    expect(source).toContain('unresolvedSetupPrompt')
+    expect(source).toContain('suggestedSetupKey !== currentSetupKey')
+    expect(source).toContain('Generate a supported setup for this description, or clear it to create a blank VM.')
     expect(source).toContain('custom_apt_packages: customAptPackages')
     expect(source).toContain('Additional Ubuntu packages: {customAptPackages.join(\', \')}')
     expect(source).toContain('option.memory !== \'2GiB\'')
@@ -53,7 +56,7 @@ test('organization VM creation explains and blocks the owner/admin-only action b
     expect(inventory).toContain('!organizationsLoading && !organizationsUnavailable')
     expect(inventory).toContain('Only an owner or admin of ${organizationName || \'this organization\'} can create VMs.')
     expect(form).toContain('{!canCreate && <p role=\'status\'')
-    expect(form).toContain('disabled={creating || !canCreate}')
+    expect(form).toContain('disabled={creating || !canCreate || unresolvedSetupPrompt}')
 })
 
 test('VM creation preserves workspace conflict details from the API', async () => {

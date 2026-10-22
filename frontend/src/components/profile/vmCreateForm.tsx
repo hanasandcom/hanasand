@@ -34,12 +34,16 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const [minecraftServerType, setMinecraftServerType] = useState<typeof vmMinecraftServerTypes[number]['id']>('PAPER')
     const [setupPrompt, setSetupPrompt] = useState('')
     const [setupSuggestion, setSetupSuggestion] = useState('')
+    const [suggestedSetupKey, setSuggestedSetupKey] = useState('')
     const [websitePlan, setWebsitePlan] = useState<VmWebsitePlan>(starterWebsitePlan)
     const [suggestingSetup, setSuggestingSetup] = useState(false)
     const [creating, setCreating] = useState(false)
     const [creationError, setCreationError] = useState('')
     const requiresFourGiB = selectedServices.includes('minecraft-java') || operatingSystem === 'ubuntu-24.04-desktop'
     const availableResources = vmResourceOptions.filter(option => !requiresFourGiB || option.memory !== '2GiB')
+    const currentSetupKey = `${operatingSystem}\n${setupPrompt.trim()}`
+    const unresolvedSetupPrompt = setupPrompt.trim().length >= 5 && suggestedSetupKey !== currentSetupKey
+        && selectedServices.length === 0 && customAptPackages.length === 0
 
     useEffect(() => { if (visible) nameInput.current?.focus() }, [visible])
 
@@ -68,6 +72,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             setSetupPrompt('')
             setSetupSuggestion('')
             setWebsitePlan(starterWebsitePlan)
+            setSuggestedSetupKey('')
             onCreated(result.vm, vmName)
         } catch {
             setCreationError('Unable to create the virtual machine. Please try again.')
@@ -89,8 +94,10 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             setSetupSuggestion(plan.summary)
             setWebsitePlan(plan.website || starterWebsitePlan)
             if (plan.minecraftServerType) setMinecraftServerType(plan.minecraftServerType)
+            setSuggestedSetupKey(`${operatingSystem}\n${setupPrompt.trim()}`)
         } catch (error) {
             setSetupSuggestion(error instanceof Error ? error.message : 'Unable to suggest a VM setup.')
+            setSuggestedSetupKey('')
         } finally { setSuggestingSetup(false) }
     }
 
@@ -98,7 +105,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         <div className='grid gap-2 rounded-lg border border-ui-border bg-ui-panel p-3'>
             <label htmlFor={promptId} className='text-sm font-medium text-ui-text'>Describe what you want to build</label>
             <div className='flex flex-wrap items-center gap-2'>
-                <input id={promptId} value={setupPrompt} onChange={event => { setSetupPrompt(event.target.value); setSelectedServices([]); setMinecraftEulaAccepted(false); setWebsitePlan(starterWebsitePlan); setCustomAptPackages([]); setSetupSuggestion('') }} maxLength={1200} placeholder='A portfolio for a ceramic artist, or Node.js with PostgreSQL' disabled={creating || suggestingSetup} className='h-10 min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text placeholder:text-ui-muted' />
+                <input id={promptId} value={setupPrompt} onChange={event => { setSetupPrompt(event.target.value); setSelectedServices([]); setMinecraftEulaAccepted(false); setWebsitePlan(starterWebsitePlan); setCustomAptPackages([]); setSetupSuggestion(''); setSuggestedSetupKey('') }} maxLength={1200} placeholder='A portfolio for a ceramic artist, or Node.js with PostgreSQL' disabled={creating || suggestingSetup} className='h-10 min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text placeholder:text-ui-muted' />
                 <button type='button' onClick={suggestSetup} disabled={creating || suggestingSetup || setupPrompt.trim().length < 5} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-medium text-ui-text hover:bg-ui-panel disabled:opacity-50'>{suggestingSetup ? 'Creating…' : 'Generate setup'}</button>
             </div>
             {setupSuggestion && <p role='status' className='text-sm text-ui-muted'>{setupSuggestion}</p>}
@@ -108,6 +115,15 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>VM name<input ref={nameInput} value={name} onChange={event => setName(event.target.value)} required pattern='[a-z][a-z0-9-]{0,61}[a-z0-9]' minLength={2} maxLength={63} title='2–63 lowercase letters, numbers or hyphens, starting with a letter' disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-ui-text' /></label>
             <VmOperatingSystemPicker value={operatingSystem} onChange={value => {
                 setOperatingSystem(value)
+                if (setupPrompt.trim()) {
+                    setSelectedServices([])
+                    setMinecraftEulaAccepted(false)
+                    setMinecraftServerType('PAPER')
+                    setWebsitePlan(starterWebsitePlan)
+                }
+                setCustomAptPackages([])
+                setSuggestedSetupKey('')
+                if (setupPrompt.trim()) setSetupSuggestion('The operating system changed. Generate the setup again to check package compatibility.')
                 if (value === 'ubuntu-24.04-desktop' && resourcePlan === 'small') setResourcePlan('standard')
             }} disabled={creating} />
             <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>Resources<select value={resourcePlan} onChange={event => setResourcePlan(event.target.value)} disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{availableResources.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
@@ -164,7 +180,8 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         </fieldset>}
         {selectedServices.includes('minecraft-java') && <label className='grid gap-1 text-sm text-ui-muted'>Server software<select value={minecraftServerType} onChange={event => setMinecraftServerType(event.target.value as typeof vmMinecraftServerTypes[number]['id'])} disabled={creating} className='h-10 max-w-sm rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{vmMinecraftServerTypes.map(type => <option key={type.id} value={type.id}>{type.label} · {type.description}</option>)}</select></label>}
         {!canCreate && <p role='status' className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm leading-5 text-ui-muted'>{permissionMessage}</p>}
-        <button disabled={creating || !canCreate} className='h-10 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{creating ? 'Creating VM…' : 'Create VM'}</button>
+        {unresolvedSetupPrompt && <p role='status' className='text-xs leading-5 text-ui-muted'>Generate a supported setup for this description, or clear it to create a blank VM.</p>}
+        <button disabled={creating || !canCreate || unresolvedSetupPrompt} className='h-10 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{creating ? 'Creating VM…' : 'Create VM'}</button>
         {creationError && <p role='alert' className='rounded-lg border border-ui-danger/25 bg-ui-danger/5 px-3 py-2.5 text-sm leading-5 text-ui-danger'>{creationError}</p>}
     </form>
 }
