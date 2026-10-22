@@ -1,6 +1,6 @@
 import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 export default async function restartDocker(containerId: string): Promise<string> {
     try {

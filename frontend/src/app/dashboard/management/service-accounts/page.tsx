@@ -1,5 +1,5 @@
 import ServiceAccounts from '@/components/users/serviceAccounts'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 
 export default function Page() {
     return <DashboardPage>

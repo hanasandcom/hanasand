@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { DashboardTablePanel } from '@/components/dashboard/ui'
+import { DashboardTablePanel } from 'hanasand/dashboard'
 import type { Scenario } from './loadTestingScenarios'
 import { latestP95, loadTestStatusCounts } from './loadTestingScenarios'
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getCookie, setCookie } from '@/utils/cookies/cookies'
+import { getCookie, setCookie } from 'hanasand/cookies'
 import { NAVIGATION_COOKIE, readNavigationPreferences, type NavigationPreferences } from '@/utils/layout/navigationPreferences'
 import { navigationLinks, pinnedNavigation, type NavigationItem } from '@/utils/layout/dashboardNavigation'
 import { isActiveDashboardNavigationPath } from './dashboardNavigationPath'

@@ -1,6 +1,6 @@
 'use client'
 
-import type { MailUiApi } from '@hanasand/mail-ui'
+import type { MailUiApi } from 'hanasand/mail'
 import * as client from '@/utils/mail/client'
 
 export const mailUiApi = {

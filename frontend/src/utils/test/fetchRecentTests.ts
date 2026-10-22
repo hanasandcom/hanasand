@@ -1,5 +1,5 @@
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { getOrCreateLoadTestClientId } from './postTest'
 
 export async function fetchRecentTests(scope: 'recent' | 'mine', limit = 12): Promise<Test[]> {

@@ -1,8 +1,8 @@
 'use client'
 
 import SocialSignIn from '@/components/login/socialSignIn'
-import { DashboardPanel } from '@/components/dashboard/ui'
-import { removeCookies } from '@/utils/cookies/cookies'
+import { DashboardPanel } from 'hanasand/dashboard'
+import { removeCookies } from 'hanasand/cookies'
 import { Fingerprint, LogOut, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'

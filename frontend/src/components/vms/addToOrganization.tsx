@@ -4,7 +4,7 @@ import { Building2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import type { NotifyVmAction } from './vmActionFeedback'
 
 type Organization = { id: string; name: string; role: string; status?: string }

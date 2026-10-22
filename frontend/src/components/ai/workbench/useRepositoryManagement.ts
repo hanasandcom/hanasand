@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { aiClientRequest } from '@/utils/ai/client'
 import { importRepositoryToShare } from '@/utils/ai/importRepositoryToShare'
 import { syncRepositoryToShare } from '@/utils/ai/syncRepositoryToShare'

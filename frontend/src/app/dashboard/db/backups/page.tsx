@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { DashboardDataFallback, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardDataFallback, DashboardPage } from 'hanasand/dashboard'
 import BackupPage from './backupPage'
 import { getBackupDashboard } from '@/utils/db/internal'
 

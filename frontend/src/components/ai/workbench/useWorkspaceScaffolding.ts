@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { scaffoldNextjsDockerWorkspace } from '@/utils/ai/scaffoldWorkspace'
 import { withWorkspaceActivity } from './repositoryModel'
 import type { WorkbenchState } from './useWorkbenchState'

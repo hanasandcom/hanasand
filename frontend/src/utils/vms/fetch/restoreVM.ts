@@ -1,6 +1,6 @@
 'use client'
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 export default async function restoreVM(name: string) {
     try {

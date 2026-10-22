@@ -1,7 +1,7 @@
 import { AlertTriangle, ArchiveRestore, CheckCircle2, Clock3, DatabaseBackup, HardDrive, TrendingUp } from 'lucide-react'
 import type { ReactNode } from 'react'
 import Button from '@/components/misc/button'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import type { DatabaseOverview } from '@/utils/db/internal'
 import DatabaseWorkbench from './databaseWorkbench'
 import DatabaseRefresh from './databaseRefresh'

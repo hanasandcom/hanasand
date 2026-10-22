@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Maximize2, Minimize2, PlayCircle, RefreshCcw } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { fetchManagedCronJobs, updateManagedCronJob, type ManagedCronJob } from '@/utils/systemCron/client'
 import CronJobGroups from './cronJobGroups'
 import { money, needsAttention, operationalStateLabel, primaryHeadline, summarizeCronJobs } from './cronJobPresentation'

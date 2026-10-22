@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 // @ts-expect-error Bun provides this module when running focused tests.
 import { test } from 'bun:test'
-import { DashboardPanel, DashboardTable } from '../src/components/dashboard/ui'
+import { DashboardPanel, DashboardTable } from 'hanasand/dashboard'
 
 test('dashboard panels forward section attributes without changing their shared class', () => {
     const panel = renderToStaticMarkup(createElement(DashboardPanel, {

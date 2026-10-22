@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { HardDrive, RefreshCcw, Trash2 } from 'lucide-react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 type Storage = {
     cacheBytes: number; reclaimableCacheBytes: number; cacheBudgetBytes: number

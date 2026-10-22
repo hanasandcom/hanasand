@@ -1,5 +1,5 @@
 import { ChartNoAxesColumnIncreasing, Clock3, FileText, StickyNote } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { formatNoteDate } from './NotesSidebar'
 import NotesPanelIconButton from './NotesPanelIconButton'
 

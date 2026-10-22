@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { EmptyState, NumberField, RemoveButton, RouteChooser, SelectField } from './RateLimitFields'
 import { scopeOrder } from './model'
 

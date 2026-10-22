@@ -1,5 +1,5 @@
 import VmConsole from '@/components/vms/consoleClient'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 
 export default async function Page({ params }: { params: Promise<{ name: string }> }) {
     const { name } = await params

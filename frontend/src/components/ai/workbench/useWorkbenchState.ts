@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { useShareWorkspaceState } from './useShareWorkspaceState'
 import type { AiToolCall } from './aiToolTypes'
 import type { AIWorkbenchInitialData } from './initialData'

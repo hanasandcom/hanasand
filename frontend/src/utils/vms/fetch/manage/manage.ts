@@ -1,6 +1,6 @@
 import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 export type VMActionResult = { ok: true, message: string } | { ok: false, message: string }
 

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import NotesClient from './pageClient'
 
 export const dynamic = 'force-dynamic'

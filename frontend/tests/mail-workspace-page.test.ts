@@ -11,7 +11,7 @@ test('dashboard mail mounts the shared workspace and calls the dedicated Mail AP
 
     expect(page).toContain('<MailWorkspace')
     expect(page).not.toContain('<iframe')
-    expect(workspace).toContain('from \'@hanasand/mail-ui\'')
+    expect(workspace).toContain('from \'hanasand/mail\'')
     expect(workspace).toContain('<SharedMailWorkspace')
     expect(adapter).toContain('satisfies MailUiApi')
     expect(client).toContain('https://mail.hanasand.com/api')

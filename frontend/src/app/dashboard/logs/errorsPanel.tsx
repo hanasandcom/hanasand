@@ -1,7 +1,7 @@
 'use client'
 import { type ReactNode } from 'react'
 import { Bug, ShieldAlert, Activity, AlertTriangle, Copy } from 'lucide-react'
-import { dashboardPanelClass } from '@/components/dashboard/ui'
+import { dashboardPanelClass } from 'hanasand/dashboard'
 import type { ErrorEvent, ErrorEventsResponse } from '@/utils/logs/types'
 import EventDisclosureTrigger from './EventDisclosure'
 import { LogTimestamp } from './LogTimestamp'

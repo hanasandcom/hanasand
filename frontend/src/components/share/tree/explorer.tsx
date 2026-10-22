@@ -1,6 +1,6 @@
 import useHideIfLittleSpace from '@/hooks/useHideIfLittleSpace'
 import useMovable from '@/hooks/movable'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { getTree } from '@/utils/share/getTree'
 import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react'
 import WorkspaceSearchPanel from '../workspaceSearchPanel'

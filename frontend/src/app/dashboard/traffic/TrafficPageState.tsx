@@ -1,4 +1,4 @@
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 
 type TrafficPageStateProps = {
     kind: 'loading' | 'unavailable'

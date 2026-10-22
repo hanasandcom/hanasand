@@ -1,7 +1,7 @@
 'use client'
 
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 
 export async function putArticle(id: string, content: string[] | string): Promise<void | string> {

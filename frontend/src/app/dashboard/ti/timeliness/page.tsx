@@ -1,4 +1,4 @@
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import TimelinessClient from './timelinessClient'
 
 export const dynamic = 'force-dynamic'

@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { getTree } from '@/utils/share/getTree'
 import { listTreePaths } from '@/components/share/workspaceTree'
 import { withFocusedWorkspaceFile, withWorkspaceActivity } from './repositoryModel'

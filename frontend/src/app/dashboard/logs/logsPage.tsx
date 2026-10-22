@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import config from '@/config'
 import LogsPageClient from './pageClient'
 import type { Metrics } from './throughputMetrics'

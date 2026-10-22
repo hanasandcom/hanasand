@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { DashboardDataFallback, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardDataFallback, DashboardPage } from 'hanasand/dashboard'
 import { getWebScan } from '@/utils/monitoring/data'
 import { refreshWebScan, runWebScanAction, updateWebScanScheduleAction } from '../vulnerabilities/actions'
 import WebScanPanel from '../vulnerabilities/webScanPanel'

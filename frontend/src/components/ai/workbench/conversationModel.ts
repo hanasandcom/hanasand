@@ -1,7 +1,7 @@
 'use client'
 
 import defaultModelMetrics from '@/components/gpt/defaultModelMetrics'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 export function createConversation(clientName: string | null = null): AIConversation {
     const timestamp = new Date().toISOString()

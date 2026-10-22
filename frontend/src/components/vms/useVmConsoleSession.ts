@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { prepareVmConsole } from '@/utils/vms/prepareConsole'
 import { useVmConsoleBootLog } from './useVmConsoleBootLog'
 import { useVmProvisioningStatus } from './useVmProvisioningStatus'

@@ -1,9 +1,9 @@
 'use client'
 
 import { AuthSession, fetchSessions, revokeOtherSessions, revokeSession } from '@/utils/auth/sessions'
-import { removeCookies } from '@/utils/cookies/cookies'
+import { removeCookies } from 'hanasand/cookies'
 import { sessionDevice } from '@/utils/auth/sessionDevice'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { formatAccountDateTime } from './formatAccountDateTime'
 import { Laptop, LogOut, Server, Smartphone } from 'lucide-react'
 import { useEffect, useState } from 'react'

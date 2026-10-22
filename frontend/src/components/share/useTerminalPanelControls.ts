@@ -1,6 +1,6 @@
 import type { Dispatch, MouseEvent as ReactMouseEvent, RefObject, SetStateAction } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { removeCookie, setCookie } from '@/utils/cookies/cookies'
+import { removeCookie, setCookie } from 'hanasand/cookies'
 import { DEFAULT_TERMINAL_HEIGHT, preferredTerminalHeight } from './terminalLifecycle'
 
 type Props = {

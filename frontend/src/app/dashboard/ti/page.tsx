@@ -1,4 +1,4 @@
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import { getTiEnrichmentOverview } from '@/utils/tiAdmin/enrichment'
 import { getTiAdminOverview } from '@/utils/tiAdmin/ops'
 import TiDataAvailability from './ti-data-availability'

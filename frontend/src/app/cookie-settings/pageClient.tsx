@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { CheckCircle2, Cookie, KeyRound, RefreshCcw, ShieldCheck, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { removeCookie, setCookie } from '@/utils/cookies/cookies'
+import { removeCookie, setCookie } from 'hanasand/cookies'
 import { ConsentButton, StatusRow, TokenList } from './CookieSettingsRows'
 import {
     clearKeys,

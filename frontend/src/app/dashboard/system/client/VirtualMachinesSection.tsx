@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { StopCircle } from 'lucide-react'
-import { DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
+import { DashboardPanel, DashboardTable } from 'hanasand/dashboard'
 import { formatPercent } from '../systemPresentation'
 import { EmptyState } from './SystemUi'
 

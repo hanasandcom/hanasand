@@ -1,6 +1,6 @@
 @import '@xterm/xterm/css/xterm.css';
 @import 'tailwindcss';
-@source "../../node_modules/@hanasand/mail-ui/src";
+@source "../../node_modules/hanasand/mail/src";
 @import './global-styles/theme-tokens.css';
 @import './global-styles/component-primitives.css';
 @import './global-styles/theme-surfaces.css';

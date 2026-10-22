@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ArrowUpRight } from 'lucide-react'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import { GET as getOpenApi } from './ti/route'
 
 export const dynamic = 'force-dynamic'

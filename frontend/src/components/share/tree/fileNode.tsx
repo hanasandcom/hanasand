@@ -3,7 +3,7 @@
 import useFolderState from '@/hooks/useFolderState'
 import { deleteShare } from '@/utils/share/delete'
 import { updateShare } from '@/utils/share/put'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { duplicateTreeItem } from './duplicateTreeItem'

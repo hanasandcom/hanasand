@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { systemExpiredSessionPath } from '../systemRoutes'
 import config from '@/config'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import RateLimitsPageClient from './pageClient'
 
 export default async function RateLimitsPage() {

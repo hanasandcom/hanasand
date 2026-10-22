@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowRight, ExternalLink } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
 
 export type StatusTone = 'neutral' | 'ok' | 'watch' | 'bad'

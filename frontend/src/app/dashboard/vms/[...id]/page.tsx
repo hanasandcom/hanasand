@@ -7,7 +7,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, RefreshCcw } from 'lucide-react'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 
 export default async function Page(props: { params: Promise<{ id: string[] }> }) {

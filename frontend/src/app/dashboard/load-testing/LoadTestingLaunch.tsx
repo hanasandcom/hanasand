@@ -1,6 +1,6 @@
 import { Globe2, Search, ShieldCheck } from 'lucide-react'
 import type { FormEventHandler } from 'react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { LoadTestOperationsSnapshot } from './LoadTestOperationsSnapshot'
 import { LoadTestScenarioPicker } from './LoadTestScenarioPicker'
 import type { Scenario } from './loadTestingScenarios'

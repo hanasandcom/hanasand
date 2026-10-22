@@ -1,5 +1,5 @@
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import randomId from '@/utils/random/randomId'
 import { createWorkbenchSocket } from './workbenchSocket'
 

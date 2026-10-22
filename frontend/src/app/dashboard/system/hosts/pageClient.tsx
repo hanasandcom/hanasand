@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { KeyRound, LoaderCircle, SquareTerminal } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { getHostOverview, type HostAccessUser, type HostOverview } from '@/utils/sshKeys'
 
 export default function HostsOverview() {

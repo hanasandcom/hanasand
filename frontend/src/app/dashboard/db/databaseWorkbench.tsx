@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react'
 import { Code2, PlayCircle, Search, Table2 } from 'lucide-react'
-import { dashboardPanelClass } from '@/components/dashboard/ui'
+import { dashboardPanelClass } from 'hanasand/dashboard'
 import type { DatabaseOverview, DatabaseQueryResult } from '@/utils/db/internal'
 import { databaseRowsAction, databaseSqlAction } from './actions'
 import DatabaseConnection from './databaseConnection'

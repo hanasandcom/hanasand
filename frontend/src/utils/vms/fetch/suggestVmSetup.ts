@@ -1,4 +1,4 @@
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { vmMinecraftServerTypes, type VmMinecraftServerType } from '../createOptions'
 
 export type VmWebsiteImage = { url: string, alt: string, caption: string }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Trash2 } from 'lucide-react'
 import { createNote, deleteNote, fetchNotes, updateNote } from '@/utils/notes/client'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { formatNoteDate, NotesSidebar } from './NotesSidebar'
 import { NotesAnalyticsPanel } from './NotesAnalyticsPanel'
 import { resolveSelectedNote, saveNoteDraft } from './notesModel'

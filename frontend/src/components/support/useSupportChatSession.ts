@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { supportFetch } from '@/utils/support/api'
 import { SUPPORT_TICKETS_UPDATED_EVENT } from '@/utils/supportUnread'
 import useSupportLive, { SUPPORT_CHAT_OPENED_EVENT } from './useSupportLive'

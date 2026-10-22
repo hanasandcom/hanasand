@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Radio } from 'lucide-react'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import { pageNumber } from '@/utils/pagination'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
 import { getTiEnrichmentOverview, type TiActivityEvent } from '@/utils/tiAdmin/enrichment'

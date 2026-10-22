@@ -1,4 +1,4 @@
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { getShare } from '@/utils/share/get'
 import { walkWorkspaceTree } from '../workspaceTree'
 import type { IndexedWorkspaceFile, WorkspaceFile } from './types'

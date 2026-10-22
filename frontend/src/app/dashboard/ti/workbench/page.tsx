@@ -1,4 +1,4 @@
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import { decodePublicTiHandoffPayload, PUBLIC_TI_HANDOFF_SOURCE } from '@/utils/ti/actorWorkbench'
 import { buildPublicTiHandoffCase, type OperatorScope } from '../../operatorConsoleModel'
 import AnalystWorkbenchClient from './workbenchClient'

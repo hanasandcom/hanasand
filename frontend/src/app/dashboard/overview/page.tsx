@@ -10,7 +10,7 @@ import { Radio } from 'lucide-react'
 import getStatus from '@/utils/status/getStatus'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
 import { toPublicServiceStatus } from '@/utils/status/publicStatus'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import DwmOverviewPanel, { OpenCasesMetric } from './overviewPanel'
 import { loadOpenCases, loadOverview } from './loadOverview'
 

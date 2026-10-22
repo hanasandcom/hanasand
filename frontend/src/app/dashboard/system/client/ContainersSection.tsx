@@ -1,5 +1,5 @@
 import { TerminalSquare } from 'lucide-react'
-import { DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
+import { DashboardPanel, DashboardTable } from 'hanasand/dashboard'
 import { ContainerDetails } from './ContainerDetails'
 import { ContainerRow } from './ContainerRow'
 import { EmptyState, LinkButton } from './SystemUi'

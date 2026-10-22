@@ -1,7 +1,7 @@
 'use client'
 
 import config from '@/config'
-import { getCookie, removeCookies } from '@/utils/cookies/cookies'
+import { getCookie, removeCookies } from 'hanasand/cookies'
 import { useEffect } from 'react'
 
 export default function LogoutPageClient({ path }: { path?: string }) {

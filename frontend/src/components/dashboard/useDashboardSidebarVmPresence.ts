@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { createQueuedRefresh } from './queuedRefresh'
 
 export function useDashboardSidebarVmPresence(userId: string) {

@@ -1,4 +1,4 @@
-import { removeCookie, setCookie } from '@/utils/cookies/cookies'
+import { removeCookie, setCookie } from 'hanasand/cookies'
 import type { ShareRuntimeCapability } from '@/utils/share/runtimeCapabilities'
 import { Monitor } from 'lucide-react'
 import { Dispatch, SetStateAction, useEffect, useState } from 'react'

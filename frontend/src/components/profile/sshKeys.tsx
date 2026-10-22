@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, Trash2, X } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { createProfileSshKey, removeProfileSshKey, type ProfileSshKey } from '@/utils/sshKeys'
 
 export default function SshKeys({ initialKeys }: { initialKeys: ProfileSshKey[] | null }) {

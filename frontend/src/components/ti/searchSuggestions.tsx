@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useId, useState } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 const HISTORY_LIMIT = 30
 const examples = ['APT29', 'LockBit', 'microsoft.com', 'CVE-2024-3094']

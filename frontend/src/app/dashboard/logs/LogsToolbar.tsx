@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { BarChart3, ListFilter, Search, X } from 'lucide-react'
 import type { RefObject } from 'react'
 import { logTables } from '@/utils/logs/search'
-import { dashboardPanelClass } from '@/components/dashboard/ui'
+import { dashboardPanelClass } from 'hanasand/dashboard'
 import { logFieldClass, logFieldNames } from './logPresentation'
 import { isActiveLogPath, logPages, logSeverityValues, logTimeRanges } from './logToolbarOptions'
 

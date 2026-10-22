@@ -1,6 +1,6 @@
 import { AlertTriangle, CalendarClock, ChevronDown, Clock3, Cpu, FileText, PauseCircle, PlayCircle, Save, ServerCog, TerminalSquare, Zap } from 'lucide-react'
 import type { ManagedCronJob } from '@/utils/systemCron/client'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import AutomationField from '../automationField'
 import { cadenceLabel, controlLabel, CostPill, duration, Info, money, reliabilityLabel, resourceLabel, StatusPill, timeLabel } from './cronJobPresentation'
 

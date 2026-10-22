@@ -1,0 +1,71 @@
+{
+  "name": "hanasand",
+  "version": "1.0.0",
+  "description": "Shared Hanasand web components, hooks, and utilities",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "Mail-README.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cookies": {
+      "types": "./dist/cookies.d.ts",
+      "import": "./dist/cookies.js"
+    },
+    "./dashboard": {
+      "types": "./dist/dashboard.d.ts",
+      "import": "./dist/dashboard.js"
+    },
+    "./mail": {
+      "types": "./dist/mail/index.d.ts",
+      "import": "./dist/mail/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.build.json && cp src/styles.css dist/styles.css",
+    "prepack": "npm run build",
+    "test": "bun test tests"
+  },
+  "peerDependencies": {
+    "react": ">=19 <20",
+    "react-dom": ">=19 <20",
+    "lucide-react": ">=1",
+    "@types/react": ">=19 <20",
+    "@types/react-dom": ">=19 <20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependenciesMeta": {
+    "react-dom": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    },
+    "@types/react-dom": {
+      "optional": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hanasandcom/hanasand.git",
+    "directory": "frontend/packages/hanasand"
+  },
+  "homepage": "https://github.com/hanasandcom/hanasand/tree/main/frontend/packages/hanasand",
+  "dependencies": {
+    "fflate": "^0.8.3"
+  }
+}

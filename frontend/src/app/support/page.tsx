@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { PublicSupportPanel, type PublicSupportConversation } from '@/components/support/publicSupportChat'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import config from '@/config'
 import SupportChat from '@/components/support/supportChat'
 import type { InitialChat, Message, Ticket } from '@/components/support/supportChatTypes'

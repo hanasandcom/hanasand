@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
-import { DashboardPage, DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel, DashboardTable } from 'hanasand/dashboard'
 import { formatTiDate, getTiAdminOverview, sourceCaptures, sourceRuns } from '@/utils/tiAdmin/ops'
 import ManualRunButton from '../../manualRunButton'
 import { manualRunQueries } from '../../manualRunQueries'

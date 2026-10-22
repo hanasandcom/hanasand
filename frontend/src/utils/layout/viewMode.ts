@@ -1,4 +1,4 @@
-import { getCookie, setCookie } from '@/utils/cookies/cookies'
+import { getCookie, setCookie } from 'hanasand/cookies'
 
 export type DashboardViewMode = 'compact' | 'normal'
 

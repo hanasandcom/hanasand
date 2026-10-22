@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, PlayCircle, Rows3 } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import type { TiAdminOverview } from '@/utils/tiAdmin/ops'
 import { StatusPill } from '../dashboardPresentation'
 import { durationLabel, isOverdue, relativeUntil, runStatusTone } from './runPresentation'

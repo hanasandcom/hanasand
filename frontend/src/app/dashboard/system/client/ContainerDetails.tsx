@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ExternalLink, RefreshCcw } from 'lucide-react'
 import type { RuntimeLog } from '@/utils/logs/types'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { containerCpuMetric, containerDisplayName, containerHealth, containerMemoryMetric, formatDateTime, formatDuration } from '../systemPresentation'
 import { formatLogTime, logLevelClass } from './presentation'
 import { EmptyState, Fact, HealthPill, PortList } from './SystemUi'

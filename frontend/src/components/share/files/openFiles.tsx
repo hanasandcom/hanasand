@@ -1,4 +1,4 @@
-import { setCookie } from '@/utils/cookies/cookies'
+import { setCookie } from 'hanasand/cookies'
 import { X } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'

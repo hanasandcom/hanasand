@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, SlidersHorizontal } from 'lucide-react'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import SortIndicator from '@/components/dashboard/sort-indicator'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import { requestJson } from '../ruleRequest'

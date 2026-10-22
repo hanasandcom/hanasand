@@ -1,6 +1,6 @@
 import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { readWorkspace, WORKSPACE_COOKIE } from '@/utils/organizations/workspace'
 
 export default async function getVMDetails(id: string, token: string, userId: string, refresh = false, organizationId?: string): Promise<VMDetails | null> {

@@ -1,6 +1,6 @@
 'use client'
 
-import { getCookie, setCookie, setCookieWithExpiresAt } from '@/utils/cookies/cookies'
+import { getCookie, setCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
 
 type RequestInitWithBody = RequestInit & {
     body?: BodyInit | null

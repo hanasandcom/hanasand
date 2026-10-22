@@ -1,1 +1,1 @@
-export type * from '@hanasand/mail-ui'
+export type * from 'hanasand/mail'

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import DomainSelector from './domainSelector'
 import TrafficDashboard from './traffic'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
 import formatRequestTime from '@/utils/monitoring/formatRequestTime'
 import type { TrafficDomains, TrafficMetrics, TrafficRecords } from '@/utils/monitoring/types'

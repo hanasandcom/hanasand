@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { aiClientRequest } from '@/utils/ai/client'
 import { normalizeDockerTelemetry } from '../systemPresentation'
 import type { AIEconomics } from './aiEconomicsTypes'

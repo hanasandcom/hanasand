@@ -1,7 +1,7 @@
 'use client'
 
 import { RefreshCcw } from 'lucide-react'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 
 export default function DashboardDwmError({ reset }: { error: Error & { digest?: string }, reset: () => void }) {
     return (

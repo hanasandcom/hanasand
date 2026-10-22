@@ -3,7 +3,7 @@
 import { useId, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { setCookie } from '@/utils/cookies/cookies'
+import { setCookie } from 'hanasand/cookies'
 import FormField from '@/components/forms/formField'
 
 export default function ProfileIdentity({ displayName, username }: { displayName: string, username: string }) {

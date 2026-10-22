@@ -2,7 +2,7 @@
 
 import { usePublicTiPageEffects } from '../pageClientShared'
 import { addSavedSearch, parseSavedSearches, persistSavedSearches, removeSavedSearch, TI_SAVED_SEARCHES_KEY, type SavedSearch } from '../savedSearches'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { rememberSearch } from '@/components/ti/searchSuggestions'
 import { SyntheticEvent, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'

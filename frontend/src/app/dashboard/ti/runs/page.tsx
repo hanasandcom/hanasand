@@ -1,7 +1,7 @@
 import { pageNumber } from '@/utils/pagination'
 import Link from 'next/link'
 import { ArrowRight, PlayCircle } from 'lucide-react'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import { getTiAdminOverview, getTiCollectionRunsPage } from '@/utils/tiAdmin/ops'
 import TiDataAvailability from '../ti-data-availability'
 import { RunActivityPanel } from './RunActivityPanel'

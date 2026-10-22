@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import config from '@/config'
 import { supportFetch } from '@/utils/support/api'
 import {

@@ -1,4 +1,4 @@
-import { getCookie, removeCookies, setCookieWithExpiresAt } from '@/utils/cookies/cookies'
+import { getCookie, removeCookies, setCookieWithExpiresAt } from 'hanasand/cookies'
 
 const STORAGE_KEY = 'hanasand:saved-profiles:v1'
 const RECENT_USERS_KEY = 'hanasand:recent-users:v1'

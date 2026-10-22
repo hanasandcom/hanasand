@@ -1,7 +1,7 @@
 import TrafficOverviewClient from '@/components/monitoring/traffic/trafficOverview'
 import { Suspense } from 'react'
 import { getTrafficDashboardData } from '@/utils/monitoring/data'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import { TrafficPageState } from './TrafficPageState'
 
 export const dynamic = 'force-dynamic'

@@ -6,7 +6,7 @@ import SystemDashboard from './clientPage'
 import { systemExpiredSessionPath } from './systemRoutes'
 import getSystemSnapshot from '@/utils/vms/fetch/getSystemSnapshot'
 import { redirect } from 'next/navigation'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 
 type SystemSection = 'overview' | 'virtual-machines' | 'containers'
 

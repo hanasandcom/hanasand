@@ -1,4 +1,4 @@
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import UsersList from './usersList'
 
 export default function Users({ users, accessibleOrganizationIds = [] }: { users: User[], accessibleOrganizationIds?: string[] }) {

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Activity, Send, ShieldCheck, Webhook } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { formatTiDate, type TiAdminOverview } from '@/utils/tiAdmin/ops'
 import { operationalStateLabel, PanelTitle, StatusPill, toneClass, type StatusTone } from './dashboardPresentation'
 import { TiAdminDataTable } from './TiAdminDataTable'

@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { DashboardContentQueue } from '../src/components/dashboard/dashboardContentQueue'
 import { DashboardPublishingEmptyState } from '../src/components/dashboard/dashboardPublishingEmptyState'
 import { DashboardPublishingPage } from '../src/components/dashboard/dashboardPublishingPage'
-import { DashboardPage } from '../src/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 
 test('article and thought queues retain their shared panel markup and page rows', () => {
     const cases = [

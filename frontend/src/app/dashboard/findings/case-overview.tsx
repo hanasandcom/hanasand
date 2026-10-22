@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DashboardTable } from '@/components/dashboard/ui'
+import { DashboardTable } from 'hanasand/dashboard'
 import Link from '@/components/organizations/workspaceLink'
 import type { PortalAlert, OperationsSnapshot, CasesState } from './types'
 import { caseDateLabel, caseDetailHref, relativeTimeLabel, reviewStateClass, severityClass, stateLabel } from './case-format'

@@ -1,5 +1,5 @@
 import Link from '@/components/organizations/workspaceLink'
-import { DashboardTable } from '@/components/dashboard/ui'
+import { DashboardTable } from 'hanasand/dashboard'
 import { CheckFields } from './case-events'
 import { CaseDevelopment } from './case-development'
 import type { MonitoringCase } from './monitoringCaseTypes'

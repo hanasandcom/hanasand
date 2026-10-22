@@ -1,6 +1,6 @@
 import Link from '@/components/organizations/workspaceLink'
 import { History } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 
 export type RuleAuditEntry = {
     id: string

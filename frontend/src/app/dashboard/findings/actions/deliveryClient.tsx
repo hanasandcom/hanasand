@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { LoaderCircle, Plus, Search, Send, X } from 'lucide-react'
-import { DashboardTable } from '@/components/dashboard/ui'
+import { DashboardTable } from 'hanasand/dashboard'
 
 type Destination = {
     id: string

@@ -1,6 +1,6 @@
 'use client'
 
-import { getCookie, removeCookies } from '@/utils/cookies/cookies'
+import { getCookie, removeCookies } from 'hanasand/cookies'
 
 export async function startImpersonating(id: string) {
     const actorId = getCookie('id')

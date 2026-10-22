@@ -1,5 +1,5 @@
 import Shares from '@/components/share/dashboard/projects'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 
 export const dynamic = 'force-dynamic'
 

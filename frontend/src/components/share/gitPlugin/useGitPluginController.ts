@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { autoPullOptions, readAutoPullMinutes, readStoredGitWorkspace, rememberAutoPullMinutes, rememberGitWorkspace } from './storage'
 import { createRepositorySync } from './syncRepository'
 import { createWorkspaceOperations } from './workspaceOperations'

@@ -1,4 +1,4 @@
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 
 type Props = {
     tabs: string[]

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { ApiKeyCreationForm } from './ApiKeyCreationForm'
 import { ApiKeyList } from './ApiKeyList'
 import { RateLimitHeader } from './RateLimitHeader'

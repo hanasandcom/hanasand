@@ -1,6 +1,6 @@
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
-import { safeDecodeCookieValue } from '@/utils/cookies/safeDecodeCookieValue'
+import { getCookie } from 'hanasand/cookies'
+import { safeDecodeCookieValue } from 'hanasand/cookies'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 
 type HostFeaturePatch = {

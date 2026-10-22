@@ -1,7 +1,7 @@
 'use client'
 
 import Link from '@/components/organizations/workspaceLink'
-import { DashboardTable } from '@/components/dashboard/ui'
+import { DashboardTable } from 'hanasand/dashboard'
 import { CreateCase } from './create-case'
 import { Filter, Loader2, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'

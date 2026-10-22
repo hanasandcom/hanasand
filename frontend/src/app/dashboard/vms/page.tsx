@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import VMs from '@/components/profile/vms'
-import { DashboardDataFallback, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardDataFallback, DashboardPage } from 'hanasand/dashboard'
 import getVMs from '@/utils/vms/fetch/getVMs'
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'

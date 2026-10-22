@@ -1,6 +1,6 @@
 import config from '@/config'
 import { uploadTimeoutForFileSize } from './uploadTimeout'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 type PostFileProps = {
     name: string

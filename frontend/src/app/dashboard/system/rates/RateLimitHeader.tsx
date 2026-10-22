@@ -1,7 +1,7 @@
 'use client'
 
 import { Save } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { StatChip } from './RateLimitFields'
 
 export function RateLimitHeader({

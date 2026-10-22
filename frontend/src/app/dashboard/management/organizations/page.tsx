@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import { fetchManagementOrganizations } from '@/utils/organizations/management'
 import OrganizationList from './organizationList'
 

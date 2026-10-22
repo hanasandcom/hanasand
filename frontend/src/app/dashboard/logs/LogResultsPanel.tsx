@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Copy, RefreshCw } from 'lucide-react'
 import type { LogEvent as Event, LogSearchResult as Result } from '@/utils/logs/search'
-import { dashboardPanelClass } from '@/components/dashboard/ui'
+import { dashboardPanelClass } from 'hanasand/dashboard'
 import EventFeed from './eventFeed'
 import { formatLogCount, logFieldClass, logSeverityClasses, projectedLogFields } from './logPresentation'
 import EventDisclosureTrigger from './EventDisclosure'

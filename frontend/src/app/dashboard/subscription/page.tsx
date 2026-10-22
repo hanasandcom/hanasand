@@ -1,5 +1,5 @@
 import ContainerHostPlans from '@/components/vms/containerHostPlans'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import { commercialAccessPlans } from '@/utils/commercialAccess'
 import CommercialPlanCard from '@/components/commercialAccess/commercialPlanCard'
 import SubscriptionStatus from './subscriptionStatus'

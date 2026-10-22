@@ -3,7 +3,7 @@
 import { createContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 
 export const DatabaseFullscreenContext = createContext(false)
 

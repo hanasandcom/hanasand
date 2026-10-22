@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useId, useRef, type ReactNode } from 'react'
 import { AlertTriangle, CheckCircle2, Info, CircleCheck, CircleX, Clock3, RefreshCcw, ShieldCheck } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { fetchAptUpdates, type AptUpdateStatus, type AptUpdateHistory, type UpdateHost } from '@/utils/aptUpdates/client'
 
 export default function AptUpdatesClient() {

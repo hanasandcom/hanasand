@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { systemExpiredSessionPath } from '../systemRoutes'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import HostsOverview from './pageClient'
 
 export default async function Page() {

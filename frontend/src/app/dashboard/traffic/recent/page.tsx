@@ -2,7 +2,7 @@ import DomainSelector from '@/components/monitoring/traffic/domainSelector'
 import TrafficRecentClient from './pageClient'
 import { Suspense } from 'react'
 import { getTrafficDomains, getTrafficRecords } from '@/utils/monitoring/data'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import { isTrafficDomains, isTrafficRecords } from '@/utils/monitoring/trafficValidation'
 import { TrafficPageState } from '../TrafficPageState'
 

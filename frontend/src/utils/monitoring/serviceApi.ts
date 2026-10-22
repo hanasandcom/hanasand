@@ -2,7 +2,7 @@
 
 import config from '@/config'
 import { cookies } from 'next/headers'
-import { safeDecodeCookieValue } from '@/utils/cookies/safeDecodeCookieValue'
+import { safeDecodeCookieValue } from 'hanasand/cookies'
 
 type ServiceName = 'cdn' | 'internal'
 type ServiceCacheOptions = { revalidate?: number | false, tags?: string[] }

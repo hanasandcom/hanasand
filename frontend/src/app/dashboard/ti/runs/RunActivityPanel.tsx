@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, Rows3 } from 'lucide-react'
 import PageNavigation from '@/components/dashboard/page-navigation'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import type { TiAdminOverview } from '@/utils/tiAdmin/ops'
 import { StatusPill } from '../dashboardPresentation'
 import { durationLabel, shortDate, runStatusTone } from './runPresentation'

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { normalizeOwnerUser, sortOwnerUsers, type OwnerUserOption } from './model'
 
 export function useOwnerUsers() {

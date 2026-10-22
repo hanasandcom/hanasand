@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Braces, Code2, ExternalLink, LockKeyhole } from 'lucide-react'
 import { requestOpenApiDocument } from '@/app/api/openapi/upstream'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import ApiDocsSearch from './apiDocsSearch'
 import { responseExamples } from './responseExamples'
 

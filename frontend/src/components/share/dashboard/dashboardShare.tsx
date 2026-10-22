@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { deleteShare } from '@/utils/share/delete'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { Trash2 } from 'lucide-react'
 import Notify from '../../notify/notify'
 import { useDashboardRowDeletion } from '@/hooks/useDashboardRowDeletion'

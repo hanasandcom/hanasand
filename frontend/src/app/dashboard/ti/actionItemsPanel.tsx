@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
-import { DashboardTablePanel } from '@/components/dashboard/ui'
+import { DashboardTablePanel } from 'hanasand/dashboard'
 import { formatTiDate, type TiAdminOverview } from '@/utils/tiAdmin/ops'
 import { operationalStateLabel, StatusPill, type StatusTone } from './dashboardPresentation'
 

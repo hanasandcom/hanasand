@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { DashboardTablePanel } from '@/components/dashboard/ui'
+import { DashboardTablePanel } from 'hanasand/dashboard'
 import { PanelTitle } from './dashboardPresentation'
 
 export function TiAdminDataTable({ title, actionHref, actionLabel, columns, children }: {

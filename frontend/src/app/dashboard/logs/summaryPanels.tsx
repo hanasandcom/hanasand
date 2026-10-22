@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { memo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { dashboardPanelClass } from '@/components/dashboard/ui'
+import { dashboardPanelClass } from 'hanasand/dashboard'
 import { formatLogCount } from './logPresentation'
 
 type Severity = 'low' | 'medium' | 'high' | 'critical'

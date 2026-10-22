@@ -1,4 +1,4 @@
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 export function backendRequestHeaders(overrides?: HeadersInit) {
     const headers = new Headers({

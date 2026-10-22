@@ -1,5 +1,5 @@
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import type { DwmProductSnapshot } from '@/utils/dwm/product'
 import { decodePublicTiHandoffPayload, PUBLIC_TI_HANDOFF_SOURCE } from '@/utils/ti/actorWorkbench'
 import { cookies } from 'next/headers'

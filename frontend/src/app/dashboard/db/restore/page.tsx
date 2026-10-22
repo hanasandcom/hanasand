@@ -1,4 +1,4 @@
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import RestoreClient from './restoreClient'
 import LiveRestoreClient from './liveRestoreClient'
 import { getBackupFiles, getBackupServices } from '@/utils/db/internal'

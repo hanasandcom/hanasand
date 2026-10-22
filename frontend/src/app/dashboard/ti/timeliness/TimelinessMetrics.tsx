@@ -1,4 +1,4 @@
-import { DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
+import { DashboardPanel, DashboardTable } from 'hanasand/dashboard'
 import { duration, label, percent } from './data'
 import type { GroupMetric, Metric, Snapshot } from './types'
 

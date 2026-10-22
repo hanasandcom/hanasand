@@ -1,7 +1,7 @@
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import CasesClient from './cases-client'
 
 export const dynamic = 'force-dynamic'

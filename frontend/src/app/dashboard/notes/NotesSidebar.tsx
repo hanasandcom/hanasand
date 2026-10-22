@@ -1,5 +1,5 @@
 import { Clock3, List, Plus, Search, StickyNote, X } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import NotesPanelIconButton from './NotesPanelIconButton'
 
 export function NotesSidebar({

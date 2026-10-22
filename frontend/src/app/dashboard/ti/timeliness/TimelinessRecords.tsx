@@ -2,7 +2,7 @@
 
 import type { FormEvent, ReactNode } from 'react'
 import { CheckCircle2, Clock3, ExternalLink, LoaderCircle, Send } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { date, duration, label } from './data'
 import { stageOrder, type Item, type QueueStatus, type ReferenceForm } from './types'
 

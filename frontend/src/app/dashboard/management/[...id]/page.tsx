@@ -3,7 +3,7 @@ import getVM from '@/utils/vms/fetch/getVM'
 import getVMMetrics from '@/utils/vms/fetch/metrics/getVMMetrics'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 
 export default async function Page(props: { params: Promise<{ id: string[] }> }) {

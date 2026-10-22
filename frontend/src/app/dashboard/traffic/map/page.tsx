@@ -2,7 +2,7 @@ import DomainSelector from '@/components/monitoring/traffic/domainSelector'
 import TrafficMap from '@/components/monitoring/traffic/trafficMap'
 import { Suspense } from 'react'
 import { getTrafficDashboardData } from '@/utils/monitoring/data'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import { TrafficPageState } from '../TrafficPageState'
 
 export const dynamic = 'force-dynamic'

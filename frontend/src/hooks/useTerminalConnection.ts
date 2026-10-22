@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import randomId from '@/utils/random/randomId'
 import { isTerminalCredentials, lifecycleFromTerminalUpdate, statusFromTerminalUpdate } from './terminalMessageState'
 import type { TerminalCredentials, TerminalLifecycle, TerminalTransport } from './terminalTypes'

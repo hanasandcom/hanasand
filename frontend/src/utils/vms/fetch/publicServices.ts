@@ -1,5 +1,5 @@
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 export type VmPublicService = { id: string, name: string, type: 'minecraft-java' | 'tls' | 'http', port: number, hostname: string, createdAt: string }
 export type VmPublicServicesResponse = { services: VmPublicService[], canManage: boolean }

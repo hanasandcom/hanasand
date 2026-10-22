@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 export default function DeleteAccountButton({ name, onDelete, label, alwaysConfirm = false }: { name: string, onDelete: () => Promise<void>, label?: string, alwaysConfirm?: boolean }) {
     const dialog = useRef<HTMLDialogElement>(null)

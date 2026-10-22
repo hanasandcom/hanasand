@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import ErrorNotice from '@/components/error/errorNotice'
 import { getDatabaseOverview } from '@/utils/db/internal'
 import { DatabaseDashboard } from './databaseDashboard'

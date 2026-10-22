@@ -1,6 +1,6 @@
 import BlocklistClient from './blocklistClient'
 import getBlocklist from '@/utils/traffic/getBlocklist'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 
 export const dynamic = 'force-dynamic'
 

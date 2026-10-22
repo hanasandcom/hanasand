@@ -1,5 +1,5 @@
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 export async function updateShare(id: string, updates: Updates): Promise<Share | null> {
     const controller = new AbortController()

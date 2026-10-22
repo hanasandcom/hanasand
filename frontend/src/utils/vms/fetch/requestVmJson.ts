@@ -1,6 +1,6 @@
 import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { readWorkspace, WORKSPACE_COOKIE } from '@/utils/organizations/workspace'
 
 export async function requestVmJson<T>(path: string, token: string, userId: string, organizationId?: string): Promise<T> {

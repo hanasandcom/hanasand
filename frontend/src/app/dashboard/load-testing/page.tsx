@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { DashboardPage, DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel, DashboardTable } from 'hanasand/dashboard'
 import LoadTestingOperations from './pageClient'
 
 export const dynamic = 'force-dynamic'

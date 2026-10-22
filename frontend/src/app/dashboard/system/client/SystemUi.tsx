@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { containerHealth, type MetricState } from '../systemPresentation'
 import { portLabel } from './presentation'
 import type { SystemSummary } from './types'

@@ -1,5 +1,5 @@
 import PageNavigation from '@/components/dashboard/page-navigation'
-import { DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
+import { DashboardPanel, DashboardTable } from 'hanasand/dashboard'
 import { ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'

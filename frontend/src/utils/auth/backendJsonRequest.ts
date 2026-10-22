@@ -1,4 +1,4 @@
-import { setCookieWithExpiresAt } from '@/utils/cookies/cookies'
+import { setCookieWithExpiresAt } from 'hanasand/cookies'
 import { backendRequestHeaders } from './backendRequestHeaders'
 
 type Options = RequestInit & {

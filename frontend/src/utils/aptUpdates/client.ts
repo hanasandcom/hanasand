@@ -1,6 +1,6 @@
 'use client'
 
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { backendJsonRequest } from '@/utils/auth/backendJsonRequest'
 
 export type AptUpdate = { package: string, version: string, repo: string, origin: string, security: boolean, first_seen: number, installed_at?: number }

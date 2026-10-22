@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { AlertTriangle, ArrowRight, CheckCircle2, ChevronDown } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import type { TiAdminOverview } from '@/utils/tiAdmin/ops'
 import { relativeUntil } from './runPresentation'
 import type { CollectionRunSummary } from './runSummaryModel'

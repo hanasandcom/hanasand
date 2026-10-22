@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useEffect, useId, useRef, useState } from 'react'
 import config from '@/config'
 import { copyTextToClipboard } from '@/utils/copyTextToClipboard'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 
 const PASSWORD_VISIBLE_MS = 30_000
 

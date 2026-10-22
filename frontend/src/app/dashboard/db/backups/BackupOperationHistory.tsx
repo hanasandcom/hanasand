@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
-import { DashboardTable } from '@/components/dashboard/ui'
+import { DashboardTable } from 'hanasand/dashboard'
 import type { BackupOperation } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { backupErrorMessage, BackupStatus, formatDuration, operationLabel, stageLabel } from './backupPresentation'

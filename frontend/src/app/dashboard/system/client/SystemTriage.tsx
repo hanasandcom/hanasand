@@ -1,4 +1,4 @@
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 
 export function SystemTriage({ runningContainers, containerCount, runningVms, href, title, detail, actionLabel }: {
     runningContainers: number

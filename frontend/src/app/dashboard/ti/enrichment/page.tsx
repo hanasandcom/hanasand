@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowRight, ChevronDown, ExternalLink, Radio, Users } from 'lucide-react'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import { getTiEnrichmentOverview, type TiActivityEvent, type TiEnrichedActor, type TiProfileUpdate } from '@/utils/tiAdmin/enrichment'
 import { formatTiDate } from '@/utils/tiAdmin/ops'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'

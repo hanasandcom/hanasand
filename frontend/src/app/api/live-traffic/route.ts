@@ -1,7 +1,7 @@
 import config from '@/config'
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
-import { safeDecodeCookieValue } from '@/utils/cookies/safeDecodeCookieValue'
+import { safeDecodeCookieValue } from 'hanasand/cookies'
 
 const streamHeaders = {
     'Content-Type': 'text/event-stream',

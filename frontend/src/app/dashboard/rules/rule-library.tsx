@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from '@/components/organizations/workspaceLink'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import Button from '@/components/misc/button'
 import SortIndicator from '@/components/dashboard/sort-indicator'
 import { matchesSearchQuery } from '../searchText'

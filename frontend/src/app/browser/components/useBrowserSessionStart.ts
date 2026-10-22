@@ -3,7 +3,7 @@
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { BrowserQuota, BrowserRunHistory, Capture, SandboxCapacity, SandboxProfile, SessionState, SocketState, StreamStats, RunTiming } from '../types'
 import { BrowserControlSocket } from '../controlSocket'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { getOrCreateBrowserClientId } from '../browserClientId'
 import { inferNetwork, parsePayload } from '../browserValues'
 import { defaultTools, normalizeTarget, sessionId, brokerBaseUrl, brokerUrlForSession, scrollRouteFrameToTop } from '../browserSetup'

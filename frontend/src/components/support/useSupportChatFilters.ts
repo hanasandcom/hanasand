@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import type { FeedbackFilter, StarFilter, StatusFilter, TicketFilters } from './supportChatTypes'
 
 export function useSupportChatFilters({ isSupport, initialSupport, loadTickets, setError, filterControlsRef }: {

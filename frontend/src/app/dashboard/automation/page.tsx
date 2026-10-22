@@ -1,4 +1,4 @@
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import AutomationsClient from './simplePageClient'
 import { loadAutomations } from '@/utils/automations/server'
 import type { Metadata } from 'next'

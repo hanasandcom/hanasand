@@ -2,7 +2,7 @@
 
 import Link from '@/components/organizations/workspaceLink'
 import { useEffect, useState } from 'react'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from 'hanasand/dashboard'
 import { requestJson } from '../ruleRequest'
 import type { Rule } from '../detection-rules'
 import { ArrowLeft, Activity, LoaderCircle, SlidersHorizontal } from 'lucide-react'

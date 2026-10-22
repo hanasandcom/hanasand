@@ -1,5 +1,5 @@
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { MonitoringCaseDetail } from '../monitoring-case-detail'

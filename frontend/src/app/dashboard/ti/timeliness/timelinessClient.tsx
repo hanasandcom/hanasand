@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { AlertTriangle, LoaderCircle, RefreshCw, Search } from 'lucide-react'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { api, buildReadUrl, buildWriteUrl, message } from './data'
 import { QueueRow, RecordDetail } from './TimelinessRecords'
 import { MetricsPanel, QualityPanel, TimelinessSummary } from './TimelinessMetrics'

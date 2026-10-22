@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { getShare } from '@/utils/share/get'
 import { handleShareCodeMessage } from './shareCodeMessages'
 import { displayNameFor, getClientId, getCursorPosition, type ShareConflict, type SharePresenceUser } from './shareCodePresence'

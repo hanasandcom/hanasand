@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { getCookie } from 'hanasand/cookies'
 import { supportFetch } from '@/utils/support/api'
 
 export const SUPPORT_CHAT_OPENED_EVENT = 'hanasand-support-chat-opened'

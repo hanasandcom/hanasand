@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import ErrorNotice from '@/components/error/errorNotice'
 import { loadAutomations } from '@/utils/automations/server'
 import AutomationsClient from '../simplePageClient'

@@ -1,4 +1,4 @@
-import { DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from 'hanasand/dashboard'
 import PageClient from './pageClient'
 import { refreshVulnerabilityData, runVulnerabilityScanAction } from './actions'
 import { getVulnerabilities } from '@/utils/monitoring/data'

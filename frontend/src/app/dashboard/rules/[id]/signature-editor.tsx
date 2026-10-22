@@ -1,4 +1,4 @@
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import type { Rule } from '../detection-rules'
 
 type Definition = NonNullable<Rule['definition']>

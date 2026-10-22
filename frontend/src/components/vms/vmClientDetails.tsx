@@ -1,6 +1,6 @@
 'use client'
 
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel } from 'hanasand/dashboard'
 import { useState } from 'react'
 
 type VMDetailClientProps = {
