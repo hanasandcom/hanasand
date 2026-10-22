@@ -1,8 +1,8 @@
 'use client'
 
 import ErrorNotice from '@/components/error/errorNotice'
-import { ArrowRight, BarChart3, CheckCircle2, Flame, Gauge, Globe2, Inbox, Search, Timer, UserRound } from 'lucide-react'
-import type { KeyboardEvent, ReactNode, SyntheticEvent } from 'react'
+import { ArrowRight, CheckCircle2, Flame, Globe2, Inbox, Search, UserRound } from 'lucide-react'
+import type { KeyboardEvent, SyntheticEvent } from 'react'
 
 export type ScenarioPreset = {
     id: string
@@ -16,7 +16,6 @@ type EndpointCheckPanelProps = {
     path: string
     scenarioId: string
     scenarios: ScenarioPreset[]
-    selectedScenario: ScenarioPreset
     quotaLabel: string
     missingTestId?: string
     error: unknown
@@ -33,7 +32,6 @@ export default function EndpointCheckPanel({
     path,
     scenarioId,
     scenarios,
-    selectedScenario,
     quotaLabel,
     missingTestId,
     error,
@@ -48,10 +46,9 @@ export default function EndpointCheckPanel({
     return (
         <>
             <div className='grid gap-4'>
-                <p className='text-sm font-semibold uppercase text-ui-primary'>Endpoint check</p>
                 <h1 className='text-4xl font-semibold tracking-normal md:text-5xl'>Check a service before users do.</h1>
                 <p className='max-w-xl text-base leading-7 text-ui-muted'>
-                    Run an owned HTTP endpoint through a measured scenario with latency, failure-rate, logs, and a shareable result link.
+                    Test how much your endpoint can handle.
                 </p>
             </div>
 
@@ -63,7 +60,7 @@ export default function EndpointCheckPanel({
                                 <Flame className='h-5 w-5 text-ui-primary' />
                                 Start endpoint check
                             </div>
-                            <p className='text-sm leading-6 text-ui-muted'>Paste an HTTP endpoint and choose the traffic shape.</p>
+                            <p className='text-sm leading-6 text-ui-muted'>Enter the endpoint to check.</p>
                         </div>
                         <span className='rounded-lg border border-ui-border bg-ui-raised px-2.5 py-1 text-xs font-semibold text-ui-primary'>{quotaLabel}</span>
                     </div>
@@ -107,12 +104,6 @@ export default function EndpointCheckPanel({
                             </div>
                         </div>
 
-                        <div className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 text-xs leading-5 text-ui-muted sm:grid-cols-3'>
-                            <CompactFact icon={<Timer className='h-3.5 w-3.5' />} label={`${Math.round(selectedScenario.timeout / 1000)}s timeout`} />
-                            <CompactFact icon={<Gauge className='h-3.5 w-3.5' />} label='p95 and failures' />
-                            <CompactFact icon={<BarChart3 className='h-3.5 w-3.5' />} label='logs and result link' />
-                        </div>
-
                         <button type='submit' disabled={starting} className='inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:bg-ui-primary/90 disabled:cursor-not-allowed disabled:opacity-70'>
                             <Search className='h-4 w-4' />
                             {starting ? 'Queueing check' : 'Start check'}
@@ -136,15 +127,6 @@ export default function EndpointCheckPanel({
                 </div>
             </section>
         </>
-    )
-}
-
-function CompactFact({ icon, label }: { icon: ReactNode, label: string }) {
-    return (
-        <div className='flex items-center gap-2'>
-            <span className='text-ui-primary'>{icon}</span>
-            <span>{label}</span>
-        </div>
     )
 }
 
