@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Local, offline preflight regressions for the Logs timeout staging helper.
+
+Run: python3 api/scripts/test-stage-logs-timeout.py
+No Docker, Git mutation, network, environment files or databases are used.
+"""
+import hashlib
+import json
+from pathlib import Path
+import random
+import re
+import shlex
+import string
+import subprocess
+import sys
+import tempfile
+import unittest
+
+SCRIPT = Path(__file__).with_name('stage-logs-timeout.sh')
+SOURCE = SCRIPT.read_text()
+GUARD = SCRIPT.parent.parent / 'tests/log-skipped-count-postgres.test.ts'
+
+
+def command(prefix):
+    remaining = SOURCE.split(prefix, 1)[1]
+    lines = [prefix + remaining.splitlines()[0]]
+    for line in remaining.splitlines()[1:]:
+        if not lines[-1].endswith('\\'):
+            break
+        lines.append(line)
+    return shlex.split(' '.join(line.removesuffix('\\') for line in lines))
+
+
+class StagePreflight(unittest.TestCase):
+    def test_one_hundred_mixed_case_names(self):
+        self.assertIn('stage_id=$(printf \'%s\' "$stage_root" | sha256sum | cut -c 1-12)', SOURCE)
+        self.assertIn('owner=logs-timeout-stage-${stage_root##*.}', SOURCE)
+        self.assertIn('/^[a-f0-9]{12}$/.test(stageId)', GUARD.read_text())
+        self.assertIn('`logs-timeout-stage-db-${stageId}`', GUARD.read_text())
+        random_source = random.Random(704)
+        suffixes = set()
+        while len(suffixes) < 100:
+            suffix = ''.join(random_source.choices(string.ascii_letters + string.digits, k=6))
+            if any(c.isupper() for c in suffix) and any(c.islower() for c in suffix):
+                suffixes.add(suffix)
+        identifiers = set()
+        owners = set()
+        templates = dict(re.findall(r'^(network|db|runner|pin|runtime_tag)=(.+)$', SOURCE, re.M))
+        self.assertEqual(len(templates), 5)
+        for suffix in suffixes:
+            directory = '/tmp/logs-timeout-stage-stage.' + suffix
+            identifier = hashlib.sha256(directory.encode()).hexdigest()[:12]
+            identifiers.add(identifier)
+            owners.add('logs-timeout-stage-' + suffix)
+            self.assertRegex(identifier, r'^[a-f0-9]{12}$')
+            self.assertRegex(identifier, r'^[A-Za-z0-9]{6,12}$')
+            for kind, template in templates.items():
+                name = template.replace('$stage_id', identifier)
+                self.assertNotIn('$', name)
+                if kind == 'runtime_tag':
+                    repository, tag = name.split(':')
+                    self.assertRegex(repository, r'^[a-z0-9]+(?:[._-][a-z0-9]+)*$')
+                    self.assertLessEqual(len(repository), 255)
+                    self.assertRegex(tag, r'^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$')
+                else:
+                    self.assertRegex(name, r'^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+                    self.assertLessEqual(len(name), 63)
+        self.assertEqual(len(identifiers), 100)
+        self.assertEqual(len(owners), 100)
+
+    def test_subnet_metadata_and_overlap(self):
+        checker = SOURCE.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
+        cases = [
+            ([{'IPAM': None}, {'IPAM': {'Config': None}}], [{'dst': 'default'}, {'dst': '0.0.0.0/0'}], True),
+            ([{}, {'IPAM': {'Config': []}}], [], True),
+            ([{'IPAM': {'Config': [{'Subnet': '172.18.0.0/16'}, {'Subnet': 'fd00::/64'}]}}], [{'dst': '192.168.0.0/16'}], True),
+            ([{'IPAM': {'Config': [{'Subnet': '10.254.252.0/28'}]}}], [], False),
+            ([{'IPAM': {'Config': [{'Subnet': '10.254.0.0/16'}]}}], [], False),
+            ([{'IPAM': {'Config': None}}], [{'dst': '10.254.252.2/32'}], False),
+            ([], [{'dst': '10.254.252.0/24'}], False),
+            ([{'IPAM': {'Config': [{'Subnet': 'invalid-subnet'}]}}], [], False)
+        ]
+        with tempfile.TemporaryDirectory(prefix='core-proof-subnet-test-') as temporary:
+            fixture = Path(temporary)
+            for networks, routes, allowed in cases:
+                (fixture / 'networks.json').write_text(json.dumps(networks))
+                (fixture / 'routes.json').write_text(json.dumps(routes))
+                result = subprocess.run(
+                    [sys.executable, '-', '10.254.252.0/28', str(fixture / 'networks.json'), str(fixture / 'routes.json')],
+                    input=checker, text=True, capture_output=True, check=False
+                )
+                self.assertEqual(result.returncode == 0, allowed, result.stderr)
+        self.assertEqual(SOURCE.count('\nassert_unused_subnet\n'), 2)
+        self.assertIn('assert_unused_subnet\ndocker network create', SOURCE)
+
+    def test_build_uses_exact_candidate_and_private_dockerfile(self):
+        args = command('docker buildx build')
+        self.assertEqual(args[:3], ['docker', 'buildx', 'build'])
+        self.assertEqual(args[args.index('--tag') + 1], '$runtime_tag')
+        self.assertEqual(args[args.index('--file') + 1], '$root/api/Dockerfile.logs-timeout-stage')
+        self.assertEqual(args[-1], '$root')
+        self.assertIn('HANASAND_RELEASE_COMMIT=$expected', args)
+        self.assertNotIn('--build-context', args)
+        self.assertNotIn('--target', args)
+        self.assertIn('test "$(git -C "$root" rev-parse HEAD)" = "$expected"', SOURCE)
+        self.assertIn('test -z "$(git -C "$root" status --porcelain=v1)"', SOURCE)
+        self.assertIn('cmp "$root/api/bun.lock" "$stage_root/built-bun.lock"', SOURCE)
+        for forbidden in ('git switch', 'git checkout', 'git clone', 'HANASAND_STAGE_BUILD', 'core_revision'):
+            self.assertNotIn(forbidden, SOURCE)
+        dockerfile = SCRIPT.parent.parent / 'Dockerfile.logs-timeout-stage'
+        instructions = [line for line in dockerfile.read_text().splitlines() if line and not line.startswith('#')]
+        self.assertEqual(instructions, [
+            'FROM oven/bun:1.3.13-alpine',
+            'ARG HANASAND_RELEASE_COMMIT',
+            'LABEL org.opencontainers.image.revision=$HANASAND_RELEASE_COMMIT',
+            'WORKDIR /app',
+            'COPY api/package.json api/bun.lock api/bunfig.toml ./',
+            'RUN bun install --frozen-lockfile',
+            'COPY --chown=bun:bun api/ ./',
+            'USER bun',
+            'RUN test -r /app/tests/log-skipped-count-postgres.test.ts && test -r /app/package.json',
+            'CMD ["bun", "test", "/app/tests/log-skipped-count-postgres.test.ts"]'
+        ])
+
+    def test_private_source_is_owned_by_nonroot_runner_without_dependency_chmod(self):
+        dockerfile = (SCRIPT.parent.parent / 'Dockerfile.logs-timeout-stage').read_text()
+        self.assertIn('COPY --chown=bun:bun api/ ./', dockerfile)
+        self.assertIn('USER bun\nRUN test -r /app/tests/log-skipped-count-postgres.test.ts', dockerfile)
+        self.assertNotIn('chmod', dockerfile)
+        self.assertNotIn('node_modules', dockerfile)
+
+    def test_database_and_runner_are_isolated(self):
+        database = command('docker run -d --name "$db"')
+        runner = command('docker run --rm --name "$runner"')
+        self.assertEqual(database[database.index('--network') + 1], '$network')
+        self.assertEqual(database[database.index('--tmpfs') + 1], '/var/lib/postgresql/data:rw,nosuid,noexec,size=256m')
+        self.assertEqual(database[-2:], ['$postgres_image', '>/dev/null'])
+        self.assertEqual(runner[runner.index('--network') + 1], '$network')
+        self.assertEqual(runner[-3:], ['bun', 'test', '/app/tests/log-skipped-count-postgres.test.ts'])
+        for args in (database, runner):
+            for forbidden in ('-p', '--publish', '--privileged', '--env-file', '--volumes-from', '--mount', '--volume'):
+                self.assertNotIn(forbidden, args)
+            self.assertIn('$label=$owner', args)
+            self.assertEqual(args[args.index('--memory') + 1], '512m')
+            self.assertEqual(args[args.index('--cpus') + 1], '1')
+            self.assertEqual(args[args.index('--pids-limit') + 1], '128')
+            self.assertIn('--read-only', args)
+            self.assertEqual(args[args.index('--security-opt') + 1], 'no-new-privileges:true')
+        self.assertIn('/var/run/postgresql:rw,nosuid,noexec,size=8m', database)
+        self.assertIn('/tmp:rw,nosuid,noexec,size=32m', runner)
+        volumes = [runner[i + 1] for i, arg in enumerate(runner) if arg == '-v']
+        self.assertEqual(volumes, [])
+        self.assertTrue(all(value.endswith(':ro') for value in volumes))
+        self.assertTrue(all('/.env' not in value and '/var/lib/' not in value for value in volumes))
+
+    def test_empty_docker_inventory_skips_inspect(self):
+        body = SOURCE.split('assert_unused_subnet() {\n', 1)[1].split('\n}\nassert_unused_subnet', 1)[0]
+        with tempfile.TemporaryDirectory(prefix='logs-subnet-empty-') as temporary:
+            script = ('set -eu\n' + 'stage_root=' + shlex.quote(temporary) + '\nsubnet=10.254.252.0/28\n'
+                      + "docker() { case \"$*\" in 'network ls -q') return 0;; *) return 99;; esac; }\n"
+                      + "ip() { printf '[]\\n'; }\n" + body)
+            result = subprocess.run(['sh', '-c', script], text=True, capture_output=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads((Path(temporary) / 'docker-networks.json').read_text()), [])
+
+    def test_postgres_runtime_is_pinned_and_readiness_fails_closed(self):
+        self.assertIn("postgres_image=$(docker image inspect -f '{{.Id}}' postgres:15-alpine)", SOURCE)
+        self.assertIn('test "$postgres_major" = 15', SOURCE)
+        self.assertIn('postgres_runtime=$postgres_image version=$postgres_version', SOURCE)
+        block = 'ready=0' + SOURCE.split('ready=0', 1)[1].split("phase 'phase=run-exact-candidate", 1)[0]
+        for success_after, expected in [(99, 1), (3, 0)]:
+            script = ('set -eu\ncalls=0\ndb=synthetic\n'
+                      + f'docker() {{ calls=$((calls+1)); test "$calls" -ge {success_after}; }}\n'
+                      + 'sleep() { :; }\n' + block)
+            result = subprocess.run(['sh', '-c', script], text=True, capture_output=True, check=False)
+            self.assertEqual(result.returncode, expected, result.stderr)
+            if expected:
+                self.assertIn('fixture not started', result.stderr)
+
+    def test_cleanup_checks_ownership_and_removes_ids(self):
+        cleanup = SOURCE.split('cleanup() {', 1)[1].split('\nfinish() {', 1)[0]
+        self.assertEqual(cleanup.count('test "$actual" = "$owner"'), 3)
+        self.assertIn('docker rm -f "$resource_id"', cleanup)
+        self.assertIn('docker network rm "$resource_id"', cleanup)
+        self.assertIn('docker image rm "$resource_id"', cleanup)
+        self.assertNotIn('docker rm -f "$name"', cleanup)
+        self.assertNotIn('docker image rm -f', cleanup)
+        self.assertNotIn('prune', SOURCE)
+        self.assertNotIn('docker compose', SOURCE)
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
