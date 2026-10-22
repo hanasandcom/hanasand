@@ -200,7 +200,7 @@ test('VM creation returns while the accepted host provision job is still running
     const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm' } })
 
     expect(response.statusCode).toBe(201)
-    await waitFor(() => calls.some(call => call.path.endsWith('/status')))
+    await waitFor(() => Boolean(releaseStatusResponse))
     expect(calls.map(call => call.path)).toContain('/vms/internal/remote-vm/provision')
     releaseStatusResponse?.()
 })
@@ -213,7 +213,7 @@ test('administrator creation returns while host provisioning is still pending', 
     const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'admin' }, payload: { name: 'remote-vm' } })
 
     expect(response.statusCode).toBe(201)
-    await waitFor(() => calls.some(call => call.path.endsWith('/status')))
+    await waitFor(() => Boolean(releaseStatusResponse))
     releaseStatusResponse?.()
 })
 

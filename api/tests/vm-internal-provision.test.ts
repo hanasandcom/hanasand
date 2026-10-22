@@ -8,6 +8,7 @@ let vmRows: Array<{ primary_host: string | null }> = []
 let lxdAvailable = true
 let holdProvisioning = false
 let releaseProvisioning: (() => void) | undefined
+let provisionState: { status: string; status_reason: string } | undefined
 const queries: Array<{ sql: string, values?: unknown[] }> = []
 const provisions: Array<{ name: string, options?: unknown }> = []
 
@@ -26,6 +27,10 @@ mock.module('../src/utils/vms/lxd.ts', () => ({
         if (holdProvisioning) await new Promise<void>(resolve => { releaseProvisioning = resolve })
     },
 }))
+mock.module('../src/utils/vms/localProvisionState.ts', () => ({
+    setLocalProvisionState: (_name: string, state: { status: string; status_reason: string }) => { provisionState = state },
+    clearLocalProvisionState: () => { provisionState = undefined },
+}))
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
     supportedHost: (value: string) => ['inspur', 'ovhcloud'].includes(value),
 }))
@@ -41,6 +46,7 @@ beforeEach(() => {
     lxdAvailable = true
     holdProvisioning = false
     releaseProvisioning = undefined
+    provisionState = undefined
     queries.length = 0
     provisions.length = 0
 })
@@ -121,5 +127,8 @@ test('accepts the host job immediately while VM provisioning continues in the ba
     expect(response.statusCode).toBe(202)
     expect(response.json()).toEqual({ ok: true, name: 'fixture-vm', host: 'ovhcloud' })
     expect(provisions).toEqual([{ name: 'fixture-vm', options: undefined }])
+    expect(provisionState).toEqual({ status: 'Provisioning', status_reason: 'Creating and preparing VM' })
     releaseProvisioning?.()
+    await new Promise(resolve => setImmediate(resolve))
+    expect(provisionState).toBeUndefined()
 })

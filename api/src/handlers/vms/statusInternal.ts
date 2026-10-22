@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import config from '#constants'
 import run from '#db'
 import hasInternalToken from '#utils/auth/internalToken.ts'
+import { getLocalProvisionState } from '#utils/vms/localProvisionState.ts'
 import { localVmStatus } from '#utils/vms/status.ts'
 import { supportedHost } from '#utils/vms/hostTransport.ts'
 
@@ -16,6 +17,8 @@ export default async function getInternalVmStatus(req: FastifyRequest, res: Fast
         const vm = result.rows[0] as { primary_host: string | null } | undefined
         if (!vm) return res.status(404).send({ error: 'Active VM not found.' })
         if (vm.primary_host?.toLowerCase() !== host) return res.status(409).send({ error: 'VM is assigned to another host.' })
+        const provisionState = getLocalProvisionState(name)
+        if (provisionState) return res.send(provisionState)
         return res.send(await localVmStatus(name))
     } catch (error) {
         req.log.warn({ err: error, vmName: name }, 'Unable to read VM state from its assigned host.')
