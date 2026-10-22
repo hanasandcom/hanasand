@@ -48,4 +48,5 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'vm-filtering', title: 'VM inventory filter combinations and incomplete resources', command: [bun, 'test', 'tests/vm-filtering.test.ts'] },
     { id: 'vm-polling-lifecycle', title: 'VM polling terminal refresh behavior', command: [bun, 'test', 'tests/vm-polling-lifecycle.test.ts'] },
     { id: 'findings-workflow-submit-variants', title: 'Findings workflow submit form variants', command: [bun, 'test', 'tests/findings-workflow-submit-variants.test.tsx'] },
+    { id: 'sandbox-quota-value', title: 'Sandbox signed-in unlimited quota values', command: [bun, 'test', 'tests/sandbox-quota-value.test.ts'] },
 ]

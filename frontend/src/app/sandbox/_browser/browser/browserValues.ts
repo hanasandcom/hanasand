@@ -56,9 +56,9 @@ export function capacityValue(value: unknown): SandboxCapacity | null {
 export function quotaValue(value: unknown): BrowserQuota | null {
     if (!value || typeof value !== 'object') return null
     const record = value as Record<string, unknown>
-    const limit = finiteNumber(record.limit)
+    const limit = record.limit === null ? null : finiteNumber(record.limit)
     const used = finiteNumber(record.used)
-    const remaining = finiteNumber(record.remaining)
+    const remaining = record.remaining === null ? null : finiteNumber(record.remaining)
     if (used === null) return null
     return {
         plan: stringValue(record.plan) || 'anonymous',
