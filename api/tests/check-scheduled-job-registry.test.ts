@@ -37,11 +37,6 @@ test('registers operator workers and excludes cache, maintenance, and session-lo
         'api/src/utils/events/processor.ts',
     ]
     const maintenanceSources = [
-        'api/src/handlers/onionSession/browserStartup.ts',
-        'api/src/handlers/onionSession/navigationService.ts',
-        'api/src/plugins/ws/browserStream.ts',
-        'api/src/plugins/ws/browserStreamRuntime.ts',
-        'api/src/plugins/ws/ephemeralBrowserSession.ts',
         'api/src/handlers/logs/metrics.ts',
         'api/src/handlers/logs/mostActive.ts',
         'api/src/handlers/logs/tuning.ts',

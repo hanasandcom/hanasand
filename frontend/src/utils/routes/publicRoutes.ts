@@ -10,8 +10,6 @@ export const publicRoutes = [
     '/pricing',
     '/privacy',
     '/findings',
-    '/sandbox',
-    '/onion-session',
     '/status',
     '/terms',
     '/ti',

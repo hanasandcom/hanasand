@@ -6,7 +6,6 @@ export function publicStatusLabel(value: string) {
         frontend: 'Website', internal: 'Service', prod_rate_limit: 'Rate limits', 'prod-rate-limit': 'Rate limits',
         realtime: 'Realtime delivery', security: 'Security checks', terminal: 'Workspace sessions',
         user_creation: 'Account creation', vm: 'Workspace runtime', websocket: 'Realtime delivery',
-        'browser-sandbox': 'Sandbox', 'dark-web-monitoring': 'Dark web monitoring', 'threat-intelligence': 'Threat intelligence',
     }
     const exact = replacements[value.toLowerCase()]
     if (exact) return exact

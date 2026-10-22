@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'bun:test'
 
 let now = Date.now()
-const required = [['core', 'API health'], ['website', 'Public website'], ['threat-intelligence', 'Public search'], ['threat-intelligence', 'Processing backlog'], ['threat-intelligence', 'Source collection'], ['browser-sandbox', 'Browser workspace'], ['dark-web-monitoring', 'Monitoring workspace'], ['dark-web-monitoring', 'Latest activity']]
+const required = [['core', 'API health'], ['website', 'Public website'], ['threat-intelligence', 'Public search'], ['threat-intelligence', 'Processing backlog'], ['threat-intelligence', 'Source collection'], ['dark-web-monitoring', 'Monitoring workspace'], ['dark-web-monitoring', 'Latest activity']]
 let release: (() => void) | undefined
 let delayed = false
 mock.module('../src/utils/status/getStatus', () => ({ default: async () => {

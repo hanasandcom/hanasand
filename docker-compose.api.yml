@@ -80,12 +80,6 @@ services:
       MAIL_MANAGESIEVE_PORT: ${MAIL_MANAGESIEVE_PORT:-4190}
       MANAGED_CRON_GID: ${MANAGED_CRON_GID:-990}
       VM_HOST_ID: ${VM_HOST_ID:-inspur}
-      ONION_SESSION_PROXY: ${ONION_SESSION_PROXY:-socks5://onion-tor:9050}
-      BROWSER_SANDBOX_WORKER_NETWORK: ${BROWSER_SANDBOX_WORKER_NETWORK:-hanasand_browsernet}
-      BROWSER_SANDBOX_MAX_SESSIONS: ${BROWSER_SANDBOX_MAX_SESSIONS:-100}
-      BROWSER_SANDBOX_EGRESS_FIREWALL_READY: ${BROWSER_SANDBOX_EGRESS_FIREWALL_READY:-0}
-      BROWSER_SANDBOX_PREWARM: "0"
-      BROWSER_SANDBOX_WORKER_IMAGE: ${BROWSER_SANDBOX_WORKER_IMAGE:-hanasand_browsers:latest}
       VULNERABILITY_SCAN_STATE_PATH: ${VULNERABILITY_SCAN_STATE_PATH:-/var/lib/hanasand/vulnerability-scan.json}
       HANASAND_SCANNER_URL: ${HANASAND_SCANNER_URL:-http://scanner:18200}
       HANASAND_SCANNER_SERVICE_TOKEN: ${HANASAND_SCANNER_SERVICE_TOKEN:-}
@@ -100,10 +94,8 @@ services:
       retries: 5
     networks:
       hanasandnet:
-        # Public monitoring must not leave through the isolated browser bridge.
         gw_priority: 1
       pwnednet: {}
-      browsernet: {}
       identity-proxy: {}
     depends_on:
       deploy-path-guard:

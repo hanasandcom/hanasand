@@ -3,8 +3,7 @@ import { queryOnce, withDatabaseAdvisoryLock, withSchemaLockTimeout, withTransac
 import { ensureIdentityDataBoundary } from './identityDataBoundary.ts'
 import ensurePlatformSchema from './platformSchema.ts'
 import ensureLoadTestSchema from './loadTestSchema.ts'
-import ensureBrowserBillingSchema from './browserBillingSchema.ts'
-import ensureBrowserRunSchema from './browserRunSchema.ts'
+import ensureBillingSchema from './billingSchema.ts'
 import ensureSupportSchema from './supportSchema.ts'
 import ensureAccountDeletionSchema from './accountDeletionSchema.ts'
 import ensureVmLifecycleSchema from './vmLifecycleSchema.ts'
@@ -128,8 +127,7 @@ async function ensureIdentityDataBoundaryWithRetry() {
 async function applySchema() {
     await ensurePlatformSchema()
     await ensureLoadTestSchema()
-    await ensureBrowserBillingSchema()
-    await ensureBrowserRunSchema()
+    await ensureBillingSchema()
     await ensureSupportSchema()
     await ensureAccountDeletionSchema()
     await ensureVmLifecycleSchema()

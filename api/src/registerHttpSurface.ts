@@ -14,8 +14,8 @@ import recordTraffic from '#utils/traffic/recordTraffic.ts'
 import { recordHttpErrorResponse } from '#utils/logs/httpErrors.ts'
 import { isTransientDatabaseError } from './utils/db.ts'
 
-export function registerHttpSurface(fastify: FastifyInstance, options: { browserWorkerOnly: boolean, httpWorkerOnly: boolean }) {
-    const { browserWorkerOnly, httpWorkerOnly } = options
+export function registerHttpSurface(fastify: FastifyInstance, options: { httpWorkerOnly: boolean }) {
+    const { httpWorkerOnly } = options
     fastify.register(websocketPlugin)
     fastify.register(cors, {
         origin: (origin, callback) => callback(null, isAllowedApiOrigin(origin)),
@@ -23,9 +23,9 @@ export function registerHttpSurface(fastify: FastifyInstance, options: { browser
         exposedHeaders: ['x-access-token', 'x-access-token-expires-at'],
     })
 
-    if (!browserWorkerOnly && !httpWorkerOnly && process.env.RECOVERY_ESSENTIAL_ONLY !== '1') fastify.register(fp)
+    if (!httpWorkerOnly && process.env.RECOVERY_ESSENTIAL_ONLY !== '1') fastify.register(fp)
     fastify.register(ws)
-    if (!browserWorkerOnly) {
+    {
         fastify.register(rateLimit)
         fastify.addHook('onSend', async (req, res, payload) => {
             if (!recoveryReadOnly() && process.env.RECOVERY_ESSENTIAL_ONLY !== '1') await recordHttpErrorResponse(req, res, payload)
@@ -37,11 +37,9 @@ export function registerHttpSurface(fastify: FastifyInstance, options: { browser
         fastify.register(apiRoutes, { prefix: '/api' })
         fastify.post('/mill', ingestEvent)
     }
-    fastify.get('/', browserWorkerOnly
-        ? async () => ({ ok: true, service: 'browsers' })
-        : IndexHandler)
+    fastify.get('/', IndexHandler)
 
-    if (!browserWorkerOnly) registerFailureLogging(fastify)
+    registerFailureLogging(fastify)
 }
 
 function registerFailureLogging(fastify: FastifyInstance) {

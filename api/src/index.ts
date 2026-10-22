@@ -36,7 +36,7 @@ process.on('uncaughtException', error => {
 
 const fastify = Fastify({
     logger: true,
-    disableRequestLogging: process.env.BROWSER_SANDBOX_WORKER_ONLY !== '1',
+    disableRequestLogging: false,
     trustProxy: TRUSTED_API_PROXIES,
     genReqId: () => randomUUID(),
 })
@@ -58,7 +58,6 @@ if (httpWorkerOnly) {
     process.once('SIGTERM', () => { void fastify.close().then(closeDatabase) })
 }
 
-const browserWorkerOnly = process.env.BROWSER_SANDBOX_WORKER_ONLY === '1'
 
 fastify.decorate('cachedIPMetrics', { status: 200, data: Buffer.from(JSON.stringify([])) })
 fastify.removeContentTypeParser('application/json')
@@ -77,7 +76,7 @@ fastify.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, b
 })
 fastify.addContentTypeParser('application/octet-stream', { parseAs: 'string' }, (_req, body, done) => done(null, Buffer.isBuffer(body) ? body.toString('utf8') : body))
 
-registerHttpSurface(fastify, { browserWorkerOnly, httpWorkerOnly })
+registerHttpSurface(fastify, { httpWorkerOnly })
 
 process.on('unhandledRejection', reason => {
     void recordLog({
@@ -92,9 +91,9 @@ async function start() {
         // A cutover candidate must prepare the release schema before it can
         // serve traffic, while API_HTTP_ONLY keeps it from running duplicate
         // production workers beside the active API.
-        if (!browserWorkerOnly && (!httpWorkerOnly || deploymentCandidateOnly)) await ensureSchema()
-        if (!browserWorkerOnly && !httpWorkerOnly) await ensureLogSearchIndexes()
-        if (!browserWorkerOnly && !httpWorkerOnly && process.env.SKIP_MAIL_PROVISIONING !== '1') {
+        if ((!httpWorkerOnly || deploymentCandidateOnly)) await ensureSchema()
+        if (!httpWorkerOnly) await ensureLogSearchIndexes()
+        if (!httpWorkerOnly && process.env.SKIP_MAIL_PROVISIONING !== '1') {
             await provisionExistingMailAccounts().catch(error => {
                 if (isMailAdminConfigError(error)) {
                     fastify.log.debug('Mail account startup provisioning skipped because mail administration is not configured')
@@ -104,8 +103,8 @@ async function start() {
                 fastify.log.warn({ error }, 'Failed to provision mail accounts on startup')
             })
         }
-        if (!browserWorkerOnly && !httpWorkerOnly) await warmDatabasePools()
-        if (!browserWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (!httpWorkerOnly) await warmDatabasePools()
+        if (process.env.AUTH_SERVICE_ONLY !== '1') {
             void warmDatabaseOverview().then(overview => {
                 if (overview?.status === 'unavailable') fastify.log.warn({ message: overview.health.message }, 'Database overview cache started without live metrics')
             }).catch(error => {
@@ -114,23 +113,23 @@ async function start() {
             const stopDatabaseOverviewRefresh = startDatabaseOverviewRefresh(error => fastify.log.warn({ error }, 'Failed to refresh cached database overview'))
             fastify.addHook('onClose', async () => { stopDatabaseOverviewRefresh() })
         }
-        if (!browserWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (process.env.AUTH_SERVICE_ONLY !== '1') {
             const stopIngestAccessCounterRefresh = startIngestAccessCounterRefresh(fastify.log)
             fastify.addHook('onClose', async () => { await stopIngestAccessCounterRefresh() })
             const stopDropRateAlertRefresh = startDropRateAlertRefresh(fastify.log)
             fastify.addHook('onClose', async () => { stopDropRateAlertRefresh() })
         }
-        if (!browserWorkerOnly && !httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (!httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
             void loadCachedLogMetrics().catch(error => fastify.log.warn({ error }, 'Failed to warm log throughput metrics cache; background refresh will retry'))
             const stopMetricsRefresh = startLogMetricsRefresh()
             fastify.addHook('onClose', async () => { stopMetricsRefresh() })
         }
-        if (!browserWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (process.env.AUTH_SERVICE_ONLY !== '1') {
             void loadCachedMostActiveServices().catch(error => fastify.log.warn({ error }, 'Failed to warm most active services cache; background refresh will retry'))
             const stopMostActiveRefresh = startMostActiveServicesRefresh()
             fastify.addHook('onClose', async () => { stopMostActiveRefresh() })
         }
-        if (!browserWorkerOnly && !httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (!httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
             const stopProcessing = process.env.LOG_CATCHUP_WORKER_DISABLED === '1'
                 ? async () => {}
                 : startLogProcessor(() => withEventDatabase(processStoredLogs), error => fastify.log.error({ error }, 'Event log processing failed; will retry'), undefined, undefined, undefined, STORED_LOG_PROCESSOR_JOB_ID)
@@ -140,16 +139,16 @@ async function start() {
             const stopReprocessing = startLogProcessor(processRuleReprocessJob, error => fastify.log.error({ error }, 'Rule reprocessing failed'), () => 1000, undefined, undefined, RULE_REPROCESSOR_JOB_ID)
             fastify.addHook('onClose', async () => { await Promise.all([stopProcessing(), stopLiveProcessing(), stopReprocessing()]) })
         }
-        if (!browserWorkerOnly && !httpWorkerOnly) {
+        if (!httpWorkerOnly) {
             const stopAnalytics = await startBackgroundAnalytics(fastify.log)
             fastify.addHook('onClose', async () => { stopAnalytics() })
         }
-        if (!browserWorkerOnly && !httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (!httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
             const stopLogTuningRefresh = startLogTuningSnapshotRefresh(fastify.log)
             fastify.addHook('onClose', async () => { stopLogTuningRefresh() })
         }
         await fastify.listen({ port, host: process.env.LISTEN_HOST || '0.0.0.0' })
-        if (browserWorkerOnly || httpWorkerOnly) return
+        if (httpWorkerOnly) return
         if (process.env.SKIP_REPOSITORY_SYNC !== '1') {
             void ensureRepositoryUpToDate().catch(error => {
                 fastify.log.warn({ error }, 'Failed to warm articles repository')
@@ -184,7 +183,7 @@ function describeUnknownError(error: unknown) {
 
 function main() {
     start()
-    if (!browserWorkerOnly && !httpWorkerOnly) cron()
+    if (!httpWorkerOnly) cron()
 }
 
 main()

@@ -71,7 +71,6 @@ test('public status is operational only when every buyer-facing monitor is fresh
             serviceCheck('threat-intelligence', 'Public search', checkedAt),
             serviceCheck('threat-intelligence', 'Processing backlog', checkedAt),
             serviceCheck('threat-intelligence', 'Source collection', checkedAt),
-            serviceCheck('browser-sandbox', 'Browser workspace', checkedAt),
             serviceCheck('dark-web-monitoring', 'Monitoring workspace', checkedAt),
             serviceCheck('dark-web-monitoring', 'Latest activity', checkedAt),
             serviceCheck('content', 'Articles', checkedAt),
@@ -98,7 +97,6 @@ test('public status reports fresh processing and source-collection failures with
             serviceCheck('threat-intelligence', 'Public search', checkedAt),
             { ...serviceCheck('threat-intelligence', 'Processing backlog', checkedAt), status: 'down', message: '5263 stale reviews (oldest 1848 minutes).' },
             { ...serviceCheck('threat-intelligence', 'Source collection', checkedAt), status: 'degraded', message: 'Source operations returned 76 sources; 1 failed.' },
-            serviceCheck('browser-sandbox', 'Browser workspace', checkedAt),
             serviceCheck('dark-web-monitoring', 'Monitoring workspace', checkedAt),
             serviceCheck('dark-web-monitoring', 'Latest activity', checkedAt),
         ],
@@ -125,7 +123,6 @@ test('public status exposes stale latest activity as a service failure', () => {
             serviceCheck('core', 'API health', checkedAt),
             serviceCheck('website', 'Public website', checkedAt),
             serviceCheck('threat-intelligence', 'Public search', checkedAt),
-            serviceCheck('browser-sandbox', 'Browser workspace', checkedAt),
             serviceCheck('dark-web-monitoring', 'Monitoring workspace', checkedAt),
             {
                 ...serviceCheck('dark-web-monitoring', 'Latest activity', checkedAt),

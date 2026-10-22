@@ -6,7 +6,7 @@ import { stripeRequest } from './billingStripe.ts'
 export { receiveStripeWebhook, verifyStripeSignature } from './billingStripe.ts'
 
 
-export type BillingQuotaKey = 'searchesPerDay' | 'watchTerms' | 'monitoredTargets' | 'browserRunsPerMonth'
+export type BillingQuotaKey = 'searchesPerDay' | 'watchTerms' | 'monitoredTargets'
 type BillingQuotaPeriod = 'day' | 'month' | 'lifetime'
 type BillingQuota = { key: BillingQuotaKey, limit: number | null, used: number, remaining: number | null, periodStart: Date | null, resetsAt: Date | null }
 
@@ -14,7 +14,6 @@ const quotaPeriods: Record<BillingQuotaKey, BillingQuotaPeriod> = {
     searchesPerDay: 'day',
     watchTerms: 'lifetime',
     monitoredTargets: 'lifetime',
-    browserRunsPerMonth: 'month',
 }
 
 export async function getBillingQuota(userId: string, key: BillingQuotaKey): Promise<BillingQuota> {
@@ -78,7 +77,7 @@ export async function getBillingSubscription(req: FastifyRequest, reply: Fastify
         ORDER BY updated_at DESC
     `, [auth.id])
     const subscription = result.rows[0]
-    const quotaKeys: BillingQuotaKey[] = ['searchesPerDay', 'watchTerms', 'monitoredTargets', 'browserRunsPerMonth']
+    const quotaKeys: BillingQuotaKey[] = ['searchesPerDay', 'watchTerms', 'monitoredTargets']
     const quotas = await Promise.all(quotaKeys.map(key => getBillingQuota(auth.id!, key)))
     return reply.send({
         subscription: subscription ? {

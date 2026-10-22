@@ -28,7 +28,6 @@ describe('isAppSurfacePath', () => {
     })
 
     it('uses the caller-specific sidebar and signed-in TI state', () => {
-        assert.equal(isAppSurfacePath('/sandbox', { sidebarVisible: true, loggedInTi: false, aiPath: false }), true)
         assert.equal(isAppSurfacePath('/ti', { sidebarVisible: false, loggedInTi: true, aiPath: false }), true)
         assert.equal(isAppSurfacePath('/ti', { sidebarVisible: false, loggedInTi: false, aiPath: false }), false)
         assert.equal(isAppSurfacePath('/ti', { sidebarVisible: hasAppSidebar('/ti'), loggedInTi: false, aiPath: false }), true)

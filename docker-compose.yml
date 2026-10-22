@@ -166,9 +166,6 @@ networks:
     external: true
   hanasandnet:
     driver: bridge
-  browsernet:
-    name: hanasand_browsernet
-    driver: bridge
   identity-proxy:
     external: true
     name: hanasand_identity_proxy

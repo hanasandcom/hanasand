@@ -35,7 +35,8 @@ async function handler(req: NextRequest, context: Context) {
 
     const params = await context.params
     const pathSegments = params.path || []
-    const anonymousAllowed = (pathSegments[0] === 'browser' && (pathSegments[1] === 'runs' || pathSegments[1] === 'results' || pathSegments[1] === 'stats')) || (pathSegments[0] === 'logs' && pathSegments[1] === 'metrics' && pathSegments[2] === 'public')
+    if (pathSegments[0] === 'browser' || pathSegments[0] === 'browser-stream') return NextResponse.json({ error: 'Browser is served by the standalone Browsers API.' }, { status: 410 })
+    const anonymousAllowed = (pathSegments[0] === 'logs' && pathSegments[1] === 'metrics' && pathSegments[2] === 'public')
     if ((!token || !id) && !anonymousAllowed) {
         return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
     }

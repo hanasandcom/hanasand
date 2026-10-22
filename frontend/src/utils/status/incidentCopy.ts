@@ -16,7 +16,6 @@ export function simpleStatusText(text: string): string {
         'A canonical threat-intelligence search completed successfully.': 'Search completed successfully.',
         'The public website rendered successfully.': 'The website loaded successfully.',
         'The authenticated dark-web monitoring workspace rendered successfully.': 'Dark web monitoring loaded successfully.',
-        'The browser investigation workspace rendered successfully.': 'The browser workspace loaded successfully.',
         'The dark-web monitoring page rendered successfully.': 'Dark web monitoring loaded successfully.',
         'The public API contract endpoint responded successfully.': 'The API responded successfully.',
         'The operation timed out.': 'The check timed out.',
@@ -36,8 +35,8 @@ export function simpleStatusText(text: string): string {
     if (match) return match[1] === '200' ? 'Search returned an unusable response despite HTTP 200.' : 'Search was unavailable (HTTP ' + match[1] + ').'
     match = text.match(/^Latest customer activity is unavailable or empty \((\d+)\)\.?$/)
     if (match) return 'The activity feed was unavailable or empty (HTTP ' + match[1] + ').'
-    match = text.match(/^Unexpected (monitoring workspace|browser workspace|website|public API contract) response (\d+)\.?$/)
-    if (match) return ({ 'monitoring workspace': 'Dark web monitoring', 'browser workspace': 'The browser workspace', website: 'The website', 'public API contract': 'The API' } as Record<string, string>)[match[1]] + ' returned HTTP ' + match[2] + '.'
+    match = text.match(/^Unexpected (monitoring workspace|website|public API contract) response (\d+)\.?$/)
+    if (match) return ({ 'monitoring workspace': 'Dark web monitoring', website: 'The website', 'public API contract': 'The API' } as Record<string, string>)[match[1]] + ' returned HTTP ' + match[2] + '.'
     match = text.match(/^Threat-intelligence storage or service is unhealthy \((\d+)\)\.$/)
     if (match) return 'Threat intelligence reported a storage or service problem (HTTP ' + match[1] + ').'
     match = text.match(/^Latest customer activity is stale \(([\d.]+) minutes?\)\.$/)

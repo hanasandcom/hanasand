@@ -35,8 +35,7 @@ test('missing monitoring retains the last verified snapshot and never invents a 
     const raw = { overall: 'up' as const, generated_at: at, checks: [
         serviceCheck('core', 'API health', at), serviceCheck('website', 'Public website', at),
         serviceCheck('threat-intelligence', 'Public search', at), serviceCheck('threat-intelligence', 'Processing backlog', at),
-        serviceCheck('threat-intelligence', 'Source collection', at), serviceCheck('browser-sandbox', 'Browser workspace', at),
-        serviceCheck('dark-web-monitoring', 'Monitoring workspace', at), serviceCheck('dark-web-monitoring', 'Latest activity', at),
+        serviceCheck('threat-intelligence', 'Source collection', at), serviceCheck('dark-web-monitoring', 'Monitoring workspace', at), serviceCheck('dark-web-monitoring', 'Latest activity', at),
     ], history: [], incidents: [] }
     const verified = toPublicServiceStatus(raw)
     expect(isVerifiedStatus(verified)).toBe(true)
@@ -161,8 +160,7 @@ function verifiedStatus(at: string) {
         checks: [
             serviceCheck('core', 'API health', at), serviceCheck('website', 'Public website', at),
             serviceCheck('threat-intelligence', 'Public search', at), serviceCheck('threat-intelligence', 'Processing backlog', at),
-            serviceCheck('threat-intelligence', 'Source collection', at), serviceCheck('browser-sandbox', 'Browser workspace', at),
-            serviceCheck('dark-web-monitoring', 'Monitoring workspace', at), serviceCheck('dark-web-monitoring', 'Latest activity', at),
+            serviceCheck('threat-intelligence', 'Source collection', at), serviceCheck('dark-web-monitoring', 'Monitoring workspace', at), serviceCheck('dark-web-monitoring', 'Latest activity', at),
         ],
     }
 }

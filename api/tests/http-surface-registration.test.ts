@@ -13,7 +13,7 @@ afterAll(() => {
 test('leaves TI routes to the standalone service and registers application routes', async () => {
     const app = Fastify({ logger: false })
     try {
-        registerHttpSurface(app, { browserWorkerOnly: false, httpWorkerOnly: true })
+        registerHttpSurface(app, { httpWorkerOnly: true })
         await app.ready()
         expect(app.hasRoute({ method: 'POST', url: '/api/v1/ti/search/batch' })).toBe(false)
         expect(app.hasRoute({ method: 'GET', url: '/api/internal/ti/organization-context/:id' })).toBe(false)
@@ -25,23 +25,10 @@ test('leaves TI routes to the standalone service and registers application route
     }
 })
 
-test('browser worker mode keeps its health root and omits application routes', async () => {
-    const app = Fastify({ logger: false })
-    try {
-        registerHttpSurface(app, { browserWorkerOnly: true, httpWorkerOnly: true })
-        await app.ready()
-        expect((await app.inject('/')).json()).toEqual({ ok: true, service: 'browsers' })
-        expect(app.hasRoute({ method: 'POST', url: '/api/v1/ti/search/batch' })).toBe(false)
-        expect(app.hasRoute({ method: 'POST', url: '/mill' })).toBe(false)
-    } finally {
-        await app.close()
-    }
-})
-
 test('permits the mail site to call the public API and read refreshed session headers', async () => {
     const app = Fastify({ logger: false })
     try {
-        registerHttpSurface(app, { browserWorkerOnly: false, httpWorkerOnly: true })
+        registerHttpSurface(app, { httpWorkerOnly: true })
         await app.ready()
         const response = await app.inject({
             method: 'OPTIONS',

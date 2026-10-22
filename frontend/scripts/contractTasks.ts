@@ -149,16 +149,6 @@ export const contractTasks: TestTask[] = [
         command: [bun, 'test', './tests/share-git-plugin.check.ts', './tests/share-git-plugin.spec.ts', './tests/share-git-plugin-ui.test.tsx', './tests/share-git-plugin-workflow.test.ts', './tests/share-explorer-recovery.test.tsx'],
     },
     {
-        id: 'browser-report-presentation',
-        title: 'Browser report classification and actions',
-        command: [bun, 'test', 'tests/browser-report-presentation.test.ts'],
-    },
-    {
-        id: 'browser-report-evidence',
-        title: 'Browser report evidence contract',
-        command: [bun, 'scripts/check-browser-report-evidence.mjs'],
-    },
-    {
         id: 'workspace-search-utils',
         title: 'Share workspace search behavior',
         command: [bun, 'test', 'tests/workspace-search-utils.test.ts'],

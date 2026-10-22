@@ -24,7 +24,7 @@ export const eventProcessingJobDefinitions: ApiBackgroundJobDefinition[] = [
         cadenceSeconds: 60,
         source: 'api/src/utils/events/analyzeIngestAccess.ts',
         controls: [],
-        isEnabled: () => process.env.BROWSER_SANDBOX_WORKER_ONLY !== '1' && process.env.AUTH_SERVICE_ONLY !== '1',
+        isEnabled: () => process.env.AUTH_SERVICE_ONLY !== '1',
     },
     {
         id: DROP_RATE_ALERT_REFRESH_JOB_ID,
@@ -35,7 +35,7 @@ export const eventProcessingJobDefinitions: ApiBackgroundJobDefinition[] = [
         cadenceSeconds: 15,
         source: 'api/src/utils/events/dropRateAlert.ts',
         controls: [],
-        isEnabled: () => process.env.BROWSER_SANDBOX_WORKER_ONLY !== '1' && process.env.AUTH_SERVICE_ONLY !== '1',
+        isEnabled: () => process.env.AUTH_SERVICE_ONLY !== '1',
     },
     {
         id: STORED_LOG_PROCESSOR_JOB_ID,
@@ -46,8 +46,7 @@ export const eventProcessingJobDefinitions: ApiBackgroundJobDefinition[] = [
         cadenceSeconds: null,
         source: 'api/src/utils/events/processor.ts',
         controls: [],
-        isEnabled: () => process.env.BROWSER_SANDBOX_WORKER_ONLY !== '1'
-            && process.env.API_HTTP_ONLY !== '1'
+        isEnabled: () => process.env.API_HTTP_ONLY !== '1'
             && process.env.AUTH_SERVICE_ONLY !== '1'
             && process.env.LOG_CATCHUP_WORKER_DISABLED !== '1',
     },
@@ -60,8 +59,7 @@ export const eventProcessingJobDefinitions: ApiBackgroundJobDefinition[] = [
         cadenceSeconds: null,
         source: 'api/src/utils/events/processor.ts',
         controls: [],
-        isEnabled: () => process.env.BROWSER_SANDBOX_WORKER_ONLY !== '1'
-            && process.env.API_HTTP_ONLY !== '1'
+        isEnabled: () => process.env.API_HTTP_ONLY !== '1'
             && process.env.AUTH_SERVICE_ONLY !== '1'
             && process.env.LOG_LIVE_WORKER_DISABLED !== '1',
     },
@@ -74,8 +72,7 @@ export const eventProcessingJobDefinitions: ApiBackgroundJobDefinition[] = [
         cadenceSeconds: null,
         source: 'api/src/utils/events/processor.ts',
         controls: [],
-        isEnabled: () => process.env.BROWSER_SANDBOX_WORKER_ONLY !== '1'
-            && process.env.API_HTTP_ONLY !== '1'
+        isEnabled: () => process.env.API_HTTP_ONLY !== '1'
             && process.env.AUTH_SERVICE_ONLY !== '1',
     },
     {

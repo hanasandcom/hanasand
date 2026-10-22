@@ -1,26 +1,6 @@
 import run from '#db'
 
-export default async function ensureBrowserBillingSchema() {
-    await run(`
-            CREATE TABLE IF NOT EXISTS browser_sandbox_profiles (
-                owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                tools JSONB NOT NULL DEFAULT '[]'::jsonb,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                PRIMARY KEY (owner_id, id)
-            )
-        `)
-    await run('CREATE INDEX IF NOT EXISTS idx_browser_sandbox_profiles_owner_updated ON browser_sandbox_profiles(owner_id, updated_at DESC)')
-    await run(`
-            CREATE TABLE IF NOT EXISTS browser_subscriptions (
-                owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-                plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'starter', 'team', 'business', 'volume')),
-                active BOOLEAN NOT NULL DEFAULT FALSE,
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        `)
+export default async function ensureBillingSchema() {
     await run(`
             CREATE TABLE IF NOT EXISTS billing_customers (
                 user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

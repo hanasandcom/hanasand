@@ -6,7 +6,7 @@ import CommercialPlanCard from '@/components/commercialAccess/commercialPlanCard
 
 export const metadata: Metadata = buildRouteMetadata({
     title: 'Pricing',
-    description: 'Clear monthly plans for Hanasand threat intelligence, monitoring, scanning, and browser access.',
+    description: 'Clear monthly plans for Hanasand threat intelligence, monitoring, scanning, and API access.',
     path: '/pricing',
     keywords: ['hanasand pricing', 'threat monitoring pricing', 'security scanner pricing'],
 })

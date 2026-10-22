@@ -84,9 +84,6 @@ function isAllowedIncidentalSchedulerFile(file: string) {
         'api/src/handlers/hostConsole.ts',
         'api/src/handlers/metrics/systemStream.ts',
         'api/src/handlers/vms/console.ts',
-        'api/src/handlers/onionSession/ws.ts',
-        'api/src/handlers/onionSession/browserStartup.ts', // Browser-run lease timer owned by one onion session.
-        'api/src/handlers/onionSession/navigationService.ts', // Navigation heartbeat owned by one active navigation.
         'api/src/utils/db/browse.ts', // Expires idle database-browser clients; it does not run business work.
         'api/src/utils/db/browseConnection.ts', // Expires cached idle browser connections; no business work is scheduled.
         'api/src/handlers/traffic/legacyLive.ts',

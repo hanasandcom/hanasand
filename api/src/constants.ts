@@ -9,9 +9,7 @@ const requiredEnvironmentVariables = [
     ...(process.env.DB_BACKUP_WORKER === '1' || process.env.LOG_PROCESSOR_ONLY === '1' ? [] : ['VM_API_TOKEN']),
 ]
 
-const missingVariables = process.env.BROWSER_SANDBOX_WORKER_ONLY === '1'
-    ? []
-    : requiredEnvironmentVariables.filter((key) => !process.env[key])
+const missingVariables = requiredEnvironmentVariables.filter((key) => !process.env[key])
 
 if (missingVariables.length > 0) {
     throw new Error(

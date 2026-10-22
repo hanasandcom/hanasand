@@ -25,7 +25,6 @@ export function isInfrastructureWebSocketPath(path: string) {
 }
 
 export function isBrowserStreamPath(path: string) {
-    return path.startsWith('/api/browser-stream/')
 }
 
 export function isTrustedStatusIngest(req: FastifyRequest, path: string) {

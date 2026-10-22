@@ -8,23 +8,13 @@ import { subscribeThesis } from '#utils/thesis.ts'
 import { thesisCredentials, thesisMember } from '#utils/thesisAccess.ts'
 import { registerClient } from '#utils/ws/registerClient.ts'
 import { removeClient } from '#utils/ws/removeClient.ts'
-import { listRuntimeContainers, removeRuntimeContainer } from '#utils/docker/engine.ts'
-import { BROWSER_WARM_MAX_AGE_MS } from '#utils/ws/browserWarmPool.ts'
-import { browserWarmPool } from './ws/browserWarmPool.ts'
-import { registerBrowserSessionRoutes } from './ws/sessionRoutes.ts'
-import { registerBrowserStreamRoute, proxyBrowserStreamSocket } from './ws/browserStream.ts'
 import { createShareTerminal, handleShareTerminalMessage, sendTerminalUpdate } from './ws/shareTerminal.ts'
 import { recordWebsocketFailure } from './ws/protocol.ts'
 import { testClients, shareClients, pendingUpdates } from './ws/state.ts'
 
-export { testClients, shareClients, pendingUpdates, proxyBrowserStreamSocket }
+export { testClients, shareClients, pendingUpdates }
 
 export default fp(async function wsPlugin(fastify: FastifyInstance) {
-    if (process.env.BROWSER_SANDBOX_WORKER_ONLY === '1') {
-        registerBrowserSessionRoutes(fastify)
-        return
-    }
-
     registerVmConsole(fastify)
     registerInternalVmConsole(fastify)
     registerHostConsole(fastify)
@@ -37,19 +27,6 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
             else subscribeThesis(socket)
         }).catch(() => socket.close(1011))
     })
-    registerBrowserStreamRoute(fastify)
-    if (process.env.NODE_ENV === 'production' && process.env.DEPLOYMENT_CANDIDATE_ONLY !== '1' && process.env.BROWSER_SANDBOX_EGRESS_FIREWALL_READY === '1') {
-        const maintain = () => {
-            void browserWarmPool.replenish()
-            void listRuntimeContainers().then(containers => Promise.all(containers
-                .filter(container => container.name.startsWith('hanasand_browser_warm_used_') && Date.now() - Date.parse(container.created_at) > BROWSER_WARM_MAX_AGE_MS)
-                .map(container => removeRuntimeContainer(container.id))))
-                .catch(error => fastify.log.error(error, 'Browser pool cleanup failed'))
-        }
-        let timer: ReturnType<typeof setInterval>
-        fastify.addHook('onReady', async () => { maintain(); timer = setInterval(maintain, 5000); timer.unref() })
-        fastify.addHook('onClose', async () => { clearInterval(timer) })
-    }
 
     fastify.get('/api/ws/test/:id', { websocket: true }, (connection, req: FastifyRequest) => {
         const id = (req.params as { id: string }).id
@@ -86,5 +63,4 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
         connection.on('error', error => { void recordWebsocketFailure('share-terminal-client', `${alias}:${session}`, error) })
     })
 
-    registerBrowserSessionRoutes(fastify)
 })

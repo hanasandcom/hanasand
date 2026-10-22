@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, Network, Radar, Search, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Radar, Search, ShieldCheck } from 'lucide-react'
 import type { Metadata } from 'next'
 import { buildRouteMetadata } from './seo'
 import NotFoundSuggestions from './not-found-suggestions'
@@ -30,12 +30,6 @@ const recoveryLinks = [
         body: 'Review plans for watchlists, alert delivery, and API access.',
         href: '/pricing',
         icon: ShieldCheck,
-    },
-    {
-        title: 'Sandbox',
-        body: 'Open suspicious sites in an isolated browser.',
-        href: '/sandbox',
-        icon: Network,
     },
 ]
 

@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react'
 import Link from 'next/link'
-import { ActivityIcon, BellRing, BookOpen, ChevronDown, Code2, FileJson, Gauge, LockKeyhole, MenuIcon, Network, Radar, ShieldAlert, ShieldCheck, X } from 'lucide-react'
+import { ActivityIcon, BellRing, BookOpen, ChevronDown, Code2, FileJson, Gauge, LockKeyhole, MenuIcon, Radar, ShieldAlert, ShieldCheck, X } from 'lucide-react'
 import { useMobileNavigation } from '@/components/layout/mobileNavigation'
 
 const productItems = [
@@ -10,7 +10,6 @@ const productItems = [
     { title: 'Security Monitoring', detail: 'Find suspicious logins and other security events.', href: '/solutions/security-monitoring', icon: ShieldAlert },
     { title: 'Security Scanner', detail: 'Safe validation scans for approved Hanasand assets.', href: '/solutions/scanner', icon: ShieldAlert },
     { title: 'Threat Search', detail: 'Search companies, groups, source changes, and alert context.', href: '/ti', icon: Radar },
-    { title: 'Sandbox', detail: 'Investigate domains in an isolated browser.', href: '/sandbox', icon: Network },
     { title: 'Organizations', detail: 'Manage members, shared watchlists, alert scope, and destinations.', href: '/organizations', icon: ShieldCheck },
 ]
 

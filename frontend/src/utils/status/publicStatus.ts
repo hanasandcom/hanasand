@@ -8,7 +8,6 @@ const requiredPublicChecks = [
     { service: 'threat-intelligence', check_name: 'Public search' },
     { service: 'threat-intelligence', check_name: 'Processing backlog' },
     { service: 'threat-intelligence', check_name: 'Source collection' },
-    { service: 'browser-sandbox', check_name: 'Browser workspace' },
     { service: 'dark-web-monitoring', check_name: 'Monitoring workspace' },
     { service: 'dark-web-monitoring', check_name: 'Latest activity' },
 ] as const

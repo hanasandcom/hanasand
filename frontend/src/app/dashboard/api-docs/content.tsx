@@ -44,12 +44,6 @@ export const applicationEndpoints: ApplicationEndpoint[] = [
     { method: 'GET', path: '/project/:alias', summary: 'Read a shared project' },
     { method: 'GET', path: '/projects/user/:id', summary: 'List the current user’s projects' },
     { method: 'DELETE', path: '/project/:alias', summary: 'Delete a shared project' },
-    { method: 'GET', path: '/browser/profiles', summary: 'Read browser sandbox profiles' },
-    { method: 'PUT', path: '/browser/profiles', summary: 'Update browser sandbox profiles' },
-    { method: 'GET', path: '/browser/stats', summary: 'Read browser usage statistics' },
-    { method: 'GET', path: '/browser/runs', summary: 'List browser runs' },
-    { method: 'GET', path: '/browser/runs/:id/report', summary: 'Read a browser run report' },
-    { method: 'POST', path: '/browser/runs/:id/report', summary: 'Create a browser run report' },
     { method: 'GET', path: '/support/tickets', summary: 'List support tickets' },
     { method: 'POST', path: '/support/tickets', summary: 'Create a support ticket' },
     { method: 'GET', path: '/support/tickets/:id/messages', summary: 'List support messages' },
@@ -102,7 +96,7 @@ export default async function ApiDocsPage() {
             </section>
 
             <section className='grid gap-3' aria-label='Application API endpoints'>
-                <div><div className='flex items-center gap-2'><Code2 className='h-4 w-4 text-ui-primary' /><h2 className='text-base font-semibold text-ui-text'>Application API</h2></div><p className='mt-1 text-sm text-ui-muted'>Customer-facing dashboard, sharing, support, browser, organization, and billing endpoints.</p></div>
+                <div><div className='flex items-center gap-2'><Code2 className='h-4 w-4 text-ui-primary' /><h2 className='text-base font-semibold text-ui-text'>Application API</h2></div><p className='mt-1 text-sm text-ui-muted'>Customer-facing dashboard, sharing, support, organization, and billing endpoints.</p></div>
                 {applicationEndpoints.map(endpoint => <div key={`${endpoint.method}:${endpoint.path}`} data-api-search={`${endpoint.method} ${endpoint.path} ${endpoint.summary}`}><Endpoint path={endpoint.path} method={endpoint.method} operation={{ summary: endpoint.summary, requestBody: endpoint.requestBody }} /></div>)}
             </section>
 

@@ -52,17 +52,6 @@ const coreTasks: TestTask[] = [
     },
     scriptTask('vulnerability-scanner', 'Vulnerability scanner registry contract', 'smoke-vulnerability-scanner.ts'),
     scriptTask('lxd-lifecycle', 'LXD lifecycle contract', 'test-lxd-lifecycle.ts'),
-    scriptTask('browser-sandbox-analysis', 'Browser sandbox analysis contract', 'smoke-browser-sandbox-analysis.ts'),
-    scriptTask('browser-session-worker', 'Browser per-session worker isolation contract', 'smoke-browser-session-worker-contract.ts'),
-    {
-        ...scriptTask('browser-sandbox-broker', 'Browser sandbox broker runtime contract', 'smoke-browser-sandbox-broker.ts'),
-        requires: 'playwright',
-    },
-    {
-        ...scriptTask('onion-session-proxy', 'Onion hostname routing through the SOCKS proxy', 'smoke-onion-session-proxy.ts'),
-        requires: 'playwright',
-        env: { BROWSER_SANDBOX_SKIP_RUN_DB: '1', BROWSER_SANDBOX_PREWARM: '0' },
-    },
 ]
 
 const environmentTasks: TestTask[] = [

@@ -14,8 +14,6 @@ mock.module('../src/handlers/test/follow.ts', () => ({
 }))
 
 const { default: wsPlugin } = await import('../src/plugins/ws.ts')
-const originalWorkerOnly = process.env.BROWSER_SANDBOX_WORKER_ONLY
-delete process.env.BROWSER_SANDBOX_WORKER_ONLY
 
 const loopbackAvailable = await supportsLoopbackListeners()
 const app = Fastify({ forceCloseConnections: true })
@@ -31,8 +29,6 @@ afterAll(async () => {
         for (const socket of app.websocketServer?.clients || []) socket.terminate()
         await app.close()
     }
-    if (originalWorkerOnly === undefined) delete process.env.BROWSER_SANDBOX_WORKER_ONLY
-    else process.env.BROWSER_SANDBOX_WORKER_ONLY = originalWorkerOnly
 })
 
 test.skipIf(!loopbackAvailable)('load-test websocket streams remain read-only and cannot enqueue a rerun', async () => {

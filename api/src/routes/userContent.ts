@@ -42,8 +42,6 @@ import {
     postDwmWebhookReceiver,
     putDwmWebhookDestination,
 } from '../handlers/dwm/webhooks.ts'
-import browserSandboxProfileRoutes from './browserSandboxProfiles.ts'
-import { deleteBrowserRuns, getBrowserResult, getBrowserRunReport, getBrowserRuns, getBrowserRunStats, maxBrowserReportBytes, postBrowserRunReport } from '../handlers/browserSandboxRuns.ts'
 
 import type { FastifyInstance } from 'fastify'
 
@@ -81,15 +79,6 @@ export async function registerUserContentRoutes(fastify: FastifyInstance) {
     fastify.post('/dwm/webhook-deliveries', postDwmWebhookDelivery)
     fastify.get('/dwm/webhook-receiver', getDwmWebhookReceiverReceipts)
     fastify.post('/dwm/webhook-receiver', postDwmWebhookReceiver)
-
-    // Browser profiles
-    await fastify.register(browserSandboxProfileRoutes)
-    fastify.get('/browser/stats', getBrowserRunStats)
-    fastify.get('/browser/runs', getBrowserRuns)
-    fastify.delete('/browser/runs', deleteBrowserRuns)
-    fastify.get('/browser/results/:id', getBrowserResult)
-    fastify.get('/browser/runs/:id/report', getBrowserRunReport)
-    fastify.post('/browser/runs/:id/report', { bodyLimit: maxBrowserReportBytes + 4096 }, postBrowserRunReport)
 
     // Article handlers
     fastify.get('/articles', getArticles)
