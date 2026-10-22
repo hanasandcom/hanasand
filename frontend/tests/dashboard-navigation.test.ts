@@ -40,6 +40,11 @@ test('every dropdown has at most five entries, including long pinned lists', () 
     assert.deepEqual(navigationLinks(pinned).map(item => item.href), links.map(item => item.href))
 })
 
+test('Sandbox remains available from the dashboard sidebar', () => {
+    const links = navigationLinks(getDashboardNavigation({ id: 'member' }))
+    assert.equal(links.some(link => link.label === 'Sandbox' && link.href === '/sandbox'), true)
+})
+
 test('feeds remain reachable without the removed collection targets entry', () => {
     const links = navigationLinks(getDashboardNavigation({ id: 'admin', canViewInternalPages: true }))
     assert.equal(links.filter(link => link.href === '/ti/sources').length, 1)
