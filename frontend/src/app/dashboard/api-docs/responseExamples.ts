@@ -3,7 +3,6 @@ export type ResponseExample = { status: number, body: unknown }
 const example = (body: unknown, status = 200): ResponseExample => ({ status, body })
 const at = '2026-06-12T09:30:00Z'
 const organization = { id: 'org_example', name: 'Cedar Bay Studio', slug: 'cedar-bay-studio', role: 'owner', status: 'active' }
-const profile = { id: 'profile_example', name: 'Vendor review', tools: [{ id: 'tool_example', name: 'Vendor website', url: 'https://vendor.example.com' }] }
 const share = { id: 'share_example', path: 'review-notes.md', content: 'Review the vendor documentation before Friday.', wordCount: 6, estimatedMinutes: 1, timestamp: at, git: null, locked: false, owner: 'user_example', parent: '', alias: 'review-notes', type: 'file' }
 const tree = [{ id: share.id, name: share.path, type: 'file' }]
 const apiKey = { id: 'key_example', name: 'Reporting integration', organizationId: organization.id, keyPrefix: 'example_', enabled: true, createdAt: at }

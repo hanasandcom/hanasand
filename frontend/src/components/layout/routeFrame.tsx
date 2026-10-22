@@ -41,7 +41,7 @@ export default function RouteFrame({ children, serverPath, token, sidebar, banne
                             }} className={`${mobile.open ? 'block' : 'hidden'} fixed inset-x-2 top-20 z-101 max-h-[calc(100dvh-5.5rem)] overflow-y-auto lg:contents`}>
                                 {sidebar}
                             </div>
-                            <div className={`min-h-0 min-w-0 overflow-y-auto overscroll-contain`}>{children}</div>
+                            <div className='min-h-0 min-w-0 overflow-y-auto overscroll-contain'>{children}</div>
                         </div>
                     </div>
                 ) : children}

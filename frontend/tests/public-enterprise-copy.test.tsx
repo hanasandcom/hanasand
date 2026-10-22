@@ -32,7 +32,8 @@ test('pricing and developer pages render their public buyer copy', async () => {
 
         expect(pricing).toContain('Know more. Respond faster.')
         expect(pricing).toContain('Search threats. Watch your exposure. Scan your attack surface. Investigate what you find.')
-        for (const plan of ['Threat Intelligence', 'Dark Web Monitoring', 'Security Scanner', 'Browser']) expect(pricing).toContain(plan)
+        for (const plan of ['Threat Intelligence', 'Dark Web Monitoring', 'Security Scanner']) expect(pricing).toContain(plan)
+        expect(pricing).not.toContain('Browser')
         expect(pricing).toContain('Container host options')
         expect(pricing).toContain('Automatic failover')
         expect(pricing).not.toContain('Always running')

@@ -41,7 +41,7 @@ test('missing monitoring retains the last verified snapshot and never invents a 
     expect(isVerifiedStatus(verified)).toBe(true)
     const failed = retainVerifiedStatus(toPublicServiceStatus(unavailableServiceStatus()), verified)
     expect(failed).toMatchObject({ overall: 'up', monitoring: 'unavailable', last_verified_at: at })
-    expect(failed.checks).toHaveLength(8)
+    expect(failed.checks).toHaveLength(7)
     expect(failed.checks.every(check => check.status === 'up' && check.checked_at === at)).toBe(true)
     expect(isVerifiedStatus(failed)).toBe(false)
     const stale = toPublicServiceStatus(raw, Date.now() + 6 * 60_000)

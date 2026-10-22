@@ -4,7 +4,7 @@ import { publicStatusLabel, publicStatusMessage } from '../src/utils/status/publ
 
 test('public status labels hide internal names while keeping readable service names', () => {
     expect(publicStatusLabel('auth')).toBe('Account access')
-    expect(publicStatusLabel('threat-intelligence')).toBe('Threat intelligence')
+    expect(publicStatusLabel('threat-intelligence')).toBe('Threat Intelligence')
     expect(publicStatusLabel('api')).toBe('API')
     expect(publicStatusLabel('prod_rate_limit')).toBe('Rate limits')
 })

@@ -59,7 +59,7 @@ try {
     const { default: Page, applicationEndpoints } = await import('../src/app/dashboard/api-docs/content')
     const applicationKeys = applicationEndpoints.map(endpoint => `${endpoint.method} ${endpoint.path}`)
     const keys = [...publicOperations.map(item => item.key), ...applicationKeys]
-    assert.equal(keys.length, 54)
+    assert.equal(keys.length, 48)
     assert.deepEqual(Object.keys(responseExamples).sort(), [...keys].sort(), 'Every documented endpoint needs exactly one example')
     const html = await new Response(await renderToReadableStream(await Page())).text()
     assert.deepEqual(lastOpenApiRequest, { url: `${authApiUrl().replace(/\/$/, '')}/v1/openapi.json`, cache: 'no-store' })
@@ -109,4 +109,4 @@ try {
 }
 const customerLinks = navigationLinks(getDashboardNavigation({ id: 'user_example', isAdmin: false, canManageSystem: false, canManageContent: false }))
 assert(customerLinks.some(link => link.label === 'OpenAPI JSON' && link.href === '/api/openapi'))
-console.log('All 54 endpoints render fictional examples; public examples validate against OpenAPI and customer navigation links the specification.')
+console.log('All 48 endpoints render fictional examples; public examples validate against OpenAPI and customer navigation links the specification.')
