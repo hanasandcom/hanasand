@@ -22,6 +22,8 @@ test('field readings explain the configured threshold and next check', () => {
     expect(readableMonitoringMessage('JSON check passed: status = ready; alert ne ready (first).', { monitorName: 'API status' })).toBe('API status is within its configured limit: current status is ready.')
 })
 test('boolean alert conditions say what the monitor reported', () => {
+    expect(readableMonitoringMessage('JSON threshold exceeded: current.alert = true; alert eq true (first).', { monitorName: 'Service monitor' }))
+        .toBe('Service monitor reports its current alert flag as active, but the saved result does not say what triggered it. Check the source’s detailed response and configured limits to identify the affected condition.')
     expect(readableMonitoringMessage('JSON threshold exceeded: current.alert = true; alert eq true (first).', { monitorName: 'Logs throughput' }))
         .toBe('Logs throughput has crossed a configured limit. This saved check contains only the alert flag, so the triggering rate and threshold are unavailable. Check Logs → Metrics for incoming rate, processing rate, and pending backlog.')
     expect(readableMonitoringMessage('JSON threshold exceeded: current.alert = true; alert eq true (first).', {

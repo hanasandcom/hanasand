@@ -63,7 +63,7 @@ function comparison(operator: string, observed: string, threshold: string, path:
         return `TI delivery has ${observed} retained incidents waiting for a first report, above the alert limit of ${threshold}. Review the timeliness dashboard and report backlog.`
     }
     if (path === 'current.alert' && observed === 'true') {
-        return `${name} reports an active alert. Review the latest check result and the affected component’s status.`
+        return `${name} reports its current alert flag as active, but the saved result does not say what triggered it. Check the source’s detailed response and configured limits to identify the affected condition.`
     }
     if (['collection.critical', 'enrichment.critical'].includes(path) && observed === 'true') {
         return `${name} reports a critical condition. Review the check’s latest details and the affected component’s recent activity.`
