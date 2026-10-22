@@ -8,15 +8,18 @@ const {queryOnce:q}=await import('../src/utils/db.ts')
 const {default:schema}=await import('../src/utils/db/monitoringIssuesSchema.ts')
 const {recordMonitoringOutcome:record,monitoringIssueFingerprint:fingerprint,loadMonitoringIssues:load}=await import('../src/utils/monitoringIssues.ts')
 const {mergeMonitoringCases:merge}=await import('../src/utils/mergeMonitoringCases.ts')
+const {mergeMonitoringCaseSet}=await import('../src/utils/mergeMonitoringCases.ts')
 const message='connect ECONNREFUSED git.example.com:443 Failed after 2 attempts.'
 test('merges scoped socket failures, retains evidence and aliases, serializes notifications, and waits for every check to recover',async()=>{
-    await q(`CREATE TABLE agent_automations(id text PRIMARY KEY,owner_id text,organization_id text,target_url text,monitoring_type text,action_type text,notification_destinations text[]);
+    await q(`CREATE TABLE agent_automations(id text PRIMARY KEY,owner_id text,organization_id text,target_url text,monitoring_type text,action_type text,notification_destinations text[],model_name text,expected_down boolean DEFAULT false,upside_down boolean DEFAULT false);
  CREATE TABLE agent_automation_runs(id text PRIMARY KEY,automation_id text,started_at timestamptz DEFAULT NOW(),status text,warning boolean DEFAULT false,completed_at timestamptz DEFAULT NOW());
- CREATE TABLE monitoring_case_vms(automation_id text,target_url text,vm_name text)`)
+ CREATE TABLE monitoring_case_vms(automation_id text,target_url text,vm_name text);
+ CREATE TABLE organizations(id text,status text);
+ CREATE TABLE organization_members(organization_id text,user_id text,status text,role text)`)
     await schema()
     const a={id:'a',owner_id:'owner',organization_id:null,target_url:'https://git.example.com/info/refs',monitoring_type:'fetch',action_type:'agent_prompt',notify_on:'failure',notification_destinations:['test']} as any
     const b={...a,id:'b',target_url:'https://git.example.com/'}
-    for(const item of [a,b]) await q('INSERT INTO agent_automations VALUES($1,$2,$3,$4,$5,$6,$7,NULL)',[item.id,item.owner_id,item.organization_id,item.target_url,item.monitoring_type,item.action_type,item.notification_destinations])
+    for(const item of [a,b]) await q('INSERT INTO agent_automations(id,owner_id,organization_id,target_url,monitoring_type,action_type,notification_destinations,json_rule) VALUES($1,$2,$3,$4,$5,$6,$7,NULL)',[item.id,item.owner_id,item.organization_id,item.target_url,item.monitoring_type,item.action_type,item.notification_destinations])
     const ids: string[]=[]
     for(const item of [a,b]) {
         const reason=item.id==='b'?'TLS certificate validation failed for git.example.com.':message
@@ -186,4 +189,51 @@ test('standby case grants allow reader fields but not case writes or unrelated s
             await expect(client.query(sql)).rejects.toMatchObject({code:'42501'})
         }
     } finally {await client.end()}
+})
+
+test('manual merge keeps every case field and routes later throughput samples to the retained case', async () => {
+    const automation = {
+        id: 'manual-throughput-merge', owner_id: 'owner', organization_id: null, target_url: 'system:metrics',
+        monitoring_type: 'json', action_type: 'agent_prompt', notify_on: 'failure', notification_destinations: ['test'],
+        model_name: null, expected_down: false, upside_down: false,
+        json_rule: { path: 'current.alert', operator: 'eq', value: true },
+    } as any
+    await q(`INSERT INTO agent_automations(id,owner_id,organization_id,target_url,monitoring_type,action_type,notification_destinations,json_rule)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [automation.id, automation.owner_id, null, automation.target_url, automation.monitoring_type,
+        automation.action_type, automation.notification_destinations, JSON.stringify(automation.json_rule)])
+    const summaries = [
+        'Logs throughput is outside its configured limits: NPPS (incoming load ÷ checked throughput) 0 below 100×; processing rate 0 below 200 logs/s. Pending backlog: 9943432. Check incoming traffic, processing workers, and the pending backlog.',
+        'Logs throughput is outside its configured limits: NPPS (incoming load ÷ checked throughput) 0 below 100×; processing rate 0 below 200 logs/s. Pending backlog: 9943434. Check incoming traffic, processing workers, and the pending backlog.',
+    ]
+    const ids: string[] = []
+    for (const [index, summary] of summaries.entries()) {
+        const id = (await q(`INSERT INTO monitoring_issues(automation_id,fingerprint,correlation_key,kind,summary,occurrences,
+                status_override,severity_override,comments,history,first_seen_at,last_seen_at)
+            VALUES($1,$2,$3,'failure',$4,$5,$6,$7,$8::jsonb,$9::jsonb,NOW()-($10 * interval '1 minute'),NOW()-($11 * interval '1 minute')) RETURNING id`,
+        [automation.id, `legacy-throughput-${index}`, `legacy-throughput-key-${index}`, summary, index + 1,
+            index ? 'in_progress' : 'open', index ? 'critical' : 'high', JSON.stringify([{ id: `comment-${index}`, author: 'owner', body: `Original comment ${index}` }]),
+            JSON.stringify([{ id: `history-${index}`, at: new Date().toISOString(), actor: 'owner', note: `Original history ${index}` }]), 20 - index, 10 - index])).rows[0].id
+        ids.push(String(id))
+        await q('INSERT INTO monitoring_issue_checks(issue_id,automation_id,active) VALUES($1,$2,true)', [id, automation.id])
+        await q('INSERT INTO agent_automation_runs(id,automation_id,status,issue_id) VALUES($1,$2,\'failed\',$3)', [`throughput-run-${index}`, automation.id, id])
+        await q('INSERT INTO monitoring_issue_messages(issue_id,message_id,delivered_at,message) VALUES($1,$2,NOW(),$3::jsonb)', [id, `throughput-message-${index}`, JSON.stringify({ content: `message ${index}` })])
+        await q(`INSERT INTO monitoring_issue_notifications(issue_id,destination,next_attempt_at,delivered_at,message_id,mentioned_everyone)
+            VALUES($1,'test',NOW()+($2 * interval '1 hour'),NOW()-interval '1 hour',$3,true)`, [id, 22 + index, `throughput-message-${index}`])
+    }
+    const result = await mergeMonitoringCaseSet({ targetId: ids[0]!, sourceIds: [ids[1]!], includeAll: true, viewerId: 'owner', organizationId: null, actor: 'owner', actorType: 'human' })
+    expect(result).toEqual({ targetId: `HA-${ids[0]}`, mergedIds: [`HA-${ids[1]}`] })
+    const canonical = (await q('SELECT * FROM monitoring_issues WHERE id=$1', [ids[0]])).rows[0]
+    expect(canonical).toMatchObject({ occurrences: 3, kind: 'failure', status_override: 'in_progress', severity_override: 'critical' })
+    expect(canonical.summary).toBe(summaries[1])
+    expect(canonical.comments).toHaveLength(3)
+    expect(canonical.comments.at(-1).body).toContain(summaries[0]!)
+    expect(canonical.comments.at(-1).body).toContain(summaries[1]!)
+    expect(canonical.history).toContainEqual(expect.objectContaining({ action: 'cases_merged', mergedCases: expect.any(Array) }))
+    expect((await q('SELECT merged_into FROM monitoring_issues WHERE id=$1', [ids[1]])).rows[0].merged_into).toBe(ids[0])
+    expect((await q('SELECT count(*)::int AS total FROM agent_automation_runs WHERE issue_id=$1', [ids[0]])).rows[0].total).toBe(2)
+    expect((await q('SELECT count(*)::int AS total FROM monitoring_issue_messages WHERE issue_id=$1', [ids[0]])).rows[0].total).toBe(2)
+    expect(new Date((await q('SELECT next_attempt_at FROM monitoring_issue_notifications WHERE issue_id=$1 AND destination=\'test\'', [ids[0]])).rows[0].next_attempt_at).getTime()).toBeGreaterThan(Date.now() + 22 * 60 * 60 * 1000)
+    await q('INSERT INTO agent_automation_runs(id,automation_id,status) VALUES($1,$2,\'failed\')', ['throughput-after-manual-merge', automation.id])
+    expect(await record(automation, 'throughput-after-manual-merge', 'failure', summaries[1]!)).toBe(ids[0])
+    expect((await q('SELECT count(*)::int AS total FROM monitoring_issues WHERE automation_id=$1 AND merged_into IS NULL', [automation.id])).rows[0].total).toBe(1)
 })

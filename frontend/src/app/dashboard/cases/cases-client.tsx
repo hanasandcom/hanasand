@@ -6,6 +6,8 @@ import { CreateCase } from './create-case'
 import { Filter, Loader2, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { caseDetailHref } from './caseRoutes'
+import { fetchCaseSource } from './caseData'
+import { CaseMergeDialog } from './case-merge-dialog'
 import { date } from './caseDate'
 import { humanReviewLabel, requiresHumanReview } from './caseResolution'
 import type { CaseRow } from './caseTypes'
@@ -27,6 +29,11 @@ export default function CasesClient({ organizationId }: { organizationId?: strin
     const [resolutionType, setResolutionType] = useState('all')
     const [review, setReview] = useState('all')
     const [filtersOpen, setFiltersOpen] = useState(false)
+    const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const [mergeTarget, setMergeTarget] = useState('')
+    const [mergeOpen, setMergeOpen] = useState(false)
+    const [mergeBusy, setMergeBusy] = useState(false)
+    const [mergeError, setMergeError] = useState('')
     const [cursor, setCursor] = useState<string | null>(null)
     const scrollContainer = useRef<HTMLDivElement>(null)
     const loadMoreSentinel = useRef<HTMLDivElement>(null)
@@ -90,13 +97,39 @@ export default function CasesClient({ organizationId }: { organizationId?: strin
         if (review === 'pending' && !requiresHumanReview(row.resolution)) return false
         return [row.id, row.title, row.summary, row.actor, row.victimName, row.company, row.source, row.assignedOwner].filter(Boolean).join(' ').toLowerCase().includes(query.trim().toLowerCase())
     })
+    const selectedRows = selectedIds.map(id => rows.find(row => (row.caseId || row.id) === id)).filter((row): row is CaseRow => Boolean(row))
+    const mergeAnchor = selectedRows[0]
+    const canSelectForMerge = (row: CaseRow) => row.source === 'monitoring' && row.canManage === true && Boolean(row.automationId)
+        && (!mergeAnchor || (row.automationId === mergeAnchor.automationId && row.organizationId === mergeAnchor.organizationId))
+    const submitMerge = async () => {
+        const sourceIds = selectedIds.filter(id => id !== mergeTarget)
+        if (!mergeTarget || !sourceIds.length || mergeBusy) return
+        setMergeBusy(true)
+        setMergeError('')
+        try {
+            const params = new URLSearchParams(organizationId ? { organizationId } : {})
+            const response = await fetch(`/api/cases/monitoring/merge?${params}`, {
+                method: 'POST', headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ targetId: mergeTarget, sourceIds }),
+            })
+            const payload = await response.json().catch(() => null)
+            if (!response.ok) throw new Error(payload?.error || 'The cases could not be merged.')
+            setMergeOpen(false)
+            setSelectedIds([])
+            setRevision(value => value + 1)
+        } catch (error) {
+            setMergeError(error instanceof Error ? error.message : 'The cases could not be merged.')
+        } finally {
+            setMergeBusy(false)
+        }
+    }
     return <section className='flex h-full min-h-0 min-w-0 flex-col rounded-lg border border-ui-border bg-ui-panel'>
         <div className='flex flex-wrap items-center justify-between gap-3 border-b border-ui-border p-4'>
             <div>
                 <h1 className='text-lg font-semibold text-ui-text'>Cases</h1>
                 {(!loading || rows.length > 0) && <p className='mt-1 text-xs text-ui-muted'>{visible.length}/{rows.length} cases</p>}
             </div>
-            <div className='flex items-center gap-2'><CreateCase organizationId={organizationId} />
+            <div className='flex items-center gap-2'>{selectedIds.length >= 2 && <button type='button' className='rounded border border-ui-border px-3 py-2 text-sm text-ui-text' onClick={() => { setMergeTarget(selectedIds[0]!); setMergeError(''); setMergeOpen(true) }}>Merge {selectedIds.length} cases</button>}<CreateCase organizationId={organizationId} />
                 <button type='button' aria-label={filtersOpen ? 'Hide filters' : 'Show filters'} aria-expanded={filtersOpen} title={filtersOpen ? 'Hide filters' : 'Show filters'} className='inline-flex h-8 w-8 items-center justify-center rounded text-ui-text transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary' onClick={() => setFiltersOpen(value => !value)}>
                     <Filter className='h-4 w-4' aria-hidden='true' />
                 </button>
@@ -115,6 +148,7 @@ export default function CasesClient({ organizationId }: { organizationId?: strin
             <input aria-label='Search cases' placeholder='Search cases' value={query} onChange={event => setQuery(event.target.value)} className='w-44 min-w-0 max-w-full rounded border border-ui-border bg-ui-canvas p-2 text-sm text-ui-text' />
         </div>}
         {Object.values(warnings).filter(Boolean).map(warning => <p role='alert' key={warning} className='px-4 pb-3 text-sm text-ui-text'>{warning}</p>)}
+        {mergeError && !mergeOpen && <p role='alert' className='px-4 pb-3 text-sm text-ui-text'>{mergeError}</p>}
         {loading && rows.length > 0 && <p role='status' className='px-4 pb-3 text-sm text-ui-muted'>Updating cases…</p>}
         {loading && rows.length === 0 && <div role='status' aria-label='Loading cases' aria-busy='true' className='grid min-h-0 flex-1 place-items-center'><Loader2 className='site-loading-icon' aria-hidden='true' /></div>}
         {(!loading || rows.length > 0) && (!visible.length ? <p className='p-4 text-ui-muted'>{Object.values(warnings).some(Boolean) ? 'No cases could be displayed from the available sources.' : rows.length ? 'No cases match the current filters.' : 'No cases yet.'}</p> : <div ref={scrollContainer} className='min-h-0 flex-1 overflow-auto overscroll-contain'>
@@ -122,10 +156,16 @@ export default function CasesClient({ organizationId }: { organizationId?: strin
                 className='min-w-[48rem] w-full text-left text-sm'
                 headClassName='sticky top-0 z-10 border-y border-ui-border bg-ui-raised text-ui-muted'
                 bodyClassName='divide-y divide-ui-border'
-                columnHeaders={['Case', 'Severity', 'Status', 'Owner', 'Updated'].map(label => <th key={label} scope='col' className='p-4'>{label}</th>)}
+                columnHeaders={[<th key='select' scope='col' className='p-2'><span className='sr-only'>Select case</span></th>, ...['Case', 'Severity', 'Status', 'Owner', 'Updated'].map(label => <th key={label} scope='col' className='p-4'>{label}</th>)]}
             >{visible.map(row => {
                     const reviewLabel = humanReviewLabel(row.resolution)
+                    const id = row.caseId || row.id
+                    const selected = selectedIds.includes(id)
                     return <tr key={row.caseId || row.id} className='text-ui-text'>
+                        <td className='p-2 text-center'><input type='checkbox' aria-label={`Select ${row.title || row.id} for merge`} checked={selected} disabled={!selected && !canSelectForMerge(row)} onChange={event => {
+                            setMergeError('')
+                            setSelectedIds(current => event.target.checked ? [...current, id].slice(-50) : current.filter(value => value !== id))
+                        }} /></td>
                         <td className='p-4'><Link className='font-semibold text-ui-primary hover:underline' href={caseDetailHref(row.caseId || row.id, undefined, row.organizationId || organizationId)}>{row.title || row.id}</Link>{[row.actor, row.victimName || row.company].filter(Boolean).map(value => <p className='mt-1 text-xs text-ui-muted' key={value}>{value}</p>)}{row.summary && <p className='mt-1 max-w-xl wrap-break-word text-xs text-ui-muted'>{row.summary}</p>}</td>
                         <td className='p-4'>{row.severity || row.priority || '—'}</td>
                         <td className='p-4'>{row.status.replaceAll('_', ' ')}{row.resolution && <p className='mt-1 text-xs text-ui-muted'>{row.resolution.type === 'ai' ? 'AI resolved' : row.resolution.type === 'automation' ? 'Automatically recovered' : row.resolution.type === 'unknown' ? 'Resolver not recorded' : `Resolved by ${row.resolution.actor || 'human'}`}{reviewLabel && ` · ${reviewLabel}`}</p>}</td><td className='p-4'>{row.assignedOwner || 'Unassigned'}</td><td className='p-4'>{date(row.updatedAt || row.createdAt)}</td>
@@ -135,24 +175,9 @@ export default function CasesClient({ organizationId }: { organizationId?: strin
             <div ref={loadMoreSentinel} aria-hidden='true' className='h-px' />
             {!loading && !nextCursor && rows.length > 0 && <p className='px-4 py-2 text-xs text-ui-muted/70'>No more cases</p>}
         </div>)}
+        <CaseMergeDialog open={mergeOpen} targetId={mergeTarget} rows={selectedRows} selectedCount={selectedIds.length}
+            busy={mergeBusy} error={mergeError} onTargetChange={setMergeTarget} onClose={() => setMergeOpen(false)} onSubmit={() => void submitMerge()} />
     </section>
-}
-
-async function fetchCaseSource(url: string, signal: AbortSignal) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-        let response: Response
-        try {
-            response = await fetch(url, { cache: 'no-store', signal })
-        } catch (error) {
-            if (signal.aborted || attempt === 2) throw error
-            await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)))
-            continue
-        }
-        if (response.status < 500 || attempt === 2) return response
-        await response.body?.cancel().catch(() => {})
-        await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)))
-    }
-    throw new Error('Cases are unavailable.')
 }
 
 function CaseFilter({ label, value, onChange, options }: { label: string, value: string, onChange: (value: string) => void, options: string[] }) {

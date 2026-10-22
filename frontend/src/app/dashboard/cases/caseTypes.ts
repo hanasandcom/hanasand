@@ -24,6 +24,8 @@ export type CaseRow = {
     assignedOwner?: string
     resolution?: CaseResolution
     organizationId?: string
+    automationId?: string
+    canManage?: boolean
     updatedAt?: string
     createdAt?: string
 }

@@ -32,6 +32,8 @@ export default async function ensureEventLogSchema() {
     await ensureColumn(run, 'events', 'parser_version', 'ALTER TABLE events ADD COLUMN IF NOT EXISTS parser_version TEXT NOT NULL DEFAULT \'event.v1\'')
     await ensureRecoverableIndex('idx_events_logs_time', `CREATE INDEX IF NOT EXISTS idx_events_logs_time ON events(event_timestamp DESC, id DESC)
             WHERE ingestion_id = 'logs' AND processing_status = 'processed'`)
+    await ensureRecoverableIndex('idx_events_logs_pending', `CREATE INDEX IF NOT EXISTS idx_events_logs_pending ON events(received_at, id)
+            WHERE ingestion_id = 'logs' AND processing_status = 'pending'`)
     await run('CREATE TABLE IF NOT EXISTS log_processing_cursors (name TEXT PRIMARY KEY, last_id BIGINT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_error TEXT)')
     await run('DROP TABLE IF EXISTS log_process_queue')
     await run('DROP TABLE IF EXISTS log_proxy_requests')

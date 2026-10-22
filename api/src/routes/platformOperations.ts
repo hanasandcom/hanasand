@@ -1,7 +1,7 @@
 import systemSnapshot from '../handlers/metrics/systemSnapshot.ts'
 import { getDockerStorage, clearDockerStorage } from '../handlers/dockerStorage.ts'
 import { getContainerProducts, createContainerCheckout } from '../handlers/containerBilling.ts'
-import { getMonitoringCases, updateMonitoringCase } from '../handlers/monitoringCases.ts'
+import { getMonitoringCases, mergeMonitoringCasesHandler, updateMonitoringCase } from '../handlers/monitoringCases.ts'
 import { postPushMonitoringEvent, postPushMonitoringKey } from '../handlers/pushMonitoring.ts'
 import getMetrics from '../handlers/metrics/getMetrics.ts'
 import getDatabaseOverview from '../handlers/database/getOverview.ts'
@@ -122,6 +122,7 @@ export function registerPlatformOperationsRoutes(fastify: FastifyInstance) {
     // Agent automations
     fastify.get('/cases/monitoring', getMonitoringCases)
     fastify.get('/cases/monitoring/:id', getMonitoringCases)
+    fastify.post('/cases/monitoring/merge', mergeMonitoringCasesHandler)
     fastify.patch('/cases/monitoring/:id', updateMonitoringCase)
     fastify.get('/automations', getAutomations)
     fastify.post('/automations/:id/events', postPushMonitoringEvent)

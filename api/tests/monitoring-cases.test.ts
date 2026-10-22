@@ -7,6 +7,7 @@ let admin = false
 let rows: Record<string, unknown>[] = []
 let values: unknown[] = []
 let sql = ''
+let mergeInput: Record<string, unknown> | null = null
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: authorized, id: authorized ? 'owner' : null }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: admin }), hasHanasandInternalPageAccess: async () => admin, HANASAND_ORGANIZATION_ID: 'test-tuning-org' }))
 mock.module('../src/utils/db.ts', () => ({
@@ -16,14 +17,16 @@ mock.module('../src/utils/db.ts', () => ({
     withTransaction: async <T>(work: (query: () => Promise<unknown>) => Promise<T>) => work(async () => ({ rows })),
 }))
 mock.module('../src/utils/monitoringIssues.ts', () => ({ loadMonitoringIssues: async () => [{ caseNumber: 'HA-3', notifications: [{ messageId: 'receipt' }] }] }))
+mock.module('../src/utils/mergeMonitoringCases.ts', () => ({ mergeMonitoringCaseSet: async (input: Record<string, unknown>) => { mergeInput = input; return { targetId: 'HA-3', mergedIds: ['HA-4'] } } }))
 mock.module('../src/utils/monitoringCaseEvents.ts', () => ({ loadMonitoringRelatedChecks: async () => [], monitoringCheckDetails: () => ({ endpoint: 'https://example.com' }), loadMonitoringCaseEvents: async () => ({ events: [{ id: 'run-1' }], eventTotal: 1, eventPage: 0 }) }))
-const { getMonitoringCases, updateMonitoringCase } = await import('../src/handlers/monitoringCases.ts')
+const { getMonitoringCases, mergeMonitoringCasesHandler, updateMonitoringCase } = await import('../src/handlers/monitoringCases.ts')
 const { getLogTuning } = await import('../src/handlers/logs/tuning.ts')
 const app = Fastify()
 app.get('/cases/monitoring', getMonitoringCases)
 app.get('/cases/monitoring/:id', getMonitoringCases)
 app.patch('/cases/monitoring/:id', updateMonitoringCase)
-beforeEach(() => { authorized = true; admin = false; rows = []; values = []; sql = '' })
+app.post('/cases/monitoring/merge', mergeMonitoringCasesHandler)
+beforeEach(() => { authorized = true; admin = false; rows = []; values = []; sql = ''; mergeInput = null })
 
 async function readTuningSnapshot() {
     let body: unknown
@@ -131,6 +134,27 @@ test('case mutations require authentication, valid input and the same owner scop
     expect((await patch({ status: 'closed', comment: 'Verified recovered' })).statusCode).toBe(404)
     expect(sql).toContain('a.owner_id = $2')
     expect(sql).toContain('a.organization_id IS NOT DISTINCT FROM $3::text')
+})
+
+test('case merge validates selected HA cases and delegates the scoped merge', async () => {
+    authorized = false
+    expect((await app.inject({ method: 'POST', url: '/cases/monitoring/merge', payload: { targetId: 'HA-3', sourceIds: ['HA-4'] } })).statusCode).toBe(401)
+    authorized = true
+    for (const payload of [
+        {},
+        { targetId: 'HA-3', sourceIds: [] },
+        { targetId: 'HA-3', sourceIds: ['HA-3'] },
+        { targetId: 'HA-invalid', sourceIds: ['HA-4'] },
+        { targetId: 'HA-3', sourceIds: ['HA-4', 'HA-4'] },
+        { targetId: 'HA-3', sourceIds: ['MON-4'] },
+    ]) {
+        expect((await app.inject({ method: 'POST', url: '/cases/monitoring/merge', payload })).statusCode).toBe(400)
+    }
+    expect((await app.inject({ method: 'POST', url: '/cases/monitoring/merge?tenantId=other', payload: { targetId: 'HA-3', sourceIds: ['HA-4'] } })).statusCode).toBe(403)
+    const result = await app.inject({ method: 'POST', url: '/cases/monitoring/merge?organizationId=org-1', payload: { targetId: 'HA-3', sourceIds: ['HA-4'] } })
+    expect(result.statusCode).toBe(200)
+    expect(result.json()).toEqual({ ok: true, targetId: 'HA-3', mergedIds: ['HA-4'] })
+    expect(mergeInput).toMatchObject({ targetId: '3', sourceIds: ['4'], viewerId: 'owner', organizationId: 'org-1', actor: 'owner', actorType: 'human' })
 })
 test('updates preserve recovery timestamps and append comments with authenticated attribution', async () => {
     rows = [{ id: '3' }]

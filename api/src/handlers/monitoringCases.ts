@@ -10,6 +10,7 @@ import { monitoringCaseHistory, monitoringCaseResolution } from '#utils/monitori
 import { loadMonitoringCaseEvents, loadMonitoringRelatedChecks, monitoringCheckDetails } from '#utils/monitoringCaseEvents.ts'
 import type { AutomationRow } from '#utils/automations.ts'
 import { loadMonitoringIssues } from '#utils/monitoringIssues.ts'
+import { mergeMonitoringCaseSet } from '#utils/mergeMonitoringCases.ts'
 
 // Monitoring owns the lifecycle; expose its persisted issues through the shared case surface.
 export async function getMonitoringCases(req: FastifyRequest<{ Params: { id?: string }, Querystring: { organizationId?: string, tenantId?: string, eventsPage?: string, eventsAt?: string, view?: string } }>, res: FastifyReply) {
@@ -133,4 +134,31 @@ export async function updateMonitoringCase(req: FastifyRequest<{ Params: { id: s
         RETURNING i.id`, [includeAll, id, organizationId, caseId.slice(3), body.status ?? null, body.severity ?? null, body.notificationsEnabled ?? null, JSON.stringify(comment), metadata, resolution, body.confirmResolutionId ?? null, actor, at])
     if (!result.rows.length) return res.status(body.confirmResolutionId ? 409 : 404).send({ error: body.confirmResolutionId ? 'Resolution changed, was already confirmed, or is unavailable. Refresh the case before reviewing it.' : 'Case not found.' })
     return res.send({ ok: true })
+}
+
+export async function mergeMonitoringCasesHandler(req: FastifyRequest<{ Querystring: { organizationId?: string, tenantId?: string }, Body: { targetId?: unknown, sourceIds?: unknown } }>, res: FastifyReply) {
+    const { valid, id: viewerId, authenticatedId } = await tokenWrapper(req, res)
+    if (!valid || !viewerId) return res.status(401).send({ error: 'Unauthorized.' })
+    const includeAll = (await hasHanasandInternalRouteAccess(req)).valid
+    const organizationId = req.query.organizationId || null
+    if (req.query.tenantId && req.query.tenantId !== (organizationId || viewerId)) return res.status(403).send({ error: 'Invalid case scope.' })
+    const body = req.body
+    const isCaseId = (value: unknown): value is string => typeof value === 'string'
+        && /^HA-[1-9]\d*$/.test(value) && BigInt(value.slice(3)) <= 9223372036854775807n
+    if (!body || typeof body !== 'object' || Array.isArray(body)
+        || Object.keys(body).length !== 2 || !Object.hasOwn(body, 'targetId') || !Object.hasOwn(body, 'sourceIds')
+        || !isCaseId(body.targetId)
+        || !Array.isArray(body.sourceIds) || body.sourceIds.length < 1 || body.sourceIds.length > 49
+        || body.sourceIds.some((value: unknown) => !isCaseId(value) || value === body.targetId)
+        || new Set(body.sourceIds).size !== body.sourceIds.length) {
+        return res.status(400).send({ error: 'Choose one target case and 1–49 other health-check cases to merge.' })
+    }
+    const result = await mergeMonitoringCaseSet({
+        targetId: body.targetId.slice(3), sourceIds: body.sourceIds.map((value: string) => value.slice(3)),
+        includeAll, viewerId, organizationId, actor: authenticatedId || viewerId,
+        actorType: (req as FastifyRequest & { apiKeyAuth?: unknown }).apiKeyAuth ? 'automation' : 'human',
+    })
+    if (!result) return res.status(404).send({ error: 'One or more cases could not be found or managed.' })
+    if ('error' in result) return res.status(409).send({ error: result.error })
+    return res.send({ ok: true, ...result })
 }

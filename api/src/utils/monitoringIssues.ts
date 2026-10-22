@@ -24,10 +24,17 @@ export function monitoringIssueFingerprint(automation: Pick<AutomationRow, 'targ
     // Group changing durations and retry counts, but retain HTTP codes and error details.
     // TI health and connection failures describe the same check. Keep its rule
     // in the identity so separate checks of the same source remain separate.
+    const isLogThroughputAlert = /^Logs throughput is outside its configured limits:/i.test(message)
     const reason = automation.monitoring_type === 'json' && (isIntelHealthCheck(automation) || targetUrl === 'system:recovery' || message.startsWith('JSON threshold exceeded:') || automation.target_url === 'system:metrics' && (isHostThresholdMessage(message) || isHostMetricsDataWarning(message)))
-        ? JSON.stringify(automation.json_rule) : redactSecretBearingText(message)
-            .replace(/ Failed after \d+ attempts?\.$/, '')
-            .replace(/\b\d+(?:\.\d+)?\s*(?:milliseconds?|ms|seconds?|minutes?|hours?|days?)\b/gi, '<duration>')
+        ? JSON.stringify(automation.json_rule)
+        : isLogThroughputAlert
+            ? JSON.stringify([automation.json_rule, message
+                .replace(/(NPPS\b.*?\))\s+-?\d+(?:\.\d+)?(?=\s+(?:below|above)\b)/i, '$1 <current>')
+                .replace(/(processing rate\s+)-?\d+(?:\.\d+)?(?=\s+(?:below|above)\b)/i, '$1<current>')
+                .replace(/(Pending backlog:\s*)\d+(?:\.\d+)?/i, '$1<count>')])
+            : redactSecretBearingText(message)
+                .replace(/ Failed after \d+ attempts?\.$/, '')
+                .replace(/\b\d+(?:\.\d+)?\s*(?:milliseconds?|ms|seconds?|minutes?|hours?|days?)\b/gi, '<duration>')
     return createHash('sha256').update(JSON.stringify([automation.monitoring_type, targetUrl, kind, reason])).digest('hex')
 }
 
