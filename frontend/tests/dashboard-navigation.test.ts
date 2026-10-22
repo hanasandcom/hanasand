@@ -65,6 +65,13 @@ test('traffic has separate overview, recent, map, and blocklist destinations', (
     assert.deepEqual(traffic?.items?.map(item => item.href), ['/traffic', '/traffic/recent', '/traffic/map', '/traffic/blocklist'])
 })
 
+test('project and file routes share the Repositories navigation group', () => {
+    const links = navigationLinks(getDashboardNavigation({ id: 'admin', canViewInternalPages: true }))
+    const repositoryLinks = links.filter(link => ['/projects', '/shares'].includes(link.href))
+    assert.deepEqual(repositoryLinks.map(link => link.ancestors.at(-1)), ['Repositories', 'Repositories'])
+    assert.deepEqual(repositoryLinks.map(link => link.label), ['Projects', 'Files'])
+})
+
 test('server-loaded thesis sheets are available under Content before opening Thesis', () => {
     const names = ['Overview', 'Timetable', 'Plan', 'Research', 'Experiments', 'Draft', 'Appendix']
     const document = {

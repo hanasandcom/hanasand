@@ -1,32 +1,15 @@
-import { Panel, Stat, WorkspacePrimaryAction, formatActivityTime, formatUsageKind } from './workbenchPaneDisplay'
-import { RefreshCcw, Share2, TerminalSquare } from 'lucide-react'
+import { Panel, Stat, formatActivityTime, formatUsageKind } from './workbenchPaneDisplay'
+import { RefreshCcw, Share2 } from 'lucide-react'
 
-export function WorkspaceOverviewPanels({ activeConversation, activeRepo, activeShare, workspaceSource, selectedPath, lastWorkspaceAction, lastWorkspaceActionAt, lastChangedPath, recentPaths, ownershipSummary, onConnectRepository }: { activeConversation: AIConversation | null, activeRepo: AIImportedRepo | null, activeShare: Share | null, workspaceSource: string | null, selectedPath: string | null, lastWorkspaceAction: string | null, lastWorkspaceActionAt: string | null, lastChangedPath: string | null, recentPaths: string[], ownershipSummary: AIOwnershipSummary | null, onConnectRepository: () => void }) {
-    const hasWorkspace = Boolean(activeRepo || activeShare || activeConversation?.workspaceKind)
+export function WorkspaceOverviewPanels({ lastWorkspaceAction, lastWorkspaceActionAt, lastChangedPath, recentPaths, ownershipSummary }: { lastWorkspaceAction: string | null, lastWorkspaceActionAt: string | null, lastChangedPath: string | null, recentPaths: string[], ownershipSummary: AIOwnershipSummary | null }) {
     return (<>
-        <Panel
-            icon={<TerminalSquare className='h-4 w-4' />}
-            title='Workspace'
-            subtitle={activeRepo?.fullName || activeShare?.alias || activeShare?.path || (hasWorkspace ? 'Workspace attached' : 'Connect a repo to work with your code.')}
-        >
-            {hasWorkspace ? <>
-                <Stat label='Mode' value={activeConversation?.workspaceKind === 'repo' ? 'Repository' : activeConversation?.workspaceKind === 'share' ? 'Share' : 'Workspace'} />
-                <Stat label='Source' value={workspaceSource === 'scaffold' ? 'Scaffolded starter' : workspaceSource === 'repository-sync' ? 'Repository mirror' : workspaceSource === 'share' ? 'Existing share' : 'Workspace'} />
-                {selectedPath ? <Stat label='Focus' value={selectedPath} /> : null}
-                {activeConversation?.shareIds?.length ? <Stat label='Shares' value={`${activeConversation.shareIds.length} attached`} /> : null}
-                {activeRepo ? <Stat label='Stack' value={activeRepo.stackType === 'unknown' ? (activeRepo.stackReason || 'Unsupported stack') : activeRepo.stackType.replaceAll('_', ' ')} /> : null}
-            </> : <div>
-                <WorkspacePrimaryAction onClick={onConnectRepository}>Attach workspace</WorkspacePrimaryAction>
-            </div>}
-        </Panel>
-
         {lastWorkspaceAction ? (
             <Panel
                 icon={<RefreshCcw className='h-4 w-4' />}
-                title='Recent workspace activity'
+                title='Recent repository activity'
                 subtitle={lastWorkspaceAction}
             >
-                <Stat label='Latest' value={lastChangedPath || 'Workspace-level change'} />
+                <Stat label='Latest' value={lastChangedPath || 'Repository-level change'} />
                 <Stat label='When' value={formatActivityTime(lastWorkspaceActionAt)} />
                 <Stat label='Tracked files' value={recentPaths.length ? `${recentPaths.length} recent path${recentPaths.length === 1 ? '' : 's'}` : 'No recent files'} />
             </Panel>
@@ -36,7 +19,7 @@ export function WorkspaceOverviewPanels({ activeConversation, activeRepo, active
             <Panel
                 icon={<Share2 className='h-4 w-4' />}
                 title='Ownership and usage'
-                subtitle='Workspace owners, seats, and recent usage.'
+                subtitle='Repository owners, seats, and recent usage.'
             >
                 <Stat label='Owners' value={ownershipSummary.ownerIds.join(', ') || 'Unknown'} />
                 <Stat label='Repo owners' value={ownershipSummary.repositoryOwnerIds.join(', ') || 'None'} />
@@ -86,7 +69,7 @@ export function WorkspaceAccessSummary({ activeConversation, launchOwners, repor
     return <>{            <Panel
         icon={<Share2 className='h-4 w-4' />}
         title='Access summary'
-        subtitle='Session and preview details.'
+        subtitle='Repository session and preview details.'
     >
         <Stat label='Tenant owner' value={activeConversation?.ownerId || 'Unknown'} />
         <Stat label='Your role' value={activeConversation?.collaboration?.role || 'owner'} />
@@ -98,7 +81,7 @@ export function WorkspaceAccessSummary({ activeConversation, launchOwners, repor
             Latest preview: {latestRelease ? `${latestRelease.accessPolicy.replaceAll('_', ' ')} via ${latestRelease.vmName}` : 'No report details yet'}
         </div>
         <div className='text-xs text-ui-muted'>
-            Repository, preview, launch, and report ownership are checked against the active workspace owner.
+            Repository, preview, launch, and report ownership are checked against the active repository owner.
         </div>
     </Panel>}</>
 }

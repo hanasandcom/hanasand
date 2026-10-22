@@ -52,7 +52,6 @@ const { default: AIPage } = await import('../src/app/ai/page')
 const { default: AIWindowPage } = await import('../src/app/ai/window/page')
 const { default: AIConversationPage } = await import('../src/app/ai/[id]/page')
 const { default: WorkspacePane } = await import('../src/components/ai/workspacePane')
-const { WorkspaceImportPanel } = await import('../src/components/ai/workspaceImportPanel')
 const { WorkspaceFileButton } = await import('../src/components/ai/workspaceFileButton')
 
 function renderWorkspacePane() {
@@ -163,12 +162,11 @@ test('conversation params and cookies resolve in parallel; missing auth skips sh
 
 test('workspace pane actions render with shared theme tokens and expected labels', () => {
     const html = renderWorkspacePane()
-    const importHtml = renderToStaticMarkup(createElement(WorkspaceImportPanel, {
-        importInput: '', githubToken: '', importPending: false, importError: null,
-        onImportInputChange() {}, onGitHubTokenChange() {}, onImportRepo() {},
-    }))
-    expect(importHtml).toContain('<button type="button" class="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity">Import</button>')
-    expect(html).toContain('<button type="button" class="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity hover:opacity-90">Create workspace</button>')
+    expect(html).toContain('Create repository</button>')
+    expect(html).toContain('Attach repository</button>')
+    expect(html.match(/>Repositories<\/div>/g)).toHaveLength(1)
+    expect(html).not.toContain('title=\'Shares\'')
+    expect(html).not.toContain('No shares available.')
     expect(html).toContain('<button type="button" class="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity hover:opacity-90">Run launch check</button>')
     expect(html).not.toContain('text-white')
     expect(html).not.toContain('dark:text-ui-canvas')

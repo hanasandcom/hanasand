@@ -61,7 +61,7 @@ export function ChatHeader({ conversation, isThinking, provider, canUseChatGPT, 
                 </div>
             </div>
             <div className='flex shrink-0 items-center gap-1'>
-                {showWorkspaceDetails ? <button type='button' onClick={onToggleWorkspaceDetails} aria-label={workspaceDetailsOpen ? 'Hide workspace details' : 'Show workspace details'} className={`grid h-9 w-9 place-items-center rounded-lg transition-colors ${workspaceDetailsOpen ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}><PanelRight className='h-4 w-4' /></button> : null}
+                {showWorkspaceDetails ? <button type='button' onClick={onToggleWorkspaceDetails} aria-label={workspaceDetailsOpen ? 'Hide repository details' : 'Show repository details'} title={workspaceDetailsOpen ? 'Hide repository details' : 'Show repository details'} className={`grid h-9 w-9 place-items-center rounded-lg transition-colors ${workspaceDetailsOpen ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}><PanelRight className='h-4 w-4' /></button> : null}
                 {isThinking ? <span role='status' aria-label='Working' title='Working' className='grid h-9 w-9 place-items-center text-ui-muted'><LoaderCircle className='h-4 w-4 animate-spin' /></span> : null}
                 {latestArtifacts.length ? <button type='button' onClick={onToggleArtifacts} className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${showArtifacts ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}><PanelRightOpen className='h-3.5 w-3.5' />Artifacts</button> : null}
             </div>

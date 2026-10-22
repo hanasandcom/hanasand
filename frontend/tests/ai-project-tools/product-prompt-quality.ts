@@ -95,7 +95,7 @@ test('AI website workbench handles stricter ambiguous product-building stories w
 
 test('AI website workbench handles accessibility, messy scope, and evidence pressure stories', async ({ browser, baseURL }) => {
     const stories = [
-        ['unlabeled button', 'Workbench controls are named: search chats, open editor, and workspace details are keyboard-readable.'],
+        ['unlabeled button', 'Workbench controls are named: search chats, open editor, and repository details are keyboard-readable.'],
         ['where do i see the files', 'Use the Editor link to inspect files; attached workspaces also show project files in the details rail.'],
         ['too gray', 'Art direction workspace ready: warmer contrast, sharper hierarchy, premium without fintech gloss.\n<hanasand-tool>{"action":"scaffold_nextjs_docker","projectName":"Premium Visual Direction"}</hanasand-tool>'],
         ['rent tools nearby', 'Nearby tool rental MVP ready: listings, search, availability request, and owner contact.\n<hanasand-tool>{"action":"scaffold_nextjs_docker","projectName":"Nearby Tool Rental Marketplace"}</hanasand-tool>'],
@@ -149,11 +149,11 @@ test('AI website workbench handles accessibility, messy scope, and evidence pres
 
     await expect(page.getByRole('button', { name: 'Search chats' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Open editor' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Hide workspace details' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Hide repository details' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Hide workspace details' }).click()
-    await expect(page.getByRole('button', { name: 'Show workspace details' })).toBeVisible()
-    await page.getByRole('button', { name: 'Show workspace details' }).click()
+    await page.getByRole('button', { name: 'Hide repository details' }).click()
+    await expect(page.getByRole('button', { name: 'Show repository details' })).toBeVisible()
+    await page.getByRole('button', { name: 'Show repository details' }).click()
     await expect(page.getByText('No workspace attached')).toBeVisible()
 
     for (const [index, prompt] of prompts.entries()) {

@@ -56,7 +56,7 @@ export default function AIPageClient({
     return (
         <div className='h-full enterprise-console relative w-full overflow-hidden bg-ui-canvas text-ui-text'>
             <div className='flex h-full min-h-0 flex-col'>
-                <div className={`grid min-h-0 w-full max-w-full flex-1 grid-cols-[minmax(0,1fr)] overflow-hidden ${showWorkspaceRail && detailsOpen ? 'xl:grid-cols-[15rem_minmax(0,1fr)] 2xl:grid-cols-[16rem_minmax(0,1fr)_22rem]' : 'xl:grid-cols-[16rem_minmax(0,1fr)]'}`}>
+                <div className={`grid min-h-0 w-full max-w-full flex-1 grid-cols-[minmax(0,1fr)] overflow-hidden ${showWorkspaceRail ? (detailsOpen ? 'xl:grid-cols-[14rem_minmax(0,1fr)_22rem]' : 'xl:grid-cols-[14rem_minmax(0,1fr)]') : ''}`}>
                     <div className='hidden min-h-0 md:block'>
                         <ChatSidebar
                             activeConversationId={ai.activeConversationId}
@@ -102,46 +102,50 @@ export default function AIPageClient({
                     />
 
                     {showWorkspaceRail && detailsOpen ? (
-                        <div className='h-full min-h-0 overflow-hidden xl:col-span-2 2xl:col-span-1'>
-                            <WorkspacePane
-                                activeConversation={ai.activeConversation}
-                                importedRepos={ai.importedRepos}
-                                importInput={ai.importInput}
-                                githubToken={ai.githubToken}
-                                importError={ai.importError}
-                                importPending={ai.importPending}
-                                collaborationError={ai.collaborationError}
-                                initialShares={ai.initialShares}
-                                syncingRepoId={ai.syncingRepoId}
-                                activeShareTree={ai.activeShareTree}
-                                selectedRepoFilePath={ai.selectedRepoFilePath}
-                                selectedShareFileContent={ai.selectedShareFileContent}
-                                selectedShareContent={ai.selectedShareContent}
-                                deployments={ai.deployments}
-                                releases={ai.releases}
-                                deployQuota={ai.deployQuota}
-                                ownershipSummary={ai.ownershipSummary}
-                                availableVmTargets={ai.availableVmTargets}
-                                deployPending={ai.deployPending}
-                                collaboratorPending={ai.collaboratorPending}
-                                currentUserId={ai.currentUserId}
-                                rollbackPendingId={ai.rollbackPendingId}
-                                onAttachRepo={ai.attachRepo}
-                                onAttachShare={ai.attachShare}
-                                onImportInputChange={ai.setImportInput}
-                                onGitHubTokenChange={ai.setGitHubToken}
-                                onImportRepo={ai.importRepo}
-                                onRefreshRepo={ai.refreshRepo}
-                                onRevokeRepoCredential={ai.revokeRepoCredential}
-                                onScaffoldStarter={ai.scaffoldStarter}
-                                onStartDeployment={ai.startDeployment}
-                                onInviteCollaborator={(input) => ai.inviteCollaborator(input.userId, input.role)}
-                                onRollbackRelease={ai.rollbackRelease}
-                                onRemoveCollaborator={ai.removeCollaborator}
-                                onSelectRepoFile={ai.selectRepoFile}
-                                onSelectShareFile={ai.selectShareFile}
-                            />
-                        </div>
+                        <>
+                            <button type='button' aria-label='Close repository details' onClick={() => setDetailsOpen(false)} className='fixed inset-0 z-30 bg-ui-scrim/60 xl:hidden' />
+                            <div className='fixed inset-y-0 right-0 z-40 h-full w-[min(25rem,92vw)] min-w-0 overflow-hidden p-2 xl:static xl:col-span-1 xl:w-auto xl:p-0'>
+                                <WorkspacePane
+                                    activeConversation={ai.activeConversation}
+                                    importedRepos={ai.importedRepos}
+                                    importInput={ai.importInput}
+                                    githubToken={ai.githubToken}
+                                    importError={ai.importError}
+                                    importPending={ai.importPending}
+                                    collaborationError={ai.collaborationError}
+                                    initialShares={ai.initialShares}
+                                    syncingRepoId={ai.syncingRepoId}
+                                    activeShareTree={ai.activeShareTree}
+                                    selectedRepoFilePath={ai.selectedRepoFilePath}
+                                    selectedShareFileContent={ai.selectedShareFileContent}
+                                    selectedShareContent={ai.selectedShareContent}
+                                    deployments={ai.deployments}
+                                    releases={ai.releases}
+                                    deployQuota={ai.deployQuota}
+                                    ownershipSummary={ai.ownershipSummary}
+                                    availableVmTargets={ai.availableVmTargets}
+                                    deployPending={ai.deployPending}
+                                    collaboratorPending={ai.collaboratorPending}
+                                    currentUserId={ai.currentUserId}
+                                    rollbackPendingId={ai.rollbackPendingId}
+                                    onClose={() => setDetailsOpen(false)}
+                                    onAttachRepo={ai.attachRepo}
+                                    onAttachShare={ai.attachShare}
+                                    onImportInputChange={ai.setImportInput}
+                                    onGitHubTokenChange={ai.setGitHubToken}
+                                    onImportRepo={ai.importRepo}
+                                    onRefreshRepo={ai.refreshRepo}
+                                    onRevokeRepoCredential={ai.revokeRepoCredential}
+                                    onScaffoldStarter={ai.scaffoldStarter}
+                                    onStartDeployment={ai.startDeployment}
+                                    onInviteCollaborator={(input) => ai.inviteCollaborator(input.userId, input.role)}
+                                    onRollbackRelease={ai.rollbackRelease}
+                                    onRemoveCollaborator={ai.removeCollaborator}
+                                    onSelectRepoFile={ai.selectRepoFile}
+                                    onSelectShareFile={ai.selectShareFile}
+                                />
+                            </div>
+                        </>
                     ) : null}
                 </div>
 

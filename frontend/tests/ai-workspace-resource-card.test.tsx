@@ -3,28 +3,26 @@ import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { WorkspaceRepositoryPanel } from '../src/components/ai/workspaceRepositoryPanel'
-import { WorkspaceSharePanels } from '../src/components/ai/workspaceSharePanels'
 
 const noop = () => {}
 
-test('repository and share panels associate selected styling with each labeled resource', () => {
+test('repository panel associates selected styling with imported and file-backed repositories', () => {
     const repositories = [repository('repo-selected', 'selected-repository'), repository('repo-idle', 'idle-repository')]
-    const repositoryHtml = renderToStaticMarkup(createElement(WorkspaceRepositoryPanel, {
-        importedRepos: repositories, activeRepoId: 'repo-selected', syncingRepoId: null,
-        selectedRepoFilePath: null, recentPaths: [], lastChangedPath: null,
-        onAttachRepo: noop, onRevokeRepoCredential: noop, onRefreshRepo: noop, onSelectRepoFile: noop,
-    }))
     const conversation = activeConversation('share-selected')
-    const shares = [share('share-selected', 'selected-share'), share('share-idle', 'idle-share')]
-    const shareHtml = renderToStaticMarkup(createElement(WorkspaceSharePanels, {
-        activeConversation: conversation, initialShares: shares, activeTreePaths: [], selectedPath: null,
-        recentPaths: [], lastChangedPath: null, selectedContent: null, onAttachShare: noop, onSelectShareFile: noop,
+    const repositoryHtml = renderToStaticMarkup(createElement(WorkspaceRepositoryPanel, {
+        importedRepos: repositories, initialShares: [share('share-selected', 'selected-share'), share('share-idle', 'idle-share')],
+        activeConversation: conversation, activeRepoId: 'repo-selected', syncingRepoId: null,
+        selectedRepoFilePath: null, recentPaths: [], lastChangedPath: null,
+        activeTreePaths: [], selectedContent: null, importInput: '', githubToken: '', importError: null, importPending: false,
+        onAttachRepo: noop, onAttachShare: noop, onImportInputChange: noop, onGitHubTokenChange: noop, onImportRepo: noop,
+        onCreateRepository: noop, onRevokeRepoCredential: noop, onRefreshRepo: noop, onSelectRepoFile: noop, onSelectShareFile: noop,
     }))
 
     expectCardState(repositoryHtml, 'selected-repository', true)
     expectCardState(repositoryHtml, 'idle-repository', false)
-    expectCardState(shareHtml, 'selected-share', true)
-    expectCardState(shareHtml, 'idle-share', false)
+    expectCardState(repositoryHtml, 'selected-share', true)
+    expectCardState(repositoryHtml, 'idle-share', false)
+    expect(repositoryHtml).not.toContain('Shares')
 })
 
 function expectCardState(html: string, label: string, selected: boolean) {
