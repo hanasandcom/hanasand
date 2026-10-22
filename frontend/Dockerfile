@@ -6,8 +6,9 @@ RUN test "$(cat /tmp/hanasand-source-head)" = "ref: refs/heads/main" || { echo "
 WORKDIR /workspace/frontend
 
 COPY frontend/package.json frontend/bun.lock* frontend/bunfig.toml ./
-COPY frontend/packages/mail-ui ./packages/mail-ui
+COPY frontend/packages/hanasand ./packages/hanasand
 RUN bun install
+RUN bun run --cwd packages/hanasand build
 
 FROM deps AS builder
 
