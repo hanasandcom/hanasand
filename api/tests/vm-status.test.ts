@@ -96,6 +96,40 @@ test('local VM status reads completed cloud-init setup and persists its terminal
     expect(localConfigUpdates).toEqual([{ 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Running', status_reason: 'Setup complete' }) }])
 })
 
+test('local VM status reports setup failure when cloud-init finished without writing the service status marker', async () => {
+    localConfig = {
+        'user.hanasand.setup_plan': 'setup-hash',
+        'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Installing nodejs, postgresql…' }),
+    }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        const path = new URL(String(input)).searchParams.get('path')
+        if (path === '/var/lib/hanasand-vm-setup/status') return new Response('Not found', { status: 404 })
+        if (path === '/var/lib/cloud/instance/boot-finished') return new Response('')
+        return Response.json({ metadata: { status: 'Running' } })
+    }) as typeof fetch
+
+    const result = await localVmStatus('setup-marker-missing-vm')
+
+    expect(result.status).toBe('Error')
+    expect(result.status_reason).toContain('without reporting whether the selected services were installed')
+    expect(localConfigUpdates).toEqual([{
+        'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', status_reason: 'VM startup finished without reporting whether the selected services were installed. Contact Support if the problem persists.' }),
+    }])
+})
+
+test('local VM status accepts its own persisted status_reason field while cloud-init is still running', async () => {
+    const savedState = { status: 'Provisioning', status_reason: 'Installing nodejs, postgresql…' }
+    localConfig = {
+        'user.hanasand.setup_plan': 'setup-hash',
+        'user.hanasand.provisioning_state': JSON.stringify(savedState),
+    }
+    globalThis.fetch = (async (input: string | URL | Request) => String(input).includes('/state')
+        ? Response.json({ metadata: { status: 'Running' } })
+        : new Response('Not found', { status: 404 })) as typeof fetch
+
+    expect(await localVmStatus('persisted-status-reason-vm')).toEqual(savedState)
+})
+
 test('batched VM list status reads local LXD once and keeps remote probes on assigned hosts', async () => {
     let localRequests = 0
     globalThis.fetch = (async () => {
@@ -121,23 +155,28 @@ test('batched VM inventory keeps persisted provisioning and failure feedback', a
     globalThis.fetch = (async () => Response.json({ metadata: [
         { name: 'local-provisioning-inventory', status: 'Running', config: { 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Installing nodejs, postgresql…' }) } },
         { name: 'local-failed-inventory', status: 'Running', config: { 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', message: 'Service installation failed.' }) } },
+        { name: 'local-provisioning-status-reason-inventory', status: 'Running', config: { 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', status_reason: 'Installing Bun…' }) } },
         { name: 'local-ready-inventory', status: 'Running', config: {} },
     ] })) as typeof fetch
     hostWorkerStatuses.set('/vms/internal/local-provisioning-inventory/status', { status: 'Provisioning', status_reason: 'Installing nodejs, postgresql…' })
     hostWorkerStatuses.set('/vms/internal/local-failed-inventory/status', { status: 'Error', status_reason: 'Service installation failed.' })
+    hostWorkerStatuses.set('/vms/internal/local-provisioning-status-reason-inventory/status', { status: 'Provisioning', status_reason: 'Installing Bun…' })
 
     const result = await withLiveVmStatuses([
         { name: 'local-provisioning-inventory', primary_host: 'inspur' },
         { name: 'local-failed-inventory', primary_host: 'inspur' },
+        { name: 'local-provisioning-status-reason-inventory', primary_host: 'inspur' },
         { name: 'local-ready-inventory', primary_host: 'inspur' },
     ])
 
     expect(result.map(vm => [vm.status, vm.status_reason])).toEqual([
         ['PROVISIONING', 'Installing nodejs, postgresql…'],
         ['ERROR', 'Service installation failed.'],
+        ['PROVISIONING', 'Installing Bun…'],
         ['RUNNING', ''],
     ])
     expect(remoteRequests.map(request => request.path)).toEqual([
         '/vms/internal/local-provisioning-inventory/status',
+        '/vms/internal/local-provisioning-status-reason-inventory/status',
     ])
 })

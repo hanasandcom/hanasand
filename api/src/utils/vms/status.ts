@@ -35,15 +35,31 @@ export async function localVmStatus(name: string): Promise<State> {
     const [setupStatus, ...messageParts] = rawState.trim().split('\t')
     const setupMessage = messageParts.join('\t').slice(0, 300)
     const persistedState = instance.config?.['user.hanasand.provisioning_state']
-    const state = setupStatus === 'Provisioning' || setupStatus === 'Error' || setupStatus === 'Running'
-        ? { status: setupStatus, status_reason: setupMessage || undefined }
-        : persistedState ? parsePersistedSetupState(persistedState) : undefined
+    const persistedSetupState = persistedState ? parsePersistedSetupState(persistedState) : undefined
+    const cloudInitFinished = !setupResponse?.ok && await hasCloudInitFinished(name)
+    let state: State | undefined
+    if (setupStatus === 'Provisioning' || setupStatus === 'Error' || setupStatus === 'Running') {
+        state = { status: setupStatus, status_reason: setupMessage || undefined }
+    } else if (persistedSetupState && persistedSetupState.status.toLowerCase() !== 'provisioning') {
+        state = persistedSetupState
+    } else if (cloudInitFinished) {
+        state = { status: 'Error', status_reason: 'VM startup finished without reporting whether the selected services were installed. Contact Support if the problem persists.' }
+    } else {
+        state = persistedSetupState
+    }
     const setupState = state || { status: 'Provisioning', status_reason: 'Preparing selected services' }
 
     if (setupState.status !== 'Provisioning' && persistedState !== JSON.stringify(setupState)) {
         await updateLocalLxdConfig(name, { 'user.hanasand.provisioning_state': JSON.stringify(setupState) }).catch(() => {})
     }
     return setupState
+}
+
+async function hasCloudInitFinished(name: string) {
+    const path = lxdProjectPath(`/1.0/instances/${encodeURIComponent(name)}/files?path=${encodeURIComponent('/var/lib/cloud/instance/boot-finished')}`, config.lxd_project)
+    const options: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
+    const response = await fetch(`http://localhost${path}`, options).catch(() => null)
+    return response?.ok === true
 }
 
 async function probe(name: string, host = config.vm_host_id): Promise<State> {
@@ -133,9 +149,10 @@ export async function withLiveVmStatuses<T extends Vm>(vms: T[]) {
 
 function parsePersistedSetupState(raw: string): State | undefined {
     try {
-        const value = JSON.parse(raw) as { status?: unknown; message?: unknown }
-        if (['Provisioning', 'Error', 'Running'].includes(String(value.status)) && typeof value.message === 'string') {
-            return { status: String(value.status), status_reason: value.message.slice(0, 300) }
+        const value = JSON.parse(raw) as { status?: unknown; message?: unknown; status_reason?: unknown }
+        const message = typeof value.message === 'string' ? value.message : value.status_reason
+        if (['Provisioning', 'Error', 'Running'].includes(String(value.status)) && typeof message === 'string') {
+            return { status: String(value.status), status_reason: message.slice(0, 300) }
         }
     } catch { /* Keep the VM's live LXD state if the setup marker is malformed. */ }
     return undefined
@@ -162,9 +179,10 @@ function provisioningState(instance: LocalInstance): State | undefined {
     const raw = instance.config?.[provisioningConfigKey]
     if (!raw) return undefined
     try {
-        const value = JSON.parse(raw) as { status?: unknown; message?: unknown }
-        if ((value.status !== 'Provisioning' && value.status !== 'Error') || typeof value.message !== 'string') return undefined
-        return { status: value.status, status_reason: value.message.slice(0, 300) }
+        const value = JSON.parse(raw) as { status?: unknown; message?: unknown; status_reason?: unknown }
+        const message = typeof value.message === 'string' ? value.message : value.status_reason
+        if ((value.status !== 'Provisioning' && value.status !== 'Error') || typeof message !== 'string') return undefined
+        return { status: value.status, status_reason: message.slice(0, 300) }
     } catch {
         return undefined
     }
