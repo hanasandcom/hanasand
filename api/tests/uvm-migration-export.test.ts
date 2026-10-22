@@ -21,11 +21,12 @@ test('exports all organization UVM rows in a repeatable read-only snapshot', asy
 
     expect(calls[0]?.sql).toBe('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
     expect(calls.slice(1).every(call => call.params?.[0] === 'org-1')).toBe(true)
-    expect(payload.assets[0]).toMatchObject({ verification_token: 'secret-dns-token', authorized_addresses: ['8.8.8.8'] })
-    expect(payload.networkRuns[0]).toMatchObject({ scanner_run_id: 'scanner-run-1' })
+    expect(payload.assets[0]).toMatchObject({ organizationId: 'org-1', verificationToken: 'secret-dns-token', authorizedAddresses: ['8.8.8.8'] })
+    expect(payload.networkRuns[0]).toMatchObject({ scannerRunId: 'scanner-run-1' })
     expect(payload.assessments[0]).toMatchObject({ steps: [{ id: 'step-1' }] })
-    expect(payload.findings[0]).toMatchObject({ triage_note: 'Review after deployment' })
-    expect(payload.observations[0]).toMatchObject({ run_id: 'run-1' })
+    expect(payload.findings[0]).toMatchObject({ triageNote: 'Review after deployment' })
+    expect(payload.observations[0]).toMatchObject({ runId: 'run-1' })
+    expect(payload).toHaveProperty('triageHistory', [])
     expect(calls.every(call => /^SELECT|^SET TRANSACTION/.test(call.sql))).toBe(true)
 })
 

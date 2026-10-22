@@ -16,13 +16,18 @@ export async function exportUvmMigration(query: SqlQuery, organizationId: string
         query('SELECT * FROM uvm_finding_observations WHERE organization_id = $1 ORDER BY id', [organizationId]),
     ])
     return {
-        assets: assets.rows,
-        networkRuns: networkRuns.rows,
-        tenableRuns: tenableRuns.rows,
-        assessments: assessments.rows,
-        findings: findings.rows,
-        observations: observations.rows,
+        assets: assets.rows.map(toScannerRecord),
+        networkRuns: networkRuns.rows.map(toScannerRecord),
+        tenableRuns: tenableRuns.rows.map(toScannerRecord),
+        assessments: assessments.rows.map(row => ({ ...toScannerRecord(row), steps: Array.isArray(row.steps) ? row.steps.map(step => toScannerRecord(step as Record<string, unknown>)) : [] })),
+        findings: findings.rows.map(toScannerRecord),
+        observations: observations.rows.map(toScannerRecord),
+        triageHistory: [],
     }
+}
+
+function toScannerRecord(row: Record<string, unknown>) {
+    return Object.fromEntries(Object.entries(row).map(([key, value]) => [key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase()), value]))
 }
 
 export function migrationIdFor(payload: unknown) {
