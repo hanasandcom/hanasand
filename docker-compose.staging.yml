@@ -4,6 +4,7 @@
 services:
   deploy-path-guard:
     container_name: hanasand_app_staging_guard
+    network_mode: none
     environment:
       HANASAND_DEPLOY_GUARD_CWD: /home/hanasand/hanasand
     volumes: !override
