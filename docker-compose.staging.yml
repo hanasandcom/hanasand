@@ -16,7 +16,7 @@ services:
     image: hanasand_app_staging_frontend:${HANASAND_RELEASE_COMMIT:?set HANASAND_RELEASE_COMMIT}
     env_file: !override []
     environment:
-      FRONTEND_AUTH_API: http://localhost:3282/api
+      FRONTEND_AUTH_API: http://hanasand_identity_staging_primary:8081/api
       FRONTEND_IDENTITY_API: http://hanasand_identity_staging_primary:8081/api
       FRONTEND_INTERNAL_API: http://hanasand_app_staging_api:8080/api
       FRONTEND_INTERNAL_AI_API: http://172.31.254.6:19182/api
