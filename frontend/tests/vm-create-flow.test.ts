@@ -112,7 +112,8 @@ test('VM creation preserves workspace conflict details from the API', async () =
 
 test('VM filter popover uses the standard inset and slider-knob icon', async () => {
     const [source, inventory] = await Promise.all([readFile(filters, 'utf8'), readFile(components, 'utf8')])
-    expect(inventory).toContain('content-start gap-3 p-2 lg:p-4')
+    expect(inventory).toContain('content-start gap-3 p-2')
+    expect(inventory).not.toContain('content-start gap-3 p-2 lg:p-4')
     expect(source).toContain('left: position.mobile ? 8 : undefined')
     expect(source).toContain('right = mobile ? 8 :')
     expect(source).toContain('width: position.mobile ? \'calc(100vw - 16px)\'')
