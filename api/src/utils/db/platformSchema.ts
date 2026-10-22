@@ -3,7 +3,6 @@ import { ensureFailoverSchema } from '../vms/failover.ts'
 import { ensureContainerBillingSchema } from '../../handlers/containerBilling.ts'
 import ensureServiceAccountsSchema from './serviceAccountsSchema.ts'
 import ensureAccountIdentitySchema from './accountIdentitySchema.ts'
-import ensureSocialAuthSchema from './socialAuthSchema.ts'
 import ensureThesisSchema from './thesisSchema.ts'
 
 export default async function ensurePlatformSchema() {
@@ -27,5 +26,4 @@ export default async function ensurePlatformSchema() {
     await ensureAccountIdentitySchema()
     await ensureServiceAccountsSchema()
     await ensureThesisSchema()
-    await ensureSocialAuthSchema()
 }

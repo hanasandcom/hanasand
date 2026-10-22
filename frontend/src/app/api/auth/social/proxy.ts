@@ -1,5 +1,4 @@
 import { clientHeaders } from '@/utils/auth/clientHeaders'
-import { randomBytes } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { setAuthCookies } from '../_authCookies'
@@ -9,8 +8,8 @@ export function socialOrigin() {
 }
 const safePath = (path: string) => path.startsWith('/') && !path.startsWith('//') && !path.split('').some(char => char === '\\' || char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127)
 const validProvider = (provider: string) => provider === 'google' || provider === 'apple'
-const cookieName = (provider: string) => `__Host-social-${provider}`
-const cookieOptions = { httpOnly: true, secure: true, sameSite: 'none' as const, path: '/', maxAge: 600 }
+const bindingCookie = 'hanasand_auth_binding'
+const cookieOptions = { httpOnly: true, secure: true, sameSite: 'none' as const, domain: '.hanasand.com', path: '/', maxAge: 600 }
 function failure(message: string, path?: string) {
     const url = new URL('/login', socialOrigin())
     url.searchParams.set('socialError', message)
@@ -27,19 +26,22 @@ export async function start(req: NextRequest, provider: string) {
     const link = req.method === 'POST'
     // Linking is an explicit same-origin action; never link accounts on a GET.
     if (link && (req.headers.get('origin') !== socialOrigin() || req.cookies.get('impersonation_token')?.value)) return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 })
-    const binding = randomBytes(32).toString('base64url')
     const token = req.cookies.get('access_token')?.value
     const id = req.cookies.get('id')?.value
     const response = await upstream(`${provider}/start`, {
         method: 'POST', headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json', ...(link && token ? { Authorization: `Bearer ${token}` } : {}), ...(link && id ? { id } : {}) },
-        body: JSON.stringify({ binding, link, redirectPath: req.nextUrl.searchParams.get('redirectPath') }),
+        body: JSON.stringify({ link, redirectPath: req.nextUrl.searchParams.get('redirectPath') }),
     })
     const data = await response?.json().catch(() => null)
     if (!response?.ok || !data?.url) return failure(data?.error || 'Sign-in service is unavailable.', req.nextUrl.searchParams.get('redirectPath') || undefined)
     const target = new URL(data.url)
     if (target.protocol !== 'https:' || target.hostname !== (provider === 'google' ? 'accounts.google.com' : 'appleid.apple.com')) return failure('Invalid provider response.')
     const redirect = NextResponse.redirect(target, 303)
-    redirect.cookies.set(cookieName(provider), binding, cookieOptions)
+    const encodedBinding = response.headers.get('set-cookie')?.match(/(?:^|[,; ]+)hanasand_auth_binding=([^;,]+)/)?.[1]
+    let binding = ''
+    try { binding = decodeURIComponent(encodedBinding || '') } catch { /* Reject malformed upstream cookies. */ }
+    if (!/^[A-Za-z0-9_-]{43}$/.test(binding)) return failure('Sign-in service returned an invalid browser binding.')
+    redirect.cookies.set(bindingCookie, binding, cookieOptions)
     redirect.headers.set('Cache-Control', 'no-store')
     redirect.headers.set('Referrer-Policy', 'no-referrer')
     return redirect
@@ -52,7 +54,7 @@ export async function callback(req: NextRequest, provider: string) {
     } catch { return failure('Invalid sign-in response.') }
     const response = await upstream(`${provider}/callback`, {
         method: 'POST', headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: fields.get('code'), state: fields.get('state'), binding: req.cookies.get(cookieName(provider))?.value, cancelled: Boolean(fields.get('error')) }),
+        body: JSON.stringify({ code: fields.get('code'), state: fields.get('state'), binding: req.cookies.get(bindingCookie)?.value, cancelled: Boolean(fields.get('error')) }),
     })
     const data = await response?.json().catch(() => null)
     let result: NextResponse
@@ -61,7 +63,7 @@ export async function callback(req: NextRequest, provider: string) {
         result = NextResponse.redirect(new URL(path, socialOrigin()), 303)
         if (!data.linked) setAuthCookies(req, result, data)
     } else result = failure(data?.error || 'Sign-in service is unavailable.')
-    result.cookies.set(cookieName(provider), '', { ...cookieOptions, maxAge: 0 })
+    result.cookies.set(bindingCookie, '', { ...cookieOptions, maxAge: 0 })
     result.headers.set('Cache-Control', 'no-store')
     result.headers.set('Referrer-Policy', 'no-referrer')
     return result

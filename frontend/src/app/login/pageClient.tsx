@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Script from 'next/script'
 import { usePathname, useRouter } from 'next/navigation'
 import ErrorNotice from '@/components/error/errorNotice'
@@ -13,7 +13,6 @@ import ResetVerificationForm from './ResetVerificationForm'
 import SignupForm from './SignupForm'
 import SignupVerification from './SignupVerification'
 import { LoginMode, LoginPageProps, safeRedirectPath } from './loginMode'
-import { usePasskeyLogin } from './usePasskeyLogin'
 import { usePasswordResetFlow } from './usePasswordResetFlow'
 import { useSignupFlow } from './useSignupFlow'
 
@@ -31,7 +30,6 @@ export default function LoginPage({
     const [mode, setMode] = useState<LoginMode>(initialMode)
     const [busy, setBusy] = useState(false)
     const [hydrated, setHydrated] = useState(false)
-    const loginUsernameRef = useRef<HTMLInputElement>(null)
     const { condition: error, setCondition: setError } = useClearStateAfter({ initialState: serverError })
     const { condition: internal } = useClearStateAfter({ initialState: serverInternal })
     const { condition: expired } = useClearStateAfter({ initialState: serverExpired, timeout: 8000 })
@@ -53,24 +51,12 @@ export default function LoginPage({
 
     const signup = useSignupFlow({ busy, setBusy, setError, changeMode, setMode, redirectPath })
     const reset = usePasswordResetFlow({ busy, setBusy, setError, changeMode, setMode, router })
-    const handlePasskeyLogin = usePasskeyLogin({
-        usernameRef: loginUsernameRef,
-        setBusy,
-        setError,
-        redirectPath,
-        router,
-    })
-
     useEffect(() => {
         const token = getCookie('access_token')
         const id = getCookie('id')
         if (token && id && !serverInternal && !serverExpired && !socialError) router.push(redirectPath)
         setHydrated(true)
     }, [redirectPath, router, serverExpired, serverInternal, socialError])
-
-    function handleLoginSubmit() {
-        setBusy(true)
-    }
 
     return (
         <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>
@@ -94,14 +80,10 @@ export default function LoginPage({
                         <LoginForm
                             redirectPath={redirectPath}
                             initialUsername={initialUsername}
-                            usernameRef={loginUsernameRef}
                             hydrated={hydrated}
-                            busy={busy}
                             socialError={socialError}
                             ssoHref={ssoHref}
-                            onSubmit={handleLoginSubmit}
                             onChangeMode={changeMode}
-                            onPasskeyLogin={handlePasskeyLogin}
                         />
                     ) : null}
                     {mode === 'signup' ? (

@@ -28,7 +28,7 @@ assert.equal(formLocation.searchParams.get('error'), 'Authentication service tim
 const jsonResponse = await POST(new NextRequest('https://app.example/api/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ id: 'alice', password: 'secret' }),
+    body: JSON.stringify({ username: 'alice', password: 'secret' }),
 }))
 assert.equal(jsonResponse.status, 504)
 assert.deepEqual(await jsonResponse.json(), {
@@ -51,7 +51,7 @@ globalThis.fetch = (async (input, init) => {
 const successResponse = await POST(new NextRequest('https://app.example/api/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-request-id': 'request-123' },
-    body: JSON.stringify({ id: 'alice', password: 'secret' }),
+    body: JSON.stringify({ username: 'alice', password: 'secret' }),
 }))
 assert.equal(successResponse.status, 200)
 assert.deepEqual(await successResponse.json(), {

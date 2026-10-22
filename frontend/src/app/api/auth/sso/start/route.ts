@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const data = await upstream.json().catch(() => null)
     if (!upstream.ok || !data?.url || !safeProviderRedirect(data.url)) return loginRedirect(req, data?.error || 'SSO login is unavailable.')
     const response = NextResponse.redirect(data.url, 303)
-    response.cookies.set('__Host-sso-oidc', binding, { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 600 })
+    response.cookies.set('hanasand_auth_binding', binding, { httpOnly: true, secure: true, sameSite: 'none', domain: '.hanasand.com', path: '/', maxAge: 600 })
     response.headers.set('Cache-Control', 'no-store')
     response.headers.set('Referrer-Policy', 'no-referrer')
     return response

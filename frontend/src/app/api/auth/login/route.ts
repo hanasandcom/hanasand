@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
         id: String(form.get('username') || form.get('id') || ''),
         password: String(form.get('password') || ''),
     }))
-    const id = body?.id?.trim()
+    const id = String(body?.id || (body as { username?: string } | null)?.username || '').trim()
     const password = body?.password
 
     if (!id || !password) {
