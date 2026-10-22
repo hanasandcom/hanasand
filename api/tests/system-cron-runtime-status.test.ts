@@ -34,7 +34,6 @@ mock.module('../src/utils/vulnerabilities/scanner.ts', () => ({
     setVulnerabilityScannerPaused: async() => {},
     startTrackedVulnerabilityScan: async() => {},
 }))
-mock.module('../src/utils/vulnerabilities/uvmScanner.ts', () => ({ UVM_SCHEDULE_JOB_ID: 'api-uvm-scheduled-scans' }))
 mock.module('../src/utils/db/backups.ts', () => ({
     DATABASE_BACKUP_JOB_ID: 'api-database-backup',
     collectDatabaseBackupServices: async() => [{

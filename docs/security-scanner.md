@@ -14,7 +14,7 @@ Before a manual scan or recurring schedule can run, an owner, administrator, or 
 
 The Hanasand page is a browser client for `https://scanner.hanasand.com/api/v1/uvm/*`. Scanner validates Hanasand Identity sessions, enforces organization membership and edit roles, and owns UVM data, provider credentials, scheduling, and scan execution. The browser never receives the private Scanner service token. Configure the Scanner Identity service URL/token, organization ID/slug, and `SCANNER_CORS_ORIGINS` in the Scanner environment.
 
-Legacy UVM rows are transferred once from the Hanasand database with `api/scripts/migrate-uvm-data-to-scanner.ts`; that utility is removed after the production transfer is verified. The source rows remain intact during the transfer. Do not run the production cutover until staging import counts and dashboard history have been checked.
+The Scanner service owns the vulnerability-management API and data. Hanasand serves the dashboard UI and sends authenticated requests directly to Scanner; its API contains no UVM routes, storage, or migration client.
 
 ## Tenable Vulnerability Management
 

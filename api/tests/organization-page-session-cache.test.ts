@@ -37,6 +37,4 @@ test('prompt page and API routes require Hanasand organization access', () => {
     expect(canViewHanasandInternalRoute('POST', '/api/prompt')).toBe(true)
     expect(canViewHanasandInternalRoute('GET', '/api/prompt/file')).toBe(true)
     expect(canViewHanasandInternalRoute('POST', '/api/prompt/worker')).toBe(true)
-    expect(canViewHanasandInternalRoute('GET', '/api/vulnerabilities/uvm')).toBe(true)
-    expect(canViewHanasandInternalRoute('POST', '/api/vulnerabilities/uvm/assets/asset-1/scans')).toBe(true)
 })

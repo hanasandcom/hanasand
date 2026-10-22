@@ -6,113 +6,6 @@ export type SeverityLevel = 'critical' | 'high' | 'medium' | 'low' | 'unknown'
 export type SeverityCount = Record<SeverityLevel, number>
 export type ScannerEngine = 'trivy' | 'dockerScout'
 
-export type NetworkScannerEngine = {
-    id: 'nmap'
-    name: string
-    status: 'available' | 'unavailable'
-    version: string | null
-    reason: string | null
-    profiles: Array<{ id: 'tcp-top-100', name: string, safe: true }>
-    coverage: string[]
-    notCovered: string[]
-}
-
-export type NetworkScannerHost = {
-    address: string
-    status: string
-    timedOut: boolean
-    ports: Array<{
-        port: number
-        protocol: 'tcp'
-        state: string
-        service: string | null
-        product: string | null
-        version: string | null
-        extraInfo: string | null
-    }>
-}
-
-export type NetworkScannerRun = {
-    runId: string
-    requestId: string
-    organizationId: string
-    assetId: string
-    target: string
-    addresses: string[]
-    profile: 'tcp-top-100'
-    status: 'queued' | 'running' | 'succeeded' | 'partial' | 'failed' | 'cancelled'
-    createdAt: string
-    startedAt: string | null
-    finishedAt: string | null
-    engineVersion: string | null
-    rawXmlSha256: string | null
-    hosts: NetworkScannerHost[]
-    coverage: { known: boolean, requestedAddresses: number, attemptedAddresses: number, completedAddresses: number, completedAddressList: string[], missingAddresses: string[], unattemptedAddresses: string[] }
-    error: string | null
-}
-
-export type TenableIntegration = {
-    provider: 'tenable-vm'
-    configured: boolean
-    credentialStoreAvailable: boolean
-    region: string | null
-    accessKeyHint: string | null
-    testedAt: string | null
-    updatedAt: string | null
-    error: string | null
-}
-
-export type TenableScan = { id: string, scheduleUuid: string | null, name: string, enabled: boolean, status: string | null, scannerName: string | null, targets: string }
-export type TenableFinding = {
-    findingId: string
-    provider: 'tenable-vm'
-    pluginId: number
-    cveIds: string[]
-    title: string
-    severity: SeverityLevel
-    cvssScore: number | null
-    cvssVector: string | null
-    description: string | null
-    solution: string | null
-    evidence: string | null
-    assetAddress: string
-    firstSeen: string | null
-    lastSeen: string | null
-    status: string
-    observed: string | null
-    port: number | null
-    protocol: string | null
-}
-export type TenableRun = {
-    runId: string
-    requestId: string
-    organizationId: string
-    assetId: string
-    target: string
-    addresses: string[]
-    scanId: string
-    status: 'queued' | 'launching' | 'running' | 'exporting' | 'succeeded' | 'partial' | 'failed' | 'cancelled'
-    createdAt: string
-    startedAt: string | null
-    finishedAt: string | null
-    error: string | null
-    findings: TenableFinding[]
-    coverage?: { attemptedAddresses: number, completedAddresses: number }
-}
-
-export type GvmFinding = {
-    findingId: string; provider: 'gvm'; nvtOid: string | null; cveIds: string[]; title: string; severity: SeverityLevel | 'info'
-    cvssScore: number | null; description: string | null; solution: string | null; evidence: string | null
-    assetAddress: string; port: number | null; protocol: string | null; qualityOfDetection: string | null
-}
-export type GvmRun = {
-    runId: string; organizationId: string; assetId: string; requestId: string; target: string; addresses: string[]
-    status: 'queued' | 'launching' | 'running' | 'cancelling' | 'succeeded' | 'partial' | 'failed' | 'cancelled'
-    progress: string | null; findings: GvmFinding[]; coverage: { attemptedAddresses: number, completedAddresses: number, completedAddressList: string[], missingAddresses: string[] } | null
-    rawReportSha256: string | null; error: string | null; createdAt: string; startedAt: string | null; finishedAt: string | null
-}
-export type GvmEngineStatus = { id: 'gvm', name: string, provider: 'gvm', available: boolean, configured: boolean, ready: boolean, profile: string, protocol?: string | null, feedsReady?: boolean, feedsSyncing?: boolean, feedVersions?: string[], error: string | null }
-
 export type VulnerabilityDetail = {
     id: string
     title: string
@@ -275,86 +168,6 @@ export async function setVulnerabilityScannerPaused(paused: boolean) {
     return requestScanner<VulnerabilityReport>('/v1/schedule', { method: 'PUT', body: { enabled: !paused } })
 }
 
-export async function getNetworkScannerEngines() {
-    return requestScanner<{ engines: NetworkScannerEngine[] }>('/v1/network/engines')
-}
-
-export async function startNetworkScannerRun(input: {
-    organizationId: string
-    assetId: string
-    requestId: string
-    target: string
-    addresses: string[]
-    profile: 'tcp-top-100'
-}) {
-    return requestScanner<{ runId: string, status: NetworkScannerRun['status'], startedAt?: string | null }>('/v1/network/runs', { method: 'POST', body: input })
-}
-
-export async function getNetworkScannerRuns(organizationId: string, limit = 50) {
-    return requestScanner<{ runs: NetworkScannerRun[] }>(`/v1/network/runs?organizationId=${encodeURIComponent(organizationId)}&limit=${encodeURIComponent(String(limit))}`)
-}
-
-export async function getNetworkScannerRun(runId: string, organizationId: string) {
-    return requestScanner<NetworkScannerRun>(`/v1/network/runs/${encodeURIComponent(runId)}?organizationId=${encodeURIComponent(organizationId)}`)
-}
-
-export async function cancelNetworkScannerRun(runId: string, organizationId: string) {
-    await requestScanner<{ runId: string, status: NetworkScannerRun['status'], cancelled: boolean }>(`/v1/network/runs/${encodeURIComponent(runId)}/cancel?organizationId=${encodeURIComponent(organizationId)}`, { method: 'POST' })
-    return getNetworkScannerRun(runId, organizationId)
-}
-
-export async function getTenableIntegration(organizationId: string) {
-    return requestScanner<TenableIntegration>(`/v1/integrations/tenable?organizationId=${encodeURIComponent(organizationId)}`)
-}
-
-export async function setTenableIntegration(organizationId: string, input: { region: 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp', accessKey: string, secretKey: string }) {
-    return requestScanner<TenableIntegration>(`/v1/integrations/tenable?organizationId=${encodeURIComponent(organizationId)}`, { method: 'PUT', body: input })
-}
-
-export async function removeTenableIntegration(organizationId: string) {
-    return requestScanner<TenableIntegration>(`/v1/integrations/tenable?organizationId=${encodeURIComponent(organizationId)}`, { method: 'DELETE' })
-}
-
-export async function getTenableScans(organizationId: string) {
-    return requestScanner<{ scans: TenableScan[] }>(`/v1/integrations/tenable/scans?organizationId=${encodeURIComponent(organizationId)}`)
-}
-
-export async function startTenableRun(input: { organizationId: string, assetId: string, requestId: string, target: string, addresses: string[], scanId: string }) {
-    return requestScanner<{ runId: string, status: TenableRun['status'], startedAt?: string | null }>('/v1/integrations/tenable/runs', { method: 'POST', body: input })
-}
-
-export async function getTenableRuns(organizationId: string, limit = 50) {
-    return requestScanner<{ runs: TenableRun[] }>(`/v1/integrations/tenable/runs?organizationId=${encodeURIComponent(organizationId)}&limit=${encodeURIComponent(String(limit))}`)
-}
-
-export async function getTenableRun(runId: string, organizationId: string) {
-    return requestScanner<TenableRun>(`/v1/integrations/tenable/runs/${encodeURIComponent(runId)}?organizationId=${encodeURIComponent(organizationId)}`)
-}
-
-export async function cancelTenableRun(runId: string, organizationId: string) {
-    return requestScanner<TenableRun>(`/v1/integrations/tenable/runs/${encodeURIComponent(runId)}/cancel?organizationId=${encodeURIComponent(organizationId)}`, { method: 'POST' })
-}
-
-export async function getGvmEngineStatus() {
-    return requestScanner<GvmEngineStatus>('/v1/integrations/gvm/status', { timeoutMs: 8_000 })
-}
-
-export async function startGvmRun(input: { organizationId: string, assetId: string, requestId: string, target: string, addresses: string[] }) {
-    return requestScanner<{ runId: string, status: GvmRun['status'], startedAt?: string | null }>('/v1/integrations/gvm/runs', { method: 'POST', body: input })
-}
-
-export async function getGvmRun(runId: string, organizationId: string) {
-    return requestScanner<GvmRun>(`/v1/integrations/gvm/runs/${encodeURIComponent(runId)}?organizationId=${encodeURIComponent(organizationId)}`)
-}
-
-export async function getGvmRuns(organizationId: string, limit = 50) {
-    return requestScanner<{ runs: GvmRun[] }>(`/v1/integrations/gvm/runs?organizationId=${encodeURIComponent(organizationId)}&limit=${encodeURIComponent(String(limit))}`)
-}
-
-export async function cancelGvmRun(runId: string, organizationId: string) {
-    return requestScanner<GvmRun>(`/v1/integrations/gvm/runs/${encodeURIComponent(runId)}/cancel?organizationId=${encodeURIComponent(organizationId)}`, { method: 'POST' })
-}
-
 async function requestScanner<T>(route: string, options: { method?: string, body?: unknown, timeoutMs?: number } = {}): Promise<T> {
     if (!scannerUrl) throw new Error('HANASAND_SCANNER_URL is not configured.')
     if (!serviceToken) throw new Error('HANASAND_SCANNER_SERVICE_TOKEN is not configured.')
@@ -374,12 +187,6 @@ async function requestScanner<T>(route: string, options: { method?: string, body
     return response.json() as Promise<T>
 }
 
-/** Internal server-to-server access for UVM domain data. The service credential stays server-side. */
-export function requestUvmService<T>(route: string, options: { method?: string, body?: unknown, timeoutMs?: number } = {}) {
-    if (!route.startsWith('/v1/uvm/')) throw new Error('Invalid UVM service route.')
-    return requestScanner<T>(route, options)
-}
-
 function scannerErrorMessage(body: string, status: number) {
     let code = ''
     try {
@@ -387,9 +194,6 @@ function scannerErrorMessage(body: string, status: number) {
         if (typeof parsed.message === 'string' && parsed.message.trim()) return parsed.message.slice(0, 300)
         if (typeof parsed.error === 'string') code = parsed.error
     } catch { return body.slice(0, 300) || `Scanner service returned HTTP ${status}.` }
-    if (code === 'tenable_scan_configuration_busy') return 'Another assessment is already running from this Tenable scan profile. Try again after it finishes.'
-    if (code === 'tenable_scan_configuration_unavailable') return 'The selected Tenable scan profile is unavailable or disabled. Refresh the profile list and choose an enabled profile.'
-    if (code === 'tenable_integration_not_configured') return 'Connect a Tenable Vulnerability Management account before starting this assessment.'
     return code ? code.replaceAll('_', ' ') : `Scanner service returned HTTP ${status}.`
 }
 
