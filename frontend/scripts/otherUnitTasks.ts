@@ -36,6 +36,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'site-search-truthfulness', title: 'Site search result truthfulness', command: [bun, 'test', 'tests/site-search-truthfulness.test.ts'] },
     { id: 'source-coverage-truthfulness', title: 'Source coverage readiness truthfulness', command: [bun, 'test', 'tests/source-coverage-truthfulness.test.ts'] },
     { id: 'support-ticket-filters', title: 'Support ticket filtering', command: [bun, 'test', 'tests/support-ticket-filters.test.ts'] },
+    { id: 'sandbox-embed', title: 'Sandbox embeds Browser UI in the site shell', command: [bun, 'test', 'tests/sandbox-embed.test.ts'] },
     { id: 'terminal-message-state', title: 'Terminal message lifecycle state', command: [bun, 'test', 'tests/terminal-message-state.test.ts'] },
     { id: 'test-page-panel-render', title: 'Endpoint test panel presentation', command: [bun, 'test', 'tests/test-page-panel-render.test.tsx'] },
     { id: 'test-stats-render', title: 'Service check stats search surface rendering', command: [bun, 'test', 'tests/test-stats-render.test.tsx'] },
