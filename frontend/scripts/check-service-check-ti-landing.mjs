@@ -17,7 +17,8 @@ const tiControls = readSource('src/app/ti/components/search-workspace-controls.t
 const emptyState = readSource('src/app/ti/components/empty-state.tsx')
 
 assertIncludes(endpointCheckPanel, 'Check a service before users do', 'public service check page must lead with the primary workflow')
-assertIncludes(endpointCheckPanel, 'Run an owned HTTP endpoint through a measured scenario with latency, failure-rate, logs, and a shareable result link.', 'public service check page must explain the concrete evidence produced')
+assertIncludes(endpointCheckPanel, 'Try your endpoint with some traffic and see how it holds up.', 'public service check page must explain the test in plain language')
+assertExcludes(endpointCheckPanel, 'owned HTTP endpoint', 'public service check page must avoid ownership-focused technical copy')
 assertIncludes(testPage, 'lg:grid-cols-[0.9fr_1.1fr] lg:items-center', 'public service check layout must match the compact two-column split')
 assertIncludes(endpointCheckPanel, 'Start test', 'public service check launcher must be one focused panel')
 assertIncludes(testClient, 'const scenarioPresets: ScenarioPreset[] = [', 'public service check page must expose scenario presets')
