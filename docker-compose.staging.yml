@@ -22,12 +22,16 @@ services:
       FRONTEND_INTERNAL_AI_API: http://172.31.254.6:19182/api
       NEXT_PUBLIC_API: http://localhost:3282/api
       NEXT_PUBLIC_API_WS: ws://localhost:3282/api/ws
+      NEXT_PUBLIC_BROWSER_API_URL: http://localhost:8285/api
+      NEXT_PUBLIC_BROWSER_WS: ws://localhost:8285/api/ws/browser
       PROMPT_PORTAL_WORKER_TOKEN: ${PROMPT_PORTAL_WORKER_TOKEN:?set a staging-only prompt worker token}
       HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:?set HANASAND_RELEASE_COMMIT}
     build:
       args:
         NEXT_PUBLIC_API: http://localhost:3282/api
         NEXT_PUBLIC_API_WS: ws://localhost:3282/api/ws
+        NEXT_PUBLIC_BROWSER_API_URL: http://localhost:8285/api
+        NEXT_PUBLIC_BROWSER_WS: ws://localhost:8285/api/ws/browser
         NEXT_PUBLIC_SCANNER_API_URL: http://localhost:18201/api
     ports: !override
       - "127.0.0.1:3280:3000"
