@@ -117,7 +117,7 @@ mock.module('#db', () => ({
     withTransaction: async (work: (tx: typeof query) => unknown) => work(query),
 }))
 
-const { clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, moveOneBatch, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
+const { clearMigratedLogReceipts, clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, moveOneBatch, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
 
 beforeEach(() => {
     statements.length = 0
@@ -326,6 +326,23 @@ test('retains analysis receipts if Logs does not acknowledge the exact batch', a
         .rejects.toThrow('source receipts remain in Hanasand')
     expect(sourceAnalyzeReceipts).toHaveLength(1)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_analyze_receipts'))).toBe(false)
+})
+
+test('reclaims receipt and hit-count storage only after every source receipt is gone', async () => {
+    const cleared = await clearMigratedLogReceipts()
+
+    expect(cleared).toEqual(['log_analyze_receipts', 'log_model_probe_receipts', 'log_readiness_audit_receipts',
+        'log_proxy_receipts', 'rule_hit_counts', 'rule_hit_count_deltas'])
+    expect(statements.some(statement => statement.sql.includes('LOCK TABLE findings, log_analyze_receipts, log_model_probe_receipts'))).toBe(true)
+    expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE public.log_analyze_receipts'))).toBe(true)
+    expect(statements.some(statement => statement.sql.includes('SELECT organization_id,\'findings\',rule_id,count(*) FROM findings'))).toBe(true)
+})
+
+test('does not reclaim receipt storage while any source migration receipt remains', async () => {
+    sourceAnalyzeReceiptsRemain = true
+
+    await expect(clearMigratedLogReceipts()).rejects.toThrow('source migration receipts remain')
+    expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE'))).toBe(false)
 })
 
 test('transfers raw proxy receipt evidence before deleting its source copy', async () => {
