@@ -170,7 +170,7 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
                         const fallback24h = hours === '24' ? data?.counts.find(item => item.severity === value)?.count : undefined
                         return <LogMetricCard key={value} label={value} href={`/logs/search?${params}`} hrefLabel={`View 24-hour ${value} logs`} count24h={mostActiveSummary?.last_24h.severities[value] ?? fallback24h} countTotal={mostActiveSummary?.total.severities[value]} />
                     })}
-                    <LogMetricCard label='Errors' href='/logs/errors' hrefLabel='View error details' count24h={errorsLoaded ? errors.summary.last_24h : undefined} countTotal={errorsLoaded ? errors.summary.total : undefined} />
+                    <LogMetricCard label='Errors' href='/logs/errors' hrefLabel='View error details' count24h={errorsLoaded && errors.summary_available !== false ? errors.summary?.last_24h : undefined} countTotal={errorsLoaded && errors.summary_available !== false ? errors.summary?.total : undefined} />
                 </section>
                 <MostActiveServicesPanel summary={mostActiveSummary} fallbackRecent={data?.services} loaded={mostActiveLoaded} />
             </> : <LogResultsPanel
