@@ -33,16 +33,17 @@ export function WorkspaceResourceCard({ selected, children }: { selected: boolea
     return <div className={`rounded-lg px-3 py-3 outline ${selected ? 'bg-ui-primary/10 outline-ui-primary/18' : 'bg-ui-panel outline-ui-border'}`}>{children}</div>
 }
 
-export function WorkspacePrimaryAction({ children, onClick, disabled = false, hover = false }: {
+export function WorkspacePrimaryAction({ children, onClick, disabled = false, hover = false, type = 'button' }: {
     children: React.ReactNode
-    onClick: () => void | Promise<void>
+    onClick?: () => void | Promise<void>
     disabled?: boolean
     hover?: boolean
+    type?: 'button' | 'submit'
 }) {
     return (
         <button
-            type='button'
-            onClick={() => void onClick()}
+            type={type}
+            onClick={onClick ? () => void onClick() : undefined}
             disabled={disabled}
             className={`rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity${hover ? ' hover:opacity-90' : ''}${disabled ? ' disabled:opacity-60' : ''}`}
         >
