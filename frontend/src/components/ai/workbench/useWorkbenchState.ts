@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { getCookie } from 'hanasand/cookies'
 import { useShareWorkspaceState } from './useShareWorkspaceState'
+import { clearPendingConversationDraft, readComposerDraft, readPendingConversationDraft, writeComposerDraft, writePendingConversationDraft } from './conversationDraftStorage'
 import type { AiToolCall } from './aiToolTypes'
 import type { AIWorkbenchInitialData } from './initialData'
 
@@ -38,8 +39,45 @@ export function useWorkbenchState({
     const [runtimeSnapshot, setRuntimeSnapshot] = useState<AIRuntimeState | null>(initialRuntimeState)
     const [aiApiAvailable, setAiApiAvailable] = useState(isAuthenticated)
     const [conversations, setConversations] = useState<AIConversation[]>(initialConversations)
-    const [activeConversationId, setActiveConversationId] = useState<string | null>(initialConversationId || initialConversations[0]?.id || null)
+    const [activeConversationId, setActiveConversationIdState] = useState<string | null>(initialConversationId || initialConversations[0]?.id || null)
     const [composer, setComposer] = useState('')
+    const activeConversationIdRef = useRef(activeConversationId)
+    const composerRef = useRef(composer)
+    const pendingConversationDraftRef = useRef<AIConversation | null>(null)
+    const [pendingConversationDraft, setPendingConversationDraftState] = useState<AIConversation | null>(null)
+    const [conversationDraftRestored, setConversationDraftRestored] = useState(false)
+    const setComposerText = useCallback((value: string) => {
+        composerRef.current = value
+        setComposer(value)
+        const conversationId = activeConversationIdRef.current
+        writeComposerDraft(conversationId, value)
+        if (pendingConversationDraftRef.current?.id === conversationId) {
+            writePendingConversationDraft({ conversation: pendingConversationDraftRef.current, composer: value })
+        }
+    }, [])
+    const setActiveConversationId = useCallback((value: React.SetStateAction<string | null>) => {
+        const conversationId = typeof value === 'function' ? value(activeConversationIdRef.current) : value
+        activeConversationIdRef.current = conversationId
+        setActiveConversationIdState(conversationId)
+        const pendingDraft = pendingConversationDraftRef.current
+        const savedPendingDraft = conversationId && pendingDraft?.id === conversationId
+            ? readPendingConversationDraft()
+            : null
+        setComposerText(savedPendingDraft?.composer ?? readComposerDraft(conversationId))
+    }, [setComposerText])
+    const setPendingConversationDraft = useCallback((conversation: AIConversation | null) => {
+        pendingConversationDraftRef.current = conversation
+        setPendingConversationDraftState(conversation)
+        if (conversation) {
+            const stored = readPendingConversationDraft()
+            writePendingConversationDraft({
+                conversation,
+                composer: stored?.conversation.id === conversation.id ? stored.composer : readComposerDraft(conversation.id),
+            })
+        } else {
+            clearPendingConversationDraft()
+        }
+    }, [])
     const [search, setSearch] = useState('')
     const [importInput, setImportInput] = useState('')
     const [githubToken, setGitHubToken] = useState('')
@@ -70,7 +108,9 @@ export function useWorkbenchState({
         executeAssistantToolsRef, runToolCallRef, refreshRuntimeRef, clients, setClients,
         participants, setParticipants, isConnected, setIsConnected, statusNotice, setStatusNotice,
         runtimeSnapshot, setRuntimeSnapshot, aiApiAvailable, setAiApiAvailable, conversations,
-        setConversations, activeConversationId, setActiveConversationId, composer, setComposer,
+        setConversations, activeConversationId, setActiveConversationId, composer, setComposer: setComposerText,
+        pendingConversationDraft, pendingConversationDraftRef, setPendingConversationDraft,
+        conversationDraftRestored, setConversationDraftRestored,
         search, setSearch, importInput, setImportInput, githubToken, setGitHubToken, importError,
         setImportError, importPending, setImportPending, collaborationError, setCollaborationError,
         collaboratorPending, setCollaboratorPending, syncingRepoId, setSyncingRepoId, importedRepos,
