@@ -32,25 +32,28 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
 }) {
     const [repositoryName, setRepositoryName] = useState('')
     const repoShareIds = new Set(importedRepos.map(repo => repo.id))
-    const standaloneFiles = initialShares.filter(share => !repoShareIds.has(share.id))
+    const standaloneFiles = initialShares.filter(file => !repoShareIds.has(file.id))
+    const availableCount = importedRepos.length + standaloneFiles.length
 
-    return <Panel icon={<FolderGit2 className='h-4 w-4' />} title='Repositories' subtitle={`${importedRepos.length + standaloneFiles.length} available`} grow>
-        <div className='grid min-w-0 gap-2'>
-            <div className='text-xs font-medium text-ui-text'>Attach repository</div>
+    return <Panel icon={<FolderGit2 className='h-4 w-4' />} title='Repositories' subtitle={`${availableCount} available`} grow>
+        <form className='grid min-w-0 gap-2' onSubmit={event => { event.preventDefault(); void onImportRepo() }}>
+            <label htmlFor='workspace-repository-url' className='text-xs font-medium text-ui-text'>Attach repository</label>
             <div className='flex min-w-0 flex-wrap gap-2 sm:flex-nowrap'>
                 <input id='workspace-repository-url' value={importInput} onChange={event => onImportInputChange(event.target.value)} placeholder='owner/repo or repository URL' className='min-w-0 flex-1 rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
-                <WorkspacePrimaryAction onClick={onImportRepo} disabled={importPending}>{importPending ? 'Importing' : 'Attach repository'}</WorkspacePrimaryAction>
+                <WorkspacePrimaryAction type='submit' disabled={importPending}>{importPending ? 'Importing' : 'Attach repository'}</WorkspacePrimaryAction>
             </div>
-            <input value={githubToken} onChange={event => onGitHubTokenChange(event.target.value)} placeholder='GitHub token for a private repository (optional)' type='password' autoComplete='off' spellCheck={false} className='min-w-0 rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
+            <input aria-label='GitHub token for a private repository (optional)' value={githubToken} onChange={event => onGitHubTokenChange(event.target.value)} placeholder='GitHub token for a private repository (optional)' type='password' autoComplete='off' spellCheck={false} className='min-w-0 rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
             <div className='text-xs text-ui-muted'>The token is sent with the current repository request and cleared after successful use.</div>
             {importError ? <ErrorNotice compact message={importError} /> : null}
-        </div>
+        </form>
 
-        <div className='grid min-w-0 gap-2 border-t border-ui-border/70 pt-3'>
-            <div className='text-xs font-medium text-ui-text'>Create repository</div>
-            <input value={repositoryName} onChange={event => setRepositoryName(event.target.value)} placeholder='Repository name' className='min-w-0 rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
-            <WorkspacePrimaryAction onClick={() => onCreateRepository(repositoryName)} hover>Create repository</WorkspacePrimaryAction>
-        </div>
+        <form className='grid min-w-0 gap-2 border-t border-ui-border/70 pt-3' onSubmit={event => { event.preventDefault(); if (repositoryName.trim()) void onCreateRepository(repositoryName.trim()) }}>
+            <label htmlFor='workspace-repository-name' className='text-xs font-medium text-ui-text'>Create repository</label>
+            <div className='flex min-w-0 flex-wrap gap-2 sm:flex-nowrap'>
+                <input id='workspace-repository-name' value={repositoryName} onChange={event => setRepositoryName(event.target.value)} placeholder='Repository name' className='min-w-0 flex-1 rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
+                <WorkspacePrimaryAction type='submit' disabled={!repositoryName.trim()} hover>Create repository</WorkspacePrimaryAction>
+            </div>
+        </form>
 
         <div className='min-w-0 space-y-2 border-t border-ui-border/70 pt-3'>
             {importedRepos.length || standaloneFiles.length ? <>
@@ -71,12 +74,12 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
                     </div>
                     {repo.id === activeRepoId && repo.files.length ? <div className='mt-3 max-h-36 space-y-1 overflow-y-auto pr-1'>{repo.files.slice(0, 80).map(file => <WorkspaceFileButton key={file.path} path={file.path} selected={selectedRepoFilePath === file.path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} onSelect={onSelectRepoFile} />)}</div> : null}
                 </WorkspaceResourceCard>)}
-                {standaloneFiles.map(share => <WorkspaceResourceCard key={share.id} selected={share.id === activeConversation?.workspaceId}>
+                {standaloneFiles.map(file => <WorkspaceResourceCard key={file.id} selected={file.id === activeConversation?.workspaceId}>
                     <div className='flex min-w-0 items-start justify-between gap-3'>
-                        <div className='min-w-0 flex-1'><div className='break-all text-sm text-ui-text'>{share.alias || share.id}</div><div className='mt-1 break-all text-xs text-ui-muted'>{share.path || share.id}</div></div>
-                        <button type='button' onClick={() => void onAttachShare(share.id)} className='shrink-0 rounded-lg bg-ui-raised px-2.5 py-1.5 text-xs text-ui-text outline outline-ui-border hover:text-ui-primary'>Attach</button>
+                        <div className='min-w-0 flex-1'><div className='break-all text-sm text-ui-text'>{file.alias || file.id}</div><div className='mt-1 break-all text-xs text-ui-muted'>{file.path || file.id}</div></div>
+                        <button type='button' onClick={() => void onAttachShare(file.id)} className='shrink-0 rounded-lg bg-ui-raised px-2.5 py-1.5 text-xs text-ui-text outline outline-ui-border hover:text-ui-primary'>Attach</button>
                     </div>
-                    {share.id === activeConversation?.workspaceId && activeTreePaths.length ? <div className='mt-3 max-h-36 space-y-1 overflow-y-auto pr-1'>{activeTreePaths.slice(0, 120).map(path => <WorkspaceFileButton key={path} path={path} selected={selectedRepoFilePath === path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} onSelect={onSelectShareFile} />)}</div> : null}
+                    {file.id === activeConversation?.workspaceId && activeTreePaths.length ? <div className='mt-3 max-h-36 space-y-1 overflow-y-auto pr-1'>{activeTreePaths.slice(0, 120).map(path => <WorkspaceFileButton key={path} path={path} selected={selectedRepoFilePath === path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} onSelect={onSelectShareFile} />)}</div> : null}
                 </WorkspaceResourceCard>)}
             </> : <Empty text='No repositories yet. Attach an existing repository or create one to start working with files.' />}
         </div>

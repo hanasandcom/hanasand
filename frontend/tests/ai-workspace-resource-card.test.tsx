@@ -23,6 +23,10 @@ test('repository panel associates selected styling with imported and file-backed
     expectCardState(repositoryHtml, 'selected-share', true)
     expectCardState(repositoryHtml, 'idle-share', false)
     expect(repositoryHtml).not.toContain('Shares')
+    expect(repositoryHtml).toContain('for="workspace-repository-url"')
+    expect(repositoryHtml).toContain('for="workspace-repository-name"')
+    expect(repositoryHtml.match(/type="submit"/g)).toHaveLength(2)
+    expect(repositoryHtml).toContain('aria-label="GitHub token for a private repository (optional)"')
 })
 
 function expectCardState(html: string, label: string, selected: boolean) {
