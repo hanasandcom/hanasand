@@ -11,6 +11,7 @@ import ensureVmPublicPortsSchema from './vmPublicPortsSchema.ts'
 import ensureReservedAccountSchema from './reservedAccountSchema.ts'
 import ensureAuthenticationSchema from './authenticationSchema.ts'
 import ensureShareSchema from './shareSchema.ts'
+import ensurePasswordResetSchema from './passwordResetSchema.ts'
 import ensureOperationsMonitoringSchema from './operationsMonitoringSchema.ts'
 import ensureWebScanSchema from './webScanSchema.ts'
 import ensureUvmScannerSchema from './uvmScannerSchema.ts'
@@ -136,6 +137,7 @@ async function applySchema() {
     await ensureReservedAccountSchema()
     await ensureAuthenticationSchema()
     await ensureShareSchema()
+    await ensurePasswordResetSchema()
     await ensureOperationsMonitoringSchema()
     await ensureWebScanSchema()
     await ensureUvmScannerSchema()
