@@ -81,7 +81,7 @@ test('repositories have one navigation destination', () => {
     const links = navigationLinks(getDashboardNavigation({ id: 'admin', canViewInternalPages: true }))
     const repositoryLinks = links.filter(link => ['/repositories', '/projects', '/shares'].includes(link.href))
     assert.deepEqual(repositoryLinks.map(link => ({ label: link.label, href: link.href, section: link.ancestors.at(-1) })), [
-        { label: 'Repositories', href: '/repositories', section: 'Content' },
+        { label: 'Repositories', href: '/repositories', section: 'Monitoring' },
     ])
 })
 

@@ -47,6 +47,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
                 link('Findings', '/findings'),
                 link('Delivery', '/findings/actions'),
                 link('Virtual Machines', '/system/virtual-machines', hasVMs),
+                link('Repositories', '/repositories'),
             ]),
             group('Collection', [
                 link('Feeds', '/ti/sources', isAdmin),
@@ -115,7 +116,6 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
                 link('Gallery', '/gallery'),
                 link('Uploads', '/upload'),
             ]),
-            link('Repositories', '/repositories'),
             nestedGroup('Thesis', thesisSheets.length
                 ? thesisSheets.map(sheet => link(sheet.label, sheet.href))
                 : [link('Overview', '/thesis')], hasHanasandOrganization),
