@@ -7,8 +7,10 @@ const enabled = process.env.RUN_CORE_ORGANIZATION_PROOF_STAGE === '1'
 test.skipIf(!enabled)(
     'real Identity111 and PostgreSQL: delegated organization proof, replay and API-owned route protection',
     async () => {
+        const stageId = process.env.CORE_ORGANIZATION_PROOF_STAGE_ID || ''
         if (
-            process.env.DB_HOST !== 'core-organization-proof-db' ||
+            !/^[A-Za-z0-9]{6,12}$/.test(stageId) ||
+            process.env.DB_HOST !== `core-organization-proof-db-${stageId}` ||
             process.env.DB !== 'core_organization_proof_test' ||
             process.env.DB_USER !== 'synthetic'
         )
