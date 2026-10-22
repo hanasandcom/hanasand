@@ -18,8 +18,7 @@ async function ScannerData() {
     return <div className='grid gap-6'>
         <UvmPanel initialData={uvm} refreshAction={refreshUvmAction} createAssetAction={createUvmAssetAction} verifyAssetAction={verifyUvmAssetAction} runScanAction={runUvmAssetScanAction} scheduleAction={updateUvmAssetScheduleAction} configureTenableAction={configureUvmTenableAction} disconnectTenableAction={disconnectUvmTenableAction} runTenableScanAction={runUvmAssetTenableScanAction} updateFindingAction={updateUvmFindingAction} cancelRunAction={cancelUvmRunAction} startAssessmentAction={startUvmAssessmentAction} cancelAssessmentAction={cancelUvmAssessmentAction} />
         <details className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-            <summary className='cursor-pointer text-sm font-semibold'>Basic HTTP checks</summary>
-            <p className='mt-2 text-sm text-ui-muted'>These checks inspect HTTPS reachability and response headers. They do not run a vulnerability assessment; use the authorized assessment workflow above for Nmap, Tenable VM, or Greenbone scans.</p>
+            <summary className='cursor-pointer text-sm font-semibold'>Basic HTTP checks <span className='font-normal text-ui-muted'>· HTTPS reachability and response headers</span></summary>
             <div className='mt-4'><WebScanPanel initialData={webScan} refreshAction={refreshWebScan} runAction={runWebScanAction} scheduleAction={updateWebScanScheduleAction} /></div>
         </details>
     </div>
