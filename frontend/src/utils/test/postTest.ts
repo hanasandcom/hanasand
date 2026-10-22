@@ -15,7 +15,7 @@ export const loadTestClientIdStorageKey = 'hanasand:load-testing-client-id'
 
 export async function postTest({ url, timeout, stages }: PostTestProps): Promise<PostTestResult> {
     const controller = new AbortController()
-    const fetchTimeout = setTimeout(() => controller.abort(), config.abortTimeout)
+    const fetchTimeout = setTimeout(() => controller.abort(), Math.max(config.abortTimeout, 15000))
 
     try {
         const id = getCookie('id')
@@ -46,6 +46,9 @@ export async function postTest({ url, timeout, stages }: PostTestProps): Promise
         return { ok: true, test: data }
     } catch (error) {
         console.error(`Error creating test: ${error}`)
+        if (controller.signal.aborted) {
+            return { ok: false, error: 'The request timed out. Check recent runs before trying again.' }
+        }
         return { ok: false, error: 'Please try again later.' }
     } finally {
         clearTimeout(fetchTimeout)

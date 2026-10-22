@@ -4,21 +4,17 @@ import config from '@/config'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
 import copy from '@/utils/copy'
 import { fetchRecentTests } from '@/utils/test/fetchRecentTests'
+import { fetchLoadTestQuota } from '@/utils/test/fetchLoadTestQuota'
 import { postTest } from '@/utils/test/postTest'
 import { isValidEndpoint, normalizeEndpoint } from '@/utils/test/normalizeEndpoint'
+import { defaultCustomStages, scenarioPresets, toK6Stages, type CustomTrafficStage } from '@/utils/test/trafficShapes'
 import { ArrowLeft, CheckCircle2, Copy } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { SyntheticEvent, KeyboardEvent, useEffect, useState } from 'react'
-import EndpointCheckPanel, { type ScenarioPreset } from './EndpointCheckPanel'
+import EndpointCheckPanel from './EndpointCheckPanel'
 
 const freeTryLimit = 5
 const freeTryStorageKey = 'hanasand:load-testing-free-tries-v2'
-const scenarioPresets: ScenarioPreset[] = [
-    { id: 'baseline', label: 'Baseline', detail: 'Single-user HTTP check.', stages: [{ duration: '30s', target: 1 }], timeout: 30000 },
-    { id: 'ramp', label: 'Ramp', detail: 'Gradual traffic increase.', stages: [{ duration: '30s', target: 5 }, { duration: '1m', target: 20 }, { duration: '30s', target: 0 }], timeout: 45000 },
-    { id: 'spike', label: 'Spike', detail: 'Short timeout burst.', stages: [{ duration: '15s', target: 5 }, { duration: '20s', target: 40 }, { duration: '25s', target: 0 }], timeout: 60000 },
-]
-
 export default function TestPageClient({ serverId, created, missingTestId }: { serverId?: string, created?: string, missingTestId?: string }) {
     const router = useRouter()
     const [path, setPath] = useState('')
@@ -26,8 +22,10 @@ export default function TestPageClient({ serverId, created, missingTestId }: { s
     const [freeTriesUsed, setFreeTriesUsed] = useState(0)
     const [loadTestQuota, setLoadTestQuota] = useState<LoadTestQuota | null>(null)
     const [scenarioId, setScenarioId] = useState(scenarioPresets[0].id)
+    const [customStages, setCustomStages] = useState<CustomTrafficStage[]>(defaultCustomStages)
     const [isStarting, setIsStarting] = useState(false)
-    const selectedScenario = scenarioPresets.find((scenario) => scenario.id === scenarioId) ?? scenarioPresets[0]
+    const selectedPreset = scenarioPresets.find((scenario) => scenario.id === scenarioId) ?? scenarioPresets[0]
+    const selectedScenario = { ...selectedPreset, stages: selectedPreset.id === 'custom' ? toK6Stages(customStages) : selectedPreset.stages }
     const fullUrl = `${config.url.link}/${serverId}`
     const remainingChecks = loadTestQuota?.remaining ?? Math.max(0, freeTryLimit - freeTriesUsed)
     const quotaLabel = loadTestQuota && loadTestQuota.plan !== 'free'
@@ -44,6 +42,11 @@ export default function TestPageClient({ serverId, created, missingTestId }: { s
         let active = true
         fetchRecentTests('recent').then((recent) => {
             if (active) setRecentScans(recent)
+        })
+        fetchLoadTestQuota().then((quota) => {
+            if (!active || !quota) return
+            setLoadTestQuota(quota)
+            if (quota.plan === 'free') setFreeTriesUsed(Math.min(freeTryLimit, quota.used))
         })
         return () => {
             active = false
@@ -126,6 +129,7 @@ export default function TestPageClient({ serverId, created, missingTestId }: { s
         path={path}
         scenarioId={scenarioId}
         scenarios={scenarioPresets}
+        customStages={customStages}
         quotaLabel={quotaLabel}
         missingTestId={missingTestId}
         error={error}
@@ -133,6 +137,7 @@ export default function TestPageClient({ serverId, created, missingTestId }: { s
         recentScans={recentScans}
         onPathChange={setPath}
         onScenarioChange={setScenarioId}
+        onCustomStagesChange={setCustomStages}
         onSubmit={handleSubmit}
         onEndpointKeyDown={handleEndpointKeyDown}
         onNavigate={url => router.push(url)}

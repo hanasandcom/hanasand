@@ -82,6 +82,12 @@ export default async function postTest(req: FastifyRequest, res: FastifyReply) {
     })
 }
 
+export async function getTestQuota(req: FastifyRequest, res: FastifyReply) {
+    res.header('Cache-Control', 'no-store')
+    const ownerId = req.headers.id as string | undefined
+    return res.send(await getLoadTestQuota(req, ownerId))
+}
+
 function normalizeUrl(url: string) {
     try {
         const parsed = new URL(url.trim())
@@ -127,11 +133,20 @@ async function getLoadTestQuota(req: FastifyRequest, ownerId: string | undefined
 
     const usedResult = periodStart
         ? await run(
-            'SELECT COUNT(*)::int AS used FROM load_tests WHERE quota_identity = $1 AND created_at >= $2',
+            `SELECT COUNT(*)::int AS used
+             FROM load_tests
+             WHERE quota_identity = $1
+               AND created_at >= $2
+               AND status <> 'failed'
+               AND COALESCE(exit_code, 0) = 0`,
             [identity, periodStart]
         )
         : await run(
-            'SELECT COUNT(*)::int AS used FROM load_tests WHERE quota_identity = $1',
+            `SELECT COUNT(*)::int AS used
+             FROM load_tests
+             WHERE quota_identity = $1
+               AND status <> 'failed'
+               AND COALESCE(exit_code, 0) = 0`,
             [identity]
         )
     const used = Number(usedResult.rows[0]?.used || 0)

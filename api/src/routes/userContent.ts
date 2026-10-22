@@ -7,7 +7,7 @@ import getArticles, { getArticle } from '../handlers/articles/get.ts'
 import postArticle from '../handlers/articles/post.ts'
 import putArticle from '../handlers/articles/put.ts'
 import getTest from '../handlers/test/get.ts'
-import postTest from '../handlers/test/post.ts'
+import postTest, { getTestQuota } from '../handlers/test/post.ts'
 import rerunTest from '../handlers/test/rerun.ts'
 import { getMyRecentTests, getRecentTests } from '../handlers/test/list.ts'
 import restartHandler from '../handlers/restart/getRestart.ts'
@@ -90,6 +90,7 @@ export async function registerUserContentRoutes(fastify: FastifyInstance) {
     // Test handlers
     fastify.get('/tests/recent', getRecentTests)
     fastify.get('/tests/mine', getMyRecentTests)
+    fastify.get('/tests/quota', getTestQuota)
     fastify.get('/test/:id', getTest)
     fastify.get('/test/visits/:id', getVisits)
     fastify.post('/test', postTest)

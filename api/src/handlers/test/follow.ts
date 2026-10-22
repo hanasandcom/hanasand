@@ -152,18 +152,19 @@ export default async function followTest(id: string, rerun?: boolean) {
             const finished = new Date()
             const durationMs = finished.getTime() - start.getTime()
             const summary = await readK6Summary(summaryPath)
+            const status = code === 0 ? 'done' : 'failed'
             await run(
                 `UPDATE load_tests 
                 SET status = $1, exit_code = $2, finished_at = $3, duration = $4, summary = $5::jsonb
                 WHERE id = $6`,
-                ['done', code, finished, `${durationMs} milliseconds`, JSON.stringify(summary), id]
+                [status, code, finished, `${durationMs} milliseconds`, JSON.stringify(summary), id]
             )
             if (runId) {
                 await run(
                     `UPDATE load_test_runs
                      SET status = $1, exit_code = $2, finished_at = $3, duration_ms = $4, summary = $5::jsonb
                      WHERE id = $6`,
-                    ['done', code, finished, durationMs, JSON.stringify(summary), runId]
+                    [status, code, finished, durationMs, JSON.stringify(summary), runId]
                 )
             }
 
