@@ -163,11 +163,11 @@ After deployment, check the affected page or endpoint, service logs and `docker 
 
 ### Hanasand app staging
 
-`docker-compose.staging.yml` runs the Hanasand app on a separate Compose project before production release. It has its own PostgreSQL volume, serves only on `127.0.0.1:3280` and `127.0.0.1:3282`, and connects only to the existing staging Identity and AI networks. It does not mount the production LXD socket, Docker socket, host cron, production database, or production environment file. The staging API runs in HTTP-only candidate mode so it applies its schema and serves requests without starting background workers.
+`docker-compose.staging.yml` runs the Hanasand app on a separate Compose project before production release. It has its own PostgreSQL volume, serves only on `127.0.0.1:3280` and `127.0.0.1:3282`, and connects only to the existing staging Identity and AI networks. It does not mount the production LXD socket, Docker socket, host cron, production database, or production environment file. The staging API runs in HTTP-only candidate mode so it applies its schema and serves requests without starting background workers. `VM_HOST_ID=staging-disabled` deliberately prevents this app stack from provisioning VMs. Testing VM creation, Next.js guest builds, or the VM lifecycle monitor requires a separate isolated LXD staging host and API routing target; never point app staging at a production VM host.
 
 On Inspur, create `/home/hanasand/hanasand/.env.app.staging` with mode `0600`. It must contain newly generated, staging-only values for `DB_PASSWORD`, `VM_API_TOKEN`, and `PROMPT_PORTAL_WORKER_TOKEN`; never copy them from a production environment file. The staging database starts from the repository's schema and keeps its data in the `hanasand_app_staging_postgres_data` Docker volume. The API also reads the staging-only Identity service token and support key from `/home/hanasand/identity/.env.ai.staging`.
 
-From the clean `main` checkout, start or update the app staging stack with:
+From a clean `main` checkout, start or update the API and frontend in the app staging stack with:
 
 ```sh
 cd /home/hanasand/hanasand
@@ -175,10 +175,10 @@ HANASAND_RELEASE_COMMIT=$(git rev-parse HEAD) docker compose \
   --project-name hanasand-app-staging \
   --env-file .env.app.staging \
   -f docker-compose.yml -f docker-compose.staging.yml \
-  up -d --build frontend
+  up -d --build api frontend
 ```
 
-Check `http://127.0.0.1:3282/health` and `http://127.0.0.1:3282/api/ai/health/inference` on the host. To review the staged UI from another machine, forward the loopback ports with SSH (`-L 3280:127.0.0.1:3280 -L 3282:127.0.0.1:3282`) and open `http://localhost:3280/ai`. Resetting the staged app database means removing only the `hanasand_app_staging_postgres_data` volume after stopping this Compose project; never remove the production `hanasand_postgres_data` volume.
+Check the app and API revisions with `curl -fsS http://127.0.0.1:3280/api/health`, and check API process health with `curl -fsS http://127.0.0.1:3282/health`. Check inference from the staging API container, which is connected to the staging AI network: `docker exec hanasand_app_staging_api curl -fsS http://172.31.254.6:19182/api/ai/health/inference`. To review the staged UI from another machine, forward the loopback ports with SSH (`-L 3280:127.0.0.1:3280 -L 3282:127.0.0.1:3282`) and open `http://localhost:3280/ai`. Resetting the staged app database means removing only the `hanasand_app_staging_postgres_data` volume after stopping this Compose project; never remove the production `hanasand_postgres_data` volume.
 
 ## Data and operations
 
