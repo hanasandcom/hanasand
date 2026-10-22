@@ -116,7 +116,7 @@ PY
         --mount "type=bind,src=$temporary/dependencies.sha256,dst=/privacy-stage-dependencies.sha256,readonly" \
         -e NODE_ENV=test -e RUN_PRIVACY_COUNT_DB_TESTS=1 -e DB=privacy_count_test -e DB_HOST=privacy-count-db -e DB_PORT=5432 \
         -e DB_USER=privacy_count -e DB_PASSWORD=synthetic-private-stage -e DB_POOL_HOST= -e HANASAND_IDENTITY_FDW_HOST= \
-        -e VM_API_TOKEN=synthetic-unused -e API_HTTP_ONLY=1 -e DB_MAX_CONN=8 "$api_image" -c 'set -eu; sha256sum -c /privacy-stage-dependencies.sha256 >/dev/null; exec bun scripts/check-organization-privacy-count-postgres.ts')
+        -e VM_API_TOKEN=synthetic-unused -e API_HTTP_ONLY=1 -e DB_MAX_CONN=8 "$api_image" -c 'set -eu; sha256sum -c /privacy-stage-dependencies.sha256 >/dev/null; echo Runtime-dependency-manifest-verified; printf "Stage Bun version: "; bun --version; exec bun scripts/check-organization-privacy-count-postgres.ts')
     printf 'Owned stage run %s: runner=%s database=%s network=%s\n' "$run_id" "$runner_id" "$database_id" "$network_id"
     docker start -a "$runner_id"
     test "$(docker inspect "$runner_id" --format '{{.State.ExitCode}}')" = 0
