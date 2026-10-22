@@ -6,7 +6,7 @@ import LoginForm from '../src/app/login/LoginForm'
 import ResetRequestForm from '../src/app/login/ResetRequestForm'
 import SignupForm from '../src/app/login/SignupForm'
 
-test('login renders server-visible package-owned credentials and auth methods', () => {
+test('login renders the shared identity form shell before hydration', () => {
     const html = renderToStaticMarkup(createElement(LoginForm, {
         redirectPath: '/dashboard',
         hydrated: false,
@@ -14,11 +14,11 @@ test('login renders server-visible package-owned credentials and auth methods', 
         onChangeMode: () => {},
     }))
 
-    expect(html).toContain('name="username"')
-    expect(html).toContain('name="password"')
-    expect(html).toContain('Continue with Google')
-    expect(html).toContain('Sign in with passkey')
-    expect(html).not.toContain('<hanasand-login-form')
+    expect(html).toContain('<hanasand-login-form')
+    expect(html).toContain('identifier-label="Username"')
+    expect(html).toContain('action="/api/auth/login"')
+    expect(html).toContain('passkey-options-url="/api/auth/passkeys/authenticate/options"')
+    expect(html).toContain('sso-href="/api/auth/sso/start"')
 })
 
 test('reset request shares the auth submit loading and disabled presentation', () => {
