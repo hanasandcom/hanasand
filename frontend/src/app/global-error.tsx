@@ -2,7 +2,6 @@
 
 import { ArrowLeft, Home, RefreshCcw, Search } from 'lucide-react'
 import Link from 'next/link'
-import BrandLogo from '@/components/brand/brandLogo'
 import './globals.css'
 
 export default function GlobalError({ reset }: { error: Error & { digest?: string }, reset: () => void }) {
@@ -14,7 +13,6 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
             <body className='min-h-screen bg-ui-canvas text-ui-primary dark:text-ui-text'>
                 <main className='min-h-screen px-4 py-5 sm:px-8 sm:py-7'>
                     <div className='mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-5xl flex-col sm:min-h-[calc(100vh-3.5rem)]'>
-                        <BrandLogo />
                         <section className='my-8 grid gap-6 py-4 md:py-8'>
                             <div className='max-w-2xl'>
                                 <h1 className='mt-3 text-4xl font-semibold tracking-tight md:text-6xl'>Something went wrong.</h1>
