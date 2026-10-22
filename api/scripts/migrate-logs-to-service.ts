@@ -52,6 +52,27 @@ export async function dropMigrationCursorIndex(query = queryOnce) {
 
 const keepLogTables = ['log_delivery_outbox', 'log_organization_sync_outbox', 'log_organization_sync_cursor']
 
+export async function clearMigratedLogReceipts(transaction = withTransaction) {
+    return transaction(async query => {
+        await query('SET LOCAL lock_timeout = \'2s\'')
+        await query('SET LOCAL statement_timeout = \'5min\'')
+        await query('LOCK TABLE findings, log_analyze_receipts, log_model_probe_receipts, log_readiness_audit_receipts, log_proxy_receipts, rule_hit_counts, rule_hit_count_deltas IN SHARE ROW EXCLUSIVE MODE')
+        const remaining = await query(`SELECT EXISTS(SELECT 1 FROM log_analyze_receipts)
+            OR EXISTS(SELECT 1 FROM log_model_probe_receipts)
+            OR EXISTS(SELECT 1 FROM log_readiness_audit_receipts)
+            OR EXISTS(SELECT 1 FROM log_proxy_receipts) AS present`)
+        if (remaining.rows[0]?.present) {
+            throw new Error('Cannot reclaim receipt storage while source migration receipts remain.')
+        }
+        const cleared = ['log_analyze_receipts', 'log_model_probe_receipts', 'log_readiness_audit_receipts',
+            'log_proxy_receipts', 'rule_hit_counts', 'rule_hit_count_deltas']
+        await query(`TRUNCATE TABLE ${cleared.map(name => `public.${name}`).join(', ')} RESTART IDENTITY`)
+        await query(`INSERT INTO rule_hit_counts(organization_id,source,rule_id,hits)
+            SELECT organization_id,'findings',rule_id,count(*) FROM findings GROUP BY organization_id,rule_id`)
+        return cleared
+    })
+}
+
 export async function clearMovedLogState(transaction = withTransaction) {
     return transaction(async query => {
         await query('SET LOCAL lock_timeout = \'2s\'')
@@ -579,6 +600,8 @@ async function main() {
     console.log(JSON.stringify({ migratedReceipts: receipts, linkageArchiveRows, runtimeState }))
     const findings = await migrateFindingsBeforeEvents(url, syncToken)
     console.log(JSON.stringify({ preparedFindings: findings, scope: 'logs findings' }))
+    const reclaimedReceiptTables = await clearMigratedLogReceipts()
+    console.log(JSON.stringify({ reclaimedReceiptTables, scope: 'migrated Logs receipts and hit counts' }))
 
     let moved = 0
     let retryDelay = 1000
