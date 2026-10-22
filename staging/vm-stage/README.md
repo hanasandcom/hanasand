@@ -2,7 +2,7 @@
 
 This Compose stack runs the Hanasand UI and API against a private, synthetic PostgreSQL database and a fixed staging identity. It does not load production credentials or production records. All published ports bind to loopback so access is through an SSH tunnel.
 
-The API receives `LXD_PROJECT=hanasand-vm-stage`; provisioning, status, console, metrics and disk-usage requests are scoped to that LXD project. The project has a two-instance, four-CPU, 4 GiB RAM limit and its own NAT bridge. Staging VMs have outbound internet access for package installers, but no public service route.
+The API receives `LXD_PROJECT=vms-staging-20261022`; provisioning, status, console, metrics and disk-usage requests are scoped to that LXD project. The current host project limit is four instances, eight CPUs and 16 GiB RAM, with network access restricted to `lxdbr0`. Staging VMs have outbound internet access for package installers, but no public service route. Check the host's free storage and load before creating a VM; the project quota does not guarantee host capacity.
 
 From the Hanasand checkout on the OVH host, start it with:
 
