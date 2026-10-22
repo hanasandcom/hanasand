@@ -187,3 +187,12 @@ test('shared cases identify additional affected checks', async () => {
     expect(result.json().case.title).toBe('HA-3 · OVH RAM (+4 checks)')
     expect(result.json().case.relatedChecks).toEqual([])
 })
+
+test('legacy missing host metric cases are presented as medium-severity monitoring warnings', async () => {
+    rows = [{ id: '4', monitor_name: 'Inspur CPU', target_url: 'system:metrics', kind: 'failure', summary: 'JSON field unavailable: host.cpuPercent.', resolved_at: null }]
+    const result = await app.inject('/cases/monitoring/HA-4')
+    expect(result.json().case).toMatchObject({
+        summary: 'Host metrics unavailable for Inspur CPU: the CPU reading (host.cpuPercent) is missing or invalid in the latest snapshot. Host status is unknown. Check the metrics collector and its latest snapshot.',
+        severity: 'medium',
+    })
+})

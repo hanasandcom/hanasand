@@ -2,7 +2,7 @@ import { beforeEach, expect, mock, test } from 'bun:test'
 import { EventEmitter } from 'node:events'
 import tls from 'node:tls'
 
-let clock = 0, requests = 0, failures = 0, tlsDuration = 0, requestDuration = 20, throwTimeout = false, unavailable = 0, evaluationError: Error | null = null
+let clock = 0, requests = 0, failures = 0, tlsDuration = 0, requestDuration = 20, throwTimeout = false, unavailable = 0, evaluationError: Error | null = null, customSnapshotPayload: Record<string, unknown> | null = null
 const waits: number[] = [], timeouts: number[] = [], snapshots: number[] = []
 const actualNow = Date.now
 mock.module('node:timers/promises', () => ({ setTimeout: async (ms: number) => { waits.push(ms); clock += ms } }))
@@ -31,13 +31,13 @@ mock.module('../src/utils/jsonMonitoring.ts', () => ({
     sharedJsonSnapshot: async (_source: unknown, attempt: number) => {
         snapshots.push(attempt)
         if (attempt < unavailable) throw new Error('OVH host telemetry is unavailable.')
-        return { payload: { bad: attempt < failures }, certificate: { status: 'not_applicable' } }
+        return { payload: customSnapshotPayload || { bad: attempt < failures }, certificate: { status: 'not_applicable' } }
     },
 }))
 const { runMonitoringCheck } = await import('../src/utils/automations.ts')
 import type { AutomationRow } from '../src/utils/automations.ts'
 const monitor = { monitoring_type: 'fetch', target_url: 'http://example.test', timeout_seconds: 5, retry_count: 4 } as AutomationRow
-beforeEach(() => { clock = 0; requests = 0; failures = 0; tlsDuration = 0; requestDuration = 20; throwTimeout = false; unavailable = 0; evaluationError = null; waits.length = 0; timeouts.length = 0; snapshots.length = 0 })
+beforeEach(() => { clock = 0; requests = 0; failures = 0; tlsDuration = 0; requestDuration = 20; throwTimeout = false; unavailable = 0; evaluationError = null; customSnapshotPayload = null; waits.length = 0; timeouts.length = 0; snapshots.length = 0 })
 async function check(input = monitor) {
     Date.now = () => actualNow() + clock
     try { return await runMonitoringCheck(input) } finally { Date.now = actualNow }
@@ -83,10 +83,10 @@ test('a received HTTP failure is final even if the next response would pass', as
     expect(requests).toBe(1)
     expect(waits).toEqual([])
 })
-const jsonMonitor = { ...monitor, monitoring_type: 'json', target_url: 'system:metrics', json_rule: { path: 'host.cpuPercent', operator: 'gt', value: 80, aggregate: 'max' } } as AutomationRow
+const jsonMonitor = { ...monitor, name: 'Inspur CPU', monitoring_type: 'json', target_url: 'system:metrics', json_rule: { path: 'host.cpuPercent', operator: 'gt', value: 80, aggregate: 'max' } } as AutomationRow
 test('a high reading fails immediately even if the next sample would pass', async () => {
     failures = 1
-    await expect(check(jsonMonitor)).rejects.toThrow('JSON threshold exceeded:')
+    await expect(check(jsonMonitor)).rejects.toThrow('Inspur CPU: maximum CPU use is true')
     expect(snapshots).toEqual([0])
     expect(waits).toEqual([])
 })
@@ -99,9 +99,16 @@ test('JSON retries unavailable snapshots and accepts the first valid reading', a
 test('a high reading after connection recovery is final', async () => {
     unavailable = 2
     failures = 3
-    await expect(check(jsonMonitor)).rejects.toThrow('JSON threshold exceeded:')
+    await expect(check(jsonMonitor)).rejects.toThrow('Inspur CPU: maximum CPU use is true')
     expect(snapshots).toEqual([0, 1, 2])
     expect(waits).toEqual([1000, 2000])
+})
+test('boolean Logs throughput alerts include the exact breached metrics in their stored message', async () => {
+    customSnapshotPayload = { bad: true, current: { pps: 120, eps: 135, npps: 1, remaining: 320,
+        thresholds: { npps_below: true, eps_above: true, pps_below: true } } }
+    const logMonitor = { ...monitor, name: 'Log throughput thresholds', monitoring_type: 'json', target_url: 'https://logs.example/api/metrics',
+        json_rule: { path: 'current.alert', operator: 'eq', value: true, aggregate: 'first' } } as AutomationRow
+    await expect(check(logMonitor)).rejects.toThrow('Logs throughput is outside its configured limits: NPPS (incoming load ÷ checked throughput) 1 below 100×; incoming event rate 135 above 100 events/s; processing rate 120 below 200 logs/s.')
 })
 test('unavailable JSON telemetry stops after five attempts', async () => {
     unavailable = 5
@@ -120,7 +127,7 @@ test('missing host metric fields become a data warning without classifying the h
     expect(snapshots).toEqual([0])
 })
 test('inverted JSON checks also accept the first result', async () => {
-    await expect(check({ ...jsonMonitor, upside_down: true })).rejects.toThrow('JSON threshold exceeded:')
+    await expect(check({ ...jsonMonitor, upside_down: true })).rejects.toThrow('Inspur CPU: maximum CPU use is false')
     expect(snapshots).toEqual([0])
     expect(waits).toEqual([])
 })

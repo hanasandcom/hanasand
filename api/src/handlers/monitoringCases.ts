@@ -1,4 +1,5 @@
 import { readableMonitoringMessage } from '#utils/monitoringMessage.ts'
+import { isHostMetricsDataWarning } from '#utils/hostCheckMessage.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { monitoringCaseReadScope } from '#utils/monitoringCaseAccess.ts'
@@ -50,17 +51,20 @@ export async function getMonitoringCases(req: FastifyRequest<{ Params: { id?: st
           AND i.merged_into IS NULL AND ($4::text IS NULL OR i.id = (SELECT COALESCE(merged_into,id) FROM monitoring_issues WHERE id::text=$4))
         ORDER BY i.last_seen_at DESC, i.id DESC`, [includeAll, id, organizationId, caseId?.slice(3) || null])
     const queriedAt = performance.now()
-    const items = result.rows.map(row => ({
-        canManage: row.can_manage === true, id: `HA-${row.id}`, caseNumber: `HA-${row.id}`, source: 'monitoring',
-        title: `HA-${row.id} · ${row.monitor_name}${row.check_count > 1 ? ` (+${row.check_count - 1} ${row.check_count === 2 ? 'check' : 'checks'})` : ''}`, summary: readableMonitoringMessage(row.summary, { monitorName: row.monitor_name, targetUrl: row.target_url }),
-        status: row.status_override || (row.resolved_at ? 'resolved' : 'open'), severity: row.severity_override || (row.kind === 'failure' ? 'high' : 'medium'),
-        notificationsEnabled: row.notifications_enabled ?? true,
-        ...(!summary ? { comments: row.comments || [], diskDiagnostics: row.disk_diagnostics, history: monitoringCaseHistory(row, { monitorName: row.monitor_name, targetUrl: row.target_url }) } : {}),
-        resolution: monitoringCaseResolution(row, { monitorName: row.monitor_name, targetUrl: row.target_url }),
-        assignedOwner: row.owner_id, organizationId: row.organization_id,
-        createdAt: row.first_seen_at, lastSeenAt: row.last_seen_at, updatedAt: row.updated_at || (row.history || []).reduce((latest: string, event: { at: string }) => new Date(event.at) > new Date(latest) ? event.at : latest, row.last_seen_at), resolvedAt: row.resolved_at,
-        occurrences: row.occurrences, automationId: row.automation_id,
-    }))
+    const items = result.rows.map(row => {
+        const monitoringDataProblem = row.target_url === 'system:metrics' && isHostMetricsDataWarning(row.summary || '')
+        return {
+            canManage: row.can_manage === true, id: `HA-${row.id}`, caseNumber: `HA-${row.id}`, source: 'monitoring',
+            title: `HA-${row.id} · ${row.monitor_name}${row.check_count > 1 ? ` (+${row.check_count - 1} ${row.check_count === 2 ? 'check' : 'checks'})` : ''}`, summary: readableMonitoringMessage(row.summary, { monitorName: row.monitor_name, targetUrl: row.target_url }),
+            status: row.status_override || (row.resolved_at ? 'resolved' : 'open'), severity: row.severity_override || (row.kind === 'failure' && !monitoringDataProblem ? 'high' : 'medium'),
+            notificationsEnabled: row.notifications_enabled ?? true,
+            ...(!summary ? { comments: row.comments || [], diskDiagnostics: row.disk_diagnostics, history: monitoringCaseHistory(row, { monitorName: row.monitor_name, targetUrl: row.target_url }) } : {}),
+            resolution: monitoringCaseResolution(row, { monitorName: row.monitor_name, targetUrl: row.target_url }),
+            assignedOwner: row.owner_id, organizationId: row.organization_id,
+            createdAt: row.first_seen_at, lastSeenAt: row.last_seen_at, updatedAt: row.updated_at || (row.history || []).reduce((latest: string, event: { at: string }) => new Date(event.at) > new Date(latest) ? event.at : latest, row.last_seen_at), resolvedAt: row.resolved_at,
+            occurrences: row.occurrences, automationId: row.automation_id,
+        }
+    })
     if (!caseId) {
         const timing = { boundaryMs, authorizationMs: authorizedAt - started, queryMs: queriedAt - authorizedAt, mappingMs: performance.now() - queriedAt }
         res.header('Server-Timing', [...(req.caseBoundaryTiming || []), ...Object.entries(timing).map(([name, duration]) => `${name};dur=${duration.toFixed(2)}`)].join(', '))

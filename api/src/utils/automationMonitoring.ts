@@ -3,6 +3,7 @@ import { normalizeJsonRule, evaluateJsonRule, sharedJsonSnapshot } from './jsonM
 import { hostCheckMessage, hostMetricsDataWarning } from './hostCheckMessage.ts'
 import { recoveryCheckMessage } from './recoveryMonitoring.ts'
 import { MonitoringResponseError } from './monitoringResponseError.ts'
+import { readableMonitoringMessage } from './monitoringMessage.ts'
 import type { AutomationRow } from './automationTypes.ts'
 import { checkCertificate, certificateTarget, getCertificateFromError } from './automationNetwork.ts'
 import { runHttpCheck, runSocketCheck } from './automationNetworkChecks.ts'
@@ -80,6 +81,11 @@ async function runJsonCheck(automation: AutomationRow, attempt: number) {
     const message = (automation.target_url === 'system:metrics' ? hostCheckMessage(rule, observed, failed, inverted) : null)
         ?? (automation.target_url === 'system:recovery' ? recoveryCheckMessage(snapshot.payload, rule, inverted) : null)
         ?? `JSON ${failed ? 'threshold exceeded' : 'check passed'}: ${rule.path} = ${observed}; alert ${rule.operator} ${rule.value} (${rule.aggregate}).`
-    if (failed) throw Object.assign(new MonitoringResponseError(message), { certificate })
+    if (failed) {
+        const readableMessage = readableMonitoringMessage(message, {
+            monitorName: automation.name, targetUrl: automation.target_url, jsonPayload: snapshot.payload,
+        })
+        throw Object.assign(new MonitoringResponseError(readableMessage), { certificate })
+    }
     return { provider: 'hanasand-monitoring', model: 'json', message, certificate, warning: false }
 }

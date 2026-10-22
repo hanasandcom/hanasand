@@ -1,4 +1,6 @@
-type MonitoringMessageContext = { monitorName?: string | null, targetUrl?: string | null }
+import { hostMetricsDataWarning } from './hostCheckMessage.ts'
+
+type MonitoringMessageContext = { monitorName?: string | null, targetUrl?: string | null, jsonPayload?: unknown }
 
 function fieldLabel(path: string) {
     const known: Record<string, string> = {
@@ -29,6 +31,24 @@ function hostName(context: MonitoringMessageContext) {
 
 function comparison(operator: string, observed: string, threshold: string, path: string, aggregate: string, context: MonitoringMessageContext) {
     const name = monitorName(context)
+    if (path === 'current.alert' && observed === 'true') {
+        const metrics = (context.jsonPayload as { current?: Record<string, unknown> } | undefined)?.current
+        const thresholds = metrics?.thresholds as Record<string, unknown> | undefined
+        if (thresholds && ['npps_below', 'eps_above', 'pps_below'].some(key => thresholds[key] === true)) {
+            const conditions: string[] = []
+            const add = (key: string, valueKey: string, label: string, relation: string, limit: string) => {
+                if (thresholds[key] === true) conditions.push(`${label} ${String(metrics?.[valueKey] ?? 'unknown')} ${relation} ${limit}`)
+            }
+            add('npps_below', 'npps', 'NPPS (incoming load ÷ checked throughput)', 'below', '100×')
+            add('eps_above', 'eps', 'incoming event rate', 'above', '100 events/s')
+            add('pps_below', 'pps', 'processing rate', 'below', '200 logs/s')
+            const remaining = typeof metrics?.remaining === 'number' ? ` Pending backlog: ${metrics.remaining}.` : ''
+            return `Logs throughput is outside its configured limits: ${conditions.join('; ')}.${remaining} Check incoming traffic, processing workers, and the pending backlog.`
+        }
+        if (/log.*throughput/i.test(name)) {
+            return 'Logs throughput has crossed a configured limit. This saved check contains only the alert flag, so the triggering rate and threshold are unavailable. Check Logs → Metrics for incoming rate, processing rate, and pending backlog.'
+        }
+    }
     if (context.targetUrl === 'system:ti-collection' && path === 'collection.critical') {
         return observed === 'true'
             ? 'TI source collection is overdue: no completed run is recorded within the five-minute freshness window. Check the scraper’s last run, source connectivity, and recent errors.'
@@ -88,6 +108,23 @@ function httpFailure(code: string, context: MonitoringMessageContext) {
 // Translate stored machine-generated output for cases, events, and Discord.
 // Persisted evidence and user-authored comments remain unchanged.
 export function readableMonitoringMessage(message: string, context: MonitoringMessageContext = {}): string {
+    if (context.targetUrl === 'system:metrics' && /^JSON field (?:unavailable|is not numeric|type does not match the comparison): [\w*.-]+\.$/.test(message)) {
+        return hostMetricsDataWarning(context.monitorName || 'the monitored host', new Error(message))
+    }
+    const jsonField = /^JSON field (unavailable|is not numeric|type does not match the comparison): ([\w*.-]+)\.$/.exec(message)
+    if (jsonField) {
+        return `${monitorName(context)} could not read the expected JSON field ${jsonField[2]} (${jsonField[1]}). The target’s status is unknown. Check the response schema and the monitor’s field path.`
+    }
+
+    const operationTimeout = /^The operation timed out\.(?: Failed after (\d+) attempts?\.)?$/.exec(message)
+    if (operationTimeout) {
+        const attempts = operationTimeout[1] ? ` after ${operationTimeout[1]} attempt${operationTimeout[1] === '1' ? '' : 's'}` : ''
+        if (context.targetUrl === 'system:ti-collection') {
+            return `TI collection health check timed out${attempts} before it could read collection status. The collection state is unknown. Check the scraper’s last completed run and recent source errors.`
+        }
+        return `${monitorName(context)} timed out${attempts} before it returned a result. Target status is unknown. Check the monitor endpoint and its dependencies.`
+    }
+
     const http = /^JSON source returned HTTP (\d{3})\.$/.exec(message)
     if (http) return httpFailure(http[1], context)
 

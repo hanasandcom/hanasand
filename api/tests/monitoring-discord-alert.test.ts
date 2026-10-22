@@ -61,6 +61,17 @@ test('monitoring-data warnings explain that host health is unknown', () => {
     expect(alert.embeds[0].fields).toContainEqual({ name: 'Severity', value: 'medium', inline: true })
 })
 
+test('legacy host telemetry errors do not appear as high-severity host failures', () => {
+    const alert = monitoringCaseDiscordAlert('HA-4', 'Inspur CPU', 'cpu-check', {
+        kind: 'failure', summary: 'JSON field unavailable: host.cpuPercent.', occurrences: 31526,
+        first_seen_at: '2026-09-28T01:53:00Z', last_seen_at: '2026-10-22T13:05:00Z',
+    }, null, { targetUrl: 'system:metrics' })
+    expect(alert.embeds[0]).toMatchObject({
+        description: expect.stringContaining('Host status is unknown'), color: 0xFEE75C,
+    })
+    expect(alert.embeds[0].fields).toContainEqual({ name: 'Severity', value: 'medium', inline: true })
+})
+
 test('existing text-only callers and disabled mentions are unchanged', async () => {
     interceptDelivery()
     await deliverDiscordWebhookFile('https://discord.com/api/webhooks/123/test-token', 'Mail recovered', false)
