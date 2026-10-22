@@ -22,8 +22,8 @@ case "$core_origin" in
 esac
 umask 077
 stage_root=$(mktemp -d /tmp/core-organization-proof-stage.XXXXXX)
-stage_id=${stage_root##*.}
-owner=core-organization-proof-$stage_id
+stage_id=$(printf '%s' "$stage_root" | sha256sum | cut -c 1-12)
+owner=core-organization-proof-${stage_root##*.}
 label=com.hanasand.staging.owner
 network=core-organization-proof-net-$stage_id
 db=core-organization-proof-db-$stage_id
