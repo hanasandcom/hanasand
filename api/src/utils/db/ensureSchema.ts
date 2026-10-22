@@ -13,7 +13,6 @@ import ensureAuthenticationSchema from './authenticationSchema.ts'
 import ensureShareSchema from './shareSchema.ts'
 import ensureOperationsMonitoringSchema from './operationsMonitoringSchema.ts'
 import ensureWebScanSchema from './webScanSchema.ts'
-import ensureUvmScannerSchema from './uvmScannerSchema.ts'
 import ensureTrafficDesktopSchema from './trafficDesktopSchema.ts'
 import ensureAgentAutomationSchema from './agentAutomationSchema.ts'
 import ensureCaseDevelopmentSchema from './caseDevelopmentSchema.ts'
@@ -138,7 +137,6 @@ async function applySchema() {
     await ensureShareSchema()
     await ensureOperationsMonitoringSchema()
     await ensureWebScanSchema()
-    await ensureUvmScannerSchema()
     await ensureTrafficDesktopSchema()
     await ensureAgentAutomationSchema()
     await ensureCaseDevelopmentSchema()

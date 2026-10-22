@@ -12,7 +12,9 @@ Before a manual scan or recurring schedule can run, an owner/editor confirms aut
 
 ## Service boundary
 
-The Hanasand API owns identity, authorization, asset verification, quotas, and audit events. The standalone [Scanner service](https://github.com/hanasandcom/scanner) stores engine credentials and network job execution. Configure `HANASAND_SCANNER_URL` and the same random `HANASAND_SCANNER_SERVICE_TOKEN` in the API and Scanner environments. Only `GET /health` is unauthenticated; every other Scanner route requires the service token.
+The Hanasand API is the authenticated website BFF: it owns identity, organization roles, entitlement checks, billing quotas, and audit events. The standalone [Scanner service](https://github.com/hanasandcom/scanner) owns UVM assets, DNS verification challenges, authorized address sets, schedules, assessments, engine credentials, run history, findings, and triage. The API forwards organization-scoped requests over the private service connection. Configure `HANASAND_SCANNER_URL` and the same random `HANASAND_SCANNER_SERVICE_TOKEN` in both server environments; the token never reaches the browser. Only `GET /health` is unauthenticated; other Scanner routes require the service token.
+
+Schedules and provider jobs now run in Scanner. The Hanasand API no longer creates or advances UVM domain tables on startup. Legacy UVM tables are retained unchanged for migration and rollback; do not drop or rewrite them during cutover. The one-time transfer uses `api/scripts/migrate-uvm-data-to-scanner.ts` against the configured target, imports a repeatable snapshot, and leaves every source row in place. Run it against staging first, compare imported counts and dashboard history, then use the explicit production cutover flag only during a coordinated release. For rollback, restore the previous API and Scanner revisions while retaining both databases; do not run the importer again with modified source data under the same migration ID.
 
 ## Tenable Vulnerability Management
 
@@ -25,7 +27,7 @@ Scanner runs launch asynchronously, poll Tenable for completion, and import the 
 
 When the Scanner service is configured with a private Greenbone Manager endpoint and valid TLS credentials, it enables GVM only after checking manager access, the fixed Full and Fast scan configuration, the OpenVAS scanner, the operator-selected port list, and loaded NVT/SCAP/CERT/GVMD_DATA feeds. Hanasand sends only the selected asset's authorized public IPv4 addresses; client requests cannot supply a manager URL, config, scanner, or port-list ID. The GMP worker creates and deletes its own targets/tasks, polls asynchronously, imports findings only for requested addresses, and records report-host coverage. GVM is on-demand only; recurring GVM schedules are not supported. Live manager and feed compatibility still requires deployment validation.
 
-Assessment history uses the additive `uvm_assessments` and `uvm_assessment_steps` tables. On application rollback, leave these tables in place so the next API start preserves the assessment history. To remove the feature and its data, first stop the API and cancel or wait for all provider jobs, export any required audit history, then drop `uvm_assessment_steps` before `uvm_assessments`; their indexes are removed with the tables.
+Assessment history, findings, and scan schedules are stored by Scanner after cutover. Keep the previous Hanasand UVM tables as a read-only rollback copy until the migration has been verified and the retention decision is made separately.
 
 The network worker runs separately from the image scanner and has no Docker socket. It needs outbound access to approved public scan targets and the private Scanner database network. Keep both service and database off public interfaces. The service supports one Nmap worker replica, reports worker heartbeat, and marks a running job failed if the worker restarts.
 

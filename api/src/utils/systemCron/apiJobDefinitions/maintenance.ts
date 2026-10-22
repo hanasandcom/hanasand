@@ -9,7 +9,6 @@ import { VM_FAILOVER_JOB_ID } from '../../vms/failover.ts'
 import { vmLifecycleMonitorIsConfigured, VM_LIFECYCLE_MONITOR_JOB_ID } from '../../vms/lifecycleMonitor.ts'
 import { HOST_UPDATE_MONITOR_JOB_ID } from '../../cron.ts'
 import { VULNERABILITY_SCAN_CADENCE_SECONDS, VULNERABILITY_SCAN_JOB_ID } from '../../vulnerabilities/scanner.ts'
-import { UVM_SCHEDULE_JOB_ID } from '../../vulnerabilities/uvmScanner.ts'
 import { DATABASE_BACKUP_JOB_ID } from '../../db/backups.ts'
 import { secondsSchedule } from '../jobMetrics.ts'
 
@@ -145,16 +144,6 @@ export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
         schedule: secondsSchedule(VULNERABILITY_SCAN_CADENCE_SECONDS),
         cadenceSeconds: VULNERABILITY_SCAN_CADENCE_SECONDS,
         source: 'https://github.com/hanasandcom/scanner',
-        controls: ['pause', 'resume', 'run_now'],
-    },
-    {
-        id: UVM_SCHEDULE_JOB_ID,
-        name: 'Authorized network scan scheduler',
-        description: 'Reconciles scanner run states and findings, queues due verified scans, and pauses schedules when authorized addresses change.',
-        category: 'Other/System',
-        schedule: 'Every minute while an asset schedule is due',
-        cadenceSeconds: API_CRON_CADENCE_SECONDS,
-        source: 'api/src/utils/vulnerabilities/uvmScanner.ts',
         controls: ['pause', 'resume', 'run_now'],
     },
     {

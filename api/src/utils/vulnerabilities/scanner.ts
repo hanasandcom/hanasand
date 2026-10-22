@@ -189,6 +189,13 @@ export const VULNERABILITY_SCAN_JOB_ID = 'api-vulnerability-scanner'
 export const VULNERABILITY_SCAN_CADENCE_SECONDS = Number(process.env.SCANNER_INTERVAL_SECONDS || process.env.VULNERABILITY_SCAN_INTERVAL_SECONDS || 3600)
 const scannerUrl = (process.env.HANASAND_SCANNER_URL || '').trim().replace(/\/$/, '')
 const serviceToken = process.env.HANASAND_SCANNER_SERVICE_TOKEN || ''
+
+export class ScannerRequestError extends Error {
+    constructor(message: string, readonly status: number) {
+        super(message)
+        this.name = 'ScannerRequestError'
+    }
+}
 const legacyStatePath = process.env.VULNERABILITY_SCAN_STATE_PATH || '/var/lib/hanasand/vulnerability-scan.json'
 const requestTimeoutMs = 30_000
 let legacyImportInProgress = false
@@ -362,9 +369,15 @@ async function requestScanner<T>(route: string, options: { method?: string, body
     })
     if (!response.ok) {
         const body = await response.text().catch(() => '')
-        throw new Error(scannerErrorMessage(body, response.status))
+        throw new ScannerRequestError(scannerErrorMessage(body, response.status), response.status)
     }
     return response.json() as Promise<T>
+}
+
+/** Internal server-to-server access for UVM domain data. The service credential stays server-side. */
+export function requestUvmService<T>(route: string, options: { method?: string, body?: unknown, timeoutMs?: number } = {}) {
+    if (!route.startsWith('/v1/uvm/')) throw new Error('Invalid UVM service route.')
+    return requestScanner<T>(route, options)
 }
 
 function scannerErrorMessage(body: string, status: number) {

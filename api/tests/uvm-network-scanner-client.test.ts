@@ -3,10 +3,40 @@ import { afterEach, describe, expect, test } from 'bun:test'
 process.env.HANASAND_SCANNER_URL = 'http://scanner.internal:18200'
 process.env.HANASAND_SCANNER_SERVICE_TOKEN = 'test-service-token'
 const originalFetch = globalThis.fetch
-const { cancelNetworkScannerRun, getNetworkScannerEngines, startNetworkScannerRun, getTenableIntegration, setTenableIntegration, getTenableScans, startTenableRun, getGvmEngineStatus, startGvmRun, cancelGvmRun } = await import('../src/utils/vulnerabilities/scanner.ts')
+const { cancelNetworkScannerRun, getNetworkScannerEngines, startNetworkScannerRun, getTenableIntegration, setTenableIntegration, getTenableScans, startTenableRun, getGvmEngineStatus, startGvmRun, cancelGvmRun, requestUvmService, ScannerRequestError } = await import('../src/utils/vulnerabilities/scanner.ts')
 afterEach(() => { globalThis.fetch = originalFetch })
 
 describe('network scanner service client', () => {
+    test('keeps UVM requests on the private service-token boundary', async() => {
+        let requestedUrl = ''
+        let requestToken: string | null = null
+        let requestBody: unknown
+        globalThis.fetch = (async(input, init) => {
+            requestedUrl = String(input)
+            requestToken = new Headers(init?.headers).get('x-hanasand-service-token')
+            requestBody = JSON.parse(String(init?.body))
+            return Response.json({ asset: { id: 'asset-1' } }, { status: 201 })
+        }) as typeof fetch
+
+        const result = await requestUvmService<{ asset: { id: string } }>('/v1/uvm/assets', { method: 'POST', body: { organizationId: 'org-1', hostname: 'example.com' } })
+        expect(requestedUrl).toBe('http://scanner.internal:18200/v1/uvm/assets')
+        expect(requestToken).toBe('test-service-token')
+        expect(requestBody).toEqual({ organizationId: 'org-1', hostname: 'example.com' })
+        expect(result.asset.id).toBe('asset-1')
+    })
+
+    test('rejects paths outside the UVM API namespace', async() => {
+        expect(() => requestUvmService('/v1/network/runs')).toThrow('Invalid UVM service route.')
+    })
+
+    test('preserves service validation statuses for the BFF', async() => {
+        globalThis.fetch = (async() => Response.json({ error: 'asset_not_found' }, { status: 404 })) as typeof fetch
+        let failure: unknown
+        try { await requestUvmService('/v1/uvm/assets/missing') } catch (error) { failure = error }
+        expect(failure).toBeInstanceOf(ScannerRequestError)
+        expect((failure as ScannerRequestError).status).toBe(404)
+    })
+
     test('sends the service token and reads engine metadata', async() => {
         let requestHeaders: Headers | undefined
         globalThis.fetch = (async(_input, init) => {
