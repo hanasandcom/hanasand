@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 
+mock.module('#constants', () => ({ default: { lxd_socket_path: '/run/lxd-prod/unix.socket' } }))
 const purgeJobId = 'api-user-account-deletion'
 const failoverJobId = 'api-vm-failover'
 let paused = false
@@ -18,6 +19,10 @@ mock.module('../src/utils/organizationPrivacy.ts', () => ({ ORGANIZATION_RETENTI
 mock.module('../src/utils/events/ruleStorageEstimateWorker.ts', () => ({ RULE_STORAGE_ESTIMATE_JOB_ID: 'api-rule-storage-estimate' }))
 mock.module('../src/utils/auth/purgeDeletedAccounts.ts', () => ({ ACCOUNT_DELETION_PURGE_JOB_ID: purgeJobId }))
 mock.module('../src/utils/vms/failover.ts', () => ({ VM_FAILOVER_JOB_ID: failoverJobId }))
+mock.module('../src/utils/vms/lifecycleMonitor.ts', () => ({
+    VM_LIFECYCLE_MONITOR_JOB_ID: 'api-vm-lifecycle-monitor',
+    vmLifecycleMonitorIsConfigured: () => false,
+}))
 mock.module('../src/utils/vulnerabilities/scanner.ts', () => ({
     VULNERABILITY_SCAN_CADENCE_SECONDS: 3600,
     VULNERABILITY_SCAN_JOB_ID: 'api-vulnerability-scanner',
@@ -159,6 +164,19 @@ test('VM failover is visible with minute cadence and safe API cron controls', as
     paused = true
     const pausedJob = (await listUnifiedScheduledJobs()).find(item => item.id === failoverJobId)
     expect(pausedJob).toMatchObject({ enabled: false, status: 'paused', controls: ['resume', 'run_now'] })
+})
+
+test('staging lifecycle monitor hides controls without a configured target and preserves organization controls', async() => {
+    const jobs = await listUnifiedScheduledJobs()
+    const lifecycleJob = jobs.find(job => job.id === 'api-vm-lifecycle-monitor')
+    const organizationJob = jobs.find(job => job.id === 'api-organization-retention')
+
+    expect(lifecycleJob).toMatchObject({
+        name: 'VM lifecycle staging monitor',
+        controls: [],
+        controlMode: 'observable_only',
+    })
+    expect(organizationJob?.controls).toEqual(['pause', 'resume', 'run_now'])
 })
 
 test('adaptive log processors report their batch runs without changing queue cadence', async() => {

@@ -150,3 +150,28 @@ test('without an isolated staging target the monitor reports no data and makes n
     expect(observations).toEqual([expect.objectContaining({ status: 'degraded', message: expect.stringContaining('has no data') })])
     expect(lxd.calls).toEqual([])
 })
+
+test('production LXD socket is rejected even when probe functions are called directly', async () => {
+    const productionSettings = { ...safeSettings, socketPath: '/run/lxd-prod/unix.socket' }
+    const lxd = fakeLxd()
+    const observations: { status: string, message: string }[] = []
+
+    expect(vmLifecycleMonitorIsConfigured({
+        VM_LIFECYCLE_MONITOR_ENABLED: 'true',
+        VM_LIFECYCLE_MONITOR_TARGET: 'isolated-staging',
+        VM_LIFECYCLE_MONITOR_SOCKET_PATH: productionSettings.socketPath,
+        VM_LIFECYCLE_MONITOR_IMAGE_SERVER: safeSettings.imageServer,
+        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: safeSettings.imageAlias,
+    })).toBe(false)
+    const result = await runVmLifecycleCheck({
+        settings: productionSettings,
+        request: lxd.request,
+        record: async (_service, _name, observation) => { observations.push(observation) },
+    })
+
+    expect(result.status).toBe('no-data')
+    expect(observations[0].status).toBe('degraded')
+    expect(lxd.calls).toEqual([])
+    await expect(exerciseDisposableInstance(productionSettings, lxd.request)).rejects.toThrow('explicitly enabled isolated staging')
+    expect(lxd.calls).toEqual([])
+})
