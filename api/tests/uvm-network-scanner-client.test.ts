@@ -19,13 +19,13 @@ describe('network scanner service client', () => {
         expect(result.engines[0]?.id).toBe('nmap')
     })
 
-    test('submits a fixed scan request and reads its persisted result', async() => {
+    test('keeps an accepted scan tracked if the detail endpoint is unavailable', async() => {
         const calls: Array<{ url: string, method: string, body?: string }> = []
         const runId = '312a46ba-ec33-48c0-8bac-b274f34fa7f4'
         globalThis.fetch = (async(input, init) => {
             calls.push({ url: String(input), method: init?.method || 'GET', body: typeof init?.body === 'string' ? init.body : undefined })
             if (String(input).endsWith('/v1/network/runs')) return Response.json({ runId, status: 'queued' }, { status: 202 })
-            return Response.json({ runId, organizationId: 'org', assetId: 'asset', requestId: 'request', target: 'example.com', addresses: ['8.8.8.8'], profile: 'tcp-top-100', status: 'queued', hosts: [], createdAt: new Date().toISOString(), startedAt: null, finishedAt: null, engineVersion: null, rawXmlSha256: null, error: null })
+            return new Response('detail unavailable', { status: 503 })
         }) as typeof fetch
         const request = { organizationId: 'org', assetId: 'asset', requestId: '7114929c-2376-42e4-a25c-0ff1fbb330ca', target: 'example.com', addresses: ['8.8.8.8'], profile: 'tcp-top-100' as const }
 
@@ -33,7 +33,7 @@ describe('network scanner service client', () => {
         const submitted = JSON.parse(calls[0]!.body!)
         expect(calls[0]!.method).toBe('POST')
         expect(submitted).toEqual(request)
-        expect(calls[1]!.url).toContain(`?organizationId=${encodeURIComponent(request.organizationId)}`)
+        expect(calls).toHaveLength(1)
         expect(run.runId).toBe(runId)
     })
 
@@ -79,19 +79,19 @@ describe('Tenable VM service client', () => {
         expect(result.scans[0]?.id).toBe('scan-1')
     })
 
-    test('starts Tenable with only the explicitly authorized address list', async() => {
+    test('keeps an accepted Tenable run tracked if its detail endpoint is unavailable', async() => {
         const calls: Array<{ url: string, method: string, body?: string }> = []
         const runId = '8f47e2d1-7382-4623-baf7-8fe7a0b3af29'
         globalThis.fetch = (async(input, init) => {
             calls.push({ url: String(input), method: init?.method || 'GET', body: typeof init?.body === 'string' ? init.body : undefined })
             if (String(input).endsWith('/v1/integrations/tenable/runs')) return Response.json({ runId, status: 'queued' }, { status: 202 })
-            return Response.json({ runId, organizationId: 'org-1', assetId: 'asset-1', requestId: 'request-1', target: 'example.com', addresses: ['8.8.8.8'], scanId: '1001', status: 'queued', findings: [], createdAt: new Date().toISOString(), startedAt: null, finishedAt: null, error: null })
+            return new Response('detail unavailable', { status: 503 })
         }) as typeof fetch
         const request = { organizationId: 'org-1', assetId: 'asset-1', requestId: '7114929c-2376-42e4-a25c-0ff1fbb330ca', target: 'example.com', addresses: ['8.8.8.8'], scanId: '1001' }
         const result = await startTenableRun(request)
         expect(calls[0]?.method).toBe('POST')
         expect(JSON.parse(calls[0]?.body || '{}')).toEqual(request)
-        expect(calls[1]?.url).toContain(`/v1/integrations/tenable/runs/${runId}?organizationId=org-1`)
+        expect(calls).toHaveLength(1)
         expect(result.runId).toBe(runId)
     })
 })
@@ -115,19 +115,24 @@ describe('Greenbone service client', () => {
     test('starts and cancels only an organization-scoped GVM run', async() => {
         const calls: Array<{ url: string, method: string, body?: string }> = []
         const runId = '8f47e2d1-7382-4623-baf7-8fe7a0b3af29'
+        let cancelRequested = false
         globalThis.fetch = (async(input, init) => {
             calls.push({ url: String(input), method: init?.method || 'GET', body: typeof init?.body === 'string' ? init.body : undefined })
             if (String(input).endsWith('/v1/integrations/gvm/runs')) return Response.json({ runId, status: 'queued' }, { status: 202 })
-            if ((init?.method || 'GET') === 'POST') return Response.json({ runId, status: 'cancelling', findings: [], addresses: ['8.8.8.8'] })
+            if (String(input).includes('/cancel?')) {
+                cancelRequested = true
+                return Response.json({ runId, status: 'cancelling', cancelled: false })
+            }
+            if ((init?.method || 'GET') === 'GET' && !cancelRequested) return new Response('detail unavailable', { status: 503 })
             return Response.json({ runId, organizationId: 'org-1', assetId: 'asset-1', requestId: 'request-1', target: 'example.com', addresses: ['8.8.8.8'], status: 'queued', findings: [], coverage: null, createdAt: new Date().toISOString(), startedAt: null, finishedAt: null, error: null })
         }) as typeof fetch
         const request = { organizationId: 'org-1', assetId: 'asset-1', requestId: '7114929c-2376-42e4-a25c-0ff1fbb330ca', target: 'example.com', addresses: ['8.8.8.8'] }
         const started = await startGvmRun(request)
         await cancelGvmRun(runId, 'org-1')
         expect(JSON.parse(calls[0]?.body || '{}')).toEqual(request)
-        expect(calls[1]?.url).toContain(`/v1/integrations/gvm/runs/${runId}?organizationId=org-1`)
-        expect(calls[2]?.method).toBe('POST')
-        expect(calls[2]?.url).toContain(`/v1/integrations/gvm/runs/${runId}/cancel?organizationId=org-1`)
+        expect(calls).toHaveLength(2)
+        expect(calls[1]?.method).toBe('POST')
+        expect(calls[1]?.url).toContain(`/v1/integrations/gvm/runs/${runId}/cancel?organizationId=org-1`)
         expect(started.runId).toBe(runId)
     })
 })

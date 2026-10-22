@@ -29,7 +29,7 @@ export async function startUvmGvmScan(input: { assetId: string, actorId: string,
     if (!input.authorized && !consentMatchesAddresses) throw new Error('The resolved IP addresses changed or have not been authorized. Confirm that you are authorized to scan the current addresses.')
     const remote = await startGvmRun({ organizationId: HANASAND_ORGANIZATION_ID, assetId: asset.id, requestId: randomUUID(), target: asset.hostname, addresses })
     if (input.authorized) await run('UPDATE uvm_assets SET scan_authorized_at = NOW(), scan_authorized_by = $2, authorized_addresses = $3::jsonb, updated_at = NOW() WHERE id = $1', [asset.id, input.actorId, JSON.stringify(addresses)])
-    return { ...remote, id: remote.runId, target: asset.hostname, engine: 'gvm', profile: 'Full and Fast', source: 'manual' as const }
+    return { ...remote, id: remote.runId, target: asset.hostname, addresses, engine: 'gvm', profile: 'Full and Fast', source: 'manual' as const }
 }
 
 export async function startUvmTenableScan(input: { assetId: string, actorId: string, scanId: string, authorized: boolean, source?: 'manual' | 'scheduled' }) {
@@ -54,7 +54,7 @@ export async function startUvmTenableScan(input: { assetId: string, actorId: str
         const remote = await startTenableRun({ organizationId: HANASAND_ORGANIZATION_ID, assetId: asset.id, requestId, target: asset.hostname, addresses, scanId })
         await run('UPDATE uvm_tenable_runs SET scanner_run_id = $2, status = $3, started_at = $4 WHERE id = $1', [localId, remote.runId, remote.status, remote.startedAt || null])
         if (input.authorized) await run('UPDATE uvm_assets SET scan_authorized_at = NOW(), scan_authorized_by = $2, authorized_addresses = $3::jsonb, updated_at = NOW() WHERE id = $1', [asset.id, input.actorId, JSON.stringify(addresses)])
-        return { ...remote, id: inserted.rows[0].id, assetId: asset.id, target: asset.hostname, engine: 'tenable-vm', profile: scanId, source }
+        return { ...remote, id: inserted.rows[0].id, assetId: asset.id, target: asset.hostname, addresses, engine: 'tenable-vm', profile: scanId, source }
     } catch (error) {
         await run('UPDATE uvm_tenable_runs SET status = \'failed\', error = $2, finished_at = NOW() WHERE id = $1', [localId, errorMessage(error)])
         throw error
@@ -98,7 +98,7 @@ export async function startUvmNetworkScan(input: { assetId: string, actorId: str
         const remote = await startNetworkScannerRun({ organizationId: HANASAND_ORGANIZATION_ID, assetId: asset.id, requestId, target: asset.hostname, addresses, profile: 'tcp-top-100' })
         await run('UPDATE uvm_network_runs SET scanner_run_id = $2, status = $3, started_at = $4 WHERE id = $1', [localId, remote.runId, remote.status, remote.startedAt || null])
         if (input.authorized) await run('UPDATE uvm_assets SET scan_authorized_at = NOW(), scan_authorized_by = $2, authorized_addresses = $3::jsonb, updated_at = NOW() WHERE id = $1', [asset.id, input.actorId, JSON.stringify(addresses)])
-        return { ...remote, id: inserted.rows[0].id, assetId: asset.id, target: asset.hostname, engine: 'nmap', profile: 'tcp-top-100', source: input.source }
+        return { ...remote, id: inserted.rows[0].id, assetId: asset.id, target: asset.hostname, addresses, engine: 'nmap', profile: 'tcp-top-100', source: input.source }
     } catch (error) {
         await run('UPDATE uvm_network_runs SET status = \'failed\', error = $2, finished_at = NOW() WHERE id = $1', [localId, errorMessage(error)])
         throw error

@@ -280,8 +280,7 @@ export async function startNetworkScannerRun(input: {
     addresses: string[]
     profile: 'tcp-top-100'
 }) {
-    const accepted = await requestScanner<{ runId: string, status: NetworkScannerRun['status'] }>('/v1/network/runs', { method: 'POST', body: input })
-    return getNetworkScannerRun(accepted.runId, input.organizationId)
+    return requestScanner<{ runId: string, status: NetworkScannerRun['status'], startedAt?: string | null }>('/v1/network/runs', { method: 'POST', body: input })
 }
 
 export async function getNetworkScannerRuns(organizationId: string, limit = 50) {
@@ -314,8 +313,7 @@ export async function getTenableScans(organizationId: string) {
 }
 
 export async function startTenableRun(input: { organizationId: string, assetId: string, requestId: string, target: string, addresses: string[], scanId: string }) {
-    const accepted = await requestScanner<{ runId: string, status: TenableRun['status'] }>('/v1/integrations/tenable/runs', { method: 'POST', body: input })
-    return getTenableRun(accepted.runId, input.organizationId)
+    return requestScanner<{ runId: string, status: TenableRun['status'], startedAt?: string | null }>('/v1/integrations/tenable/runs', { method: 'POST', body: input })
 }
 
 export async function getTenableRuns(organizationId: string, limit = 50) {
@@ -335,8 +333,7 @@ export async function getGvmEngineStatus() {
 }
 
 export async function startGvmRun(input: { organizationId: string, assetId: string, requestId: string, target: string, addresses: string[] }) {
-    const accepted = await requestScanner<{ runId: string, status: GvmRun['status'] }>('/v1/integrations/gvm/runs', { method: 'POST', body: input })
-    return getGvmRun(accepted.runId, input.organizationId)
+    return requestScanner<{ runId: string, status: GvmRun['status'], startedAt?: string | null }>('/v1/integrations/gvm/runs', { method: 'POST', body: input })
 }
 
 export async function getGvmRun(runId: string, organizationId: string) {
