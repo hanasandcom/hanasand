@@ -20,10 +20,10 @@ export default function LoginForm({ redirectPath, initialUsername, hydrated, soc
                 passkeyVerifyUrl='/api/auth/passkeys/authenticate/verify'
                 ssoHref={ssoHref}
                 redirectPath={redirectPath}
-                identifierLabel='Username'
-                identifierPlaceholder='Username'
+                identifierLabel='Email or username'
+                identifierPlaceholder='name@hanasand.com'
                 identifierValue={initialUsername || ''}
-                submitLabel='Log in'
+                submitLabel='Sign in'
             />
             <div className='flex flex-wrap items-center gap-2 border-t border-ui-border/70 pt-4'>
                 <button type='button' disabled={!hydrated} onClick={() => onChangeMode('signup')} className={authGhostButtonClass}>Sign up</button>
