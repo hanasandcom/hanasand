@@ -162,8 +162,9 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
                         } else if (message.type === 'boot-output') {
                             boot.setError('')
                             boot.setOutput(previous => (previous + message.data).slice(-65536))
-                        } else if (message.type === 'boot-error') boot.setError(message.message)
-                        else if (message.type === 'closed') setStatus('Console disconnected. Reconnecting…')
+                        } else if (message.type === 'boot-error') {
+                            boot.setError(message.message)
+                        } else if (message.type === 'closed') setStatus('Console disconnected. Reconnecting…')
                     } catch {
                         setStatus('Invalid console response. Reconnect to try again.')
                     }
