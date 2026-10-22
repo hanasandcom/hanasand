@@ -16,7 +16,8 @@ test('login renders shared credentials and auth methods before hydration', () =>
 
     expect(html).toContain('name="username"')
     expect(html).toContain('name="password"')
-    expect(html).toContain('placeholder="Username"')
+    expect(html).toContain('Email or username')
+    expect(html).toContain('placeholder="name@hanasand.com"')
     expect(html).toContain('Continue with Google')
     expect(html).toContain('Sign in with passkey')
     expect(html).not.toContain('<hanasand-login-form')
