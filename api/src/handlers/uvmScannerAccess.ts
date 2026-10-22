@@ -10,7 +10,7 @@ export async function requireHanasandInternalAccess(req: FastifyRequest, res: Fa
     }
     const internalAccess = await hasHanasandInternalRouteAccess(req)
     if (!internalAccess.valid) {
-        res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required.' })
+        res.status(403).send({ error: 'Active Hanasand organization owner, administrator, or editor access is required.' })
         return false
     }
     return id
