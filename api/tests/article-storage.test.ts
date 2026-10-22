@@ -4,11 +4,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
-mock.module('../src/constants.ts', () => ({ default: { github_articles_ssh: 'unused-for-local-content' } }))
+mock.module('../src/constants.ts', () => ({ default: { articles_repo_url: 'unused-for-local-content' } }))
 test('persistent articles read and save without network access or losing Git dates', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'content-ownership-articles-'))
     const previous = process.env.ARTICLES_REPO_PATH
+    const previousPushUrl = process.env.ARTICLES_REPO_PUSH_URL
     process.env.ARTICLES_REPO_PATH = directory
+    delete process.env.ARTICLES_REPO_PUSH_URL
     try {
         execFileSync('git', ['init', '-q', directory])
         execFileSync('git', ['-C', directory, 'config', 'user.name', 'Content test'])
@@ -28,6 +30,7 @@ test('persistent articles read and save without network access or losing Git dat
         expect(await createdAt(file)).toContain('2025-01-01')
         expect(await updatedAt(file)).toContain('2025-01-01')
         await writeFile(file, '# Updated')
+        execFileSync('git', ['-C', directory, 'remote', 'add', 'origin', 'https://github.com/hanasandcom/articles.git'])
         await save('Update article')
         await save('No duplicate empty commit')
         expect(execFileSync('git', ['-C', directory, 'rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim()).toBe('2')
@@ -35,6 +38,8 @@ test('persistent articles read and save without network access or losing Git dat
     } finally {
         if (previous === undefined) delete process.env.ARTICLES_REPO_PATH
         else process.env.ARTICLES_REPO_PATH = previous
+        if (previousPushUrl === undefined) delete process.env.ARTICLES_REPO_PUSH_URL
+        else process.env.ARTICLES_REPO_PUSH_URL = previousPushUrl
         await rm(directory, { recursive: true, force: true })
     }
 })

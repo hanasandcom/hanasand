@@ -41,7 +41,7 @@ const config = {
     lxd_socket_path: process.env.LXD_SOCKET_PATH || '/var/snap/lxd/common/lxd/unix.socket',
     lxd_image_alias: process.env.LXD_IMAGE_ALIAS || '24.04',
     lxd_image_server: process.env.LXD_IMAGE_SERVER || 'https://cloud-images.ubuntu.com/releases',
-    github_articles_ssh: process.env.ARTICLES_REPO_URL || 'git@github.com:hanasandcom/articles.git',
+    articles_repo_url: process.env.ARTICLES_REPO_URL || 'https://github.com/hanasandcom/articles.git',
     internal_api: process.env.INTERNAL_API || 'https://internal.hanasand.com/api',
 }
 
