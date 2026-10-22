@@ -302,6 +302,7 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     if (website && !selectedServices.includes('website')) return null
     const nextjsProjectFiles = projectFilesInput === undefined ? undefined : normalizeNextjsProjectFiles(projectFilesInput)
     if (projectFilesInput !== undefined && (!nextjsProjectFiles || !selectedServices.includes('nodejs'))) return null
+    if (nextjsProjectFiles?.length && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
     const selectedOs = (os || 'ubuntu-24.04') as VmProvisionOptions['os']
     return {
         os: selectedOs,

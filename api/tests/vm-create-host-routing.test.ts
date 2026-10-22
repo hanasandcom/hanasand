@@ -130,6 +130,18 @@ test('VM creation rejects unsafe or incomplete Next.js project manifests before 
     expect(invalid.statusCode).toBe(400)
     expect(calls).toHaveLength(0)
     expect(databaseCalls.every(call => !/INSERT INTO vms/.test(call.sql))).toBe(true)
+
+    const tooSmall = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: {
+            name: 'next-demo', services: ['nodejs'], project_files: [
+                { path: 'package.json', content: JSON.stringify({ scripts: { build: 'next build', start: 'next start --hostname 0.0.0.0 --port 3000' }, dependencies: { next: '16.2.4', react: '19.2.5', 'react-dom': '19.2.5' } }) },
+                { path: 'app/page.tsx', content: 'export default function Page() { return <main>Hello</main> }' },
+            ],
+        },
+    })
+    expect(tooSmall.statusCode).toBe(400)
+    expect(calls).toHaveLength(0)
 })
 
 test('VM creation forwards Ubuntu 26.04 LTS', async () => {
