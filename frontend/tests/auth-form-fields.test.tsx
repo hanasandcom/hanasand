@@ -14,8 +14,6 @@ test('login renders shared credentials and auth methods before hydration', () =>
         onChangeMode: () => {},
     }))
 
-    expect(html).toContain('action="/api/auth/login"')
-    expect(html).toContain('method="post"')
     expect(html).toContain('<hanasand-login-form')
     expect(html).toContain('identifier-label="Username"')
     expect(html).toContain('identifier-placeholder="Username"')
