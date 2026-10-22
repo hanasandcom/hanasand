@@ -12,7 +12,7 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
     const [status, setStatus] = useState('Connecting…')
     const [username, setUsername] = useState('')
     const [opening, setOpening] = useState(true)
-    useVmProvisioningStatus(name, setStatus)
+    const provisioning = useVmProvisioningStatus(name)
 
     useEffect(() => {
         let disposed = false
@@ -196,5 +196,5 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
         }
     }, [name, host])
 
-    return { container, boot, reconnect, status, setStatus, username, opening }
+    return { container, boot, reconnect, status, setStatus, username, opening, provisioning }
 }

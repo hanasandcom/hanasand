@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { LoaderCircle, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
+import { AlertCircle, CheckCircle2, LoaderCircle, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { useConsoleViewport } from './useConsoleViewport'
 import { useVmConsoleSession } from './useVmConsoleSession'
 import VMSudoPassword from './vmSudoPassword'
@@ -70,6 +70,23 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
                     </button>
                 </div>
             </header>
+            {session.provisioning && (
+                <div
+                    role={session.provisioning.state === 'error' ? 'alert' : 'status'}
+                    aria-live='polite'
+                    className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm ${session.provisioning.state === 'error'
+                        ? 'border-ui-danger/25 bg-ui-danger/5 text-ui-danger'
+                        : session.provisioning.state === 'ready'
+                            ? 'border-ui-success/25 bg-ui-success/5 text-ui-success'
+                            : 'border-ui-primary/20 bg-ui-primary/5 text-ui-text'}`}>
+                    {session.provisioning.state === 'error'
+                        ? <AlertCircle className='h-4 w-4 shrink-0' aria-hidden />
+                        : session.provisioning.state === 'ready'
+                            ? <CheckCircle2 className='h-4 w-4 shrink-0' aria-hidden />
+                            : <LoaderCircle className='h-4 w-4 shrink-0 animate-spin text-ui-loader' aria-hidden />}
+                    <span className='min-w-0 wrap-break-word'>{session.provisioning.message}</span>
+                </div>
+            )}
             {(session.boot.output || session.boot.error || session.boot.expanded) && (
                 <details
                     open={session.boot.expanded}

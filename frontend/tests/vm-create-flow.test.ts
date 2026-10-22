@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServices } from '../src/utils/vms/createOptions'
+import { getVmProvisioningFeedback } from '../src/components/vms/useVmProvisioningStatus'
 
 const components = new URL('../src/components/profile/vms.tsx', import.meta.url)
 const createForm = new URL('../src/components/profile/vmCreateForm.tsx', import.meta.url)
@@ -49,6 +50,22 @@ test('successful creation opens the terminal without waiting for a VM status fet
     expect(progress).toContain('getVM(name)')
     expect(progress).toContain('status_reason')
     expect(progress).toContain('2500')
+})
+
+test('the console reports real VM setup progress, completion, and failure separately from its connection state', async () => {
+    const consoleClient = await readFile(new URL('../src/components/vms/consoleClient.tsx', import.meta.url), 'utf8')
+    expect(getVmProvisioningFeedback().state).toBe('provisioning')
+    expect(getVmProvisioningFeedback('PROVISIONING', 'Installing nodejs, postgresql…')).toEqual({
+        state: 'provisioning',
+        message: 'Installing nodejs, postgresql…',
+    })
+    expect(getVmProvisioningFeedback('RUNNING').state).toBe('ready')
+    expect(getVmProvisioningFeedback('ERROR', 'Package installation failed.')).toEqual({
+        state: 'error',
+        message: 'Package installation failed.',
+    })
+    expect(consoleClient).toContain('session.provisioning &&')
+    expect(consoleClient).toContain('role={session.provisioning.state === \'error\' ? \'alert\' : \'status\'}')
 })
 
 test('organization VM creation explains and blocks the owner/admin-only action before submission', async () => {
