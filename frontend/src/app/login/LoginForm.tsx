@@ -25,7 +25,7 @@ export default function LoginForm({ redirectPath, initialUsername, hydrated, soc
                 'identifier-value': initialUsername || '',
                 'submit-label': 'Log in',
             })}
-            <div className='flex items-center gap-3'>
+            <div className='flex flex-wrap items-center gap-2 border-t border-ui-border/70 pt-4'>
                 <button type='button' disabled={!hydrated} onClick={() => onChangeMode('signup')} className={authGhostButtonClass}>Sign up</button>
                 <button
                     type='button'

@@ -59,13 +59,13 @@ export default function LoginPage({
     }, [redirectPath, router, serverExpired, serverInternal, socialError])
 
     return (
-        <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>
+        <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-5 py-12 font-sans text-ui-text sm:px-8'>
             <Script src='https://api.hanasand.com/api/auth/login-form.js' strategy='afterInteractive' />
-            <div className='grid w-full max-w-md gap-5'>
+            <div className='grid w-full max-w-[26rem] gap-7'>
                 <div className='grid justify-items-center gap-2 pb-3 text-center'>
-                    <h1 className='text-[42px] font-semibold leading-none tracking-normal text-ui-primary'>Hanasand</h1>
+                    <h1 className='text-[34px] font-semibold leading-none tracking-[-0.045em] text-ui-primary'>Hanasand</h1>
                 </div>
-                <div className='grid w-full gap-3 rounded-2xl border border-ui-border bg-ui-panel p-6 shadow-2xl shadow-black/20 sm:p-8'>
+                <div className='grid w-full gap-5 rounded-2xl border border-ui-border/70 bg-ui-panel p-6 shadow-2xl sm:p-8'>
                     {expired && path ? (
                         <ErrorNotice
                             variant='info'

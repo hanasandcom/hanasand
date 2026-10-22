@@ -18,13 +18,14 @@ function readLoginSource() {
     return modules.join('\n')
 }
 
-test('passkey UI exposes enrollment and login actions', () => {
+test('passkey UI exposes enrollment and uses the shared Identity login component', () => {
     const loginClient = readLoginSource()
     const accountActions = readFileSync(join(root, 'src/components/profile/accountActions.tsx'), 'utf8')
     const passkeyManagement = readFileSync(join(root, 'src/components/profile/useAccountPasskeys.ts'), 'utf8')
     const passkeyList = readFileSync(join(root, 'src/components/profile/AccountPasskeyList.tsx'), 'utf8')
     const accountSources = `${accountActions}\n${passkeyManagement}\n${passkeyList}`
 
+    assert.match(loginClient, /https:\/\/api\.hanasand\.com\/api\/auth\/login-form\.js/)
     assert.match(loginClient, /'passkey-options-url': '\/api\/auth\/passkeys\/authenticate\/options'/)
     assert.match(loginClient, /'passkey-verify-url': '\/api\/auth\/passkeys\/authenticate\/verify'/)
     assert.match(loginClient, /'login-url': '\/api\/auth\/login'/)
@@ -52,6 +53,7 @@ test('SSO login is wired through the frontend auth proxy', () => {
     const ssoCallbackRoute = readFileSync(join(root, 'src/app/api/auth/sso/callback/route.ts'), 'utf8')
     const ssoRedirects = readFileSync(join(root, 'src/app/api/auth/sso/redirects.ts'), 'utf8')
 
+    assert.match(loginClient, /\/api\/auth\/sso\/start\?redirectPath=/)
     assert.match(loginClient, /'sso-href': ssoHref/)
     assert.match(ssoStartRoute, /\/auth\/sso\/start/)
     assert.match(ssoStartRoute, /method: 'POST'/)
