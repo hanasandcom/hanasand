@@ -68,7 +68,8 @@ test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Do
     expect(body.config['security.syscalls.intercept.setxattr']).toBe('true')
     expect(body.config['user.hanasand.setup_plan']).toMatch(/^[a-f0-9]{64}$/)
     expect(body.config['user.hanasand.setup_plan']).toBe(createHash('sha256').update(JSON.stringify({ os: 'ubuntu-26.04', resources: { cpu: '4', memory: '8GiB', disk: '40GiB' }, services: ['docker', 'nodejs'], aptPackages: ['ripgrep'] })).digest('hex'))
-    expect(body.config['cloud-init.user-data']).toContain('https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key')
+    expect(body.config['cloud-init.user-data']).toContain('https://nodejs.org/dist/')
+    expect(body.config['cloud-init.user-data']).toContain('SHASUMS256.txt')
     expect(body.config['cloud-init.user-data']).toContain('apt_packages+=( \'ripgrep\' )')
 })
 
