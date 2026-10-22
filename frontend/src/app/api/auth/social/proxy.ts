@@ -9,6 +9,7 @@ export function socialOrigin() {
 const safePath = (path: string) => path.startsWith('/') && !path.startsWith('//') && !path.split('').some(char => char === '\\' || char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127)
 const validProvider = (provider: string) => provider === 'google' || provider === 'apple'
 const bindingCookie = 'hanasand_auth_binding'
+const mobileChallengeCookie = (provider: string) => `__Host-social-mobile-${provider}`
 const cookieOptions = { httpOnly: true, secure: true, sameSite: 'none' as const, domain: '.hanasand.com', path: '/', maxAge: 600 }
 function failure(message: string, path?: string) {
     const url = new URL('/login', socialOrigin())
@@ -24,6 +25,10 @@ async function upstream(path: string, options: RequestInit = {}) {
 export async function start(req: NextRequest, provider: string) {
     if (!validProvider(provider)) return NextResponse.json({ error: 'Unknown provider.' }, { status: 404 })
     const link = req.method === 'POST'
+    const mobileChallenge = req.nextUrl.searchParams.get('mobile_challenge')
+    if (mobileChallenge !== null && !/^[A-Za-z0-9_-]{43}$/.test(mobileChallenge)) {
+        return NextResponse.json({ error: 'Mobile sign-in could not be started.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
+    }
     // Linking is an explicit same-origin action; never link accounts on a GET.
     if (link && (req.headers.get('origin') !== socialOrigin() || req.cookies.get('impersonation_token')?.value)) return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 })
     const token = req.cookies.get('access_token')?.value
@@ -42,6 +47,11 @@ export async function start(req: NextRequest, provider: string) {
     try { binding = decodeURIComponent(encodedBinding || '') } catch { /* Reject malformed upstream cookies. */ }
     if (!/^[A-Za-z0-9_-]{43}$/.test(binding)) return failure('Sign-in service returned an invalid browser binding.')
     redirect.cookies.set(bindingCookie, binding, cookieOptions)
+    if (mobileChallenge) {
+        redirect.cookies.set(mobileChallengeCookie(provider), mobileChallenge, {
+            httpOnly: true, secure: true, sameSite: 'none', path: '/', maxAge: 600,
+        })
+    }
     redirect.headers.set('Cache-Control', 'no-store')
     redirect.headers.set('Referrer-Policy', 'no-referrer')
     return redirect
@@ -59,11 +69,39 @@ export async function callback(req: NextRequest, provider: string) {
     const data = await response?.json().catch(() => null)
     let result: NextResponse
     if (response?.ok && (data?.linked || (data?.id && data?.token))) {
-        const path = typeof data.redirectPath === 'string' && safePath(data.redirectPath) ? data.redirectPath : '/dashboard'
-        result = NextResponse.redirect(new URL(path, socialOrigin()), 303)
-        if (!data.linked) setAuthCookies(req, result, data)
+        const mobileChallenge = req.cookies.get(mobileChallengeCookie(provider))?.value
+        if (mobileChallenge !== undefined) {
+            if (!/^[A-Za-z0-9_-]{43}$/.test(mobileChallenge) || data.linked) {
+                result = failure('Mobile sign-in could not be completed.')
+            } else {
+                const handoff = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/mobile/code`, {
+                    method: 'POST',
+                    headers: {
+                        ...clientHeaders(req.headers),
+                        Authorization: `Bearer ${data.token}`,
+                        id: String(data.id),
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ codeChallenge: mobileChallenge }),
+                    cache: 'no-store',
+                    redirect: 'error',
+                    signal: AbortSignal.timeout(20000),
+                }).catch(() => null)
+                const handoffData = await handoff?.json().catch(() => null)
+                if (!handoff?.ok || typeof handoffData?.code !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(handoffData.code)) {
+                    result = failure(handoffData?.error || 'Mobile sign-in could not be completed.')
+                } else {
+                    result = NextResponse.redirect(`hanasand://social?code=${encodeURIComponent(handoffData.code)}`, 303)
+                }
+            }
+        } else {
+            const path = typeof data.redirectPath === 'string' && safePath(data.redirectPath) ? data.redirectPath : '/dashboard'
+            result = NextResponse.redirect(new URL(path, socialOrigin()), 303)
+            if (!data.linked) setAuthCookies(req, result, data)
+        }
     } else result = failure(data?.error || 'Sign-in service is unavailable.')
     result.cookies.set(bindingCookie, '', { ...cookieOptions, maxAge: 0 })
+    result.cookies.set(mobileChallengeCookie(provider), '', { httpOnly: true, secure: true, sameSite: 'none', path: '/', maxAge: 0 })
     result.headers.set('Cache-Control', 'no-store')
     result.headers.set('Referrer-Policy', 'no-referrer')
     return result
