@@ -1,29 +1,26 @@
 import { afterAll, expect, test } from 'bun:test'
-import { createServer } from 'node:http'
 import { backupWorkerCall } from '../src/utils/db/backupWorkerClient.ts'
 
 const previousUrl = process.env.DB_BACKUP_WORKER_URL
 const previousToken = process.env.DB_BACKUP_WORKER_TOKEN
+const previousFetch = globalThis.fetch
 const targetDatabase = process.env.DB || 'hanasand'
-const testPort = 18191
-process.env.DB_BACKUP_WORKER_URL = 'http://127.0.0.1:18190'
+process.env.DB_BACKUP_WORKER_URL = 'http://backup-worker.test/'
 process.env.DB_BACKUP_WORKER_TOKEN = 'unit-test-database-backup-token'
 const calls: unknown[] = []
-const server = createServer(async (req, res) => {
-    let body = ''
-    for await (const chunk of req) body += chunk
-    const input = JSON.parse(body)
-    calls.push(input)
-    expect(req.headers.authorization).toBe(`Bearer ${process.env.DB_BACKUP_WORKER_TOKEN}`)
-    if (input.method === 'create') {
-        res.writeHead(409).end(JSON.stringify({ error: 'Another backup is running.' }))
-    } else if (input.method === 'restore-live') res.end(JSON.stringify({ value: { kind: 'restore_live', file: 'verified.dump' } }))
-    else res.end(JSON.stringify({ value: [{ file: 'verified.dump' }] }))
-})
-await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(testPort, '127.0.0.1', resolve) })
-process.env.DB_BACKUP_WORKER_URL = `http://127.0.0.1:${testPort}/`
-afterAll(async () => {
-    await new Promise<void>(resolve => server.close(() => resolve()))
+globalThis.fetch = (async (input, init) => {
+    expect(String(input)).toBe('http://backup-worker.test')
+    expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${process.env.DB_BACKUP_WORKER_TOKEN}`)
+    const inputBody = JSON.parse(String(init?.body))
+    calls.push(inputBody)
+    if (inputBody.method === 'create') {
+        return Response.json({ error: 'Another backup is running.' }, { status: 409 })
+    }
+    if (inputBody.method === 'restore-live') return Response.json({ value: { kind: 'restore_live', file: 'verified.dump' } })
+    return Response.json({ value: [{ file: 'verified.dump' }] })
+}) as typeof fetch
+afterAll(() => {
+    globalThis.fetch = previousFetch
     if (previousUrl === undefined) delete process.env.DB_BACKUP_WORKER_URL
     else process.env.DB_BACKUP_WORKER_URL = previousUrl
     if (previousToken === undefined) delete process.env.DB_BACKUP_WORKER_TOKEN

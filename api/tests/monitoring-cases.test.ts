@@ -96,7 +96,7 @@ test('cached tuning snapshot reads stay under 20ms and skip the all-time query',
     expect(elapsedMs).toBeLessThan(20)
 })
 test('default lists and details retain full history even if summary is requested on a detail', async () => {
-    rows = [{ id: '3', automation_id: 'monitor', history: [{ id: 'event', at: '2026-09-03T00:00:00Z', note: 'Evidence' }], comments: [{ id: 'comment', body: 'Keep me' }], disk_diagnostics: { host: 'server' } }]
+    rows = [{ id: '3', monitor_name: 'Monitor', automation_id: 'monitor', kind: 'failure', summary: 'HTTP 503', history: [{ id: 'event', at: '2026-09-03T00:00:00Z', note: 'Evidence' }], comments: [{ id: 'comment', body: 'Keep me' }], disk_diagnostics: { host: 'server' } }]
     expect((await app.inject('/cases/monitoring')).json().items[0]).toMatchObject({ comments: rows[0].comments, diskDiagnostics: { host: 'server' } })
     expect(sql).toContain('SELECT i.*')
     expect((await app.inject('/cases/monitoring/HA-3?view=summary')).json().case.history).toContainEqual(rows[0].history[0])
@@ -170,7 +170,7 @@ test('confirmation is conditional on the exact unresolved review and cannot be c
 })
 
 test('legacy recovery is attributed to monitoring and unknown manual resolvers are never invented', async () => {
-    rows = [{ id: '3', first_seen_at: '2026-09-01T00:00:00Z', resolved_at: '2026-09-02T00:00:00Z', automation_id: 'monitor', comments: [] }]
+    rows = [{ id: '3', monitor_name: 'Monitor', kind: 'failure', summary: 'HTTP 503', first_seen_at: '2026-09-01T00:00:00Z', resolved_at: '2026-09-02T00:00:00Z', automation_id: 'monitor', comments: [] }]
     let item = (await app.inject('/cases/monitoring/HA-3')).json().case
     expect(item.resolution.type).toBe('automation')
     expect(item.history.at(-1)).toMatchObject({ actor: 'Health monitoring', action: 'recovered' })
@@ -182,7 +182,7 @@ test('legacy recovery is attributed to monitoring and unknown manual resolvers a
 })
 
 test('shared cases identify additional affected checks', async () => {
-    rows = [{ id: '3', monitor_name: 'OVH RAM', check_count: 5, resolved_at: '2026-09-14T20:04:00Z' }]
+    rows = [{ id: '3', monitor_name: 'OVH RAM', kind: 'failure', summary: 'HTTP 503', check_count: 5, resolved_at: '2026-09-14T20:04:00Z' }]
     const result = await app.inject('/cases/monitoring/HA-3')
     expect(result.json().case.title).toBe('HA-3 · OVH RAM (+4 checks)')
     expect(result.json().case.relatedChecks).toEqual([])

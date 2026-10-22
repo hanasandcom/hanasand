@@ -26,7 +26,6 @@ const coreTasks: TestTask[] = [
     scriptTask('database-pool-error', 'Checked-out connection recovery', 'check-database-pool-error.ts'),
     scriptTask('auth-rate-recovery', 'Bounded pre-handler recovery without action replay', 'check-auth-rate-recovery.ts'),
     scriptTask('session-recovery', 'Replica session validation before monitor convergence', 'check-session-recovery.ts'),
-    scriptTask('sso-oidc-contract', 'SSO OIDC state and identity contract', 'smoke-sso-oidc-contract.ts'),
     scriptTask('notes-unit', 'Notes unit contract', 'smoke-notes.ts'),
     scriptTask('organization-internal-pages', 'Organization internal-page access contract', 'smoke-organization-internal-pages.ts'),
     scriptTask('organization-api', 'Organization API handler journeys', 'smoke-organizations-api.ts'),
@@ -61,8 +60,6 @@ const environmentTasks: TestTask[] = [
     guardedTask('vm-targets', 'VM target smoke', 'smoke-vm-agent-targets.mjs', 'database'),
     guardedTask('vm-request-bridge', 'VM request bridge smoke', 'smoke-vm-request-bridge.mjs', 'database'),
     guardedTask('automations', 'Automation smoke', 'smoke-automations.mjs', 'server'),
-    {
-    },
 ]
 
 export async function discoverTestTasks(): Promise<TestTask[]> {

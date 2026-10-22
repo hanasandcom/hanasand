@@ -59,7 +59,7 @@ test('invite action receipt preserves lifecycle and downstream denial contracts'
         downstreamReadinessReceipt: {
             grantsConsumerAccess: false,
             blockerReason: 'member_revoked',
-            readiness: { supportRedactedReadReady: true, sharedWatchlistReadReady: false },
+            readiness: { sharedWatchlistReadReady: false },
         },
     })
     expect(receipt.downstreamReadinessReceipt.requiredAcceptedMembershipFields).toContain('member.userId')

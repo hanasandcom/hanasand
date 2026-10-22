@@ -90,11 +90,11 @@ describe('public TI API boundary', () => {
         expect(internalOrganizationKey.scope).toBe('internal')
     })
 
-    test('applies the documented durable batch budget equally to sessions and API keys', () => {
-        const apiKeyScope = organizationPublicApiScopes().find(scope => scope.route === '/api/v1/ti/search/batch')!
+    test('does not grant default durable API-key quotas to retired TI routes', () => {
+        const apiKeyScope = organizationPublicApiScopes().find(scope => scope.route === '/api/v1/ti/search/batch') ?? null
         const request = { method: 'POST', route: '/api/v1/ti/search/batch' }
-        expect(credentialPeriodLimits({ actorIdentifier: 'user:customer', apiKeyScope: null, ...request })).toEqual(apiKeyScope.limits)
-        expect(credentialPeriodLimits({ actorIdentifier: 'api_key:key', apiKeyScope, ...request })).toEqual(apiKeyScope.limits)
+        expect(credentialPeriodLimits({ actorIdentifier: 'user:customer', apiKeyScope: null, ...request })).toBeNull()
+        expect(credentialPeriodLimits({ actorIdentifier: 'api_key:key', apiKeyScope, ...request })).toBeNull()
         expect(credentialPeriodLimits({ actorIdentifier: 'user:customer', apiKeyScope: null, method: 'GET', route: '/api/v1/actors' })).toBeNull()
     })
 

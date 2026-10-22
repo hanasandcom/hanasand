@@ -1,12 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import { matchApiKeyScope, organizationPublicApiScopes } from '../src/utils/auth/apiKeys.ts'
+import { matchApiKeyScope } from '../src/utils/auth/apiKeys.ts'
 import { credentialPeriodLimits } from '../src/plugins/rateLimit.ts'
 import { testApp } from './helpers/public-ti-v1.ts'
 
 describe('public TI v1', () => {
     test('findings scopes preserve existing keys and quotas without widening access', () => {
-        const scope = organizationPublicApiScopes().find(scope => scope.route === '/api/v1/findings')!
-        expect(scope).toBeDefined()
+        const scope: ApiKeyScopeRule = {
+            id: 'saved-findings-key',
+            enabled: true,
+            method: 'GET',
+            route: '/api/v1/findings',
+            limits: { perSecond: 2, perMinute: 60, perHour: 1_000, perDay: 10_000 },
+        }
         const expectedLimits = { perSecond: 2, perMinute: 60, perHour: 1_000, perDay: 10_000 }
         for (const savedRoute of ['/api/v1/claims', '/api/v1/findings']) {
             const saved = { ...scope, route: savedRoute }

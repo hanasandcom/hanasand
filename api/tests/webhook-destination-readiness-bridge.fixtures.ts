@@ -82,16 +82,8 @@ export function organizationBridge() {
     return organizationReadiness().webhookDeliveryProof.webhookDestinationReadinessBridge
 }
 
-export function organizationSupportHistoryBridge() {
-    return organizationReadiness().memberLifecycleProof.memberAccessRecovery.supportActionHistoryBridge
-}
-
 export function dwmBridge() {
     return dwmReadinessConsumer().orgDestinationReadinessBridge
-}
-
-export function dwmSupportHistoryBridge() {
-    return dwmReadinessConsumer().supportRecoveryBridge
 }
 
 export function dwmReadinessConsumer() {

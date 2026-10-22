@@ -32,7 +32,6 @@ export function assertReadinessOverview(readiness: Row, { organization, assertOr
     assert.equal(readiness.lifecycleReadiness.watchlistReadiness.ready, true)
     assert.equal(readiness.lifecycleReadiness.alertExportReadiness.ready, true)
     assert.equal(readiness.lifecycleReadiness.cleanupReadiness.cleanupIdempotent, true)
-    assert.equal(readiness.lifecycleReadiness.supportVisibility.mode, 'redacted_summary_only')
     assert.equal(readiness.lifecycleReadiness.downstreamLifecycleReceipt.schemaVersion, 'organization.lifecycle_downstream_receipt.v1')
     assert.equal(readiness.lifecycleReadiness.downstreamLifecycleReceipt.lifecycleStatus, 'active')
     assert.equal(readiness.lifecycleReadiness.downstreamLifecycleReceipt.blockerCode, null)

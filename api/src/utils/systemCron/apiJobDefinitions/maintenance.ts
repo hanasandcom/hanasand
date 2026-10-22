@@ -14,6 +14,19 @@ import { secondsSchedule } from '../jobMetrics.ts'
 
 export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
     {
+        id: 'api-logs-outbox-delivery',
+        name: 'Logs outbox delivery',
+        description: 'Delivers durable organization snapshots and log events to the independent Logs service, retrying unacknowledged batches.',
+        category: 'Other/System',
+        schedule: 'Every second when Logs outbox delivery is enabled',
+        cadenceSeconds: 1,
+        source: 'api/src/utils/logs/logOutboxDelivery.ts',
+        controls: [],
+        isEnabled: () => process.env.API_HTTP_ONLY !== '1'
+            && process.env.AUTH_SERVICE_ONLY !== '1'
+            && process.env.LOGS_OUTBOX_ENABLED === '1',
+    },
+    {
         id: RAW_LOG_RETENTION_JOB_ID,
         name: 'Raw log retention',
         description: 'Deletes raw service and traffic logs older than seven days after completed Event ingestion. Keeps Event events and traffic aggregates.',

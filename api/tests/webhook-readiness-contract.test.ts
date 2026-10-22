@@ -57,7 +57,7 @@ test('organization readiness proof keeps its stable top-level response shape', (
         'worker3Proof', 'alertQueueProof', 'caseAssignmentProof', 'webhookDeliveryProof',
         'destinationOwnershipProof', 'memberLifecycleProof', 'inviteLifecycleProof',
         'lifecycleCleanupProof', 'tenMemberWorkspaceProof', 'alertGenerationHandoff', 'uiProof',
-        'cleanupProof', 'customerWorkflowProof', 'auditTimelineProof', 'blockers',
+        'cleanupProof', 'customerWorkflowProof', 'blockers',
     ])
     expect(readiness.schemaVersion).toBe('organization.worker3_ui_readiness_proof.v1')
     const requiredQueryFields: ['organizationId'] = readiness.alertQueueProof.requiredQueryFields

@@ -76,7 +76,7 @@ test('expected-down HTTP checks treat an unavailable target as healthy', async (
     await executeAutomation({ ...automation, expected_down: true })
     expect(probeCount).toBe(1)
     expect(outcomes[0]?.kind).toBeNull()
-    expect(outcomes[0]?.message).toContain('FETCH check passed')
+    expect(outcomes[0]?.message).toBe('Backup check passed its FETCH health check (HTTP 503).')
 })
 test('access denial does not run the probe or create a monitoring case', async () => {
     denied = true

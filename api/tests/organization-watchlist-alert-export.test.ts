@@ -56,33 +56,14 @@ test('active watchlist alert export contract', () => {
         role: 'admin',
         status: 'active',
     })
-    assert.equal(alertTermsExport.alertBridgeContract.supportAccess.mode, 'support_contract_only')
-    assert.equal(alertTermsExport.alertBridgeContract.supportVisibility.mode, 'redacted_summary_only')
-    assert.equal(alertTermsExport.alertBridgeContract.supportVisibility.contract, 'admin_support')
-    assert.ok(alertTermsExport.alertBridgeContract.supportVisibility.safeFields.includes('activeTermCount'))
-    assert.ok(alertTermsExport.alertBridgeContract.supportVisibility.redactedFields.includes('activeTerms[].term'))
     assert.equal(alertTermsExport.alertBridgeContract.caseRouteExpectation.route, 'organization_watchlist')
     assert.equal(alertTermsExport.alertBridgeContract.caseRouteExpectation.pathTemplate, '/dwm?organizationId=:organizationId&watchlistItemId=:watchlistItemId')
     assert.deepEqual(alertTermsExport.alertBridgeContract.caseRouteExpectation.queryFields, ['organizationId', 'watchlistItemId'])
     assert.equal(alertTermsExport.alertBridgeContract.caseRouteExpectation.blockerCode, 'no_case_route')
-    assert.deepEqual(alertTermsExport.alertBridgeContract.redactedSummary, {
-        schemaVersion: 'organization.watchlist_alert_bridge_redacted_summary.v1',
-        organizationId: 'org_acme',
-        tenantId: 'org_acme',
-        activeTermCount: 1,
-        termFamilies: ['keyword'],
-        pausedCount: 1,
-        archivedCount: 0,
-        cleanupRequired: true,
-        visibilityPolicy: 'members',
-        allowedViewerRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
-        containsRawTerms: false,
-    })
     assert.equal(alertTermsExport.alertBridgeContract.deniedAccess.nonmember, 'nonmember_denied')
     assert.equal(alertTermsExport.alertBridgeContract.deniedAccess.revokedMember, 'revoked_member_denied')
     assert.ok(alertTermsExport.alertBridgeContract.requiredFields.includes('activeTerms[].alertGenerationRef.dedupe.key'))
     assert.ok(alertTermsExport.alertBridgeContract.requiredFields.includes('alertBridgeContract.caseRouteExpectation.pathTemplate'))
-    assert.ok(alertTermsExport.alertBridgeContract.requiredFields.includes('alertBridgeContract.redactedSummary'))
     assert.ok(alertTermsExport.alertBridgeContract.requiredFields.includes('alertBridgeContract.lifecycleReadiness'))
     assert.ok(alertTermsExport.alertBridgeContract.requiredFields.includes('alertBridgeContract.alertCaseProof'))
     assert.equal(alertTermsExport.alertBridgeContract.alertGeneratorKeyExpectation, 'alertGenerationRef.dedupe.key')
@@ -99,10 +80,8 @@ test('active watchlist alert export contract', () => {
     assert.ok(alertTermsExport.alertBridgeContract.blockerCatalog.includes('alert_bridge_unavailable'))
     assert.ok(alertTermsExport.alertBridgeContract.blockerCatalog.includes('alert_export_unavailable'))
     assert.ok(alertTermsExport.alertBridgeContract.blockerCatalog.includes('case_route_unavailable'))
-    assert.ok(alertTermsExport.alertBridgeContract.blockerCatalog.includes('support_redaction_required'))
     assert.ok(alertTermsExport.alertBridgeContract.blockerCatalog.includes('no_active_watchlist_terms'))
     assert.ok(alertTermsExport.alertBridgeContract.blockerCatalog.includes('no_case_route'))
-    assert.ok(alertTermsExport.alertBridgeContract.blockerCatalog.includes('support_only_access'))
     assert.deepEqual(alertTermsExport.alertBridgeContract.typedBlockers, [{
         code: 'paused_watchlist_excluded',
         severity: 'notice',
@@ -131,7 +110,6 @@ test('active watchlist alert export contract', () => {
     assert.equal(alertTermsExport.alertBridgeContract.alertCaseProof.replayRoute, 'organization_watchlist')
     assert.ok(alertTermsExport.alertBridgeContract.alertCaseProof.expectedAlertFields.includes('alertGenerationRef.dedupe.key'))
     assert.ok(alertTermsExport.alertBridgeContract.alertCaseProof.expectedCaseFields.includes('casePath'))
-    assert.ok(alertTermsExport.alertBridgeContract.alertCaseProof.expectedSupportFields.includes('redactedSummary'))
     assert.deepEqual(alertTermsExport.alertBridgeContract.alertCaseProof.memberVisibility, {
         mode: 'member_scoped_export',
         userId: 'org_smoke_admin',
@@ -149,7 +127,6 @@ test('active watchlist alert export contract', () => {
     assert.deepEqual(alertTermsExport.alertBridgeContract.alertCaseProof.roleActionContract.roleGates.restore_watchlist, ['owner', 'admin', 'editor'])
     assert.deepEqual(alertTermsExport.alertBridgeContract.alertCaseProof.roleActionContract.roleGates.assign_case, ['owner', 'admin', 'editor', 'analyst'])
     assert.equal(alertTermsExport.alertBridgeContract.alertCaseProof.roleActionContract.lifecycleDenials.archivedWatchlist, 'watchlist_archived')
-    assert.equal(alertTermsExport.alertBridgeContract.alertCaseProof.supportRedaction.blockerCode, 'support_redaction_required')
     assert.equal(alertTermsExport.alertBridgeContract.alertCaseProof.cleanupLifecycle.cleanupRequired, true)
     assert.equal(alertTermsExport.alertBridgeContract.alertCaseProof.cleanupLifecycle.pausedExcludedCount, 1)
     assert.equal(alertTermsExport.alertBridgeContract.alertCaseProof.cleanupLifecycle.archivedExcludedCount, 0)

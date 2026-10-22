@@ -54,7 +54,7 @@ export function assertReadinessWorkspaceProofs(readiness: Row, { organization, a
     assert.ok(readiness.readinessProof.uiProof.safeFields.includes('alertQueueProof'))
 }
 
-export function assertReadinessUiAuditProofs(readiness: Row, { organization, assertOrganizationTenantIdentity }: AlertAssertionContext): void {
+export function assertReadinessUiAuditProofs(readiness: Row): void {
     assert.ok(readiness.readinessProof.uiProof.safeFields.includes('webhookDeliveryProof'))
     assert.ok(readiness.readinessProof.uiProof.safeFields.includes('memberLifecycleProof'))
     assert.ok(readiness.readinessProof.uiProof.safeFields.includes('inviteLifecycleProof'))
@@ -80,28 +80,9 @@ export function assertReadinessUiAuditProofs(readiness: Row, { organization, ass
     assert.equal(readiness.readinessProof.customerWorkflowProof.roleGates.viewerReadOnly, true)
     assert.equal(readiness.readinessProof.customerWorkflowProof.roleGates.nonmemberEnumeration, false)
     assert.deepEqual(readiness.readinessProof.customerWorkflowProof.lifecycleBlockers, ['role_not_allowed'])
-    assert.deepEqual(readiness.readinessProof.customerWorkflowProof.downstreamConsumers, ['alert_queue', 'case_workflow', 'webhook_delivery', 'dashboard_readiness', 'support_timeline'])
+    assert.deepEqual(readiness.readinessProof.customerWorkflowProof.downstreamConsumers, ['alert_queue', 'case_workflow', 'webhook_delivery', 'dashboard_readiness'])
     assert.equal(readiness.readinessProof.customerWorkflowProof.proofCommand, 'cd api && bun scripts/smoke-organizations-api.ts')
-    assert.equal(readiness.readinessProof.auditTimelineProof.schemaVersion, 'organization.audit_timeline_readiness.v1')
-    assertOrganizationTenantIdentity(readiness.readinessProof.auditTimelineProof, organization.id)
-    assert.equal(readiness.readinessProof.auditTimelineProof.source, 'events')
-    assert.equal(readiness.readinessProof.auditTimelineProof.supportRoute, '/api/admin/support/organizations/:id')
-    assert.equal(readiness.readinessProof.auditTimelineProof.logQuery, 'GET /api/logs?service=api&message=organization')
-    assert.ok(readiness.readinessProof.auditTimelineProof.requiredEventActions.includes('organization_invites_created'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.requiredEventActions.includes('organization_member_removed'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.requiredEventActions.includes('organization_watchlist_alert_terms_export_denied'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.requiredEventActions.includes('organization_lifecycle_mutation_blocked'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.requiredMetadataFields.includes('requestId'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.requiredMetadataFields.includes('watchlistItemId'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.requiredMetadataFields.includes('blockerCode'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.downstreamCorrelationFields.includes('alertGeneratorKeys'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.downstreamCorrelationFields.includes('webhookDestinationIds'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.lifecycleBlockers.includes('member_revoked'))
-    assert.ok(readiness.readinessProof.auditTimelineProof.lifecycleBlockers.includes('watchlist_archived'))
-    assert.equal(readiness.readinessProof.auditTimelineProof.supportReadMode, 'redacted_summary_only')
-    assert.ok(readiness.readinessProof.auditTimelineProof.noLeakFields.includes('otherOrg.auditEvents'))
-    assert.equal(readiness.readinessProof.auditTimelineProof.nonmemberEnumeration, false)
-    assert.equal(readiness.readinessProof.auditTimelineProof.proofCommand, 'cd api && bun scripts/smoke-organizations-api.ts')
+    assert.equal(Object.hasOwn(readiness.readinessProof, 'auditTimelineProof'), false)
 }
 
 export function assertReadinessSharedWatchlist(readiness: Row, { organization }: AlertAssertionContext): void {
