@@ -1,27 +1,49 @@
 import { afterAll, expect, test } from 'bun:test'
+import { createServer } from 'node:http'
 import { backupWorkerCall } from '../src/utils/db/backupWorkerClient.ts'
 
 const previousUrl = process.env.DB_BACKUP_WORKER_URL
 const previousToken = process.env.DB_BACKUP_WORKER_TOKEN
-const previousFetch = globalThis.fetch
 const targetDatabase = process.env.DB || 'hanasand'
-process.env.DB_BACKUP_WORKER_URL = 'http://backup-worker.test/'
+let testPort = 0
+process.env.DB_BACKUP_WORKER_URL = 'http://127.0.0.1:18190'
 process.env.DB_BACKUP_WORKER_TOKEN = 'unit-test-database-backup-token'
-const calls: Array<{ method: string; args: unknown[] }> = []
-globalThis.fetch = async (input, init) => {
-    expect(input).toBe('http://backup-worker.test')
-    expect(init?.method).toBe('POST')
-    expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${process.env.DB_BACKUP_WORKER_TOKEN}`)
-    const payload = JSON.parse(String(init?.body)) as { method: string; args: unknown[] }
-    calls.push(payload)
-    if (payload.method === 'create') {
-        return Response.json({ error: 'Another backup is running.' }, { status: 409 })
+const calls: unknown[] = []
+const server = createServer(async (req, res) => {
+    let body = ''
+    for await (const chunk of req) body += chunk
+    const input = JSON.parse(body)
+    calls.push(input)
+    expect(req.headers.authorization).toBe(`Bearer ${process.env.DB_BACKUP_WORKER_TOKEN}`)
+    if (input.method === 'create') {
+        res.writeHead(409).end(JSON.stringify({ error: 'Another backup is running.' }))
+    } else if (input.method === 'restore-live') res.end(JSON.stringify({ value: { kind: 'restore_live', file: 'verified.dump' } }))
+    else res.end(JSON.stringify({ value: [{ file: 'verified.dump' }] }))
+})
+for (let attempt = 0; attempt < 100; attempt++) {
+    testPort = 20000 + ((process.pid + attempt) % 30000)
+    try {
+        await new Promise<void>((resolve, reject) => {
+            const onError = (error: Error) => {
+                server.off('listening', onListening)
+                reject(error)
+            }
+            const onListening = () => {
+                server.off('error', onError)
+                resolve()
+            }
+            server.once('error', onError)
+            server.once('listening', onListening)
+            server.listen(testPort, '127.0.0.1')
+        })
+        break
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EADDRINUSE' || attempt === 99) throw error
     }
-    if (payload.method === 'restore-live') return Response.json({ value: { kind: 'restore_live', file: 'verified.dump' } })
-    return Response.json({ value: [{ file: 'verified.dump' }] })
 }
+process.env.DB_BACKUP_WORKER_URL = `http://127.0.0.1:${testPort}/`
 afterAll(async () => {
-    globalThis.fetch = previousFetch
+    await new Promise<void>(resolve => server.close(() => resolve()))
     if (previousUrl === undefined) delete process.env.DB_BACKUP_WORKER_URL
     else process.env.DB_BACKUP_WORKER_URL = previousUrl
     if (previousToken === undefined) delete process.env.DB_BACKUP_WORKER_TOKEN
