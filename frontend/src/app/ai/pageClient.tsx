@@ -75,8 +75,8 @@ export default function AIPageClient({
     return (
         <div className='h-full enterprise-console relative w-full overflow-hidden bg-ui-canvas text-ui-text'>
             <div className='flex h-full min-h-0 flex-col'>
-                <div className={`grid min-h-0 w-full max-w-full flex-1 grid-cols-[minmax(0,1fr)] overflow-hidden ${showWorkspaceRail ? (detailsOpen ? 'xl:grid-cols-[14rem_minmax(0,1fr)_22rem]' : 'xl:grid-cols-[14rem_minmax(0,1fr)]') : ''}`}>
-                    <div className='hidden min-h-0 md:block'>
+                <div className={`grid min-h-0 w-full max-w-full flex-1 grid-cols-[minmax(0,1fr)] overflow-hidden ${showWorkspaceRail ? (detailsOpen ? 'lg:grid-cols-[14rem_minmax(0,1fr)_22rem]' : 'lg:grid-cols-[14rem_minmax(0,1fr)]') : ''}`}>
+                    <div className='hidden min-h-0 lg:block'>
                         <ChatSidebar
                             activeConversationId={ai.activeConversationId}
                             archivedConversations={ai.archivedConversations}
@@ -122,8 +122,8 @@ export default function AIPageClient({
 
                     {showWorkspaceRail && detailsOpen ? (
                         <>
-                            <button type='button' aria-label='Close repository details' onClick={() => setDetailsOpen(false)} className='absolute inset-0 z-30 bg-ui-scrim/60 xl:hidden' />
-                            <div className='absolute inset-y-0 right-0 z-40 h-full w-[min(25rem,100%)] min-w-0 overflow-hidden p-2 shadow-2xl xl:relative xl:inset-auto xl:z-auto xl:col-span-1 xl:w-full xl:p-0 xl:shadow-none'>
+                            <button type='button' aria-label='Close repository details' onClick={() => setDetailsOpen(false)} className='absolute inset-0 z-30 bg-ui-scrim/60 lg:hidden' />
+                            <div className='absolute inset-y-0 right-0 z-40 h-full w-[min(25rem,100%)] min-w-0 overflow-hidden p-2 shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:col-span-1 lg:w-full lg:p-0 lg:shadow-none'>
                                 <WorkspacePane
                                     activeConversation={ai.activeConversation}
                                     importedRepos={ai.importedRepos}
@@ -167,7 +167,7 @@ export default function AIPageClient({
                     ) : null}
                 </div>
 
-                {mobileChatsOpen ? <div className='absolute inset-0 z-40 md:hidden'>
+                {mobileChatsOpen ? <div className='absolute inset-0 z-40 lg:hidden'>
                     <button type='button' aria-label='Close chats' onClick={() => setMobileChatsOpen(false)} className='absolute inset-0 bg-ui-scrim/60' />
                     <div className='absolute inset-y-0 left-0 w-[min(19rem,85vw)] shadow-2xl'>
                         <ChatSidebar

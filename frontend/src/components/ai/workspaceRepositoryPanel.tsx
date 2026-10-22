@@ -35,7 +35,7 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
     const standaloneFiles = initialShares.filter(file => !repoShareIds.has(file.id))
     const availableCount = importedRepos.length + standaloneFiles.length
 
-    return <Panel icon={<FolderGit2 className='h-4 w-4' />} title='Repositories' subtitle={`${availableCount} available`} grow>
+    return <Panel icon={<FolderGit2 className='h-4 w-4' />} title='Repositories' subtitle={`${availableCount} available`}>
         <div className='grid min-w-0 grid-cols-1 gap-3'>
             <form className='grid min-w-0 content-start gap-2' onSubmit={event => { event.preventDefault(); void onImportRepo() }}>
                 <label htmlFor='workspace-repository-url' className='text-xs font-medium text-ui-text'>Attach repository</label>

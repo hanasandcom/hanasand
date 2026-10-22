@@ -5,16 +5,14 @@ export function Panel({
     title,
     subtitle,
     children,
-    grow = false,
 }: {
     icon: React.ReactNode
     title: string
     subtitle: string
     children: React.ReactNode
-    grow?: boolean
 }) {
     return (
-        <section className={`min-w-0 max-w-full rounded-lg bg-ui-panel p-3 outline outline-ui-border ${grow ? 'min-h-0 flex-1' : ''}`}>
+        <section className='min-w-0 max-w-full shrink-0 overflow-hidden rounded-lg bg-ui-panel p-3 outline outline-ui-border'>
             <div className='flex items-start gap-3'>
                 <div className='mt-0.5 rounded-lg bg-ui-primary/12 p-2 text-ui-primary outline outline-ui-primary/18'>
                     {icon}
@@ -24,7 +22,7 @@ export function Panel({
                     <div className='mt-1 text-sm text-ui-text'>{subtitle}</div>
                 </div>
             </div>
-            <div className={`mt-3 grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-2 ${grow ? 'min-h-0' : ''}`}>{children}</div>
+            <div className='mt-3 grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-2'>{children}</div>
         </section>
     )
 }
