@@ -3,7 +3,14 @@ import { readFileSync } from 'node:fs'
 import pg from 'pg'
 if (process.env.DB_HOST !== 'monitor-test-db') throw Error('Requires isolated monitor-test-db')
 let sent=0
-mock.module('../src/utils/alerts/discordWebhookFile.ts',()=>({redactSecretBearingText:(s: string)=>s,deliverDiscordWebhookFile:async()=>({id:String(++sent)})}))
+mock.module('../src/utils/alerts/discordWebhookFile.ts',()=>({
+    isDiscordWebhookUrl:()=>false,
+    isDiscordWebhookFileDestination:()=>false,
+    discordWebhookFileModelLabel:(value: string|null|undefined)=>value||'discord',
+    redactSecretBearingText:(s: string)=>s,
+    deliverDiscordWebhookFile:async()=>({id:String(++sent)}),
+    resolveDiscordWebhookUrl:async(destination: string|null)=>destination,
+}))
 const {queryOnce:q}=await import('../src/utils/db.ts')
 const {default:schema}=await import('../src/utils/db/monitoringIssuesSchema.ts')
 const {recordMonitoringOutcome:record,monitoringIssueFingerprint:fingerprint,loadMonitoringIssues:load}=await import('../src/utils/monitoringIssues.ts')
