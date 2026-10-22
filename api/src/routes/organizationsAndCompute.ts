@@ -67,6 +67,7 @@ import type { FastifyInstance } from 'fastify'
 
 export function registerOrganizationsAndComputeRoutes(fastify: FastifyInstance) {
     // Organizations
+    fastify.get('/auth/login-form.js', proxyIdentityRequest)
     fastify.get('/management/organizations', proxyIdentityRequest)
     fastify.get('/organizations', proxyIdentityRequest)
     fastify.post('/organizations', postOrganization)
