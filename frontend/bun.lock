@@ -5,7 +5,7 @@
     "": {
       "name": "hanasand",
       "dependencies": {
-        "hanasand": "file:packages/hanasand",
+        "hanasand": "1.0.3",
         "@tailwindcss/postcss": "^4.2.4",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/xterm": "^6.0.0",
@@ -114,7 +114,7 @@
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.7.1", "", { "dependencies": { "@eslint/core": "^1.2.1", "levn": "^0.4.1" } }, "sha512-rZAP3aVgB9ds9KOeUSL+zZ21hPmo8dh6fnIFwRQj5EAZl9gzR7wxYbYXYysAM8CTqGmUGyp2S4kUdV17MnGuWQ=="],
 
-        "hanasand": ["hanasand@file:packages/hanasand", {"dependencies":{"fflate":"^0.8.3"},"peerDependencies":{"react":">=19 <20","react-dom":">=19 <20","lucide-react":">=1","@types/react":">=19 <20","@types/react-dom":">=19 <20"},"peerDependenciesMeta":{"react-dom":{"optional":true},"lucide-react":{"optional":true},"@types/react-dom":{"optional":true}}}],
+        "hanasand": ["hanasand@1.0.3", "", {"dependencies":{"fflate":"^0.8.3"},"peerDependencies":{"@types/react":">=19 <20","@types/react-dom":">=19 <20","lucide-react":">=1","react":">=19 <20","react-dom":">=19 <20"},"optionalPeers":["@types/react-dom","lucide-react","react-dom"]}, "sha512-W/zeinFCwjJZ3Atrzx7ksBZJ3OP4VKupgNj0JJ/bwYf0+kOoC+hGBTNUoHYhB9gDDxia5hk/3Z3R8umlZhzqxg=="],
 
     "@humanfs/core": ["@humanfs/core@0.19.1", "", {}, "sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA=="],
 
