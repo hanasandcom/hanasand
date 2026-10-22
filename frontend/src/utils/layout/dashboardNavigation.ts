@@ -47,6 +47,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
                 link('Watchlists', '/watchlists'),
                 link('Findings', '/findings'),
                 link('Delivery', '/findings/actions'),
+                link('Virtual Machines', '/system/virtual-machines', hasVMs),
             ]),
             group('Collection', [
                 link('Feeds', '/ti/sources', isAdmin),
@@ -82,7 +83,6 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
         group('Infrastructure', [
             group('System', [
                 link('Overview', '/system'),
-                link('Virtual machines', '/system/virtual-machines', hasVMs),
                 link('Containers', '/system/containers'),
                 link('Hosts', '/system/hosts', isAdmin),
             ]),

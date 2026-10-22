@@ -72,6 +72,15 @@ test('project and file routes share the Repositories navigation group', () => {
     assert.deepEqual(repositoryLinks.map(link => link.label), ['Projects', 'Files'])
 })
 
+test('virtual machines are reachable from Monitoring for accounts with VM access', () => {
+    const vmAdminLinks = navigationLinks(getDashboardNavigation({ id: 'admin', hasVMs: true }))
+    const memberLinks = navigationLinks(getDashboardNavigation({ id: 'member' }))
+
+    const vmLink = vmAdminLinks.find(link => link.href === '/system/virtual-machines')
+    assert.deepEqual(vmLink?.ancestors, ['Security & intelligence', 'Monitoring'])
+    assert.equal(memberLinks.some(link => link.href === '/system/virtual-machines'), false)
+})
+
 test('server-loaded thesis sheets are available under Content before opening Thesis', () => {
     const names = ['Overview', 'Timetable', 'Plan', 'Research', 'Experiments', 'Draft', 'Appendix']
     const document = {

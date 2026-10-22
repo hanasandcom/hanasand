@@ -81,6 +81,6 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
             </> : <Empty text='No repositories yet. Attach an existing repository or create one to start working with files.' />}
         </div>
 
-        {selectedContent ? <div className='min-w-0 border-t border-ui-border/70 pt-3'><div className='mb-2 text-xs font-medium text-ui-text'>{selectedRepoFilePath || 'Selected file'}</div><pre className='max-h-72 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-lg bg-ui-raised p-3 text-xs leading-5 text-ui-text'>{selectedContent.slice(0, 12000)}</pre></div> : null}
+        {selectedContent ? <div className='min-w-0 border-t border-ui-border/70 pt-3'><div className='mb-2 text-xs font-medium text-ui-text'>{selectedRepoFilePath || 'Selected file'}</div><pre className='max-h-72 max-w-full overflow-auto whitespace-pre-wrap wrap-break-word rounded-lg bg-ui-raised p-3 text-xs leading-5 text-ui-text'>{selectedContent.slice(0, 12000)}</pre></div> : null}
     </Panel>
 }
