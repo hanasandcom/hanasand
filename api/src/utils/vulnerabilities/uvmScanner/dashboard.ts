@@ -2,7 +2,7 @@ import run from '#db'
 import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPagePolicy.ts'
 import {
     getNetworkScannerEngines, getNetworkScannerRuns, getTenableIntegration, getTenableRuns, getTenableScans,
-} from '../scanner.ts'
+} from '../uvmScannerClient.ts'
 import { listUvmAssets } from './assets.ts'
 
 export async function getUvmDashboard() {

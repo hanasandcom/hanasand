@@ -10,7 +10,7 @@ mock.module('#db', () => ({ default: async(sql: string, values: unknown[] = []) 
 } }))
 mock.module('#utils/auth/organizationPagePolicy.ts', () => ({ HANASAND_ORGANIZATION_ID: 'org-1' }))
 mock.module('#utils/db/uvmScannerSchema.ts', () => ({ default: async() => {} }))
-mock.module('../src/utils/vulnerabilities/scanner.ts', () => ({
+mock.module('../src/utils/vulnerabilities/uvmScannerClient.ts', () => ({
     getNetworkScannerRun: async() => ({ status: 'succeeded', error: null, startedAt: '2026-01-01T00:00:00.000Z', finishedAt: '2026-01-01T00:01:00.000Z' }),
     getTenableRun: async() => ({
         runId: 'tenable-1', requestId: 'request-1', organizationId: 'org-1', assetId: 'asset-1', target: 'example.com',

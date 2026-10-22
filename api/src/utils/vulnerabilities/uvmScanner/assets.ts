@@ -3,7 +3,7 @@ import { resolveTxt } from 'node:dns/promises'
 import run from '#db'
 import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPagePolicy.ts'
 import { normalizeUvmHostname, resolvePublicUvmAddresses, sameAuthorizedAddressSet } from '../uvmScope.ts'
-import { getTenableScans } from '../scanner.ts'
+import { getTenableScans } from '../uvmScannerClient.ts'
 import { ensureUvmSchema, getAsset, toAsset, verificationPrefix, verificationValue, type UvmAsset } from './shared.ts'
 
 export async function listUvmAssets(): Promise<UvmAsset[]> {

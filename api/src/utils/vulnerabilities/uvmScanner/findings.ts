@@ -3,8 +3,8 @@ import run from '#db'
 import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPagePolicy.ts'
 import type { WebScanRun } from '../webScanner.ts'
 import { normalizeUvmHostname } from '../uvmScope.ts'
-import type { TenableRun } from '../scanner.ts'
-import { getNetworkScannerRun, getTenableRun } from '../scanner.ts'
+import type { TenableRun } from '../uvmScannerClient.ts'
+import { getNetworkScannerRun, getTenableRun } from '../uvmScannerClient.ts'
 import { ensureUvmSchema, errorMessage, type UvmTriageStatus } from './shared.ts'
 
 export async function reconcileUvmRuns() {

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 process.env.HANASAND_SCANNER_URL = 'http://scanner.internal:18200'
 process.env.HANASAND_SCANNER_SERVICE_TOKEN = 'test-service-token'
 const originalFetch = globalThis.fetch
-const { cancelNetworkScannerRun, getNetworkScannerEngines, startNetworkScannerRun, getTenableIntegration, setTenableIntegration, getTenableScans, startTenableRun } = await import('../src/utils/vulnerabilities/scanner.ts')
+const { cancelNetworkScannerRun, getNetworkScannerEngines, startNetworkScannerRun, getTenableIntegration, setTenableIntegration, getTenableScans, startTenableRun } = await import('../src/utils/vulnerabilities/uvmScannerClient.ts')
 afterEach(() => { globalThis.fetch = originalFetch })
 
 describe('network scanner service client', () => {

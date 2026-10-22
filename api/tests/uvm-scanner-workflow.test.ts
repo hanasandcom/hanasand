@@ -33,7 +33,7 @@ mock.module('../src/utils/vulnerabilities/uvmScope.ts', () => ({
     resolvePublicUvmAddresses: async() => resolvedAddresses,
     sameAuthorizedAddressSet: (left: string[], right: string[]) => left.length === right.length && left.every(value => right.includes(value)),
 }))
-mock.module('../src/utils/vulnerabilities/scanner.ts', () => ({
+mock.module('../src/utils/vulnerabilities/uvmScannerClient.ts', () => ({
     getNetworkScannerRun: async() => null,
     cancelNetworkScannerRun: async() => null,
     startNetworkScannerRun: async(input: Record<string, unknown>) => {

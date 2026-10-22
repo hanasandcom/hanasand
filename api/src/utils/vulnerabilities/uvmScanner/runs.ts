@@ -5,7 +5,7 @@ import { resolvePublicUvmAddresses, sameAuthorizedAddressSet } from '../uvmScope
 import {
     cancelNetworkScannerRun, cancelTenableRun, getNetworkScannerRun, getTenableIntegration, getTenableScans,
     getTenableRun, removeTenableIntegration, setTenableIntegration, startNetworkScannerRun, startTenableRun,
-} from '../scanner.ts'
+} from '../uvmScannerClient.ts'
 import {
     ensureUvmSchema, errorMessage, getAsset, scheduledScanRetryMinutes, verifyDomainControl,
 } from './shared.ts'

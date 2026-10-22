@@ -3,7 +3,7 @@ import run from '#db'
 import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPagePolicy.ts'
 import ensureUvmScannerSchema from '#utils/db/uvmScannerSchema.ts'
 import { parseAuthorizedAddresses } from '../uvmScope.ts'
-import { getNetworkScannerRun } from '../scanner.ts'
+import { getNetworkScannerRun } from '../uvmScannerClient.ts'
 
 export const verificationPrefix = '_hanasand-security-verification'
 export const scheduledScanRetryMinutes = 5
