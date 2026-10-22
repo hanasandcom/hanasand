@@ -54,7 +54,7 @@ async function ensureRepoInternal() {
 
     if (!localRepoExists) {
         console.log('Cloning repository...')
-        await execAsync(`git clone ${config.github_articles_ssh} '${LOCAL_REPO_PATH}'`, { timeout: 120000 })
+        await execAsync(`git clone ${config.articles_repo_url} '${LOCAL_REPO_PATH}'`, { timeout: 120000 })
     }
 
     try {
