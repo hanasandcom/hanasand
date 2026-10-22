@@ -37,6 +37,12 @@ Browser-only hosts can register the same controls from `hanasand/auth` and load
 `hanasand/auth.css`. The package entry has no remote script dependency; hosts provide
 their own same-origin sign-in routes and session handling.
 
+For server-rendered templates that enhance the custom element, use
+`renderHanasandLoginFormMarkup` from `hanasand/auth`. It returns a complete form with
+credential, Google, and passkey controls already in the HTML; do not wrap it in another
+form. Call `registerHanasandLoginForm` in the browser to attach passkey behavior. The
+enhancer preserves the server-rendered controls.
+
 The dashboard components use the host app's Tailwind `ui-*` theme classes. Add this to the app's global stylesheet so Tailwind scans package classes:
 
 ```css

@@ -1,6 +1,31 @@
 // @ts-expect-error Bun provides this module when running tests.
 import { expect, test } from 'bun:test'
-import { registerHanasandLoginForm } from '../src/auth/loginForm'
+import { registerHanasandLoginForm, renderHanasandLoginFormMarkup } from '../src/auth/loginForm'
+
+test('server markup helper renders credential and provider controls safely', () => {
+    const html = renderHanasandLoginFormMarkup({
+        loginUrl: '/api/auth/login',
+        passkeyOptionsUrl: '/api/auth/passkeys/authenticate/options',
+        passkeyVerifyUrl: '/api/auth/passkeys/authenticate/verify',
+        ssoHref: '/api/auth/sso/start?returnTo=%2Fgallery',
+        redirectPath: '/gallery?album=summer&sort=date',
+        identifierValue: 'eirik@example.com" autofocus="true',
+    })
+
+    expect(html).toContain('name="username"')
+    expect(html).toContain('name="password"')
+    expect(html).toContain('Continue with Google')
+    expect(html).toContain('Sign in with passkey')
+    expect(html).toContain('action="/api/auth/login"')
+    expect(html).toContain('value="eirik@example.com&quot; autofocus=&quot;true"')
+    expect(() => renderHanasandLoginFormMarkup({
+        loginUrl: 'https://attacker.example/login',
+        passkeyOptionsUrl: '/options',
+        passkeyVerifyUrl: '/verify',
+        ssoHref: '/sso',
+        redirectPath: '/',
+    })).toThrow('Login route must stay on this site.')
+})
 
 test('package exports an idempotent local login component registration', () => {
     const definitions = new Map<string, CustomElementConstructor>()
