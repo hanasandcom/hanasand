@@ -11,6 +11,7 @@ import random
 import re
 import shlex
 import string
+import stat
 import subprocess
 import sys
 import tempfile
@@ -117,8 +118,31 @@ class StagePreflight(unittest.TestCase):
             'COPY api/package.json api/bun.lock api/bunfig.toml ./',
             'RUN bun install --frozen-lockfile',
             'COPY api/ ./',
+            'RUN chmod -R a+rX /app && test -s /app/tests/identity-proxy-postgres.test.ts',
             'CMD ["bun", "test", "/app/tests/identity-proxy-postgres.test.ts"]'
         ])
+
+    def test_private_clone_modes_become_readable_in_image(self):
+        dockerfile = (SCRIPT.parent.parent / 'Dockerfile.proof-stage').read_text()
+        instruction = next(line for line in dockerfile.splitlines() if line.startswith('RUN chmod '))
+        with tempfile.TemporaryDirectory(prefix='core-proof-modes-test-') as temporary:
+            app = Path(temporary) / 'app'
+            tests = app / 'tests'
+            tests.mkdir(parents=True)
+            fixture = tests / 'identity-proxy-postgres.test.ts'
+            fixture.write_text('synthetic fixture')
+            package = app / 'package.json'
+            package.write_text('{}')
+            for directory in (app, tests):
+                directory.chmod(0o700)
+            for source in (fixture, package):
+                source.chmod(0o600)
+            command_line = instruction.removeprefix('RUN ').replace('/app', shlex.quote(str(app)))
+            subprocess.run(['sh', '-ec', command_line], check=True)
+            for directory in (app, tests):
+                self.assertEqual(stat.S_IMODE(directory.stat().st_mode), 0o755)
+            for source in (fixture, package):
+                self.assertEqual(stat.S_IMODE(source.stat().st_mode), 0o644)
 
     def test_database_and_runner_are_isolated(self):
         database = command('docker run -d --name "$db"')
