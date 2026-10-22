@@ -1,6 +1,10 @@
 import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
+import { mock } from 'bun:test'
 import { NextRequest } from 'next/server'
+
+mock.module('next/headers', () => ({ headers: async () => new Headers() }))
+
 import { GET, PUT } from '../src/app/api/thesis/route'
 import { canEditThesis, readThesis, validThesis } from '../src/utils/thesis'
 
@@ -16,15 +20,13 @@ test('thesis access follows active Hanasand organization roles', async() => {
         const token = headers.get('Authorization')?.replace(/^Bearer /, '') || ''
         if (target.pathname.includes('/auth/token/')) {
             const valid = roles.has(id) && token === `valid-${id}`
-            return valid ? Response.json({ token }) : Response.json({}, { status: 401 })
+            const canEditInternalPages = ['owner', 'editor'].includes(roles.get(id) || '')
+            return valid ? Response.json({ token, canViewInternalPages: roles.has(id), canEditInternalPages }) : Response.json({}, { status: 401 })
         }
-        if (target.pathname.endsWith('/management/organizations')) {
+        if (target.pathname.endsWith('/thesis/access')) {
             const role = roles.get(id)
-            return Response.json({ allowed: roles.has(id), canEdit: ['owner', 'editor'].includes(role || '') })
-        }
-        if (target.pathname.endsWith('/organizations')) {
-            const role = roles.get(id)
-            return Response.json({ organizations: role ? [{ slug: 'hanasand', lifecycleStatus: 'active', role }] : [] })
+            const member = Boolean(role)
+            return Response.json({ member, canEdit: member && ['owner', 'editor'].includes(role || '') })
         }
         if (target.pathname.endsWith('/thesis')) {
             if (fail) return Response.json({}, { status: 500 })

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import config from '@/config'
 import { getCookie } from 'hanasand/cookies'
-import { createDeviceProof } from '@/utils/auth/deviceProof'
+import { authenticateConsoleSocket, vmConsoleSocketUrl } from '@/utils/vms/authenticateConsoleSocket'
 import { prepareVmConsole } from '@/utils/vms/prepareConsole'
 import { useVmConsoleBootLog } from './useVmConsoleBootLog'
 import { useVmProvisioningStatus } from './useVmProvisioningStatus'
@@ -128,17 +128,11 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
                 if (socket) { socket.onclose = null; socket.close() }
                 ready = false
                 failed = false
-                socket = new WebSocket(config.url.api_wss + (host
-                    ? '/host/' + encodeURIComponent(host) + '/console'
-                    : '/vm/' + encodeURIComponent(name || '') + '/console'))
+                socket = new WebSocket(vmConsoleSocketUrl(config.url.api_wss, host, name))
                 socket.onopen = () => {
                     const token = decodeURIComponent(getCookie('access_token') || '')
-                    const target = config.url.api_wss + (host
-                        ? '/host/' + encodeURIComponent(host) + '/console'
-                        : '/vm/' + encodeURIComponent(name || '') + '/console')
-                    void createDeviceProof(token, 'GET', target).then(({ proof }) => {
-                        if (!disposed && socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'auth', id: getCookie('id'), token, dpop: proof }))
-                    }).catch(() => socket?.close())
+                    const target = vmConsoleSocketUrl(config.url.api_wss, host, name)
+                    void authenticateConsoleSocket(socket, target, getCookie('id') || '', token).catch(() => socket?.close())
                     setStatus('Opening console…')
                 }
                 socket.onmessage = event => {

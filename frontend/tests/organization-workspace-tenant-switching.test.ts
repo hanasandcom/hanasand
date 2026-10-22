@@ -20,6 +20,7 @@ const cookieValues = new Map([
 
 process.env.FRONTEND_AUTH_API = 'https://auth.example.test/api'
 mock.module('next/headers', () => ({
+    headers: async () => new Headers(),
     cookies: async () => ({ get: name => cookieValues.has(name) ? { value: cookieValues.get(name) } : undefined }),
 }))
 

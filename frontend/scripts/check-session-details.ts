@@ -12,9 +12,13 @@ assert.equal(sessionDevice('Mozilla/5.0 (iPhone) CriOS/130.0 Mobile Safari/605.1
 assert.equal(sessionDevice('Bun/1.3.11', false).label, 'Device details unavailable')
 assert.equal(sessionDevice('Bun/1.3.11').kind, 'api')
 assert.equal(sessionDevice('Hanasand Desktop/1.6.7').kind, 'desktop')
-assert.deepEqual(clientHeaders(new Headers({ 'x-real-ip': '8.8.8.8', 'x-forwarded-for': '1.1.1.1', 'user-agent': agent })), { 'x-forwarded-for': '8.8.8.8', 'user-agent': agent })
-assert.equal(clientHeaders(new Headers({ 'x-real-ip': 'garbage' }))['x-forwarded-for'], undefined)
-assert.equal(clientHeaders(new Headers({ 'x-forwarded-for': 'spoofed, 2001:4860:4860::8888' }))['x-forwarded-for'], '2001:4860:4860::8888')
+const loginRequest = (headers: Headers) => ({ headers, url: 'https://hanasand.com/api/auth/login', method: 'POST' })
+assert.deepEqual(clientHeaders(loginRequest(new Headers({ 'x-real-ip': '8.8.8.8', 'x-forwarded-for': '1.1.1.1', 'user-agent': agent }))), {
+    'x-forwarded-for': '8.8.8.8', 'user-agent': agent,
+    'x-device-proof-url': 'https://hanasand.com/api/auth/login', 'x-device-proof-method': 'POST',
+})
+assert.equal(clientHeaders(loginRequest(new Headers({ 'x-real-ip': 'garbage' })))['x-forwarded-for'], undefined)
+assert.equal(clientHeaders(loginRequest(new Headers({ 'x-forwarded-for': 'spoofed, 2001:4860:4860::8888' })))['x-forwarded-for'], '2001:4860:4860::8888')
 
 const originalFetch = globalThis.fetch
 let calls = 0

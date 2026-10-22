@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import config from '@/config'
 import { getCookie } from 'hanasand/cookies'
-import { createDeviceProof } from '@/utils/auth/deviceProof'
+import { sendShareEditWithProof } from '@/utils/share/sendShareEditWithProof'
 import { getShare } from '@/utils/share/get'
 import { handleShareCodeMessage } from './shareCodeMessages'
 import { displayNameFor, getClientId, getCursorPosition, type ShareConflict, type SharePresenceUser } from './shareCodePresence'
@@ -121,11 +121,7 @@ export function useShareCodeSocket({
         }
 
         const sendEditOverSocket = async (target: WebSocket, content: string) => {
-            const userId = getCookie('id') || ''
-            const token = getCookie('access_token') || ''
-            const proof = token ? await createDeviceProof(token, 'GET', `${config.url.api_wss}/share/${shareId}`) : null
-            if (target.readyState !== WebSocket.OPEN) return
-            target.send(JSON.stringify({ type: 'edit', userId, token, id: shareId, content, ...(proof ? { dpop: proof.proof } : {}) }))
+            if (!await sendShareEditWithProof(target, shareId, content, `${config.url.api_wss}/share/${shareId}`)) return
             if (pendingEditRef.current === content) pendingEditRef.current = null
             onSaveStateChange?.('saving')
         }
@@ -166,11 +162,7 @@ export function useShareCodeSocket({
         const target = wsRef.current
         void (async () => {
             try {
-                const userId = getCookie('id') || ''
-                const token = getCookie('access_token') || ''
-                const proof = token ? await createDeviceProof(token, 'GET', `${config.url.api_wss}/share/${shareId}`) : null
-                if (target.readyState !== WebSocket.OPEN) { pendingEditRef.current = content; setReconnect(true); onSaveStateChange?.('queued'); return }
-                target.send(JSON.stringify({ type: 'edit', userId, token, id: shareId, content, ...(proof ? { dpop: proof.proof } : {}) }))
+                if (!await sendShareEditWithProof(target, shareId!, content, `${config.url.api_wss}/share/${shareId}`)) { pendingEditRef.current = content; setReconnect(true); onSaveStateChange?.('queued'); return }
                 pendingEditRef.current = null
             } catch { pendingEditRef.current = content; setReconnect(true); onSaveStateChange?.('queued') }
         })()

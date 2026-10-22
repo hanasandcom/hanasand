@@ -1,6 +1,5 @@
 // @ts-expect-error Bun provides this module for focused checks.
 import { expect, mock, test } from 'bun:test'
-import { NextRequest } from 'next/server'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import NotesPanelIconButton from '../src/app/dashboard/notes/NotesPanelIconButton'
@@ -10,11 +9,13 @@ let organizationId = 'hanasand'
 let denied = false
 let lastUrl = ''
 let lastHeaders = new Headers()
-mock.module('next/headers', () => ({ cookies: async () => ({ get: (name: string) => {
+mock.module('next/headers', () => ({ headers: async () => new Headers(), cookies: async () => ({ get: (name: string) => {
     const values: Record<string, string> = { id: 'member', access_token: 'test-session', hanasand_workspace: JSON.stringify({ userId: 'member', organizationId, name: 'Hanasand' }) }
     return values[name] ? { value: values[name] } : undefined
 } }) }))
+mock.module('server-only', () => ({}))
 mock.module('../src/config', () => ({ default: { url: { api: 'https://api.example.test/api' }, abortTimeout: 1000 } }))
+const { NextRequest } = await import('next/server')
 globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     lastUrl = String(url); lastHeaders = new Headers(init?.headers)
     return Response.json(denied ? { error: 'Forbidden' } : [], { status: denied ? 403 : 200 })

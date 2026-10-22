@@ -9,7 +9,7 @@ let cases: (request: NextRequest) => Promise<Response>
 let overviewOrganizationId: string | null
 mock.module('../src/app/api/findings/product/route', () => ({ GET: (request: NextRequest) => product(request) }))
 mock.module('../src/app/api/cases/route', () => ({ GET: (request: NextRequest) => cases(request) }))
-mock.module('next/headers', () => ({ cookies: async () => ({
+mock.module('next/headers', () => ({ headers: async () => new Headers(), cookies: async () => ({
     get: (name: string) => {
         const value = ({ id: 'user-a', access_token: 'session-a' } as Record<string, string>)[name]
         return value ? { value } : undefined

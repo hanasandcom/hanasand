@@ -5,7 +5,7 @@ let authStatus: 'ready' | 'unauthenticated' | 'unauthorized' | 'unavailable' = '
 let redirectTo: string | null = null
 const props: Record<string, unknown>[] = []
 
-mock.module('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: 'present' }) }) }))
+mock.module('next/headers', () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => ({ value: 'present' }) }) }))
 mock.module('next/navigation', () => ({
     redirect: (path: string) => {
         redirectTo = path
