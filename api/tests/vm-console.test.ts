@@ -83,6 +83,45 @@ test('routes remote browser input, resize, and output through the VM primary hos
     remoteSocket = undefined
 })
 
+test('does not report a sign-in failure while an authenticated remote host console is connecting', async () => {
+    const originalSetTimeout = globalThis.setTimeout
+    const originalClearTimeout = globalThis.clearTimeout
+    let authenticationDeadline: ReturnType<typeof setTimeout> | undefined
+    let authenticationDeadlineCleared = false
+    globalThis.setTimeout = ((handler: TimerHandler, delay = 0, ...args: unknown[]) => {
+        const timer = originalSetTimeout(handler, delay, ...args)
+        if (delay === 10000) authenticationDeadline = timer
+        return timer
+    }) as typeof setTimeout
+    globalThis.clearTimeout = ((timer?: ReturnType<typeof setTimeout>) => {
+        if (timer === authenticationDeadline) authenticationDeadlineCleared = true
+        return originalClearTimeout(timer)
+    }) as typeof clearTimeout
+    remoteSocket = new FakeSocket()
+    let browser: FakeSocket | undefined
+    try {
+        let route: ((socket: FakeSocket, request: unknown) => void) | undefined
+        registerVmConsole({ get: (_path: string, _options: unknown, handler: typeof route) => { route = handler } } as never)
+        browser = new FakeSocket(true)
+        route?.(browser, { params: { name: 'cashflow' }, headers: { origin: 'https://hanasand.com' }, log: { info: () => {}, warn: () => {}, error: () => {} } })
+        browser.emit('message', Buffer.from(JSON.stringify({ type: 'auth', id: 'owner', token: 'session' })))
+        await Bun.sleep(5)
+
+        expect(authenticationDeadline).toBeDefined()
+        expect(authenticationDeadlineCleared).toBe(true)
+        expect(browser.sent.map(value => JSON.parse(value))).not.toContainEqual({ type: 'error', message: 'Unable to read the console session. Reconnect to try again.' })
+
+        remoteSocket?.open()
+        await Bun.sleep(5)
+        expect(browser.sent.map(value => JSON.parse(value))).not.toContainEqual({ type: 'error', message: 'Unable to read the console session. Reconnect to try again.' })
+    } finally {
+        if (browser?.readyState === WebSocket.OPEN) browser.close()
+        remoteSocket = undefined
+        globalThis.setTimeout = originalSetTimeout
+        globalThis.clearTimeout = originalClearTimeout
+    }
+})
+
 test('rejects remote resize input when the VM host websocket is backpressured', async () => {
     remoteSocket = new FakeSocket()
     let route: ((socket: FakeSocket, request: unknown) => void) | undefined

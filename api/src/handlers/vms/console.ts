@@ -30,6 +30,8 @@ export default function registerVmConsole(fastify: FastifyInstance) {
         let authenticated = false
         let starting = false
         let checking = false
+        let authenticationDeadline: ReturnType<typeof setTimeout> | undefined
+        let connectionDeadline: ReturnType<typeof setTimeout> | undefined
         let credentials: { id: string; token: string } | undefined
         let recheck: ReturnType<typeof setInterval> | undefined
         let heartbeat: ReturnType<typeof setInterval> | undefined
@@ -42,29 +44,38 @@ export default function registerVmConsole(fastify: FastifyInstance) {
             if (upstream?.readyState === WebSocket.CONNECTING) upstream.terminate()
             else upstream?.close()
         }
-        const fail = (message: string) => { send({ type: 'error', message }); socket.close(1008); close() }
+        const fail = (message: string) => {
+            clearTimeout(authenticationDeadline)
+            clearTimeout(connectionDeadline)
+            send({ type: 'error', message })
+            socket.close(1008)
+            close()
+        }
         const sendToUpstream = (message: object) => {
             if (upstream?.readyState !== WebSocket.OPEN) return fail('The VM host closed the console.')
             if (upstream.bufferedAmount > 1024 * 1024) return fail('The VM host is not accepting console input.')
             upstream.send(JSON.stringify(message))
         }
-        const deadline = setTimeout(() => fail('Sign in to open this console.'), 10000)
+        authenticationDeadline = setTimeout(() => fail('Unable to read the console session. Reconnect to try again.'), 10000)
         const origin = request.headers.origin
         if (origin && origin !== 'https://hanasand.com' && !(process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))) {
-            clearTimeout(deadline)
+            clearTimeout(authenticationDeadline)
             socket.close(1008)
             return
         }
-        socket.on('close', () => { clearTimeout(deadline); clearInterval(recheck); clearInterval(heartbeat); close() })
+        socket.on('close', () => { clearTimeout(authenticationDeadline); clearTimeout(connectionDeadline); clearInterval(recheck); clearInterval(heartbeat); close() })
         socket.on('error', close)
         socket.on('message', async raw => {
             try {
                 if (Buffer.byteLength(raw.toString()) > 32768) return fail('Console input is too large.')
                 const message = JSON.parse(raw.toString())
                 if (!authenticated) {
-                    if (starting || message.type !== 'auth' || typeof message.id !== 'string' || typeof message.token !== 'string' || message.id.length > 200 || message.token.length > 512) return fail('Sign in to open this console.')
+                    if (starting || message.type !== 'auth' || typeof message.id !== 'string' || typeof message.token !== 'string' || message.id.length > 200 || message.token.length > 512) return fail('Unable to read the console session. Reconnect to try again.')
                     starting = true
                     credentials = { id: message.id, token: message.token }
+                    clearTimeout(authenticationDeadline)
+                    authenticationDeadline = undefined
+                    connectionDeadline = setTimeout(() => fail('Unable to open the console. Check that the VM and its host are running.'), 30000)
                     if (recoveryReadOnly()) return fail('Console access is paused during recovery.')
                     const host = await consoleHost(request.params.name, credentials.id, credentials.token)
                     if (!host) return fail('You do not have access to this VM.')
@@ -88,7 +99,8 @@ export default function registerVmConsole(fastify: FastifyInstance) {
                             upstream?.once('close', () => reject(new Error('VM host closed the console before connecting.')))
                         })
                     } else terminal = startConsoleSession(request.params.name, send)
-                    clearTimeout(deadline)
+                    clearTimeout(connectionDeadline)
+                    connectionDeadline = undefined
                     authenticated = true
                     request.log.info({ vmName: request.params.name, userId: credentials.id }, 'VM console opened')
                     // Keep idle terminals alive through the public proxy's 15-second timeout.
