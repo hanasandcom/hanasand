@@ -151,7 +151,6 @@ export function authServiceUnavailable(req: NextRequest) {
             h1{font-size:1.5rem;line-height:1.3}p{color:var(--ui-muted)}
             a{display:inline-block;margin-top:.5rem;padding:.6rem 1rem;border-radius:6px;background:var(--ui-primary);color:var(--ui-on-primary);text-decoration:none;font-weight:600}a:focus-visible{outline:3px solid var(--ui-primary);outline-offset:3px}
 </style></head><body><main>
-<img src="/hanasand-logo-transparent.png" alt="" width="36" height="36">
 <h1>Reconnecting</h1>
 <p role="status">Unable to authenticate. Trying again in a few seconds.</p>
 <a href="${retryPath}">Try again now</a>
