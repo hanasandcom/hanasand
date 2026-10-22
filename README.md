@@ -72,6 +72,7 @@ Use Bun 1.3.11, Node.js 22 and Docker Compose. Install dependencies in the compo
 
 The root `.env` is private and is not committed. Obtain a development configuration from the operator; never copy production credentials into tests. The API requires `DB_HOST`, `DB_PASSWORD` and `VM_API_TOKEN`. Also configure `DB`, `DB_USER` and `DB_PORT` for the development database. Match the frontend API URLs to that environment; several defaults point at production.
 
+
 Run in separate terminals:
 
 ```sh
