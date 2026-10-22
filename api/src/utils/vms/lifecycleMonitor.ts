@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import config from '#constants'
 import { requestLxdJson, type LxdRequestOptions, type LxdResponse } from './lxdTransport.ts'
 import { recordServiceCheckCase } from '../status/serviceCheckCase.ts'
 
@@ -93,7 +94,8 @@ function isSafeTarget(settings: MonitorConfig) {
 }
 
 export function vmLifecycleMonitorIsConfigured(env: NodeJS.ProcessEnv = process.env) {
-    return isSafeTarget(vmLifecycleMonitorConfig(env))
+    const settings = vmLifecycleMonitorConfig(env)
+    return isSafeTarget(settings) && settings.socketPath !== config.lxd_socket_path
 }
 
 export async function exerciseDisposableInstance(settings: MonitorConfig, request: LxdRequest = requestLxdJson) {

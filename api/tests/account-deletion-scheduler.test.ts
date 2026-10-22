@@ -117,6 +117,8 @@ test('the VM lifecycle monitor cron is unavailable without isolated staging sett
         process.env.VM_LIFECYCLE_MONITOR_IMAGE_ALIAS = '24.04'
         expect(canRunApiCronJobNow(VM_LIFECYCLE_MONITOR_JOB_ID)).toBe(false)
         process.env.VM_LIFECYCLE_MONITOR_TARGET = 'isolated-staging'
+        expect(canRunApiCronJobNow(VM_LIFECYCLE_MONITOR_JOB_ID)).toBe(false)
+        process.env.VM_LIFECYCLE_MONITOR_SOCKET_PATH = '/run/lxd-staging/unix.socket'
         expect(canRunApiCronJobNow(VM_LIFECYCLE_MONITOR_JOB_ID)).toBe(true)
     } finally {
         keys.forEach(key => {

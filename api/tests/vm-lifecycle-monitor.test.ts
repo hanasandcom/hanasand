@@ -33,6 +33,13 @@ test('lifecycle monitor requires explicit isolated staging configuration', () =>
     expect(vmLifecycleMonitorIsConfigured({
         VM_LIFECYCLE_MONITOR_ENABLED: 'true',
         VM_LIFECYCLE_MONITOR_TARGET: 'isolated-staging',
+        VM_LIFECYCLE_MONITOR_SOCKET_PATH: '/run/lxd-prod/unix.socket',
+        VM_LIFECYCLE_MONITOR_IMAGE_SERVER: 'https://images.example.test/releases',
+        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: '24.04',
+    })).toBe(false)
+    expect(vmLifecycleMonitorIsConfigured({
+        VM_LIFECYCLE_MONITOR_ENABLED: 'true',
+        VM_LIFECYCLE_MONITOR_TARGET: 'isolated-staging',
         VM_LIFECYCLE_MONITOR_SOCKET_PATH: '/run/lxd-staging/unix.socket',
         VM_LIFECYCLE_MONITOR_IMAGE_SERVER: 'https://images.example.test/releases',
         VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: '24.04',

@@ -75,6 +75,7 @@ mock.module('../src/utils/vms/lifecycleMonitor.ts', () => ({
     monitorVmLifecycle: async () => null,
     vmLifecycleMonitorIsConfigured: () => process.env.VM_LIFECYCLE_MONITOR_ENABLED === 'true'
         && process.env.VM_LIFECYCLE_MONITOR_TARGET === 'isolated-staging'
+        && process.env.VM_LIFECYCLE_MONITOR_SOCKET_PATH !== '/run/lxd-prod/unix.socket'
         && Boolean(process.env.VM_LIFECYCLE_MONITOR_SOCKET_PATH && process.env.VM_LIFECYCLE_MONITOR_IMAGE_SERVER && process.env.VM_LIFECYCLE_MONITOR_IMAGE_ALIAS),
     VM_LIFECYCLE_MONITOR_JOB_ID: 'api-vm-lifecycle-monitor',
 }))
