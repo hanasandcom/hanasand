@@ -103,7 +103,7 @@ export function ProviderReportDetails({ tool, capture, compact = false }: { tool
                 <div className='min-w-0'>
                     <p className='text-xs font-semibold uppercase text-ui-primary'>{providerStatus(capture, analysis)}</p>
                     <h2 className={`${compact ? 'text-sm' : 'text-lg'} mt-1 font-semibold text-ui-text`}>{tool.name}</h2>
-                    <a href={sourceUrl} target='_blank' rel='noreferrer noopener' className='mt-1 block break-all font-mono text-xs text-ui-primary underline-offset-2 hover:underline'>{sourceUrl}</a>
+                    <p className='mt-1 break-all font-mono text-xs text-ui-muted'>{sourceUrl}</p>
                 </div>
                 {facts.length ? (
                     <div className='flex max-w-full flex-wrap justify-end gap-2'>
