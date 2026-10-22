@@ -16,6 +16,7 @@ import { getBackgroundJobRuntime } from './backgroundJobRuntime.ts'
 import purgeDeletedAccounts, { ACCOUNT_DELETION_PURGE_JOB_ID } from './auth/purgeDeletedAccounts.ts'
 import { maintainVmFailover, VM_FAILOVER_JOB_ID } from './vms/failover.ts'
 import { monitorVmLifecycle, vmLifecycleMonitorIsConfigured, VM_LIFECYCLE_MONITOR_JOB_ID } from './vms/lifecycleMonitor.ts'
+import { runDueUvmScans, UVM_SCHEDULE_JOB_ID } from './vulnerabilities/uvmScanner.ts'
 
 export const HOST_UPDATE_MONITOR_JOB_ID = 'api-host-update-monitor'
 export const WEB_SCAN_JOB_ID = 'api-web-security-scanner'
@@ -49,6 +50,7 @@ const apiMinuteCronRunners: Record<string, () => Promise<unknown> | unknown> = {
     [ACCOUNT_DELETION_PURGE_JOB_ID]: purgeDeletedAccounts,
     [VM_FAILOVER_JOB_ID]: maintainVmFailover,
     [VM_LIFECYCLE_MONITOR_JOB_ID]: monitorVmLifecycle,
+    [UVM_SCHEDULE_JOB_ID]: runDueUvmScans,
 }
 
 export function canRunApiCronJobNow(id: string) {
