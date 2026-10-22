@@ -33,7 +33,7 @@ services:
     networks: !override
       hanasandnet: {}
       identity-staging:
-        ipv4_address: 172.31.254.7
+        ipv4_address: 172.31.254.8
       ai-staging: {}
     depends_on:
       api:
