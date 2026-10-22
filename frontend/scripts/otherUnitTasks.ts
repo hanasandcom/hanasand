@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const otherUnitTasks: TestTask[] = [
+    { id: 'customer-read-proof', title: 'Customer case and alert proof delegation', command: [bun, 'test', 'tests/customer-read-proof.test.ts'] },
     { id: 'logs-error-summary-render', title: 'Unavailable log summary preserves recent errors', command: [bun, 'test', 'tests/logs-error-summary-render.test.tsx'] },
     { id: 'logs-proxy-timeout', title: 'Logs cold-read timeout and count availability', command: [bun, 'test', 'tests/logs-proxy-timeout.test.ts'] },
     { id: 'mail-workspace-page', title: 'Mail workspace initial mailbox page reuse', command: [bun, 'test', 'tests/mail-workspace-page.test.ts'] },
