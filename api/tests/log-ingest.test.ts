@@ -40,16 +40,14 @@ test('scoped ingestion token and existing internal clients are accepted', async 
     delete process.env.LOG_INGEST_TOKEN
     expect((await send('Bearer dedicated-log-token')).statusCode).toBe(401)
 })
-test('remote-only mode retires Hanasand ingestion and directs senders to Logs', async () => {
+test('remote-only mode durably accepts legacy senders into the Logs transfer outbox', async () => {
     process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
     process.env.LOGS_SERVICE_URL = 'https://logs.hanasand.com'
     const response = await send('Bearer dedicated-log-token')
-    expect(response.statusCode).toBe(410)
-    expect(response.json()).toEqual({
-        error: 'Logs ingestion has moved to the independent Logs API.',
-        ingestUrl: 'https://logs.hanasand.com/api/ingest',
-    })
-    expect(operations).toEqual([])
+    expect(response.statusCode).toBe(201)
+    expect(response.json()).toEqual({ ok: true, accepted: 1 })
+    expect(stored).toHaveLength(1)
+    expect(operations).toEqual(['begin', 'commit'])
 })
 test('validates the full batch before storage and only acknowledges durable writes', async () => {
     expect((await send('Bearer dedicated-log-token', { events: [payload, { ...payload, metadata: 'bad' }] })).statusCode).toBe(400)

@@ -10,6 +10,11 @@ export function shouldRunLegacyLogProcessing() {
     return !logsOutboxRemoteOnly()
 }
 
+export function shouldRunLogsOutboxDelivery() {
+    return logsOutboxEnabled()
+        && (process.env.API_HTTP_ONLY !== '1' || process.env.DEPLOYMENT_CANDIDATE_ONLY === '1')
+}
+
 export function assertRemoteLogsConfiguration() {
     if (!logsOutboxRemoteOnly()) return
     if (!logsOutboxEnabled()) {

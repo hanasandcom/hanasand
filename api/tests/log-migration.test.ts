@@ -99,7 +99,7 @@ mock.module('#db', () => ({
     withTransaction: async (work: (tx: typeof query) => unknown) => work(query),
 }))
 
-const { clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, moveOneBatch } = await import('../scripts/migrate-logs-to-service.ts')
+const { clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, moveOneBatch, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
 
 beforeEach(() => {
     statements.length = 0
@@ -326,6 +326,13 @@ test('refuses to clear log-owned state while any Hanasand Logs event remains', a
     expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE'))).toBe(false)
 })
 
+test('requires a healthy Logs worker as well as a healthy API before migration', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, worker: { ok: false } }), { status: 200 })) as typeof fetch
+    expect(await serviceReady('https://logs.hanasand.com')).toBe(false)
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, worker: { ok: true } }), { status: 200 })) as typeof fetch
+    expect(await serviceReady('https://logs.hanasand.com')).toBe(true)
+})
+
 test('retains source rows when Logs is busy and asks the caller to retry', async () => {
     globalThis.fetch = (async () => new Response(JSON.stringify({ error: 'busy' }), { status: 503 })) as typeof fetch
 
@@ -350,5 +357,26 @@ test('retains source rows when the acknowledgement count is incomplete', async (
 
     await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
         .rejects.toThrow('did not acknowledge the full migration batch')
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
+})
+
+test('deletes a source event only after Logs explicitly acknowledges its drop', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+        expect(String(input)).toBe('https://logs.hanasand.com/api/ingest')
+        return new Response(JSON.stringify({ ok: true, accepted: 1, droppedSourceEventIds: ['collector-event-1'] }), { status: 201 })
+    }) as typeof fetch
+
+    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
+    expect(result).toEqual({ moved: 1, remaining: true, retry: false })
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
+})
+
+test('retains source rows when Logs reports an invalid dropped-event identity', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+        ok: true, accepted: 1, droppedSourceEventIds: ['not-in-this-batch'],
+    }), { status: 201 })) as typeof fetch
+
+    await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
+        .rejects.toThrow('invalid dropped-event identities')
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
 })
