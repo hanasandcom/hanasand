@@ -16,6 +16,23 @@ React applications using the Mail entry also need `next`, `lucide-react`, and `f
 import { DashboardPage, DashboardPanel, DashboardTable } from 'hanasand'
 ```
 
+## Identity login UI
+
+Use the shared login form and pass each host's same-origin routes. Identity remains
+the authentication service; the host app owns the routes and session cookies.
+
+```tsx
+import { IdentityLoginForm } from 'hanasand'
+
+<IdentityLoginForm
+  loginUrl='/api/auth/login'
+  passkeyOptionsUrl='/api/auth/passkeys/authenticate/options'
+  passkeyVerifyUrl='/api/auth/passkeys/authenticate/verify'
+  ssoHref='/api/auth/sso/start'
+  redirectPath='/dashboard'
+/>
+```
+
 The dashboard components use the host app's Tailwind `ui-*` theme classes. Add this to the app's global stylesheet so Tailwind scans package classes:
 
 ```css

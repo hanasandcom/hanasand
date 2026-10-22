@@ -1,4 +1,4 @@
-import { createElement } from 'react'
+import { IdentityLoginForm } from 'hanasand'
 import { authGhostButtonClass } from './loginMode'
 
 type Props = {
@@ -14,17 +14,17 @@ export default function LoginForm({ redirectPath, initialUsername, hydrated, soc
     return (
         <div className='grid gap-5'>
             {socialError ? <p role='alert' className='text-sm text-ui-text'>{socialError}</p> : null}
-            {createElement('hanasand-login-form', {
-                'login-url': '/api/auth/login',
-                'passkey-options-url': '/api/auth/passkeys/authenticate/options',
-                'passkey-verify-url': '/api/auth/passkeys/authenticate/verify',
-                'sso-href': ssoHref,
-                'redirect-path': redirectPath,
-                'identifier-label': 'Username',
-                'identifier-placeholder': 'Username',
-                'identifier-value': initialUsername || '',
-                'submit-label': 'Log in',
-            })}
+            <IdentityLoginForm
+                loginUrl='/api/auth/login'
+                passkeyOptionsUrl='/api/auth/passkeys/authenticate/options'
+                passkeyVerifyUrl='/api/auth/passkeys/authenticate/verify'
+                ssoHref={ssoHref}
+                redirectPath={redirectPath}
+                identifierLabel='Username'
+                identifierPlaceholder='Username'
+                identifierValue={initialUsername || ''}
+                submitLabel='Log in'
+            />
             <div className='flex items-center gap-3'>
                 <button type='button' disabled={!hydrated} onClick={() => onChangeMode('signup')} className={authGhostButtonClass}>Sign up</button>
                 <button
