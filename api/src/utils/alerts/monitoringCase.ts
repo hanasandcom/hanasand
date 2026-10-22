@@ -1,5 +1,5 @@
 import { redactSecretBearingText, type DiscordEmbed } from './discordWebhookFile.ts'
-import { readableMonitoringMessage } from '../monitoringMessage.ts'
+import { isMonitoringStateUnknown, readableMonitoringMessage } from '../monitoringMessage.ts'
 import { isHostMetricsDataWarning } from '../hostCheckMessage.ts'
 
 type CaseDetails = {
@@ -27,15 +27,18 @@ function severityColor(severity: string) {
 export function monitoringCaseDiscordAlert(caseId: string, monitorName: string, automationId: string, issue: CaseDetails, organizationId?: string | null, context: { targetUrl?: string | null } = {}) {
     const organizationScope = organizationId ? `org=${encodeURIComponent(organizationId)}` : ''
     const url = `https://hanasand.com/cases/${encodeURIComponent(caseId)}${organizationScope ? `?${organizationScope}` : ''}`
-    const monitorDataProblem = context.targetUrl === 'system:metrics' && isHostMetricsDataWarning(issue.summary)
-    const severity = issue.severity_override || (issue.kind === 'failure' && !monitorDataProblem ? 'high' : 'medium')
+    const description = redactSecretBearingText(readableMonitoringMessage(issue.summary, { monitorName, targetUrl: context.targetUrl }))
+    const monitorDataProblem = context.targetUrl === 'system:metrics' && isHostMetricsDataWarning(description)
+    const stateUnknown = monitorDataProblem || isMonitoringStateUnknown(description)
+    const severity = stateUnknown ? 'medium' : issue.severity_override || (issue.kind === 'failure' ? 'high' : 'medium')
     const embed: DiscordEmbed = {
         title: redactSecretBearingText(`${caseId} · ${monitorName}`).slice(0, 256),
         url,
-        description: redactSecretBearingText(readableMonitoringMessage(issue.summary, { monitorName, targetUrl: context.targetUrl })).slice(0, 3000),
+        description: description.slice(0, 3000),
         color: severityColor(severity),
         fields: [
             { name: 'Severity', value: severity, inline: true },
+            { name: 'Monitoring result', value: stateUnknown ? 'Status unknown · monitoring data unavailable' : issue.kind === 'failure' ? 'Check failed' : 'Warning', inline: true },
             { name: 'Case status', value: issue.status_override || (issue.resolved_at ? 'resolved' : 'open'), inline: true },
             { name: 'Occurrences', value: String(issue.occurrences), inline: true },
             { name: 'First seen', value: discordTimestamp(issue.first_seen_at), inline: true },

@@ -244,3 +244,7 @@ export function readableMonitoringMessage(message: string, context: MonitoringMe
     }
     return monitoringError(message, context)
 }
+
+export function isMonitoringStateUnknown(message: string) {
+    return /\b(?:status|state) is unknown\b/i.test(message)
+}

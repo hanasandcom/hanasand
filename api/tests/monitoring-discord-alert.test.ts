@@ -81,6 +81,25 @@ test('legacy host telemetry errors do not appear as high-severity host failures'
     expect(alert.embeds[0].fields).toContainEqual({ name: 'Severity', value: 'medium', inline: true })
 })
 
+test('unknown monitoring state stays medium even when a legacy case has a critical override', () => {
+    const alert = monitoringCaseDiscordAlert('HA-6', 'TI collection', 'ti-collection', {
+        kind: 'failure', summary: 'The operation timed out. Failed after 1 attempt.', occurrences: 4,
+        first_seen_at: '2026-10-22T13:03:00Z', last_seen_at: '2026-10-22T13:04:00Z', severity_override: 'critical',
+    }, null, { targetUrl: 'system:ti-collection' })
+    expect(alert.embeds[0]).toMatchObject({ color: 0xFEE75C, description: expect.stringContaining('collection state is unknown') })
+    expect(alert.embeds[0].fields).toContainEqual({ name: 'Severity', value: 'medium', inline: true })
+    expect(alert.embeds[0].fields).toContainEqual({ name: 'Monitoring result', value: 'Status unknown · monitoring data unavailable', inline: true })
+})
+
+test('known TI threshold failures retain critical severity', () => {
+    const alert = monitoringCaseDiscordAlert('HA-7', 'TI delivery', 'ti-delivery', {
+        kind: 'failure', summary: 'TI delivery has 12 retained incidents waiting for a first report, above the alert limit of 10. Review the timeliness dashboard and report backlog.', occurrences: 2,
+        first_seen_at: '2026-10-22T13:03:00Z', last_seen_at: '2026-10-22T13:04:00Z', severity_override: 'critical',
+    }, null, { targetUrl: 'system:ti-delivery' })
+    expect(alert.embeds[0].fields).toContainEqual({ name: 'Severity', value: 'critical', inline: true })
+    expect(alert.embeds[0].fields).toContainEqual({ name: 'Monitoring result', value: 'Check failed', inline: true })
+})
+
 test('existing text-only callers and disabled mentions are unchanged', async () => {
     interceptDelivery()
     await deliverDiscordWebhookFile('https://discord.com/api/webhooks/123/test-token', 'Mail recovered', false)
