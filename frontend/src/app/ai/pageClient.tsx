@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import ChatPane from '@/components/ai/chatPane'
 import ChatSidebar from '@/components/ai/chatSidebar'
@@ -9,8 +9,10 @@ import useAiWorkbench from '@/components/ai/useAiWorkbench'
 import type { AIWorkbenchInitialData } from '@/components/ai/workbench/initialData'
 import { AIPageNotices } from './AIPageNotices'
 import { usePromptPortal } from '@/components/ai/workbench/usePromptPortal'
+import { mergeConversationMessages, parseConversationProviderPreferences, setConversationProvider, type AssistantProvider } from '@/components/ai/workbench/providerSelection'
 
 type AIPageMode = 'landing' | 'workspace' | 'compact'
+const PROVIDER_STORAGE_KEY = 'hanasand.ai.provider-by-conversation.v1'
 
 export default function AIPageClient({
     mode = 'landing',
@@ -23,21 +25,38 @@ export default function AIPageClient({
     const router = useRouter()
     const pathname = usePathname()
     const ai = useAiWorkbench(initialData)
-    const [provider, setProvider] = useState<'hanasand' | 'chatgpt'>('hanasand')
+    const [providersByConversation, setProvidersByConversation] = useState<Record<string, AssistantProvider>>({})
     const [mobileChatsOpen, setMobileChatsOpen] = useState(false)
     const portal = usePromptPortal(canUseChatGPT, ai.activeConversation)
     const [detailsOpen, setDetailsOpen] = useState(false)
     const showWorkspaceRail = mode !== 'landing'
+    const activeConversationId = ai.activeConversation?.id || ''
+    const provider = activeConversationId ? providersByConversation[activeConversationId] || 'hanasand' : 'hanasand'
     const usingChatGPT = canUseChatGPT && provider === 'chatgpt'
-    const visibleConversation = usingChatGPT ? portal.chatGPTConversation : ai.activeConversation
+    const visibleConversation = useMemo(() => {
+        if (!ai.activeConversation || !portal.chatGPTConversation) return ai.activeConversation
+        return {
+            ...ai.activeConversation,
+            messages: mergeConversationMessages(ai.activeConversation.messages, portal.chatGPTConversation.messages),
+        }
+    }, [ai.activeConversation, portal.chatGPTConversation])
+
+    useEffect(() => {
+        try {
+            setProvidersByConversation(parseConversationProviderPreferences(window.localStorage.getItem(PROVIDER_STORAGE_KEY)))
+        } catch { /* Keep the default provider when saved preferences are unavailable. */ }
+    }, [])
 
     async function sendPrompt() {
-        if (!usingChatGPT) return ai.sendPrompt()
+        if (!usingChatGPT) return ai.sendPrompt(visibleConversation?.messages)
         if (await portal.submit(ai.composer.trim())) ai.setComposer('')
     }
 
     function changeProvider(value: 'hanasand' | 'chatgpt') {
-        setProvider(value)
+        if (!activeConversationId) return
+        const updated = setConversationProvider(providersByConversation, activeConversationId, value)
+        setProvidersByConversation(updated)
+        try { window.localStorage.setItem(PROVIDER_STORAGE_KEY, JSON.stringify(updated)) } catch { /* Keep the current-session choice. */ }
         if (value === 'hanasand') portal.setFiles(null)
     }
 

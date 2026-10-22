@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { PromptPortalItem, PromptPortalPublicState } from '@/utils/promptPortal/store'
 import { comparePromptItems } from '@/utils/promptPortal/ordering'
+import { promptThreadId } from '@/utils/promptPortal/threadId'
+import { serializePromptContext } from '@/utils/promptPortal/context'
 
 const emptyState: PromptPortalPublicState = { items: [] }
 
@@ -13,27 +15,28 @@ export function usePromptPortal(enabled: boolean, conversation: AIConversation |
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
     const conversationId = conversation?.id || ''
+    const threadId = conversationId ? promptThreadId(conversationId) : ''
     const pending = useMemo(() => state.items.filter(item => item.status === 'queued' || item.status === 'running').sort(comparePromptItems), [state.items])
     const queueOrder = useMemo(() => pending.filter(item => item.status === 'queued'), [pending])
     const chatGPTConversation = useMemo(() => conversation ? {
         ...conversation,
-        id: 'hanasand-chatgpt',
+        id: threadId,
         title: 'ChatGPT',
         activeModel: 'ChatGPT',
         preferredModel: 'ChatGPT',
         messages: state.items.slice().sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)).flatMap(portalMessages),
-    } : null, [conversation, state.items])
+    } : null, [conversation, state.items, threadId])
 
     const refresh = useCallback(async () => {
         if (!enabled || !conversationId) return
-        const response = await fetch(`/api/prompt?conversationId=${encodeURIComponent(conversationId)}`, { cache: 'no-store' }).catch(() => null)
+        const response = await fetch(`/api/prompt?threadId=${encodeURIComponent(threadId)}&conversationId=${encodeURIComponent(conversationId)}`, { cache: 'no-store' }).catch(() => null)
         const payload = await response?.json().catch(() => null)
         if (!response?.ok) {
             setError(payload?.error?.message || 'Could not load ChatGPT activity.')
             return
         }
         if (payload?.items) { setState(payload); setError('') }
-    }, [conversationId, enabled])
+    }, [conversationId, enabled, threadId])
 
     useEffect(() => {
         if (!enabled || !conversationId) return
@@ -53,7 +56,9 @@ export function usePromptPortal(enabled: boolean, conversation: AIConversation |
         const form = new FormData()
         form.set('prompt', prompt)
         form.set('conversationId', conversationId)
+        form.set('threadId', threadId)
         form.set('priority', priority)
+        form.set('context', JSON.stringify(serializePromptContext(conversation?.messages || [], chatGPTConversation?.messages || [])))
         Array.from(files || []).forEach(file => form.append('files', file))
         const response = await fetch('/api/prompt', { method: 'POST', body: form }).catch(() => null)
         const payload = await response?.json().catch(() => null)
@@ -65,7 +70,7 @@ export function usePromptPortal(enabled: boolean, conversation: AIConversation |
         setFiles(null)
         setState(payload)
         return true
-    }, [conversationId, files, priority])
+    }, [chatGPTConversation, conversation, conversationId, files, priority, threadId])
 
     const mutate = useCallback(async (action: 'edit' | 'delete' | 'reorder', item: PromptPortalItem, extra: Record<string, unknown> = {}) => {
         setBusy(true)
@@ -73,7 +78,7 @@ export function usePromptPortal(enabled: boolean, conversation: AIConversation |
         const response = await fetch('/api/prompt', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ action, id: item.id, conversationId, ...extra }),
+            body: JSON.stringify({ action, id: item.id, conversationId, threadId, ...extra }),
         }).catch(() => null)
         const payload = await response?.json().catch(() => null)
         setBusy(false)
@@ -82,7 +87,7 @@ export function usePromptPortal(enabled: boolean, conversation: AIConversation |
             return
         }
         setState(payload)
-    }, [conversationId])
+    }, [conversationId, threadId])
 
     const edit = useCallback((item: PromptPortalItem) => {
         const prompt = window.prompt('Edit request', item.prompt)
@@ -95,7 +100,7 @@ export function usePromptPortal(enabled: boolean, conversation: AIConversation |
 function portalMessages(item: PromptPortalItem): AIConversationMessage[] {
     const elapsed = Math.max(0, Math.floor((Date.parse(item.completedAt || new Date().toISOString()) - Date.parse(item.startedAt || item.createdAt)) / 1000))
     const duration = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
-    const metadata = { promptPortalId: item.id, promptPortalStatus: item.status, priority: item.priority,
+    const metadata = { promptPortalId: item.id, promptPortalStatus: item.status, threadId: item.threadId, priority: item.priority,
         statusText: item.status === 'running' ? `Working · ${duration}`
             : item.status === 'queued' ? item.priority === 'now' ? 'Up next' : 'In line'
                 : item.status === 'done' ? `Finished · ${duration}` : `Could not complete · ${duration}` }

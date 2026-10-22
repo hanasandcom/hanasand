@@ -34,8 +34,8 @@ test('empty chat keeps the prompt short and the composer primary', () => {
 })
 
 test('chat composer renders themed, accessible blocked and ready states', () => {
-    const blocked = renderToStaticMarkup(<ChatComposer value='' blockedReason='Reviewer mode' awaitingResponse={false} readOnly onChange={() => {}} onSend={() => {}} />)
-    const ready = renderToStaticMarkup(<ChatComposer value='Review this' blockedReason={null} awaitingResponse={false} readOnly={false} onChange={() => {}} onSend={() => {}} />)
+    const blocked = renderToStaticMarkup(<ChatComposer value='' blockedReason='Reviewer mode' awaitingResponse={false} readOnly provider='hanasand' canUseChatGPT={false} onProviderChange={() => {}} onChange={() => {}} onSend={() => {}} />)
+    const ready = renderToStaticMarkup(<ChatComposer value='Review this' blockedReason={null} awaitingResponse={false} readOnly={false} provider='chatgpt' canUseChatGPT onProviderChange={() => {}} onChange={() => {}} onSend={() => {}} />)
 
     expect(blocked).toContain('focus-within:border-ui-primary')
     expect(blocked).toContain('id="ai-composer-blocked-reason"')
@@ -43,15 +43,19 @@ test('chat composer renders themed, accessible blocked and ready states', () => 
     expect(blocked).toContain('Reviewer mode')
     expect(blocked).toContain('disabled=""')
     expect(ready).toContain('aria-label="Send"')
+    expect(ready).toContain('aria-label="Assistant for this conversation"')
+    expect(ready.indexOf('aria-label="Assistant for this conversation"')).toBeLessThan(ready.indexOf('aria-label="Send"'))
+    expect(ready).toContain('ChatGPT')
     expect(ready).toContain('rounded-t-3xl')
     expect(ready).not.toContain('disabled=""')
     expect(`${blocked}${ready}`).not.toMatch(/(?:bg|text)-white|#[\da-f]{3,8}/i)
 })
 
 test('chat header keeps shared hover and primary state tokens', () => {
-    const html = renderToStaticMarkup(<ChatHeader conversation={null} clients={[]} isThinking showArtifacts={false} latestArtifacts={[]} onToggleArtifacts={() => {}} onModelStrategyChange={() => {}} onPreferredModelChange={() => {}} />)
+    const html = renderToStaticMarkup(<ChatHeader conversation={null} isThinking showWorkspaceDetails={false} workspaceDetailsOpen={false} onToggleWorkspaceDetails={() => {}} onToggleMobileChats={() => {}} showArtifacts={false} latestArtifacts={[]} onToggleArtifacts={() => {}} />)
 
-    expect(html).toContain('Hanasand GPT')
+    expect(html).not.toContain('Hanasand GPT')
+    expect(html).not.toContain('Assistant for this conversation')
     expect(html).not.toContain('Review ready')
     expect(html).not.toContain('Paused')
     expect(html).toContain('hover:text-ui-text')

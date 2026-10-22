@@ -40,12 +40,12 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
     const scrollRef = useRef<HTMLDivElement | null>(null)
     const [showArtifacts, setShowArtifacts] = useState(false)
     const [previewArtifact, setPreviewArtifact] = useState<AIArtifact | null>(null)
-    const isThinking = provider === 'chatgpt'
-        ? Boolean(activeConversation?.messages.some(message => message.pending))
-        : Boolean(activeConversation?.messages.at(-1)?.pending)
-            || activeConversation?.metrics?.status === 'preparing'
-            || activeConversation?.metrics?.status === 'generating'
-    const awaitingResponse = Boolean(activeConversation?.messages.at(-1)?.pending)
+    const portalPending = Boolean(activeConversation?.messages.some(message => message.pending && typeof message.metadata?.promptPortalId === 'string'))
+    const hanasandPending = Boolean(activeConversation?.messages.at(-1)?.pending && typeof activeConversation?.messages.at(-1)?.metadata?.promptPortalId !== 'string')
+    const awaitingResponse = provider === 'chatgpt' ? portalPending : hanasandPending
+    const isThinking = awaitingResponse || provider === 'hanasand' && (
+        activeConversation?.metrics?.status === 'preparing' || activeConversation?.metrics?.status === 'generating'
+    )
     const hasReadyModel = provider === 'chatgpt' || isConnected && clients.length > 0
     const unavailableModelReason = isAuthenticated
         ? 'Hanasand GPT is unavailable right now.'
@@ -71,12 +71,12 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
 
     return <Fragment>
         <section className='relative flex min-h-0 w-full max-w-full min-w-0 flex-1 flex-col overflow-hidden'>
-            <ChatHeader conversation={activeConversation} isThinking={isThinking} provider={provider} canUseChatGPT={canUseChatGPT} onProviderChange={onProviderChange} showWorkspaceDetails={showWorkspaceDetails} workspaceDetailsOpen={workspaceDetailsOpen} onToggleWorkspaceDetails={onToggleWorkspaceDetails} onToggleMobileChats={onToggleMobileChats} showArtifacts={showArtifacts} latestArtifacts={latestArtifacts} onToggleArtifacts={() => setShowArtifacts(previous => !previous)} />
+            <ChatHeader conversation={activeConversation} isThinking={isThinking} showWorkspaceDetails={showWorkspaceDetails} workspaceDetailsOpen={workspaceDetailsOpen} onToggleWorkspaceDetails={onToggleWorkspaceDetails} onToggleMobileChats={onToggleMobileChats} showArtifacts={showArtifacts} latestArtifacts={latestArtifacts} onToggleArtifacts={() => setShowArtifacts(previous => !previous)} />
             <div className={`grid min-h-0 w-full max-w-full flex-1 ${showArtifacts ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem]' : 'grid-cols-1'}`}>
                 <ChatTranscript conversation={activeConversation} scrollRef={scrollRef} hasReadyModel={hasReadyModel} isAuthenticated={isAuthenticated} onEditPrompt={onEditPrompt} onDeletePrompt={onDeletePrompt} onMovePrompt={onMovePrompt} onPreview={setPreviewArtifact} />
                 {showArtifacts ? <ArtifactSidebar groups={groupedArtifacts} onPreview={setPreviewArtifact} /> : null}
             </div>
-            <ChatComposer value={composer} blockedReason={blockedReason} awaitingResponse={provider === 'chatgpt' ? false : awaitingResponse} readOnly={readOnly} provider={provider} promptPriority={promptPriority} promptFiles={promptFiles} promptBusy={promptBusy} promptError={promptError} onPromptPriorityChange={onPromptPriorityChange} onPromptFilesChange={onPromptFilesChange} onRefreshPrompts={onRefreshPrompts} onChange={onComposerChange} onSend={onSend} />
+            <ChatComposer value={composer} blockedReason={blockedReason} awaitingResponse={provider === 'chatgpt' ? false : awaitingResponse} readOnly={readOnly} provider={provider} canUseChatGPT={canUseChatGPT} promptPriority={promptPriority} promptFiles={promptFiles} promptBusy={promptBusy} promptError={promptError} onProviderChange={onProviderChange} onPromptPriorityChange={onPromptPriorityChange} onPromptFilesChange={onPromptFilesChange} onRefreshPrompts={onRefreshPrompts} onChange={onComposerChange} onSend={onSend} />
         </section>
         <ArtifactPreviewOverlay artifact={previewArtifact} onClose={() => setPreviewArtifact(null)} />
     </Fragment>
