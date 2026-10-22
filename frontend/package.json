@@ -45,7 +45,7 @@
     "eslint-config-next": "^16.2.4",
     "fflate": "0.8.3",
     "formik": "^2.4.9",
-    "hanasand": "1.0.3",
+    "hanasand": "1.0.4",
     "highlight.js": "^11.11.1",
     "jspdf": "4.2.1",
     "jspdf-autotable": "5.0.8",
