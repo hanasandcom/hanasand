@@ -7,6 +7,15 @@ import organizationProtectedPaths from './utils/proxy/organizationProtectedPaths
 import { applyRefreshedAuthCookies, authCookieOptions, authServiceUnavailable, isLocalDashboardRenderProof, loginRedirect, requestHostname, type TokenRefreshCookies } from './utils/proxy/authResponses'
 
 export async function proxy(req: NextRequest) {
+    if (/^\/sandbox\/login\/?$/.test(req.nextUrl.pathname)) {
+        return new NextResponse('Not Found', {
+            status: 404,
+            headers: {
+                'Cache-Control': 'private, no-store',
+                'X-Content-Type-Options': 'nosniff',
+            },
+        })
+    }
     const recoveryAllowedPost = req.method === 'POST' && req.nextUrl.pathname === '/api/pwned'
     if (!recoveryAllowedPost && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && recoveryReadOnly()) {
         return NextResponse.json({ error: { code: 'recovery_read_only', message: 'Changes are paused during database recovery. Existing records remain available for viewing.' } }, { status: 503, headers: { 'retry-after': '30', 'cache-control': 'no-store' } })
