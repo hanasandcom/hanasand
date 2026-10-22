@@ -1,7 +1,8 @@
 import { getCookie } from '@/utils/cookies/cookies'
 import { vmMinecraftServerTypes, type VmMinecraftServerType } from '../createOptions'
 
-export type VmWebsitePlan = { title: string, tagline: string, sections: Array<{ heading: string, body: string }> }
+export type VmWebsiteImage = { url: string, alt: string, caption: string }
+export type VmWebsitePlan = { title: string, tagline: string, sections: Array<{ heading: string, body: string }>, gallery?: VmWebsiteImage[], contactEmail?: string }
 export type VmSetupPlan = { summary: string, services: string[], aptPackages: string[], website: VmWebsitePlan | null, minecraftServerType: VmMinecraftServerType | null }
 
 export default async function suggestVmSetup(prompt: string, os: string): Promise<VmSetupPlan> {
@@ -22,7 +23,9 @@ export default async function suggestVmSetup(prompt: string, os: string): Promis
         summary: result.summary,
         services: result.services.filter((service): service is string => typeof service === 'string'),
         aptPackages: Array.isArray(result.packages) ? result.packages.filter((packageName): packageName is string => typeof packageName === 'string') : [],
-        website: result.website && typeof result.website === 'object' ? result.website as VmWebsitePlan : null,
+        website: result.website && typeof result.website === 'object'
+            ? { ...(result.website as VmWebsitePlan), gallery: (result.website as VmWebsitePlan).gallery || [], contactEmail: (result.website as VmWebsitePlan).contactEmail || '' }
+            : null,
         minecraftServerType: vmMinecraftServerTypes.some(server => server.id === result.minecraftServerType) ? result.minecraftServerType as VmMinecraftServerType : null,
     }
 }

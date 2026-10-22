@@ -6,11 +6,14 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceGroups, vmServices } from '@/utils/vms/createOptions'
 import type { NotifyVmAction } from '@/components/vms/vmActionFeedback'
 import VmOperatingSystemPicker from './vmOperatingSystemPicker'
+import VmWebsiteEditor from './vmWebsiteEditor'
 
 const starterWebsitePlan: VmWebsitePlan = {
     title: 'Make this space yours.',
     tagline: 'A simple one-page website, ready for your content.',
     sections: [],
+    gallery: [],
+    contactEmail: '',
 }
 
 export default function VmCreateForm({ id, visible, organizationId, canCreate, permissionMessage, notify, onCreating, onCreated }: {
@@ -151,36 +154,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             </div>
         </fieldset>
         {selectedServices.includes('minecraft-java') && <label className='flex items-start gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm text-ui-muted'><input type='checkbox' checked={minecraftEulaAccepted} onChange={event => setMinecraftEulaAccepted(event.target.checked)} className='mt-1 accent-ui-primary' /><span>I accept the <a href='https://www.minecraft.net/eula' target='_blank' rel='noopener noreferrer' className='font-medium text-ui-primary underline underline-offset-4'>Minecraft EULA</a>.</span></label>}
-        {selectedServices.includes('website') && <fieldset disabled={creating} className='grid min-w-0 gap-3 rounded-xl border border-ui-border bg-ui-panel p-3 sm:p-4'>
-            <legend className='px-1 text-sm font-semibold text-ui-text'>Website draft</legend>
-            <div className='grid min-w-0 gap-4 xl:grid-cols-2'>
-                <div className='grid min-w-0 content-start gap-3'>
-                    <label className='grid gap-1 text-xs font-medium text-ui-muted'>Page title<input required maxLength={120} value={websitePlan.title} onChange={event => setWebsitePlan(current => ({ ...current, title: event.target.value }))} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-normal text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20' /></label>
-                    <label className='grid gap-1 text-xs font-medium text-ui-muted'>Short introduction<textarea maxLength={120} rows={2} value={websitePlan.tagline} onChange={event => setWebsitePlan(current => ({ ...current, tagline: event.target.value }))} className='resize-y rounded-lg border border-ui-border bg-ui-raised px-3 py-2 text-sm font-normal text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20' /></label>
-                    {websitePlan.sections.map((section, index) => <fieldset key={index} className='grid min-w-0 gap-2 rounded-lg border border-ui-border p-3'>
-                        <legend className='px-1 text-xs font-medium text-ui-muted'>Section {index + 1}</legend>
-                        <label className='grid gap-1 text-xs font-medium text-ui-muted'>Heading<input maxLength={100} value={section.heading} onChange={event => setWebsitePlan(current => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, heading: event.target.value } : item) }))} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-normal text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20' /></label>
-                        <label className='grid gap-1 text-xs font-medium text-ui-muted'>Text<textarea maxLength={500} rows={3} value={section.body} onChange={event => setWebsitePlan(current => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, body: event.target.value } : item) }))} className='resize-y rounded-lg border border-ui-border bg-ui-raised px-3 py-2 text-sm font-normal text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20' /></label>
-                        <button type='button' onClick={() => setWebsitePlan(current => ({ ...current, sections: current.sections.filter((_, itemIndex) => itemIndex !== index) }))} className='justify-self-start rounded-md px-2 py-1 text-xs font-medium text-ui-muted hover:bg-ui-raised hover:text-ui-text'>Remove section</button>
-                    </fieldset>)}
-                    <button type='button' disabled={websitePlan.sections.length >= 5} onClick={() => setWebsitePlan(current => ({ ...current, sections: [...current.sections, { heading: '', body: '' }] }))} className='h-9 justify-self-start rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-medium text-ui-text hover:bg-ui-panel disabled:opacity-50'>Add section</button>
-                    <p className='text-xs text-ui-muted'>This creates a simple static page. You can review the page before creating the VM.</p>
-                </div>
-                <section aria-label='Website preview' className='min-w-0 overflow-hidden rounded-xl border border-ui-border bg-[#f7f5f0] p-3 text-[#20241f] sm:p-5'>
-                    <div className='mx-auto grid min-h-48 max-w-xl content-start gap-3 rounded-xl bg-[#e9e6dc] p-5 sm:p-7'>
-                        <p className='text-[10px] font-semibold uppercase tracking-[0.16em] text-[#62685f]'>Preview</p>
-                        <h2 className='wrap-break-word text-3xl font-semibold leading-tight tracking-tight sm:text-4xl'>{websitePlan.title || 'Your page title'}</h2>
-                        {websitePlan.tagline && <p className='whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-[#555c56]'>{websitePlan.tagline}</p>}
-                    </div>
-                    <div className='mx-auto grid max-w-xl'>
-                        {websitePlan.sections.length ? websitePlan.sections.map((section, index) => <article key={index} className='grid gap-1 border-b border-[#d8d7cf] px-1 py-4'>
-                            <h3 className='wrap-break-word text-base font-semibold'>{section.heading || 'Section heading'}</h3>
-                            {section.body && <p className='whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-[#555c56]'>{section.body}</p>}
-                        </article>) : <p className='px-1 py-4 text-sm text-[#62685f]'>Add a section to build out your page.</p>}
-                    </div>
-                </section>
-            </div>
-        </fieldset>}
+        {selectedServices.includes('website') && <VmWebsiteEditor plan={websitePlan} onChange={setWebsitePlan} disabled={creating} />}
         {selectedServices.includes('minecraft-java') && <label className='grid gap-1 text-sm text-ui-muted'>Server software<select value={minecraftServerType} onChange={event => setMinecraftServerType(event.target.value as typeof vmMinecraftServerTypes[number]['id'])} disabled={creating} className='h-10 max-w-sm rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{vmMinecraftServerTypes.map(type => <option key={type.id} value={type.id}>{type.label} · {type.description}</option>)}</select></label>}
         {!canCreate && <p role='status' className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm leading-5 text-ui-muted'>{permissionMessage}</p>}
         {unresolvedSetupPrompt && <p role='status' className='text-xs leading-5 text-ui-muted'>Generate a supported setup for this description, or clear it to create a blank VM.</p>}

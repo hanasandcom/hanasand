@@ -13,6 +13,7 @@ import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { isSupportedSetupService, supportedSetupServices, type SupportedVmSetupService } from '#utils/vms/supportedSetupServices.ts'
 import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
+import { isVmWebsitePlan, renderVmWebsite } from '#utils/vms/website.ts'
 
 export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     const body = req.body as {
@@ -280,7 +281,7 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     const supportedMinecraftTypes = new Set(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'])
     if (minecraftServerType !== undefined && (typeof minecraftServerType !== 'string' || !supportedMinecraftTypes.has(minecraftServerType))) return null
     if (minecraftServerType !== undefined && !selectedServices.includes('minecraft-java')) return null
-    if (website !== undefined && website !== null && !isWebsitePlan(website)) return null
+    if (website !== undefined && website !== null && !isVmWebsitePlan(website)) return null
     if (website && !selectedServices.includes('website')) return null
     const selectedOs = (os || 'ubuntu-24.04') as VmProvisionOptions['os']
     return {
@@ -290,56 +291,8 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
         ...(selectedAptPackages.length ? { aptPackages: selectedAptPackages } : {}),
         minecraftEulaAccepted: minecraftEulaAccepted === true,
         ...(selectedServices.includes('minecraft-java') ? { minecraftServerType: (minecraftServerType || 'PAPER') as NonNullable<VmProvisionOptions['minecraftServerType']> } : {}),
-        ...(website ? { websiteHtml: renderWebsite(website) } : {}),
+        ...(website ? { websiteHtml: renderVmWebsite(website) } : {}),
     }
-}
-
-function isWebsitePlan(value: unknown): value is { title: string, tagline: string, sections: Array<{ heading: string, body: string }> } {
-    if (!value || typeof value !== 'object') return false
-    const plan = value as Record<string, unknown>
-    return typeof plan.title === 'string' && plan.title.trim().length > 0 && plan.title.length <= 120
-        && typeof plan.tagline === 'string' && plan.tagline.length <= 120
-        && Array.isArray(plan.sections) && plan.sections.length <= 5
-        && plan.sections.every(section => Boolean(section) && typeof section === 'object'
-            && typeof (section as Record<string, unknown>).heading === 'string'
-            && ((section as Record<string, unknown>).heading as string).length <= 100
-            && typeof (section as Record<string, unknown>).body === 'string'
-            && ((section as Record<string, unknown>).body as string).length <= 500)
-}
-
-function escapeHtml(value: string) {
-    const entities: Record<string, string> = {
-        '&': '&amp;', '<': '&lt;', '>': '&gt;',
-        [String.fromCharCode(34)]: '&quot;', [String.fromCharCode(39)]: '&#39;',
-    }
-    return value.replace(/[&<>"']/g, character => entities[character])
-}
-
-function renderWebsite(plan: { title: string, tagline: string, sections: Array<{ heading: string, body: string }> }) {
-    const sections = plan.sections.map(section => `<section><h2>${escapeHtml(section.heading)}</h2><p>${escapeHtml(section.body)}</p></section>`).join('\n')
-    return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="${escapeHtml(plan.tagline)}">
-  <title>${escapeHtml(plan.title)}</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; background: #f7f5f0; color: #20241f; font: 16px/1.65 system-ui, sans-serif; }
-    main { width: min(calc(100% - 40px), 900px); margin: clamp(48px, 12vh, 120px) auto; }
-    header { padding: clamp(24px, 7vw, 64px); border-radius: 28px; background: #e9e6dc; }
-    h1 { max-width: 15ch; margin: 0; font-size: clamp(2.5rem, 9vw, 6rem); line-height: .98; letter-spacing: -.06em; }
-    header p { max-width: 52ch; color: #62685f; font-size: 1.12rem; }
-    section { padding: 28px 8px; border-bottom: 1px solid #d8d7cf; }
-    h2 { margin: 0 0 8px; font-size: 1.3rem; letter-spacing: -.02em; }
-    section p { max-width: 68ch; margin: 0; color: #555c56; }
-  </style>
-</head>
-<body><main><header><h1>${escapeHtml(plan.title)}</h1><p>${escapeHtml(plan.tagline)}</p></header>
-${sections}
-</main></body>
-</html>`
 }
 
 async function recordVmProvisioningError(vmName: string, error: unknown, phase: string) {

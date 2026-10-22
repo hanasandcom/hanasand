@@ -146,13 +146,22 @@ test('AI website content is escaped before it crosses the authenticated host bou
         method: 'POST', url: '/vm', headers: { id: 'member' },
         payload: {
             name: 'remote-vm', services: ['website'],
-            website: { title: '<script>alert(1)</script>', tagline: 'A & B', sections: [{ heading: 'Hello', body: 'Safe <b>text</b>' }] },
+            website: {
+                title: '<script>alert(1)</script>', tagline: 'A & B',
+                sections: [{ heading: 'Hello', body: 'Safe <b>text</b>' }],
+                gallery: [{ url: 'https://images.example/art.jpg', alt: 'A ceramic vase', caption: 'Still life' }],
+                contactEmail: 'hello@example.com',
+            },
         },
     })
     expect(response.statusCode).toBe(201)
     const forwarded = JSON.parse(String(calls[0]?.body))
     expect(forwarded.websiteHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
     expect(forwarded.websiteHtml).toContain('A &amp; B')
+    expect(forwarded.websiteHtml).toContain('<a class="skip-link" href="#main">Skip to content</a>')
+    expect(forwarded.websiteHtml).toContain('<img src="https://images.example/art.jpg" alt="A ceramic vase" loading="lazy">')
+    expect(forwarded.websiteHtml).toContain('<figcaption>Still life</figcaption>')
+    expect(forwarded.websiteHtml).toContain('href="mailto:hello%40example.com"')
     expect(forwarded.websiteHtml).not.toContain('<script>')
     const routeInsert = databaseCalls.find(call => call.sql.includes('INSERT INTO vm_public_ports'))
     expect(routeInsert?.params[0]).toBe('remote-vm')
@@ -164,6 +173,12 @@ test('AI website content is escaped before it crosses the authenticated host bou
         payload: { name: 'remote-vm', services: ['website'], website: { title: 'x'.repeat(121), tagline: '', sections: [] } },
     })
     expect(invalid.statusCode).toBe(400)
+
+    const unsafeImage = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: { name: 'remote-vm', services: ['website'], website: { title: 'x', tagline: '', sections: [], gallery: [{ url: 'http://images.example/art.jpg', alt: 'Art', caption: '' }] } },
+    })
+    expect(unsafeImage.statusCode).toBe(400)
 })
 
 test('Minecraft setup creates its port-443 public route with the guest server port', async () => {

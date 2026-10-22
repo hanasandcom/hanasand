@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus, X } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import VMRow from './vm'
 import getVMs from '@/utils/vms/fetch/getVMs'
 import { getCookie } from '@/utils/cookies/cookies'
@@ -35,7 +35,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
     const visibleVms = filterVms(vms, filters)
     const editorOptions = Array.from(new Set(vms.flatMap(vm => vm.access_users || []))).sort((a, b) => a.localeCompare(b))
 
-    async function update() {
+    const update = useCallback(async () => {
         const id = getCookie('id')
         const impersonatingId = getCookie('impersonating_id')
         if (id) {
@@ -43,9 +43,9 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
             setVms(updatedVMs)
             window.dispatchEvent(new Event('vms-updated'))
         } else {
-            return router.push('/login?path=/profile')
+            router.push('/login?path=/profile')
         }
-    }
+    }, [organizationId, router])
 
     useEffect(() => { setVms(serverVMs || []) }, [serverVMs])
 
@@ -59,10 +59,10 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
         update()
         const refresh = setInterval(update, 60000)
         return () => clearInterval(refresh)
-    }, [])
+    }, [update])
 
     return (
-        <DashboardPanel className='grid min-h-42 content-start gap-3 p-4'>
+        <DashboardPanel className='grid min-h-42 content-start gap-3 p-2 lg:p-4'>
             <div className='mb-1 flex items-center justify-between gap-3'>
                 <div>
                     <h2 className='text-base font-semibold text-ui-text'>Virtual machines</h2>
