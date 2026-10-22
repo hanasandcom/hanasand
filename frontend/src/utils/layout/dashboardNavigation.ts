@@ -57,7 +57,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
                 link('Sandbox', '/sandbox'),
                 link('Security Scanner', canManageSystem ? '/scanner' : '/solutions/scanner'),
                 link('Check Password', '/pwned'),
-                link('Endpoint Checks', '/test'),
+                link('Load test', '/test'),
             ]),
         ]),
         group('Logs & rules', [

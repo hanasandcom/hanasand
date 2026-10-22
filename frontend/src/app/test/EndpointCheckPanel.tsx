@@ -58,7 +58,7 @@ export default function EndpointCheckPanel({
                         <div className='grid gap-1'>
                             <div className='flex items-center gap-2 text-lg font-semibold text-ui-text'>
                                 <Flame className='h-5 w-5 text-ui-primary' />
-                                Start endpoint check
+                                Start test
                             </div>
                             <p className='text-sm leading-6 text-ui-muted'>Enter the endpoint to check.</p>
                         </div>
@@ -75,7 +75,7 @@ export default function EndpointCheckPanel({
                                 <Globe2 className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' />
                                 <input
                                     className='h-11 w-full rounded-lg border border-ui-border bg-ui-raised pl-10 pr-3 text-sm font-medium text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-4 focus:ring-ui-primary/20'
-                                    placeholder='https://api.example.com/health'
+                                    placeholder='status.example.com/health'
                                     onChange={(event) => onPathChange(event.target.value)}
                                     onKeyDown={(event) => void onEndpointKeyDown(event)}
                                     value={path}
