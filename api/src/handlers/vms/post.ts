@@ -252,7 +252,7 @@ async function ensureSetupPublicRoutes(vmName: string, createdBy: string, servic
         const routeName = route.prefix === 'app'
             ? `app-${vmName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 36)}`
             : `${route.prefix}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`
-        await run('INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by) VALUES ($1, $2, $3, $4, $5)', [vmName, routeName, route.type, route.port, createdBy])
+        await run('INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by, short_hostname) VALUES ($1, $2, $3, $4, $5, TRUE)', [vmName, routeName, route.type, route.port, createdBy])
     }
 }
 

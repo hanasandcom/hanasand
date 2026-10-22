@@ -1,6 +1,6 @@
 # VM public services
 
-Open a VM detail page and add a service under **Public services**. Choose a short name, service type and guest port. Hanasand gives it the address `port-<name>.hanasand.com:443`; copy that address into the client people will use. The gateway refreshes route changes within a few seconds.
+Open a VM detail page and add a service under **Public services**. Choose a short name, service type and guest port. New services use `<name>.hanasand.com:443`; copy that address into the client people will use. The gateway refreshes route changes within a few seconds. Existing services keep their `port-<name>.hanasand.com` addresses.
 
 Each VM can have up to 1,000 public service mappings. Selecting **Website** when creating a VM publishes its starter page automatically as an HTTPS address. The address appears in the VM's **Public services** panel when the VM record is ready.
 
