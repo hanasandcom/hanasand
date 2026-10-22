@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { authCookieOptions, setAuthCookie } from '@/utils/proxy/authResponses'
 import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
@@ -30,6 +31,7 @@ export function setAuthCookies(req: NextRequest, response: NextResponse, data: A
     setAuthCookie(response, 'avatar', data.avatar ?? '', cookieOptions, sharedDomain)
     if (data.token) {
         setAuthCookie(response, 'access_token', data.token, cookieOptions, sharedDomain)
+        response.headers.set('x-device-proof-token-hash', createHash('sha256').update(data.token).digest('base64url'))
     }
     for (const cookie of legacyAuthCookieNames) {
         response.cookies.delete(cookie)

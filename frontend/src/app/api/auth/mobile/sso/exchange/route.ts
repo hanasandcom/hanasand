@@ -5,7 +5,7 @@ import { identityApiUrl } from '@/utils/auth/authApiUrl'
 export async function POST(req: NextRequest) {
     const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/mobile/exchange`, {
         method: 'POST',
-        headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
+        headers: { ...clientHeaders(req), 'Content-Type': 'application/json' },
         body: await req.text(),
         cache: 'no-store',
     }).catch(() => null)

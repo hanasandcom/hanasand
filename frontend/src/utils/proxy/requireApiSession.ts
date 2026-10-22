@@ -5,6 +5,7 @@ import { canViewHanasandInternalRoute } from '../../../../api/src/utils/auth/org
 export type ApiSessionIdentity = {
     id: string
     token: string
+    canEditInternalPages: boolean
 }
 
 export default async function requireApiSession(request: NextRequest): Promise<{ identity: ApiSessionIdentity } | { response: NextResponse }> {
@@ -12,7 +13,11 @@ export default async function requireApiSession(request: NextRequest): Promise<{
     const id = request.cookies.get('id')?.value || request.headers.get('id') || ''
     if (!token || !id) return { response: authError(401, 'authentication_required', 'A valid Hanasand session is required.') }
 
-    const validation = await tokenIsValid(token, id, request.cookies.get('impersonation_token')?.value)
+    const internalContext = request.nextUrl.pathname.startsWith('/api/thesis')
+        || canViewHanasandInternalRoute(request.method, request.nextUrl.pathname)
+    const validation = await tokenIsValid(token, id, request.cookies.get('impersonation_token')?.value, {
+        includeInternalAccess: internalContext,
+    })
     if (!validation.valid) {
         return {
             response: authError(
@@ -27,7 +32,7 @@ export default async function requireApiSession(request: NextRequest): Promise<{
         return { response: authError(403, 'organization_access_required', 'Active Hanasand organization owner or editor access is required.') }
     }
 
-    return { identity: { id, token: validation.token || token } }
+    return { identity: { id, token: validation.token || token, canEditInternalPages: validation.canEditInternalPages === true } }
 }
 
 function bearerToken(value: string | null) {

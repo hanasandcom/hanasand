@@ -77,7 +77,7 @@ export async function callback(req: NextRequest, provider: string) {
                 const handoff = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/mobile/code`, {
                     method: 'POST',
                     headers: {
-                        ...clientHeaders(req.headers),
+                        ...clientHeaders(req),
                         Authorization: `Bearer ${data.token}`,
                         id: String(data.id),
                         'Content-Type': 'application/json',

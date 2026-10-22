@@ -1,7 +1,6 @@
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { NextRequest, NextResponse } from 'next/server'
-import { canEditThesis } from '@/utils/thesis'
 import requireApiSession from '@/utils/proxy/requireApiSession'
 import { isHanasandOrganizationMember } from '@/utils/organizations/hanasandMembership'
 import type { CodeInventory, ReviewEvent } from '@/utils/codeReviewTypes'
@@ -29,7 +28,7 @@ async function memberSession(request: NextRequest) {
     const session = await requireApiSession(request)
     if ('response' in session) return { response: session.response }
     try {
-        if (!await isHanasandOrganizationMember(session.identity.token, session.identity.id)) return { response: json({ error: 'Membership in the Hanasand organization is required to view source code.' }, 403) }
+        if (!await isHanasandOrganizationMember(session.identity.token, session.identity.id, session.identity)) return { response: json({ error: 'Membership in the Hanasand organization is required to view source code.' }, 403) }
         return { session: session.identity }
     } catch { return { response: json({ error: 'Organization membership could not be checked. Please retry.' }, 503) }
     }
@@ -38,7 +37,7 @@ async function reviews(identity: { id: string, token: string }, suffix = '', bod
     if (internal && !process.env.VM_API_TOKEN) throw new Error('Review access is not configured.')
     const token = internal ? process.env.VM_API_TOKEN! : identity.token
     const response = await fetch(`${config.url.api}/thesis/code-reviews${suffix}`, {
-        method: body ? 'POST' : 'GET', headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id: internal ? '' : identity.id, 'Content-Type': 'application/json' },
+        method: body ? 'POST' : 'GET', headers: { ...await serverDeviceProofHeaders(internal ? undefined : identity), Authorization: `Bearer ${token}`, id: internal ? '' : identity.id, 'Content-Type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined, cache: 'no-store', signal: AbortSignal.timeout(15000),
     })
     if (!response.ok) throw new Error('Review storage is unavailable. Please retry.')
@@ -48,7 +47,7 @@ export async function GET(request: NextRequest) {
     const access = await memberSession(request)
     if ('response' in access) return access.response
     try {
-        const internal = !await canEditThesis(access.session.token, access.session.id)
+        const internal = !access.session.canEditInternalPages
         const data = await inventory(), id = request.nextUrl.searchParams.get('id')
         if (id) {
             const item = data.nodes.find(node => node.id === id)
@@ -68,7 +67,7 @@ export async function POST(request: NextRequest) {
     if ('response' in access) return access.response
     try {
         const origin = request.headers.get('origin')
-        if (!origin || !URL.canParse(origin) || new URL(origin).host !== request.headers.get('host') || !await canEditThesis(access.session.token, access.session.id)) return json({ error: 'Hanasand organization owners and editors can review source code.' }, 403)
+        if (!origin || !URL.canParse(origin) || new URL(origin).host !== request.headers.get('host') || !access.session.canEditInternalPages) return json({ error: 'Hanasand organization owners and editors can review source code.' }, 403)
         const input = await request.json().catch(() => null)
         const data = await inventory()
         if (data.sync && (data.sync.phase !== 'ready' || data.sync.error)) return json({ error: 'Git is being synchronized. Wait for the current version before approving.' }, 409)

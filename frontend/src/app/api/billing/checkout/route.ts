@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     if (!session.valid) return NextResponse.redirect(new URL('/login?next=/subscription', siteUrl))
 
     const billingResponse = await fetch(`${authApiUrl().replace(/\/$/, '')}/billing/subscription`, {
-        headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id },
+        headers: { ...await serverDeviceProofHeaders({ id, token }), Authorization: `Bearer ${token}`, id },
         cache: 'no-store',
         signal: AbortSignal.timeout(10000),
     })

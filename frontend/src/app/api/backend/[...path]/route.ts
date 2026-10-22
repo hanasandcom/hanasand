@@ -141,6 +141,8 @@ async function handler(req: NextRequest, context: Context) {
                 ? new Date(response.headers.get('x-access-token-expires-at') as string)
                 : undefined,
         }, sharedDomain)
+        const { createHash } = await import('node:crypto')
+        next.headers.set('x-device-proof-token-hash', createHash('sha256').update(refreshedToken).digest('base64url'))
     }
 
     return next

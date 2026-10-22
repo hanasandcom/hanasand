@@ -1,4 +1,6 @@
 import type { FastifyRequest } from 'fastify'
+import { timingSafeEqual } from 'node:crypto'
+import config from '#constants'
 
 function headerValue(value: string | string[] | undefined) {
     return Array.isArray(value) ? value[0] : value
@@ -27,4 +29,15 @@ export function devicePublicJwkFromRequest(req: FastifyRequest) {
     const value = headerValue(req.headers['x-device-public-jwk'])
     if (!value || value.length > 2048) return undefined
     try { return JSON.parse(value) as unknown } catch { return undefined }
+}
+
+export function hasTrustedServerSession(req: FastifyRequest, id: string, token: string) {
+    const headers = req.headers as Record<string, string | string[] | undefined>
+    const assertion = headerValue(headers['x-hanasand-server-session-assertion']) || ''
+    const expected = config.vm_api_token || ''
+    if (!expected || !assertion || assertion.length !== expected.length) return false
+    return headerValue(headers['x-hanasand-server-session-validated']) === '1'
+        && headerValue(headers['x-hanasand-server-session-id']) === id
+        && headerValue(headers['x-hanasand-server-session-token']) === token
+        && timingSafeEqual(Buffer.from(assertion), Buffer.from(expected))
 }

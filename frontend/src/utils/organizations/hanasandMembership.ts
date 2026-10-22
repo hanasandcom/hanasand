@@ -1,11 +1,10 @@
-import { identityApiUrl } from '@/utils/auth/authApiUrl'
+import config from '@/config'
 import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
-type Organization = { slug?: unknown, lifecycleStatus?: unknown }
-export async function isHanasandOrganizationMember(token: string, id: string) {
-    const response = await fetch(`${identityApiUrl().replace(/\/$/, '')}/organizations`, { cache: 'no-store', headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id }, signal: AbortSignal.timeout(10000) })
+export async function isHanasandOrganizationMember(token: string, id: string, verifiedSession?: { id: string; token: string }) {
+    const response = await fetch(`${config.url.api.replace(/\/$/, '')}/thesis/access`, { cache: 'no-store', headers: { ...await serverDeviceProofHeaders(verifiedSession), Authorization: `Bearer ${token}`, id }, signal: AbortSignal.timeout(10000) })
     if (response.status === 401 || response.status === 403) return false
     if (!response.ok) throw new Error('Organization membership could not be checked.')
-    const payload = await response.json() as { organizations?: unknown }
-    if (!payload || !Array.isArray(payload.organizations)) throw new Error('Organization membership response was invalid.')
-    return payload.organizations.some((value: Organization) => typeof value?.slug === 'string' && value.slug.toLowerCase() === 'hanasand' && value.lifecycleStatus === 'active')
+    const payload = await response.json() as { member?: unknown }
+    if (!payload || typeof payload.member !== 'boolean') throw new Error('Organization membership response was invalid.')
+    return payload.member
 }

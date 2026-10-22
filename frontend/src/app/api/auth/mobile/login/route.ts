@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const timeoutSignal = AbortSignal.timeout(LOGIN_TIMEOUT_MS)
     const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/login/${encodeURIComponent(id)}`, {
         method: 'POST',
-        headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
+        headers: { ...clientHeaders(req), 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
         cache: 'no-store',
         signal: timeoutSignal,

@@ -6,7 +6,7 @@ export default async function requirePromptPortalSession(request: NextRequest) {
     const access = await requireApiSession(request)
     if ('response' in access) return access
     try {
-        if (await isHanasandOrganizationMember(access.identity.token, access.identity.id)) return access
+        if (await isHanasandOrganizationMember(access.identity.token, access.identity.id, access.identity)) return access
     } catch {
         return failure(503, 'organization_check_unavailable', 'Hanasand organization membership could not be checked.')
     }

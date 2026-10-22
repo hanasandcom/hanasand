@@ -1,6 +1,7 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import config from '@/config'
 import { getCookie } from 'hanasand/cookies'
+import { createDeviceProof } from '@/utils/auth/deviceProof'
 import { getShare } from '@/utils/share/get'
 import { handleShareCodeMessage } from './shareCodeMessages'
 import { displayNameFor, getClientId, getCursorPosition, type ShareConflict, type SharePresenceUser } from './shareCodePresence'
@@ -113,17 +114,20 @@ export function useShareCodeSocket({
                 displayName: displayNameFor(userId),
             }))
 
-            if (pendingEditRef.current !== null) {
-                ws.send(JSON.stringify({
-                    type: 'edit',
-                    userId: getCookie('id'),
-                    token: getCookie('access_token'),
-                    id: shareId,
-                    content: pendingEditRef.current,
-                }))
-                pendingEditRef.current = null
-                onSaveStateChange?.('saving')
-            }
+            if (pendingEditRef.current !== null) void sendEditOverSocket(ws, pendingEditRef.current).catch(() => {
+                setIsConnected(false)
+                setReconnect(true)
+            })
+        }
+
+        const sendEditOverSocket = async (target: WebSocket, content: string) => {
+            const userId = getCookie('id') || ''
+            const token = getCookie('access_token') || ''
+            const proof = token ? await createDeviceProof(token, 'GET', `${config.url.api_wss}/share/${shareId}`) : null
+            if (target.readyState !== WebSocket.OPEN) return
+            target.send(JSON.stringify({ type: 'edit', userId, token, id: shareId, content, ...(proof ? { dpop: proof.proof } : {}) }))
+            if (pendingEditRef.current === content) pendingEditRef.current = null
+            onSaveStateChange?.('saving')
         }
 
         ws.onclose = () => {
@@ -163,14 +167,17 @@ export function useShareCodeSocket({
             return 'queued'
         }
 
-        wsRef.current.send(JSON.stringify({
-            type: 'edit',
-            userId: getCookie('id'),
-            token: getCookie('access_token'),
-            id: shareId,
-            content,
-        }))
-        pendingEditRef.current = null
+        const target = wsRef.current
+        void (async () => {
+            try {
+                const userId = getCookie('id') || ''
+                const token = getCookie('access_token') || ''
+                const proof = token ? await createDeviceProof(token, 'GET', `${config.url.api_wss}/share/${shareId}`) : null
+                if (target.readyState !== WebSocket.OPEN) { pendingEditRef.current = content; setReconnect(true); onSaveStateChange?.('queued'); return }
+                target.send(JSON.stringify({ type: 'edit', userId, token, id: shareId, content, ...(proof ? { dpop: proof.proof } : {}) }))
+                pendingEditRef.current = null
+            } catch { pendingEditRef.current = content; setReconnect(true); onSaveStateChange?.('queued') }
+        })()
         return 'sent'
     }
 

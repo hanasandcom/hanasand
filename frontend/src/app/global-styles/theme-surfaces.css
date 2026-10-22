@@ -101,7 +101,12 @@
 html.dark { color-scheme: dark; }
 html.light { color-scheme: light; }
 html.dark :is(input, textarea, select):focus {
-  background-color: var(--ui-panel);
+  background-color: color-mix(in srgb, var(--ui-panel) 65%, var(--ui-canvas));
+  color: var(--ui-text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-primary) 14%, transparent);
+}
+html.dark :is(input, textarea, select)::selection {
+  background-color: var(--ui-raised);
   color: var(--ui-text);
 }
 html.dark :is(input, textarea, select):-webkit-autofill,

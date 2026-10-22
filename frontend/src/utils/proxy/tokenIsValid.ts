@@ -1,6 +1,6 @@
 import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
-import { authApiUrl, identityApiUrl } from '@/utils/auth/authApiUrl'
+import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { headers as requestHeaders } from 'next/headers'
 
 export type TokenValidationResult = {
@@ -70,7 +70,8 @@ async function validateToken(token: string, id: string, impersonationToken: stri
         const response = await fetchWithRetry(`${identityApiUrl()}/auth/token/${encodeURIComponent(id)}`, {
             headers,
             timeoutMs: 10000,
-            retries: 2,
+            // A DPoP proof is one-use. Retrying this request would replay its jti.
+            retries: deviceProof?.proof ? 0 : 2,
         })
 
         if (!response.ok) {

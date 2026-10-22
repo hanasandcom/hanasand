@@ -14,6 +14,7 @@ import SignupVerification from './SignupVerification'
 import { LoginMode, LoginPageProps, safeRedirectPath } from './loginMode'
 import { usePasswordResetFlow } from './usePasswordResetFlow'
 import { useSignupFlow } from './useSignupFlow'
+import { ensureDeviceProof } from '@/utils/auth/deviceProof'
 
 export default function LoginPage({
     path,
@@ -54,7 +55,13 @@ export default function LoginPage({
         const token = getCookie('access_token')
         const id = getCookie('id')
         if (token && id && !serverInternal && !serverExpired && !socialError) router.push(redirectPath)
-        setHydrated(true)
+        let active = true
+        void ensureDeviceProof().then(() => {
+            if (active) setHydrated(true)
+        }).catch(() => {
+            if (active) setError('Secure sign-in could not start in this browser. Reload the page and try again.')
+        })
+        return () => { active = false }
     }, [redirectPath, router, serverExpired, serverInternal, socialError])
 
     return (

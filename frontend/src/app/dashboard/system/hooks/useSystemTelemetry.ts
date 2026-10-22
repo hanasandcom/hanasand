@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import config from '@/config'
+import { createDeviceProof } from '@/utils/auth/deviceProof'
 import { normalizeDockerTelemetry, normalizeSystemTelemetry } from '../systemPresentation'
 import { responseErrorMessage } from '../client/presentation'
 import { systemExpiredSessionPath } from '../systemRoutes'
@@ -61,7 +62,12 @@ export function useSystemTelemetry({ id, token, systemTelemetry, dockerTelemetry
         const connect = () => {
             if (disposed) return
             socket = new WebSocket(`${config.url.api_wss}/system`)
-            socket.onopen = () => socket?.send(JSON.stringify({ type: 'auth', id, token }))
+            socket.onopen = () => {
+                const target = `${config.url.api_wss}/system`
+                void createDeviceProof(token, 'GET', target).then(({ proof }) => {
+                    if (!disposed && socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'auth', id, token, dpop: proof }))
+                }).catch(() => socket?.close())
+            }
             socket.onmessage = event => {
                 try {
                     const message = JSON.parse(event.data)

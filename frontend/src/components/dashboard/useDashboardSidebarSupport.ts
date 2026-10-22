@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getCookie } from 'hanasand/cookies'
 import config from '@/config'
+import { createDeviceProof } from '@/utils/auth/deviceProof'
 import { supportFetch } from '@/utils/support/api'
 import {
     hasUnreadSupportMessages,
@@ -91,7 +92,11 @@ export function useDashboardSidebarSupport(userId: string, pathname: string) {
             if (disposed) return
             const next = new WebSocket(`${config.url.support_wss}/ws/support`)
             socket = next
-            next.onopen = () => next.send(JSON.stringify({ type: 'auth', id, token, impersonationToken }))
+            next.onopen = () => {
+                void createDeviceProof(token, 'GET', `${config.url.support_wss}/ws/support`).then(({ proof }) => {
+                    if (next.readyState === WebSocket.OPEN) next.send(JSON.stringify({ type: 'auth', id, token, impersonationToken, dpop: proof }))
+                }).catch(() => next.close())
+            }
             next.onmessage = event => {
                 try {
                     const message = JSON.parse(event.data)

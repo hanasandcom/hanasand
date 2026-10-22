@@ -10,8 +10,9 @@ export type ThesisRenderResult =
     | { state: 'not-member' }
     | { state: 'loaded', document: ThesisDocument, canEdit: boolean }
 
-export async function canEditThesis(token?: string, id?: string) {
+export async function canEditThesis(token?: string, id?: string, verifiedSession?: { id: string; token: string; canEditInternalPages: boolean }) {
     if (!token || !id) return false
+    if (verifiedSession?.id === id && verifiedSession.token === token) return verifiedSession.canEditInternalPages
     const auth = await tokenIsValid(token, id)
     return auth.state === 'valid' && auth.canEditInternalPages === true
 }
@@ -25,8 +26,8 @@ export function validThesis(value: unknown): value is ThesisDocument {
         && Number.isSafeInteger(document.revision) && document.revision >= 0
 }
 
-export async function readThesis(token: string, id: string): Promise<ThesisDocument> {
-    const response = await fetch(`${config.url.api}/thesis`, { headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id }, cache: 'no-store', signal: AbortSignal.timeout(10000) })
+export async function readThesis(token: string, id: string, verifiedSession?: { id: string; token: string }): Promise<ThesisDocument> {
+    const response = await fetch(`${config.url.api}/thesis`, { headers: { ...await serverDeviceProofHeaders(verifiedSession), Authorization: `Bearer ${token}`, id }, cache: 'no-store', signal: AbortSignal.timeout(10000) })
     if (!response.ok) throw new Error('The thesis could not be loaded.')
     const document = await response.json()
     if (!validThesis(document)) throw new Error('Invalid saved thesis')
@@ -46,10 +47,10 @@ export const loadThesisForRender = cache(async (token: string, id: string): Prom
     if (!validThesis(document)) throw new Error('Invalid saved thesis')
     return { state: 'loaded', document, canEdit: response.headers.get('X-Thesis-Can-Edit') === 'true' }
 })
-export async function writeThesis(document: ThesisDocument, token: string, id: string) {
+export async function writeThesis(document: ThesisDocument, token: string, id: string, verifiedSession?: { id: string; token: string }) {
     return fetch(`${config.url.api}/thesis`, {
         method: 'PUT',
-        headers: { ...await serverDeviceProofHeaders(), 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, id },
+        headers: { ...await serverDeviceProofHeaders(verifiedSession), 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, id },
         body: JSON.stringify(document),
         cache: 'no-store',
         signal: AbortSignal.timeout(10000),

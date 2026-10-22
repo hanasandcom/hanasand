@@ -30,7 +30,7 @@ import getVisits from '../handlers/test/getVisits.ts'
 import deactivateUser from '../handlers/user/deactivateUser.ts'
 import { deleteNote, getNote, getNotes, postNote, putNote } from '../handlers/notes.ts'
 import { getCodeReviews, postCodeReview } from '../handlers/codeReviews.ts'
-import { getThesis, putThesis, getThesisHistory } from '../handlers/thesis.ts'
+import { getThesis, getThesisAccess, putThesis, getThesisHistory } from '../handlers/thesis.ts'
 import {
     deleteDwmWebhookDestination,
     getDwmWebhookDeliveries,
@@ -110,6 +110,7 @@ export async function registerUserContentRoutes(fastify: FastifyInstance) {
     // Notes
     fastify.get('/thesis/code-reviews', getCodeReviews)
     fastify.post('/thesis/code-reviews', { bodyLimit: 8192 }, postCodeReview)
+    fastify.get('/thesis/access', getThesisAccess)
     fastify.get('/thesis', getThesis)
     fastify.get('/thesis/history', getThesisHistory)
     fastify.get('/thesis/history/:revision', getThesisHistory)

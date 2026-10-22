@@ -2,6 +2,7 @@ import config from '@/config'
 import type { ThesisDocument } from '@/utils/thesis'
 import { sameThesis } from './thesisRecovery'
 import { getCookie } from '@/utils/cookies/cookies'
+import { createDeviceProof } from '@/utils/auth/deviceProof'
 
 type ThesisTransportOptions = {
     canEdit: boolean
@@ -91,7 +92,10 @@ export function createThesisTransport(options: ThesisTransportOptions) {
         socket = new WebSocket(`${config.url.api_wss}/thesis`)
         socket.onopen = () => {
             retryDelay = 1000
-            socket?.send(JSON.stringify({ type: 'auth', id: getCookie('id') || '', token: getCookie('access_token') || '' }))
+            const token = getCookie('access_token') || ''
+            void createDeviceProof(token, 'GET', `${config.url.api_wss}/thesis`).then(({ proof }) => {
+                if (!stopped && socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'auth', id: getCookie('id') || '', token, dpop: proof }))
+            }).catch(() => socket?.close())
         }
         socket.onmessage = event => {
             try { receive(JSON.parse(event.data)) } catch { /* Ignore malformed transport messages. */ }

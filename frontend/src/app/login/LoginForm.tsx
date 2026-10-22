@@ -12,7 +12,7 @@ type Props = {
 
 export default function LoginForm({ redirectPath, initialUsername, hydrated, socialError, ssoHref, onChangeMode }: Props) {
     return (
-        <div className='grid gap-5'>
+        <div className='grid gap-5' onSubmitCapture={event => { if (!hydrated) event.preventDefault() }} onClickCapture={event => { if (!hydrated) event.preventDefault() }}>
             {socialError ? <p role='alert' className='text-sm text-ui-text'>{socialError}</p> : null}
             <IdentityLoginForm
                 loginUrl='/api/auth/login'

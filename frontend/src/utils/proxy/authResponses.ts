@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 
 export type TokenRefreshCookies = {
@@ -37,6 +38,7 @@ export function applyRefreshedAuthCookies(
     }
     if (auth.token) {
         setAuthCookie(response, 'access_token', auth.token, cookieOptions, options.sharedDomain)
+        response.headers.set('x-device-proof-token-hash', createHash('sha256').update(auth.token).digest('base64url'))
     }
     if (auth.name) {
         setAuthCookie(response, 'name', auth.name, cookieOptions, options.sharedDomain)

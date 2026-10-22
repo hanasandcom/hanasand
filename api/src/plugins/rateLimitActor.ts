@@ -5,7 +5,7 @@ import { hasHanasandInternalPageAccess, HANASAND_ORGANIZATION_ID } from '#utils/
 import { canEditHanasandInternalPages } from '#utils/auth/organizationPagePolicy.ts'
 import { verifiedClientIp } from '#utils/http/publicBoundary.ts'
 import { withReadDatabase } from '#db'
-import { deviceProofFromRequest } from '#utils/auth/deviceProofRequest.ts'
+import { deviceProofFromRequest, hasTrustedServerSession } from '#utils/auth/deviceProofRequest.ts'
 
 export type RateLimitActor = {
     scope: RateLimitScope
@@ -39,11 +39,16 @@ export async function resolveRateLimitActor(
     if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1]
         const headerId = Array.isArray(req.headers.id) ? req.headers.id[0] : req.headers.id
-        const organizationSlug = normalizeRequestPath(req) === '/api/logs/tuning' ? 'hanasand' : undefined
+        const routePath = normalizeRequestPath(req)
+        const organizationSlug = routePath === '/api/logs/tuning'
+            || routePath.startsWith('/api/thesis')
+            || routePath.startsWith('/api/code-reviews')
+            ? 'hanasand' : undefined
         const session = await withReadDatabase(() => validateUserSession({
             id: typeof headerId === 'string' ? headerId : undefined,
             token,
             deviceProof: deviceProofFromRequest(req),
+            trustedInternal: typeof headerId === 'string' && hasTrustedServerSession(req, headerId, token),
             ...(organizationSlug ? { organizationSlug } : {}),
         }))
 

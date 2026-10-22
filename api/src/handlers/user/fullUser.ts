@@ -29,7 +29,10 @@ export default async function authorizedUserHandler(req: FastifyRequest, res: Fa
     const token = authHeader.split(' ')[1]
 
     try {
-        const session = await validateSession({ id, token, deviceProof: deviceProofFromRequest(req) })
+        const cached = (req as FastifyRequest & { rateLimitSession?: { session: { token: string }, user: { id: string }, refreshed: { token: string; expires_at: string } } }).rateLimitSession
+        const session = cached?.session.token === token && cached.user.id === id
+            ? cached
+            : cached ? null : await validateSession({ id, token, deviceProof: deviceProofFromRequest(req) })
         if (!session) {
             const auth = await tokenWrapper(req, res)
             if (!auth.valid || auth.id !== id) {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import config from '@/config'
 import { getCookie } from 'hanasand/cookies'
+import { createDeviceProof } from '@/utils/auth/deviceProof'
 import { prepareVmConsole } from '@/utils/vms/prepareConsole'
 import { useVmConsoleBootLog } from './useVmConsoleBootLog'
 import { useVmProvisioningStatus } from './useVmProvisioningStatus'
@@ -134,9 +135,13 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
                     ? '/host/' + encodeURIComponent(host) + '/console'
                     : '/vm/' + encodeURIComponent(name || '') + '/console'))
                 socket.onopen = () => {
-                    socket?.send(JSON.stringify({
-                        type: 'auth', id: getCookie('id'), token: decodeURIComponent(getCookie('access_token') || ''),
-                    }))
+                    const token = decodeURIComponent(getCookie('access_token') || '')
+                    const target = config.url.api_wss + (host
+                        ? '/host/' + encodeURIComponent(host) + '/console'
+                        : '/vm/' + encodeURIComponent(name || '') + '/console')
+                    void createDeviceProof(token, 'GET', target).then(({ proof }) => {
+                        if (!disposed && socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'auth', id: getCookie('id'), token, dpop: proof }))
+                    }).catch(() => socket?.close())
                     setStatus('Opening console…')
                 }
                 socket.onmessage = event => {

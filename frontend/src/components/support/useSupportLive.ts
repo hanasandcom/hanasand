@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import config from '@/config'
 import { getCookie } from 'hanasand/cookies'
 import { supportFetch } from '@/utils/support/api'
+import { createDeviceProof } from '@/utils/auth/deviceProof'
 
 export const SUPPORT_CHAT_OPENED_EVENT = 'hanasand-support-chat-opened'
 
@@ -52,13 +53,17 @@ export default function useSupportLive(refresh: () => Promise<void | boolean>, g
                 if (!initialized || !available) await sync()
                 initialized = true
                 if (!available) { setConnection('idle'); return }
-                let auth: { type: string; ticket?: string; id?: string; token?: string; impersonationToken?: string }
+                let auth: { type: string; ticket?: string; id?: string; token?: string; impersonationToken?: string; dpop?: string }
                 if (guest) {
                     const response = await supportFetch('/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'connect' }) })
                     const payload = await response.json()
                     if (!response.ok || !payload.ticket) throw new Error('Connection unavailable')
                     auth = { type: 'auth', ticket: payload.ticket }
-                } else auth = { type: 'auth', id: getCookie('id') || '', token: getCookie('access_token') || '', impersonationToken: getCookie('impersonation_token') || undefined }
+                } else {
+                    const token = getCookie('access_token') || ''
+                    const { proof } = await createDeviceProof(token, 'GET', `${config.url.support_wss}/ws/support`)
+                    auth = { type: 'auth', id: getCookie('id') || '', token, impersonationToken: getCookie('impersonation_token') || undefined, dpop: proof }
+                }
                 if (disposed) return
                 const next = new WebSocket(`${config.url.support_wss}/ws/support`)
                 socket = next

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const binding = randomBytes(32).toString('base64url')
     const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/mobile/start`, {
         method: 'POST',
-        headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
+        headers: { ...clientHeaders(req), 'Content-Type': 'application/json' },
         body: JSON.stringify({ binding, codeChallenge }),
         cache: 'no-store',
         redirect: 'error',

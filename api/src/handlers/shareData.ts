@@ -44,6 +44,8 @@ export async function authenticatedUser(req: FastifyRequest) {
     const token = headerValue(req.headers.authorization)?.replace(/^Bearer\s+/i, '')
     const id = headerValue(req.headers.id)
     if (!token || !id) return null
+    const cached = (req as FastifyRequest & { rateLimitSession?: { session: { token: string }, user: { id: string } } }).rateLimitSession
+    if (cached?.session.token === token && cached.user.id === id) return cached.user.id
     const session = await validateSession({ id, token, deviceProof: deviceProofFromRequest(req) }).catch(() => null)
     return session?.user.id || null
 }
