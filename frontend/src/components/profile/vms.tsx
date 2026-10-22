@@ -23,7 +23,14 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
     const [creating, setCreating] = useState(false)
     const [filters, setFilters] = useState<VmFilters>(defaultVmFilters)
     const { items, notify, dismiss } = useVmActionFeedback()
-    const { organizationId } = useWorkspace()
+    const { organizationId, organizations, loading: organizationsLoading, unavailable: organizationsUnavailable, organizationName } = useWorkspace()
+    const activeOrganization = organizations.find(organization => organization.id === organizationId)
+    const canCreateInWorkspace = !organizationId || (!organizationsLoading && !organizationsUnavailable && ['owner', 'admin'].includes(activeOrganization?.role || ''))
+    const createPermissionMessage = organizationsUnavailable
+        ? 'Organization access could not be checked. Reload to try again.'
+        : organizationsLoading
+            ? 'Checking organization access…'
+            : `Only an owner or admin of ${organizationName || 'this organization'} can create VMs.`
     const visibleVms = filterVms(vms, filters)
     const editorOptions = Array.from(new Set(vms.flatMap(vm => vm.access_users || []))).sort((a, b) => a.localeCompare(b))
 
@@ -76,7 +83,9 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
                 </div>
             </div>
 
-            <VmCreateForm id={createFormId} visible={showCreate} organizationId={organizationId || null} notify={notify} onCreating={setCreating} onCreated={(vm, name) => {
+            {organizationId && !canCreateInWorkspace && <p role='status' className='-mt-2 text-xs leading-5 text-ui-muted'>{createPermissionMessage}</p>}
+
+            <VmCreateForm id={createFormId} visible={showCreate} organizationId={organizationId || null} canCreate={canCreateInWorkspace} permissionMessage={createPermissionMessage} notify={notify} onCreating={setCreating} onCreated={(vm, name) => {
                 if (vm) setVms(current => [vm, ...current.filter(item => item.name !== name)])
                 setShowCreate(false)
                 router.push(`/vms/${encodeURIComponent(name)}/console?provisioning=1`)

@@ -4,6 +4,7 @@ import run from '#db'
 import hasInternalToken from '#utils/auth/internalToken.ts'
 import { canUseLocalLxd, provisionLocalLxdInstance } from '#utils/vms/lxd.ts'
 import { supportedHost } from '#utils/vms/hostTransport.ts'
+import type { VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
 
 type VmRow = { primary_host: string | null }
 
@@ -37,7 +38,8 @@ export default async function provisionInternalVm(req: FastifyRequest, res: Fast
             return res.status(503).send({ error: 'Local LXD is unavailable.' })
         }
 
-        await provisionLocalLxdInstance(name)
+        const body = req.body as VmProvisionOptions | undefined
+        await provisionLocalLxdInstance(name, body)
         return res.send({ ok: true, name, host: localHost })
     } catch (error) {
         req.log.error({ err: error, vmName: name }, 'Unable to provision VM on its assigned host.')

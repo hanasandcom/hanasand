@@ -7,7 +7,7 @@ let host = 'ovhcloud'
 let vmRows: Array<{ primary_host: string | null }> = []
 let lxdAvailable = true
 const queries: Array<{ sql: string, values?: unknown[] }> = []
-const provisions: string[] = []
+const provisions: Array<{ name: string, options?: unknown }> = []
 
 mock.module('../src/constants.ts', () => ({ default: { get vm_host_id() { return host } } }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => authorized }))
@@ -19,7 +19,7 @@ mock.module('../src/utils/db.ts', () => ({
 }))
 mock.module('../src/utils/vms/lxd.ts', () => ({
     canUseLocalLxd: async () => lxdAvailable,
-    provisionLocalLxdInstance: async (name: string) => { provisions.push(name) },
+    provisionLocalLxdInstance: async (name: string, options?: unknown) => { provisions.push({ name, options }) },
 }))
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
     supportedHost: (value: string) => ['inspur', 'ovhcloud'].includes(value),
@@ -93,5 +93,14 @@ test('provisions a VM once when its active primary host matches and supports leg
     const response = await app.inject({ method: 'POST', url: '/vms/internal/Admin_VM1/provision' })
     expect(response.statusCode).toBe(200)
     expect(response.json()).toEqual({ ok: true, name: 'Admin_VM1', host: 'ovhcloud' })
-    expect(provisions).toEqual(['Admin_VM1'])
+    expect(provisions).toEqual([{ name: 'Admin_VM1', options: undefined }])
+})
+
+test('forwards the selected operating system, resources, and services to the LXD creator', async () => {
+    authorized = true
+    const options = { os: 'ubuntu-26.04', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' }, services: ['nodejs', 'postgresql'] }
+    const response = await app.inject({ method: 'POST', url: '/vms/internal/fixture-vm/provision', payload: options })
+
+    expect(response.statusCode).toBe(200)
+    expect(provisions).toEqual([{ name: 'fixture-vm', options }])
 })

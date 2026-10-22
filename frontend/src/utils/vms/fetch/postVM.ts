@@ -8,7 +8,7 @@ import { vmCreateTimeoutMs } from '../proxyTimeout'
 import type { VmMinecraftServerType } from '../createOptions'
 import type { VmWebsitePlan } from './suggestVmSetup'
 
-export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, resources?: { cpu: string, memory: string }, services?: string[], minecraft_eula_accepted?: boolean, minecraft_server_type?: VmMinecraftServerType, website?: VmWebsitePlan | null, organization_id?: string | null }
+export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, resources?: { cpu: string, memory: string, disk: string }, services?: string[], custom_apt_packages?: string[], minecraft_eula_accepted?: boolean, minecraft_server_type?: VmMinecraftServerType, website?: VmWebsitePlan | null, organization_id?: string | null }
 
 export default async function postVM(vm: CreateVmRequest): Promise<{ status: number, message: string, vm?: VM }> {
     try {
@@ -35,13 +35,14 @@ export default async function postVM(vm: CreateVmRequest): Promise<{ status: num
         })
 
         if (!response.ok) {
-            if (response.status === 409) {
-                return { status: 409, message: `A VM with the name ${vm.name} already exists.` }
-            }
             const body = await response.json().catch(() => null) as { error?: unknown } | null
             return {
                 status: response.status,
-                message: typeof body?.error === 'string' ? body.error : `The VM service returned an error (${response.status}). Please try again.`,
+                message: typeof body?.error === 'string'
+                    ? body.error
+                    : response.status === 409
+                        ? `A VM with the name ${vm.name} already exists.`
+                        : `The VM service returned an error (${response.status}). Please try again.`,
             }
         }
 

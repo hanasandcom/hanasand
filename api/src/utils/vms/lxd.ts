@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto'
 import config from '#constants'
 import { requestLxdJson, type LxdRequestOptions, type LxdResponse } from './lxdTransport.ts'
 import { mapLxdDetails, type LxdInstance, type LxdState } from './lxdDetails.ts'
 import { waitForInstanceOperations, waitForLxdOperation as waitForOperation } from './lxdOperations.ts'
 import { writeVmDetails, type VmDetails } from './vmDetails.ts'
-import { vmLoginUserData } from './vmLoginUserData.ts'
+import { vmSetupUserData } from './vmSetupUserData.ts'
+import type { VmProvisionOptions } from './provisionOnHost.ts'
 
 type LxdRequest = <T>(path: string, options?: LxdRequestOptions) => Promise<LxdResponse<T>>
 type VmDetailsWriter = (details: VmDetails) => Promise<unknown>
@@ -34,8 +36,22 @@ export async function canUseLocalLxd() {
     }
 }
 
-export async function provisionLocalLxdInstance(name: string) {
+export async function provisionLocalLxdInstance(name: string, options: VmProvisionOptions = {}) {
     const existing = await getLocalLxdInstance(name).catch(() => null)
+    const selectedOs = options.os || 'ubuntu-24.04'
+    const selectedResources = options.resources || { cpu: '1', memory: '2GiB', disk: '10GiB' }
+    const selectedServices = [...new Set(options.services || [])].sort()
+    const selectedAptPackages = [...new Set(options.aptPackages || [])].sort()
+    const optionsForHash = { ...options }
+    delete optionsForHash.aptPackages
+    const setupHash = createSetupHash({ ...optionsForHash, os: selectedOs, resources: selectedResources, services: selectedServices, ...(selectedAptPackages.length ? { aptPackages: selectedAptPackages } : {}) })
+    const hasNonDefaultSetup = selectedOs !== 'ubuntu-24.04'
+        || selectedResources.cpu !== '1'
+        || selectedResources.memory !== '2GiB'
+        || selectedResources.disk !== '10GiB'
+        || selectedServices.length > 0
+        || selectedAptPackages.length > 0
+        || Boolean(options.websiteHtml)
     if (!existing) {
         const response = await lxdRequest<unknown>('/1.0/instances', {
             method: 'POST',
@@ -43,30 +59,71 @@ export async function provisionLocalLxdInstance(name: string) {
                 name,
                 type: 'container',
                 profiles: ['default'],
+                devices: { root: { type: 'disk', path: '/', size: selectedResources.disk } },
                 config: {
-                    'limits.cpu': '1',
-                    'limits.memory': '1GiB',
-                    'cloud-init.user-data': vmLoginUserData(name),
+                    'limits.cpu': selectedResources.cpu,
+                    'limits.memory': selectedResources.memory,
+                    ...(selectedServices.includes('docker') ? {
+                        'security.nesting': 'true',
+                        'security.syscalls.intercept.mknod': 'true',
+                        'security.syscalls.intercept.setxattr': 'true',
+                    } : {}),
+                    'user.hanasand.setup_plan': setupHash,
+                    'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Preparing selected services' }),
+                    'cloud-init.user-data': vmSetupUserData(name, { ...options, os: selectedOs, resources: selectedResources, services: selectedServices, aptPackages: selectedAptPackages }),
                 },
                 source: {
                     type: 'image',
                     mode: 'pull',
                     server: config.lxd_image_server,
                     protocol: 'simplestreams',
-                    alias: config.lxd_image_alias,
+                    alias: selectedOs.replace('ubuntu-', ''),
                 },
             },
         })
         await waitForLxdOperation(response.operation, 120)
+    } else if (!existing.config?.['user.hanasand.setup_plan'] && hasNonDefaultSetup) {
+        const message = 'This existing VM has no saved setup plan and cannot apply the selected services. Create a new VM to install them.'
+        await updateLocalLxdConfig(name, {
+            'user.hanasand.setup_plan': setupHash,
+            'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', message }),
+        }).catch(() => {})
+        throw new Error(message)
+    } else if (existing.config?.['user.hanasand.setup_plan'] && existing.config['user.hanasand.setup_plan'] !== setupHash) {
+        throw new Error('This VM was created with a different setup plan. Create a new VM to apply the selected operating system, resources, or services.')
+    } else if (existing.config?.['user.hanasand.provisioning_state']) {
+        const state = parseSetupState(existing.config['user.hanasand.provisioning_state'])
+        if (state?.status === 'Error') throw new Error(state.message)
     }
 
     await setLocalLxdInstanceState(name, 'start', { tolerateAlready: true })
     return refreshLocalLxdDetails(name)
 }
 
+function createSetupHash(options: VmProvisionOptions) {
+    return createHash('sha256').update(JSON.stringify(options)).digest('hex')
+}
+
+function parseSetupState(raw: string) {
+    try {
+        const state = JSON.parse(raw) as { status?: unknown, message?: unknown }
+        return typeof state.status === 'string' && typeof state.message === 'string' ? state as { status: string, message: string } : undefined
+    } catch {
+        return undefined
+    }
+}
+
 export async function getLocalLxdInstance(name: string) {
     const response = await lxdRequest<LxdInstance>(`/1.0/instances/${encodeURIComponent(name)}`)
     return response.metadata
+}
+
+export async function updateLocalLxdConfig(name: string, configValues: Record<string, string>) {
+    const response = await lxdRequest<unknown>(`/1.0/instances/${encodeURIComponent(name)}`, {
+        method: 'PATCH',
+        body: { config: configValues },
+    })
+    if (response.operation) await waitForLxdOperation(response.operation, 30)
 }
 
 export async function setLocalLxdInstanceState(name: string, action: 'start' | 'stop' | 'restart', options: { tolerateAlready?: boolean } = {}) {

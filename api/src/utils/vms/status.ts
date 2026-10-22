@@ -1,5 +1,6 @@
 import config from '#constants'
 import { internalHostFetch } from './hostTransport.ts'
+import { getLocalLxdInstance, updateLocalLxdConfig } from './lxd.ts'
 
 type Vm = { name: string; primary_host?: string | null; deleted_at?: string | Date | null; status?: string; last_checked?: string | Date | null }
 type State = { status: string; status_reason?: string }
@@ -19,7 +20,27 @@ export async function localVmStatus(name: string): Promise<State> {
     if (!response.ok) throw new Error(response.status === 404 ? 'VM is unavailable on its host.' : 'VM host is not responding.')
     const body = await response.json() as { metadata?: State }
     if (!body.metadata?.status) throw new Error('VM host did not report a state.')
-    return body.metadata
+    if (body.metadata.status.toLowerCase() !== 'running') return body.metadata
+
+    const instance = await getLocalLxdInstance(name)
+    const planHash = instance.config?.['user.hanasand.setup_plan']
+    if (!planHash) return body.metadata
+
+    const setupOptions: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
+    const setupResponse = await fetch(`http://localhost/1.0/instances/${encodeURIComponent(name)}/files?path=${encodeURIComponent('/var/lib/hanasand-vm-setup/status')}`, setupOptions).catch(() => null)
+    const rawState = setupResponse?.ok ? await setupResponse.text().catch(() => '') : ''
+    const [setupStatus, ...messageParts] = rawState.trim().split('\t')
+    const setupMessage = messageParts.join('\t').slice(0, 300)
+    const persistedState = instance.config?.['user.hanasand.provisioning_state']
+    const state = setupStatus === 'Provisioning' || setupStatus === 'Error' || setupStatus === 'Running'
+        ? { status: setupStatus, status_reason: setupMessage || undefined }
+        : persistedState ? parsePersistedSetupState(persistedState) : undefined
+    const setupState = state || { status: 'Provisioning', status_reason: 'Preparing selected services' }
+
+    if (setupState.status !== 'Provisioning' && persistedState !== JSON.stringify(setupState)) {
+        await updateLocalLxdConfig(name, { 'user.hanasand.provisioning_state': JSON.stringify(setupState) }).catch(() => {})
+    }
+    return setupState
 }
 
 async function probe(name: string, host = config.vm_host_id): Promise<State> {
@@ -91,7 +112,7 @@ export async function withLiveVmStatuses<T extends Vm>(vms: T[]) {
         if (vm.deleted_at || targetHost !== localHost) return withLiveVmStatus(vm)
         return withLiveVmStatus(vm, async name => {
             const state = states?.get(name.toLowerCase())
-            if (state && state.status_reason && ['provisioning', 'error'].includes(state.status.toLowerCase())) {
+            if (state && state.status_reason && state.status.toLowerCase() === 'provisioning') {
                 // The persisted LXD marker can outlive the host worker. Ask the worker
                 // whether setup is active; it converts an abandoned marker to Error.
                 return probe(name, targetHost).catch(() => state)
@@ -100,6 +121,16 @@ export async function withLiveVmStatuses<T extends Vm>(vms: T[]) {
             return state
         })
     }))
+}
+
+function parsePersistedSetupState(raw: string): State | undefined {
+    try {
+        const value = JSON.parse(raw) as { status?: unknown; message?: unknown }
+        if (['Provisioning', 'Error', 'Running'].includes(String(value.status)) && typeof value.message === 'string') {
+            return { status: String(value.status), status_reason: value.message.slice(0, 300) }
+        }
+    } catch { /* Keep the VM's live LXD state if the setup marker is malformed. */ }
+    return undefined
 }
 
 function localVmStatusInventory() {

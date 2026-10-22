@@ -150,14 +150,18 @@ test('setup suggestions use the same-origin backend proxy', async () => {
     setBrowserWindow()
     const originalFetch = globalThis.fetch
     let requestUrl = ''
+    let requestBody = ''
     try {
-        globalThis.fetch = async (input) => {
+        globalThis.fetch = async (input, init) => {
             requestUrl = String(input)
-            return Response.json({ summary: 'Node.js with PostgreSQL', services: ['nodejs', 'postgresql'], website: null, minecraftServerType: null })
+            requestBody = String(init?.body || '')
+            return Response.json({ summary: 'Node.js with PostgreSQL and ripgrep', services: ['nodejs', 'postgresql'], packages: ['ripgrep'], website: null, minecraftServerType: null })
         }
-        const result = await suggestVmSetup('Node.js and PostgreSQL')
+        const result = await suggestVmSetup('Node.js and PostgreSQL', 'ubuntu-26.04')
         assert.equal(requestUrl, '/api/backend/vm/setup-plan')
+        assert.deepEqual(JSON.parse(requestBody), { prompt: 'Node.js and PostgreSQL', os: 'ubuntu-26.04' })
         assert.deepEqual(result.services, ['nodejs', 'postgresql'])
+        assert.deepEqual(result.aptPackages, ['ripgrep'])
     } finally {
         globalThis.fetch = originalFetch
         Reflect.deleteProperty(globalThis, 'document')

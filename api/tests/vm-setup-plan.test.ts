@@ -20,12 +20,13 @@ test('VM setup suggestions require a signed-in user and a bounded prompt', async
 test('VM setup suggestions return only allowlisted services', async () => {
     const result = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A small website with a database' } })
     expect(result.statusCode).toBe(200)
-    expect(result.json()).toEqual({ summary: 'A Node site with a database', services: ['nodejs', 'postgresql'], website: null, minecraftServerType: null })
+    expect(result.json()).toEqual({ summary: 'A Node site with a database', services: ['nodejs', 'postgresql'], packages: [], website: null, minecraftServerType: null })
 
-    completion = JSON.stringify({ summary: 'Go API with PHP tools and data stores', services: ['go', 'php', 'mysql', 'sqlite'], website: null, minecraftServerType: null })
+    completion = JSON.stringify({ summary: 'Go API with PHP tools and data stores', services: ['go', 'php', 'mysql', 'sqlite'], packages: ['ripgrep'], website: null, minecraftServerType: null })
     const commonServices = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A Go API with PHP tools and data stores' } })
     expect(commonServices.statusCode).toBe(200)
     expect(commonServices.json().services).toEqual(['go', 'php', 'mysql', 'sqlite'])
+    expect(commonServices.json().packages).toEqual(['ripgrep'])
 
     completion = JSON.stringify({ summary: 'A small bakery website', services: ['website', 'nginx'], website: { title: '<script>alert(1)</script>', tagline: 'Fresh bread daily', sections: [{ heading: 'Visit us', body: 'Open every day.' }] }, minecraftServerType: null })
     const website = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A bakery website' } })
@@ -41,4 +42,8 @@ test('VM setup suggestions return only allowlisted services', async () => {
     const unsupported = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Something custom' } })
     expect(unsupported.statusCode).toBe(503)
     expect(unsupported.json()).toEqual({ error: 'Could not turn that request into a supported setup. Choose services from the list or try again.' })
+
+    completion = JSON.stringify({ summary: 'Run shell command', services: [], packages: ['; rm -rf /'], website: null, minecraftServerType: null })
+    const unsafePackage = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Something custom' } })
+    expect(unsafePackage.statusCode).toBe(503)
 })

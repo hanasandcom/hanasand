@@ -8,10 +8,11 @@ import hasInternalToken from '#utils/auth/internalToken.ts'
 import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import config from '#constants'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
-import provisionVmOnHost, { type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
+import { enqueueVmProvisionOnHost, waitForVmProvisionOnHost, type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { isSupportedSetupService, supportedSetupServices, type SupportedVmSetupService } from '#utils/vms/supportedSetupServices.ts'
+import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
 
 export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     const body = req.body as {
@@ -26,10 +27,11 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         services?: VmProvisionOptions['services']
         minecraft_eula_accepted?: boolean
         minecraft_server_type?: VmProvisionOptions['minecraftServerType']
+        custom_apt_packages?: unknown
         website?: unknown
     } ?? {}
     const { name, access_users } = body
-    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.website)
+    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.custom_apt_packages, body.website)
     if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
     let owner = body.owner
     let created_by = body.created_by
@@ -117,7 +119,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
             if (existing && !canAssignOwner) {
                 if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
                 await ensureSetupPublicRoutes(name, actorId, provisionOptions.services || [])
-                queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
+                await queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
                 return res.status(201).send(existing)
             }
 
@@ -138,7 +140,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
             `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
                 if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || nextCreatedBy, provisionOptions.services || [])
-                if (body.provision_local !== false) queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
+                if (body.provision_local !== false) await queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
 
                 await recordSystemEvent(req, {
                     actionType: 'vm.access.updated',
@@ -198,7 +200,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
             const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
             if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
             if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || created_by, provisionOptions.services || [])
-            if (body.provision_local !== false) queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
+            if (body.provision_local !== false) await queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
 
             await recordSystemEvent(req, {
                 actionType: 'vm.created',
@@ -214,6 +216,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                         operatingSystem: provisionOptions.os,
                         resources: provisionOptions.resources,
                         services: provisionOptions.services,
+                        ...(provisionOptions.aptPackages?.length ? { additionalUbuntuPackages: provisionOptions.aptPackages } : {}),
                         ...(provisionOptions.minecraftServerType ? { minecraftServerType: provisionOptions.minecraftServerType } : {}),
                         minecraftEulaAccepted: provisionOptions.minecraftEulaAccepted,
                     },
@@ -226,6 +229,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     } catch (error) {
         req.log.error({ err: error, vmName: name }, 'Unable to create or provision VM.')
         void recordVmProvisioningError(name || 'unknown', error, 'create_or_provision')
+        if (error instanceof VmProvisionQueueError) return res.status(503).send({ error: error.message })
         return res.status(500).send({ error: 'Internal server error' })
     }
 }
@@ -243,25 +247,35 @@ async function ensureSetupPublicRoutes(vmName: string, createdBy: string, servic
     }
 }
 
-function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
-    void provisionVmOnHost(host, name, internalHostFetch, options).then(async () => {
+async function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
+    try {
+        await enqueueVmProvisionOnHost(host, name, internalHostFetch, options)
+    } catch {
+        throw new VmProvisionQueueError('The VM host could not start this setup. Try again in a moment.')
+    }
+    void waitForVmProvisionOnHost(host, name, internalHostFetch).then(async () => {
         await syncUserCertificatesToVm({ vmName: name, userIds }).catch(error => {
             void recordVmProvisioningError(name, error, 'certificate_sync')
         })
     }).catch(error => void recordVmProvisioningError(name, error, 'create_or_provision'))
 }
 
-function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, website: unknown): VmProvisionOptions | null {
-    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04'])
+class VmProvisionQueueError extends Error {}
+
+function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, customAptPackages: unknown, website: unknown): VmProvisionOptions | null {
+    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
-    const resourceOptions = new Set(['1:2GiB', '2:4GiB', '4:8GiB'])
+    const resourceOptions = new Set(['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'])
     if (resources !== undefined && (!resources || typeof resources !== 'object' || !('cpu' in resources) || !('memory' in resources)
-        || typeof resources.cpu !== 'string' || typeof resources.memory !== 'string' || !resourceOptions.has(`${resources.cpu}:${resources.memory}`))) return null
+        || !('disk' in resources) || typeof resources.cpu !== 'string' || typeof resources.memory !== 'string' || typeof resources.disk !== 'string' || !resourceOptions.has(`${resources.cpu}:${resources.memory}:${resources.disk}`))) return null
     if (services !== undefined && (!Array.isArray(services) || services.length > supportedSetupServices.length || services.some(service => !isSupportedSetupService(service)))) return null
+    const selectedAptPackages = normalizeUbuntuAptPackages(customAptPackages)
+    if (!selectedAptPackages) return null
     const selectedServices = [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)]
     if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null
-    const selectedResources = (resources || { cpu: '1', memory: '2GiB' }) as NonNullable<VmProvisionOptions['resources']>
-    if (selectedServices.includes('minecraft-java') && selectedResources.memory === '2GiB') return null
+    const selectedResources = (resources || { cpu: '1', memory: '2GiB', disk: '10GiB' }) as NonNullable<VmProvisionOptions['resources']>
+    if (selectedServices.includes('minecraft-java') && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
+    if (os === 'ubuntu-24.04-desktop' && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
     const supportedMinecraftTypes = new Set(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'])
     if (minecraftServerType !== undefined && (typeof minecraftServerType !== 'string' || !supportedMinecraftTypes.has(minecraftServerType))) return null
     if (minecraftServerType !== undefined && !selectedServices.includes('minecraft-java')) return null
@@ -272,6 +286,7 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
         os: selectedOs,
         resources: selectedResources,
         services: selectedServices,
+        ...(selectedAptPackages.length ? { aptPackages: selectedAptPackages } : {}),
         minecraftEulaAccepted: minecraftEulaAccepted === true,
         ...(selectedServices.includes('minecraft-java') ? { minecraftServerType: (minecraftServerType || 'PAPER') as NonNullable<VmProvisionOptions['minecraftServerType']> } : {}),
         ...(website ? { websiteHtml: renderWebsite(website) } : {}),

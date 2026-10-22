@@ -8,17 +8,19 @@ const consoleSession = new URL('../src/components/vms/useVmConsoleSession.ts', i
 const progressHook = new URL('../src/components/vms/useVmProvisioningStatus.ts', import.meta.url)
 const filters = new URL('../src/components/profile/vmFilters.tsx', import.meta.url)
 const osPicker = new URL('../src/components/profile/vmOperatingSystemPicker.tsx', import.meta.url)
+const createRequest = new URL('../src/utils/vms/fetch/postVM.ts', import.meta.url)
 
 test('the VM create form offers locally bundled operating systems and installable services', async () => {
     const [source, picker] = await Promise.all([readFile(createForm, 'utf8'), readFile(osPicker, 'utf8')])
-    expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04'])
+    expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-24.04-desktop', 'ubuntu-26.04', 'ubuntu-22.04'])
     expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'go', 'php', 'docker', 'postgresql', 'mysql', 'redis', 'sqlite', 'nginx', 'website', 'minecraft-java'])
-    expect(vmResourceOptions.map(option => `${option.cpu}:${option.memory}`)).toEqual(['1:2GiB', '2:4GiB', '4:8GiB'])
+    expect(vmServices.find(service => service.id === 'java')?.description).toContain('selected Ubuntu release')
+    expect(vmResourceOptions.map(option => `${option.cpu}:${option.memory}:${option.disk}`)).toEqual(['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'])
     expect(vmMinecraftServerTypes.map(server => server.id)).toEqual(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'])
     expect(picker).toContain('Operating system')
     expect(source).toContain('Install services')
     expect(source).toContain('selectedServices')
-    expect(source).toContain('resources: { cpu: resources.cpu, memory: resources.memory }')
+    expect(source).toContain('resources: { cpu: resources.cpu, memory: resources.memory, disk: resources.disk }')
     expect(source).toContain('minecraft_eula_accepted: minecraftEulaAccepted')
     expect(source).toContain('website: selectedServices.includes(\'website\') ? websitePlan : null')
     expect(source).toContain('aria-label=\'Website preview\'')
@@ -26,9 +28,11 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('websitePlan.sections.length >= 5')
     expect(source).toContain('This creates a simple static page.')
     expect(source).toContain('Generate setup')
+    expect(source).toContain('custom_apt_packages: customAptPackages')
+    expect(source).toContain('Additional Ubuntu packages: {customAptPackages.join(\', \')}')
     expect(source).toContain('option.memory !== \'2GiB\'')
-    expect(source).toContain("setCreationError(result.message)")
-    expect(source).toContain("role='alert' className='rounded-lg border border-ui-danger/25")
+    expect(source).toContain('setCreationError(result.message)')
+    expect(source).toContain('role=\'alert\' className=\'rounded-lg border border-ui-danger/25')
 })
 
 test('successful creation opens the terminal without waiting for a VM status fetch', async () => {
@@ -42,11 +46,26 @@ test('successful creation opens the terminal without waiting for a VM status fet
     expect(progress).toContain('2500')
 })
 
+test('organization VM creation explains and blocks the owner/admin-only action before submission', async () => {
+    const [inventory, form] = await Promise.all([readFile(components, 'utf8'), readFile(createForm, 'utf8')])
+    expect(inventory).toContain('[\'owner\', \'admin\'].includes(activeOrganization?.role || \'\')')
+    expect(inventory).toContain('Only an owner or admin of ${organizationName || \'this organization\'} can create VMs.')
+    expect(form).toContain('{organizationId && !canCreate && <p role=\'status\'')
+    expect(form).toContain('disabled={creating || !canCreate}')
+})
+
+test('VM creation preserves workspace conflict details from the API', async () => {
+    const source = await readFile(createRequest, 'utf8')
+    expect(source).toContain('typeof body?.error === \'string\'')
+    expect(source).toContain('message: typeof body?.error === \'string\'')
+    expect(source).toContain('response.status === 409')
+})
+
 test('VM filter popover uses the standard inset and slider-knob icon', async () => {
     const source = await readFile(filters, 'utf8')
     expect(source).toContain('left: position.mobile ? 8 : undefined')
     expect(source).toContain('right = mobile ? 8 :')
-    expect(source).toContain("width: position.mobile ? 'calc(100vw - 16px)'")
+    expect(source).toContain('width: position.mobile ? \'calc(100vw - 16px)\'')
     expect(source).toContain('aria-label={activeCount ? `Filters, ${activeCount} active` : \'Filters\'}')
     expect(source).toContain('<path d=\'M2.5 4.5h15M2.5 10h15M2.5 15.5h15\' />')
     expect(source.match(/<circle cx=/g)).toHaveLength(3)

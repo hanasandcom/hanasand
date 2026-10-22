@@ -29,6 +29,8 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 
 `docker-compose.yml` includes `docker-compose.api.yml` and defines the service connections, ports, volumes and health checks. Use Docker Compose 2.33.1 or later. OpenResty terminates public HTTPS outside this Compose project. The root API forwards authentication routes to Identity over a private network, while the existing PostgreSQL records and public API paths stay in place. The API also integrates with external VM hosts, password lookup and other configured services. VM owners and editors can publish up to 1,000 services per VM through the shared port-443 gateway; see [VM public services](docs/vm-public-services.md).
 
+The VM builder supports Ubuntu 22.04, 24.04, 26.04 and Ubuntu Desktop 24.04, with Small (1 vCPU, 2 GiB RAM, 10 GiB disk), Standard (2 vCPU, 4 GiB RAM, 20 GiB disk), and Large (4 vCPU, 8 GiB RAM, 40 GiB disk) plans. The service catalog includes Node.js/npm, Bun, Python, Java, Go, PHP/Composer, Docker, PostgreSQL, MySQL, SQLite, Redis, Nginx, a generated static website, and Minecraft Java. NixOS is unavailable on the current LXD 5.21 VM image source, and the 443 gateway currently supports Minecraft Java rather than arbitrary UDP game protocols.
+
 The frontend sends AI workspace requests to the separate AI API. On the shared Docker network, its server-side URL defaults to `http://ai:19182/api`; set `FRONTEND_INTERNAL_AI_API` when a deployment uses another address.
 
 PgBouncer, Onion, browser workers, TURN, and the Discord bot run from independent Compose projects on the established Hanasand networks. The root release checks the infrastructure services it depends on but does not build or recreate those services.
