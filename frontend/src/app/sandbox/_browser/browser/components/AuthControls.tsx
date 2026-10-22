@@ -34,7 +34,7 @@ export default function AuthControls() {
             <button type='button' onClick={() => void signOut()} disabled={busy} className='rounded border border-ui-border px-2 py-1 text-ui-text hover:bg-ui-raised disabled:opacity-50'>Sign out</button>
         </> : <>
             <span className='text-ui-muted'>Guest session</span>
-            <Link href='/sandbox/login' className='rounded bg-ui-primary px-2 py-1 font-medium text-ui-on-primary hover:opacity-85'>Sign in</Link>
+            <Link href='/login?path=%2Fsandbox' className='rounded bg-ui-primary px-2 py-1 font-medium text-ui-on-primary hover:opacity-85'>Sign in</Link>
         </>}
     </div>
 }
