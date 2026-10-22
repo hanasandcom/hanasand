@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { UvmDashboard } from '@/utils/monitoring/types'
 import UvmPanel from './uvmPanel'
+import ScannerPauseNotice from './scannerPauseNotice'
 import {
     cancelScannerAssessment, cancelScannerRun, configureScannerTenable, createScannerAsset,
     disconnectScannerTenable, emptyUvmDashboard, getScannerDashboard, runScannerAsset,
@@ -25,19 +26,22 @@ export default function ScannerWorkspace() {
         }))
     }, [])
 
-    return <UvmPanel
-        initialData={data}
-        refreshAction={refresh}
-        createAssetAction={createScannerAsset}
-        verifyAssetAction={verifyScannerAsset}
-        runScanAction={runScannerAsset}
-        scheduleAction={scheduleScannerAsset}
-        configureTenableAction={configureScannerTenable}
-        disconnectTenableAction={disconnectScannerTenable}
-        runTenableScanAction={runScannerTenable}
-        updateFindingAction={updateScannerFinding}
-        cancelRunAction={cancelScannerRun}
-        startAssessmentAction={startScannerAssessment}
-        cancelAssessmentAction={cancelScannerAssessment}
-    />
+    return <div className='grid gap-4'>
+        <ScannerPauseNotice />
+        <UvmPanel
+            initialData={data}
+            refreshAction={refresh}
+            createAssetAction={createScannerAsset}
+            verifyAssetAction={verifyScannerAsset}
+            runScanAction={runScannerAsset}
+            scheduleAction={scheduleScannerAsset}
+            configureTenableAction={configureScannerTenable}
+            disconnectTenableAction={disconnectScannerTenable}
+            runTenableScanAction={runScannerTenable}
+            updateFindingAction={updateScannerFinding}
+            cancelRunAction={cancelScannerRun}
+            startAssessmentAction={startScannerAssessment}
+            cancelAssessmentAction={cancelScannerAssessment}
+        />
+    </div>
 }

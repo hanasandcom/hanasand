@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { UvmDashboard } from '../src/utils/monitoring/types'
 import UvmPanel, { filterAndSortUvmFindings } from '../src/app/dashboard/scanner/uvmPanel'
 import { UvmAssessmentStarter, UvmAssetsView, UvmHelp } from '../src/app/dashboard/scanner/uvmPanelViews'
+import ScannerPauseNotice from '../src/app/dashboard/scanner/scannerPauseNotice'
 
 const data: UvmDashboard = {
     assets: [{
@@ -49,6 +50,13 @@ const data: UvmDashboard = {
 }
 
 const noop = async() => ({}) as never
+
+test('scanner page states which services are stopped pending disk expansion', () => {
+    const html = renderToStaticMarkup(<ScannerPauseNotice />)
+
+    expect(html).toContain('Scanner API, Nmap worker, and database are stopped')
+    expect(html).toContain('Greenbone is staged but not started')
+})
 
 test('overview shows compact readiness, honest coverage, and clear next actions', () => {
     const html = renderToStaticMarkup(<UvmPanel initialData={data}
