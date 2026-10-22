@@ -34,6 +34,7 @@ async function establishBrowserIdentitySession() {
     try {
         session = await readBrowserSession()
     } catch (error) {
+        if (!identityId && !identityToken) return { user: null }
         if (!identityId || !identityToken) throw error
     }
 
