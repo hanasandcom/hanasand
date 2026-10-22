@@ -31,7 +31,7 @@ export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
         schedule: 'Every minute',
         cadenceSeconds: API_CRON_CADENCE_SECONDS,
         source: 'api/src/utils/organizationPrivacy.ts',
-        controls: vmLifecycleMonitorIsConfigured() ? ['pause', 'resume', 'run_now'] : [],
+        controls: ['pause', 'resume', 'run_now'],
     },
     {
         id: ACCOUNT_DELETION_PURGE_JOB_ID,
@@ -91,7 +91,7 @@ export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
         schedule: 'Every six hours (checked every minute)',
         cadenceSeconds: 6 * 60 * 60,
         source: 'api/src/utils/vms/lifecycleMonitor.ts',
-        controls: ['pause', 'resume', 'run_now'],
+        controls: vmLifecycleMonitorIsConfigured() ? ['pause', 'resume', 'run_now'] : [],
     },
     {
         id: 'api-security-case-delivery',
