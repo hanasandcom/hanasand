@@ -40,8 +40,8 @@ export function HistoryPanel({ history, quota, embedded = false, historyReady, o
             <div className='flex flex-wrap items-start justify-between gap-3'>
                 <div>
                     <h2 className='text-sm font-semibold text-ui-text'>Recent browser runs</h2>
-                    {!quota?.paid ? <Link href='/pricing#browser' className='text-xs font-semibold text-ui-primary'>Upgrade for 30-minute runs and 3 simultaneous browsers</Link> : null}
-                    <p className='mt-1 text-xs text-ui-muted'>{`${runDurationLabel(quota?.sessionSeconds || 90)} per run · ${quota?.concurrentLimit || 1} simultaneous browser${(quota?.concurrentLimit || 1) > 1 ? 's' : ''}`}</p>
+                    {!quota?.paid ? <Link href='/pricing#browser' className='text-xs font-semibold text-ui-primary'>Upgrade for 30-minute runs and advanced analysis</Link> : null}
+                    <p className='mt-1 text-xs text-ui-muted'>{`${runDurationLabel(quota?.sessionSeconds || 90)} per run · ${quota?.concurrentLimit === null ? 'no simultaneous-browser limit' : `${quota?.concurrentLimit || 1} simultaneous browser${(quota?.concurrentLimit || 1) > 1 ? 's' : ''}`}${quota ? ` · ${quota.limit === null ? 'no daily run limit' : `${quota.used}/${quota.limit} runs today`}` : ''}`}</p>
                 </div>
                 <div className='flex items-center gap-1.5'>
                     {selectionMode && selectedIds.length ? <button type='button' disabled={Boolean(busyId) || busyClear} onClick={() => void runAction(async () => { await onDelete(selectedIds); setSelectedIds([]) }, 'selected', 'Selected runs deleted.')} className='rounded-md border border-ui-border px-2.5 py-1.5 text-xs font-semibold text-ui-text hover:border-ui-primary disabled:opacity-50'>Delete selected ({selectedIds.length})</button> : null}

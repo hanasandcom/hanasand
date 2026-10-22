@@ -65,7 +65,7 @@ export function quotaValue(value: unknown): BrowserQuota | null {
         paid: record.paid === true,
         advancedAnalysis: record.advancedAnalysis === true,
         sessionSeconds: finiteNumber(record.sessionSeconds) || 90,
-        concurrentLimit: finiteNumber(record.concurrentLimit) || 1,
+        concurrentLimit: record.concurrentLimit === null ? null : finiteNumber(record.concurrentLimit) ?? 1,
         active: finiteNumber(record.active) || 0,
         limit,
         used,

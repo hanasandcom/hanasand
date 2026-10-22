@@ -27,30 +27,19 @@ async function readBrowserSession() {
 }
 
 async function establishBrowserIdentitySession() {
+    // Browser validates the shared Hanasand Identity cookies directly. Do not
+    // copy the bearer token into a Browser-only session cookie: that can leave
+    // the sandbox appearing signed out when the exchange fails or the cookies
+    // are only partially visible to JavaScript.
+    const session = await readBrowserSession()
+    if (session.user?.id) return session
+
     const identityId = cookieValue('id')
     const identityToken = cookieValue('access_token')
-    let session: BrowserSession | null = null
-
-    try {
-        session = await readBrowserSession()
-    } catch (error) {
-        if (!identityId && !identityToken) return { user: null }
-        if (!identityId || !identityToken) throw error
+    if (identityId || identityToken) {
+        throw new Error('Your Hanasand session could not be verified by Browser. Retry or refresh the page.')
     }
-
-    if (identityId && identityToken && (session?.user?.id !== identityId || session.canSignOut !== true)) {
-        const response = await fetch(`${browserApiBase}/browser/session`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            cache: 'no-store',
-            body: JSON.stringify({ id: identityId, token: identityToken }),
-        })
-        if (!response.ok) throw new Error('Could not use your current Identity session in Browser.')
-        session = await response.json() as BrowserSession
-    }
-
-    return session || { user: null }
+    return { user: null }
 }
 
 export async function ensureBrowserIdentitySession() {

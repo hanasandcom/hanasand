@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import { ChevronDown, Clipboard } from 'lucide-react'
 import type { Capture, SandboxEvidence, SandboxNetworkSummary, SandboxTool } from '../types'
-import { providerDetail, providerErrorText, providerStatus, virusTotalVendorLabel } from '../browserProviderData'
+import { providerCaptureUrl, providerDetail, providerErrorText, providerStatus, virusTotalVendorLabel } from '../browserProviderData'
 
 export function EvidencePanel({ title, status, children }: { title: string; status?: ReactNode; children: ReactNode }) {
     return (
@@ -85,6 +85,7 @@ export function ProviderViewportEvidence({ tool, capture }: { tool: SandboxTool;
 
 export function ProviderReportDetails({ tool, capture, compact = false }: { tool: SandboxTool; capture: Capture; compact?: boolean }) {
     const analysis = capture.toolAnalysis
+    const sourceUrl = providerCaptureUrl(tool, capture)
     if (tool.id === 'webcrack') return capture.deobfuscatedCode ? <pre className='max-h-[40rem] overflow-auto whitespace-pre-wrap break-all rounded-md border border-ui-border bg-ui-canvas p-3 font-mono text-xs text-ui-text'>{capture.deobfuscatedCode}</pre> : capture.error ? <p className='text-xs text-ui-text'>{capture.error}</p> : null
     const commentCount = analysis?.communityCommentCount
     const communityComments = analysis?.communityComments || capture.evidence?.communityComments || []
@@ -102,7 +103,7 @@ export function ProviderReportDetails({ tool, capture, compact = false }: { tool
                 <div className='min-w-0'>
                     <p className='text-xs font-semibold uppercase text-ui-primary'>{providerStatus(capture, analysis)}</p>
                     <h2 className={`${compact ? 'text-sm' : 'text-lg'} mt-1 font-semibold text-ui-text`}>{tool.name}</h2>
-                    <a href={capture.url || tool.url} target='_blank' rel='noreferrer noopener' className='mt-1 block break-all font-mono text-xs text-ui-primary underline-offset-2 hover:underline'>{capture.url || tool.url}</a>
+                    <a href={sourceUrl} target='_blank' rel='noreferrer noopener' className='mt-1 block break-all font-mono text-xs text-ui-primary underline-offset-2 hover:underline'>{sourceUrl}</a>
                 </div>
                 {facts.length ? (
                     <div className='flex max-w-full flex-wrap justify-end gap-2'>

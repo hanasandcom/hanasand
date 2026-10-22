@@ -6,6 +6,20 @@ export function virusTotalVendorLabel(analysis: Pick<SandboxToolAnalysis, 'vendo
     return analysis.vendorTotal ? `${flagged}/${analysis.vendorTotal}` : `${flagged} flagged`
 }
 
+export function providerCaptureUrl(tool: SandboxTool, capture: Capture) {
+    if (/urlquery/i.test(`${tool.id} ${tool.name}`) && capture.target) {
+        try {
+            const target = new URL(capture.target)
+            const address = `${target.hostname}${target.port ? `:${target.port}` : ''}${target.pathname}${target.search}`
+                .replaceAll('\\', '\\\\')
+                .replaceAll('"', '\\"')
+            const query = `url.schema:${target.protocol.slice(0, -1)} AND url.addr:"${address}"`
+            return `https://urlquery.net/search/reports?q=${encodeURIComponent(query)}`
+        } catch { /* Fall back to the provider URL captured by the worker. */ }
+    }
+    return capture.url || tool.url
+}
+
 export function matchesTool(capture: Capture, tool: SandboxTool) {
     const toolId = safeToolKey(tool.id)
     const label = capture.label.toLowerCase()

@@ -22,7 +22,7 @@ export type BrowserQuota = {
     paid: boolean
     advancedAnalysis: boolean
     sessionSeconds: number
-    concurrentLimit: number
+    concurrentLimit: number | null
     active: number
     resetsAt?: string | null
     identityKind?: string
