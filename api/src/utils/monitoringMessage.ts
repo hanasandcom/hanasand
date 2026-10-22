@@ -116,13 +116,17 @@ export function readableMonitoringMessage(message: string, context: MonitoringMe
         return `${monitorName(context)} could not read the expected JSON field ${jsonField[2]} (${jsonField[1]}). The target’s status is unknown. Check the response schema and the monitor’s field path.`
     }
 
-    const operationTimeout = /^The operation timed out\.(?: Failed after (\d+) attempts?\.)?$/.exec(message)
+    const operationTimeout = /^(?:The operation timed out\.|(?:Monitoring request )?Timed out after (.+?)\.|Connection timed out after (.+?)\.|timeout exceeded when trying to connect)(?: Failed after (\d+) attempts?\.)?$/i.exec(message)
     if (operationTimeout) {
-        const attempts = operationTimeout[1] ? ` after ${operationTimeout[1]} attempt${operationTimeout[1] === '1' ? '' : 's'}` : ''
+        const duration = operationTimeout[1] || operationTimeout[2]
+        const count = operationTimeout[3]
+        const timing = duration
+            ? ` within ${duration}${count ? ` (${count} attempt${count === '1' ? '' : 's'})` : ''}`
+            : count ? ` after ${count} attempt${count === '1' ? '' : 's'}` : ''
         if (context.targetUrl === 'system:ti-collection') {
-            return `TI collection health check timed out${attempts} before it could read collection status. The collection state is unknown. Check the scraper’s last completed run and recent source errors.`
+            return `TI collection health check timed out${timing} before it could read collection status. The collection state is unknown. Check the scraper’s last completed run and recent source errors.`
         }
-        return `${monitorName(context)} timed out${attempts} before it returned a result. Target status is unknown. Check the monitor endpoint and its dependencies.`
+        return `${monitorName(context)} timed out${timing} before it returned a result. Target status is unknown. Check the monitor endpoint and its dependencies.`
     }
 
     const http = /^JSON source returned HTTP (\d{3})\.$/.exec(message)
