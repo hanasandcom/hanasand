@@ -25,10 +25,11 @@ test('passkey UI exposes enrollment and uses the shared Identity login component
     const passkeyList = readFileSync(join(root, 'src/components/profile/AccountPasskeyList.tsx'), 'utf8')
     const accountSources = `${accountActions}\n${passkeyManagement}\n${passkeyList}`
 
-    assert.match(loginClient, /https:\/\/api\.hanasand\.com\/api\/auth\/login-form\.js/)
-    assert.match(loginClient, /'passkey-options-url': '\/api\/auth\/passkeys\/authenticate\/options'/)
-    assert.match(loginClient, /'passkey-verify-url': '\/api\/auth\/passkeys\/authenticate\/verify'/)
-    assert.match(loginClient, /'login-url': '\/api\/auth\/login'/)
+    assert.match(loginClient, /IdentityLoginForm/)
+    assert.match(loginClient, /passkeyOptionsUrl='\/api\/auth\/passkeys\/authenticate\/options'/)
+    assert.match(loginClient, /passkeyVerifyUrl='\/api\/auth\/passkeys\/authenticate\/verify'/)
+    assert.match(loginClient, /loginUrl='\/api\/auth\/login'/)
+    assert.doesNotMatch(loginClient, /api\.hanasand\.com\/api\/auth\/login-form\.js/)
     assert.match(accountSources, /Add passkey/)
     assert.match(accountSources, /No passkeys enrolled/)
     assert.match(accountSources, /Remove/)
@@ -54,7 +55,7 @@ test('SSO login is wired through the frontend auth proxy', () => {
     const ssoRedirects = readFileSync(join(root, 'src/app/api/auth/sso/redirects.ts'), 'utf8')
 
     assert.match(loginClient, /\/api\/auth\/sso\/start\?redirectPath=/)
-    assert.match(loginClient, /'sso-href': ssoHref/)
+    assert.match(loginClient, /ssoHref=\{ssoHref\}/)
     assert.match(ssoStartRoute, /\/auth\/sso\/start/)
     assert.match(ssoStartRoute, /method: 'POST'/)
     assert.match(ssoStartRoute, /randomBytes\(32\)/)

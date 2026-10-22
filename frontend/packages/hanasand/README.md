@@ -33,6 +33,10 @@ import { IdentityLoginForm } from 'hanasand'
 />
 ```
 
+Browser-only hosts can register the same controls from `hanasand/auth` and load
+`hanasand/auth.css`. The package entry has no remote script dependency; hosts provide
+their own same-origin sign-in routes and session handling.
+
 The dashboard components use the host app's Tailwind `ui-*` theme classes. Add this to the app's global stylesheet so Tailwind scans package classes:
 
 ```css
