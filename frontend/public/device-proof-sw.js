@@ -51,7 +51,15 @@ self.addEventListener('fetch', event => {
                 headers.set('X-Device-Proof-Method', request.method.toUpperCase())
             }
         }
-        return fetch(new Request(request, { headers }))
+        const response = await fetch(new Request(request, { headers }))
+        // Sign-in can replace a cookie session during navigation, outside window.fetch.
+        // Persist its hash before the returned document starts another navigation.
+        const responseUrl = new URL(response.url || request.url)
+        const nextTokenHash = response.headers.get('x-device-proof-token-hash')
+        if (responseUrl.origin === self.location.origin && /^[A-Za-z0-9_-]{43}$/.test(nextTokenHash || '')) {
+            await saveTokenHash(nextTokenHash)
+        }
+        return response
     })())
 })
 

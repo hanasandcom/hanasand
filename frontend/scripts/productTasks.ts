@@ -135,6 +135,7 @@ export const productTasks: TestTask[] = [
     { id: 'session-requests', title: 'Session revocation requests', command: [bun, 'scripts/check-session-requests.ts'] },
     { id: 'session-details', title: 'Login session device and forwarding details', command: [bun, 'scripts/check-session-details.ts'] },
     { id: 'social-proxy', title: 'Google and Apple callback boundaries', command: [bun, 'scripts/check-social-proxy.ts'] },
+    { id: 'social-device-proof-navigation', title: 'Social callback device proof and mobile handoff', command: [bun, 'test', 'tests/device-proof-navigation.test.ts', 'tests/social-mobile-auth-routes.test.ts'] },
     { id: 'health-check-sorting', title: 'Health check column sorting', command: [bun, 'test', 'tests/health-check-sorting.test.ts'] },
     { id: 'automation-status-pill', title: 'Automation status pill rendering contract', command: [bun, 'test', 'tests/automation-status-pill.test.tsx'] },
     { id: 'terminal-viewer-output', title: 'Shared terminal output normalization', command: [bun, 'test', 'tests/terminal-viewer-output.test.ts'] },

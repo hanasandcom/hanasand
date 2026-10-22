@@ -38,6 +38,7 @@ test('mobile Google start carries the PKCE challenge in a secure short-lived coo
     assert.equal(response.status, 303)
     assert.equal(response.headers.get('location'), 'https://accounts.google.com/o/oauth2/v2/auth?state=state')
     assert.equal(requestBody?.link, false)
+    assert.equal(requestBody?.mobileChallenge, challenge)
     const mobileCookie = response.cookies.get('__Host-social-mobile-google')
     assert.equal(mobileCookie?.value, challenge)
     assert.equal(mobileCookie?.httpOnly, true)
@@ -47,16 +48,14 @@ test('mobile Google start carries the PKCE challenge in a secure short-lived coo
     assert.equal(response.headers.get('cache-control'), 'no-store')
 })
 
-test('mobile Google callback redeems a one-time Identity code and redirects only that code to the app', async () => {
+test('mobile Google callback redirects the provider-verified Identity code without a second bearer authorization', async () => {
     const calls: Array<{ url: string, body: Record<string, unknown>, headers: Headers }> = []
     globalThis.fetch = (async (input, init) => {
         const headers = new Headers(init?.headers)
         const body = JSON.parse(String(init?.body)) as Record<string, unknown>
         const url = String(input)
         calls.push({ url, body, headers })
-        return calls.length === 1
-            ? new Response(JSON.stringify({ id: 'user-1', token: 'temporary-session-token', name: 'User', avatar: '' }), { status: 200 })
-            : new Response(JSON.stringify({ code: authCode }), { status: 200 })
+        return new Response(JSON.stringify({ mobileCode: authCode, expiresIn: 90 }), { status: 200 })
     }) as typeof fetch
 
     const request = new NextRequest('https://hanasand.com/api/auth/social/google/callback?code=google-code&state=s'.replace('state=s', `state=${'s'.repeat(43)}`), {
@@ -67,14 +66,47 @@ test('mobile Google callback redeems a one-time Identity code and redirects only
     assert.equal(response.status, 303)
     assert.equal(response.headers.get('location'), `hanasand://social?code=${authCode}`)
     assert.equal(response.headers.get('cache-control'), 'no-store')
-    assert.equal(calls.length, 2)
+    assert.equal(calls.length, 1)
     assert.match(calls[0].url, /\/auth\/social\/google\/callback$/)
     assert.equal(calls[0].body.binding, binding)
-    assert.match(calls[1].url, /\/auth\/sso\/mobile\/code$/)
-    assert.equal(calls[1].headers.get('authorization'), 'Bearer temporary-session-token')
-    assert.equal(calls[1].headers.get('id'), 'user-1')
-    assert.deepEqual(calls[1].body, { codeChallenge: challenge })
+    assert.equal(calls[0].headers.has('authorization'), false)
+    assert.deepEqual(calls[0].body, { code: 'google-code', state: 's'.repeat(43), binding, cancelled: false })
     assert.equal(response.cookies.get('__Host-social-mobile-google')?.value, '')
+    assert.equal(response.cookies.get('access_token'), undefined)
+})
+
+test('mobile callbacks reject a temporary bearer session instead of replaying callback device proof', async () => {
+    let calls = 0
+    globalThis.fetch = (async () => {
+        calls += 1
+        return new Response(JSON.stringify({ id: 'user-1', token: 'synthetic-temporary-token' }), { status: 200 })
+    }) as typeof fetch
+    const response = await callback(new NextRequest('https://hanasand.com/api/auth/social/google/callback?code=synthetic&state=synthetic', {
+        headers: { cookie: `hanasand_auth_binding=${binding}; __Host-social-mobile-google=${challenge}`, dpop: 'synthetic-proof-for-old-token' },
+    }), 'google')
+    assert.equal(calls, 1)
+    assert.match(response.headers.get('location') || '', /socialError=/)
+    assert.equal(response.cookies.get('access_token'), undefined)
+})
+
+test('mobile code needs the start cookie and cannot accompany a bearer token', async () => {
+    for (const [cookie, payload] of [
+        ['', { mobileCode: authCode }],
+        [`__Host-social-mobile-google=${challenge}`, { mobileCode: authCode, token: 'unexpected-synthetic-token' }],
+    ] as const) {
+        globalThis.fetch = (async () => new Response(JSON.stringify(payload), { status: 200 })) as typeof fetch
+        const response = await callback(new NextRequest('https://hanasand.com/api/auth/social/google/callback?code=synthetic&state=synthetic', { headers: { cookie } }), 'google')
+        assert.match(response.headers.get('location') || '', /socialError=/)
+        assert.equal(response.cookies.get('access_token'), undefined)
+    }
+})
+
+test('mobile sign-in cannot also link another account', async () => {
+    let calls = 0
+    globalThis.fetch = (async () => { calls += 1; return new Response('{}') }) as typeof fetch
+    const response = await start(new NextRequest(`https://hanasand.com/api/auth/social/google/start?mobile_challenge=${challenge}`, { method: 'POST', headers: { origin: 'https://hanasand.com' } }), 'google')
+    assert.equal(response.status, 400)
+    assert.equal(calls, 0)
 })
 
 test('provider status route forwards configuration and disables caching', async () => {

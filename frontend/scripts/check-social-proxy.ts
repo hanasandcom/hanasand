@@ -44,7 +44,11 @@ try {
     }), 'apple')
     assert.equal(upstreamBody.code, 'apple-code')
     assert.equal(upstreamBody.binding, binding)
-    assert.equal(apple.headers.get('location'), `${origin}/dashboard`)
+    assert.equal(apple.status, 200)
+    const browserHandoff = await apple.text()
+    assert.ok(browserHandoff.includes(`window.location.replace("${origin}/dashboard")`))
+    assert.ok(browserHandoff.includes('await device.sync()'))
+    assert.ok(!browserHandoff.includes('verified-session'))
     assert.ok(apple.headers.get('set-cookie')!.includes('access_token=verified-session'))
     assert.equal(apple.cookies.get('hanasand_auth_binding')?.maxAge, 0)
     responseData = { linked: true, redirectPath: '/profile?social=linked' }

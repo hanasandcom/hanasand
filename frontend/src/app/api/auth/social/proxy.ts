@@ -2,6 +2,7 @@ import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { NextRequest, NextResponse } from 'next/server'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { setAuthCookies } from '../_authCookies'
+import { browserSessionRedirect } from './browserSessionRedirect'
 
 export function socialOrigin() {
     return new URL(process.env.SOCIAL_AUTH_ORIGIN || 'https://hanasand.com').origin
@@ -29,13 +30,14 @@ export async function start(req: NextRequest, provider: string) {
     if (mobileChallenge !== null && !/^[A-Za-z0-9_-]{43}$/.test(mobileChallenge)) {
         return NextResponse.json({ error: 'Mobile sign-in could not be started.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
     }
+    if (link && mobileChallenge) return NextResponse.json({ error: 'Mobile sign-in cannot connect another account.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
     // Linking is an explicit same-origin action; never link accounts on a GET.
     if (link && (req.headers.get('origin') !== socialOrigin() || req.cookies.get('impersonation_token')?.value)) return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 })
     const token = req.cookies.get('access_token')?.value
     const id = req.cookies.get('id')?.value
     const response = await upstream(`${provider}/start`, {
         method: 'POST', headers: { ...clientHeaders(req), 'Content-Type': 'application/json', ...(link && token ? { Authorization: `Bearer ${token}` } : {}), ...(link && id ? { id } : {}) },
-        body: JSON.stringify({ link, redirectPath: req.nextUrl.searchParams.get('redirectPath') }),
+        body: JSON.stringify({ link, redirectPath: req.nextUrl.searchParams.get('redirectPath'), ...(mobileChallenge ? { mobileChallenge } : {}) }),
     })
     const data = await response?.json().catch(() => null)
     if (!response?.ok || !data?.url) return failure(data?.error || 'Sign-in service is unavailable.', req.nextUrl.searchParams.get('redirectPath') || undefined)
@@ -68,35 +70,20 @@ export async function callback(req: NextRequest, provider: string) {
     })
     const data = await response?.json().catch(() => null)
     let result: NextResponse
-    if (response?.ok && (data?.linked || (data?.id && data?.token))) {
-        const mobileChallenge = req.cookies.get(mobileChallengeCookie(provider))?.value
+    const mobileChallenge = req.cookies.get(mobileChallengeCookie(provider))?.value
+    if (response?.ok && typeof data?.mobileCode === 'string') {
+        if (!mobileChallenge || !/^[A-Za-z0-9_-]{43}$/.test(mobileChallenge) || !/^[A-Za-z0-9_-]{43}$/.test(data.mobileCode) || data.token || data.linked) {
+            result = failure('Mobile sign-in could not be completed.')
+        } else {
+            result = NextResponse.redirect(`hanasand://social?code=${encodeURIComponent(data.mobileCode)}`, 303)
+        }
+    } else if (response?.ok && (data?.linked || (data?.id && data?.token))) {
         if (mobileChallenge !== undefined) {
-            if (!/^[A-Za-z0-9_-]{43}$/.test(mobileChallenge) || data.linked) {
-                result = failure('Mobile sign-in could not be completed.')
-            } else {
-                const handoff = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/mobile/code`, {
-                    method: 'POST',
-                    headers: {
-                        ...clientHeaders(req),
-                        Authorization: `Bearer ${data.token}`,
-                        id: String(data.id),
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ codeChallenge: mobileChallenge }),
-                    cache: 'no-store',
-                    redirect: 'error',
-                    signal: AbortSignal.timeout(20000),
-                }).catch(() => null)
-                const handoffData = await handoff?.json().catch(() => null)
-                if (!handoff?.ok || typeof handoffData?.code !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(handoffData.code)) {
-                    result = failure(handoffData?.error || 'Mobile sign-in could not be completed.')
-                } else {
-                    result = NextResponse.redirect(`hanasand://social?code=${encodeURIComponent(handoffData.code)}`, 303)
-                }
-            }
+            result = failure('Mobile sign-in could not be completed. Please start sign-in again.')
         } else {
             const path = typeof data.redirectPath === 'string' && safePath(data.redirectPath) ? data.redirectPath : '/dashboard'
-            result = NextResponse.redirect(new URL(path, socialOrigin()), 303)
+            const target = new URL(path, socialOrigin())
+            result = data.linked ? NextResponse.redirect(target, 303) : browserSessionRedirect(target)
             if (!data.linked) setAuthCookies(req, result, data)
         }
     } else result = failure(data?.error || 'Sign-in service is unavailable.')
