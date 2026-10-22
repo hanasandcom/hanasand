@@ -121,6 +121,6 @@ test('reports VM failures without claiming the VM is ready', async () => {
     })
 
     expect(result?.ok).toBe(false)
-    expect(result?.message).toContain('workspace')
+    expect(result?.message).toContain('repository')
     expect(result?.message).toContain('VM service unavailable.')
 })

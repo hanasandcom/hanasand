@@ -1,12 +1,7 @@
-import Shares from '@/components/share/dashboard/projects'
-import { DashboardPage } from 'hanasand/dashboard'
+import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
 export default function Page() {
-    return (
-        <DashboardPage>
-            <Shares />
-        </DashboardPage>
-    )
+    redirect('/repositories')
 }

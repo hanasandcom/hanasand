@@ -8,7 +8,7 @@ export function runTerminalCommandOnShare(shares: Share[], shareId: string, comm
     if (!share?.alias) {
         return Promise.resolve({
             ok: false,
-            output: `Share ${shareId} is not available for terminal access yet.`,
+            output: `Repository ${shareId} is not available for terminal access yet.`,
         })
     }
 
@@ -56,7 +56,7 @@ export function runTerminalCommandOnShare(shares: Share[], shareId: string, comm
             }, 1200)
         }
 
-        ws.onerror = () => finish(false, `Unable to connect to the terminal for share ${share.alias}.`)
+        ws.onerror = () => finish(false, `Unable to connect to the terminal for repository ${share.alias}.`)
         ws.onclose = () => {
             if (!settled) {
                 finish(true, chunks.join(''))

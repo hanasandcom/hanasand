@@ -26,7 +26,7 @@ export function useWorkspaceScaffolding(
         }
 
         try {
-            setStatusNotice('Scaffolding a Next.js + Docker workspace...')
+            setStatusNotice('Creating a Next.js + Docker repository...')
             const scaffold = await scaffoldNextjsDockerWorkspace({
                 projectName,
                 shareId: targetShareId || (activeConversation.workspaceKind === 'share' ? activeConversation.workspaceId : null),
@@ -69,10 +69,10 @@ export function useWorkspaceScaffolding(
                     source: 'scaffold',
                 }),
             })
-            setStatusNotice(`Next.js + Docker workspace ready: ${scaffold.rootName}. Created ${scaffold.fileCount} files.`)
+            setStatusNotice(`Repository ready: ${scaffold.rootName}. Created ${scaffold.fileCount} files.`)
             return scaffold
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Failed to scaffold the Next.js workspace.'
+            const message = error instanceof Error ? error.message : 'Failed to create the Next.js repository.'
             setStatusNotice(message)
             throw new Error(message, { cause: error })
         }

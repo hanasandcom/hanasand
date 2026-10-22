@@ -47,12 +47,12 @@ function quote(value) {
     return apostrophe + escaped + apostrophe
 }
 
-const nonSearchableRoutes = new Set(['/prompt', '/dashboard/system/ssh-keys'])
+const nonSearchableRoutes = new Set(['/prompt', '/dashboard/system/ssh-keys', '/dashboard/projects', '/dashboard/shares'])
 const profilePagePath = appRoutes.find(([, canonical]) => canonical === '/ti/profiles')?.[0]
 const watchlistsPagePath = appRoutes.find(([legacy]) => legacy === '/dashboard/findings/watchlists')?.[0]
 const routes = [...new Set((await pageRoutes(appDir))
     .filter(route => !nonSearchableRoutes.has(route))
-    .map(route => route === profilePagePath ? '/ti/profiles' : route === watchlistsPagePath ? '/watchlists' : route))].sort((a, b) => a.localeCompare(b))
+    .map(route => route === profilePagePath ? '/ti/profiles' : route === watchlistsPagePath ? '/watchlists' : route === '/dashboard/repositories' ? '/repositories' : route))].sort((a, b) => a.localeCompare(b))
 const items = routes.map(href => `    { id: ${quote(`route:${href}`)}, title: ${quote(labelFor(href))}, detail: ${quote(href === '/' ? 'Overview and product entry point' : `Page · ${href}`)}, href: ${quote(href)} },`)
 const content = `${generatedMarker}\nexport const generatedSearchRoutes = [\n${items.join('\n')}\n] as const\n`
 

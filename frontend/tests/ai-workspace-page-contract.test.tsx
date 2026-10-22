@@ -64,7 +64,7 @@ function renderWorkspacePane() {
         importError: null,
         importPending: false,
         collaborationError: null,
-        initialShares: [],
+        initialShares: [{ id: 'file-share-1', alias: 'brief.md', path: 'docs/brief.md' } as Share],
         syncingRepoId: null,
         activeShareTree: null,
         selectedRepoFilePath: null,
@@ -73,7 +73,6 @@ function renderWorkspacePane() {
         deployments: [],
         releases: [],
         deployQuota: null,
-        ownershipSummary: null,
         availableVmTargets: [],
         deployPending: false,
         collaboratorPending: false,
@@ -164,6 +163,11 @@ test('workspace pane actions render with shared theme tokens and expected labels
     const html = renderWorkspacePane()
     expect(html).toContain('Create repository</button>')
     expect(html).toContain('Attach repository</button>')
+    expect(html).toContain('grid-cols-2')
+    expect(html).toContain('Repository files')
+    expect(html).toContain('Attach file')
+    expect(html).not.toContain('Ownership and usage')
+    expect(html).not.toContain('Access summary')
     expect(html.match(/>Repositories<\/div>/g)).toHaveLength(1)
     expect(html).not.toContain('title=\'Shares\'')
     expect(html).not.toContain('No shares available.')

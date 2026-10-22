@@ -118,7 +118,7 @@ export default function ProfileOverview({ stats }: { stats: ProfileStats | null 
         { label: 'Organizations', value: stats.counts.organizations, href: '/organizations', Icon: Building2 },
         { label: 'Containers', value: stats.counts.containers, href: '/vms', Icon: Boxes },
         { label: 'Virtual machines', value: stats.counts.vms, href: '/vms', Icon: Server },
-        { label: 'Shares', value: stats.counts.shares, href: '/shares', Icon: Share2 },
+        { label: 'Files', value: stats.counts.shares, href: '/repositories', Icon: Share2 },
         { label: 'Articles', value: stats.counts.articles, href: '/content/articles', Icon: BookOpen },
     ]
 

@@ -2,7 +2,7 @@
 
 import { listTreePaths } from '@/components/share/workspaceTree'
 import { buildFallbackTrust } from './workbenchPaneTrust'
-import { WorkspaceOverviewPanels, WorkspaceAccessSummary } from './workspaceOverviewPanels'
+import { WorkspaceRecentActivityPanel } from './workspaceRecentActivityPanel'
 import { WorkspaceCollaborationPanel } from './workspaceCollaborationPanel'
 import { WorkspaceReleasePanels } from './workspaceReleasePanels'
 import { WorkspaceDeployPanel } from './workspaceDeployPanel'
@@ -26,7 +26,6 @@ type WorkspacePaneProps = {
     deployments: AIDeployment[]
     releases: AIRelease[]
     deployQuota: AIDeployQuota | null
-    ownershipSummary: AIOwnershipSummary | null
     availableVmTargets: AgentVmTarget[]
     deployPending: boolean
     collaboratorPending: boolean
@@ -67,7 +66,6 @@ export default function WorkspacePane(props: WorkspacePaneProps) {
         deployments,
         releases,
         deployQuota,
-        ownershipSummary,
         availableVmTargets,
         deployPending,
         collaboratorPending,
@@ -95,10 +93,7 @@ export default function WorkspacePane(props: WorkspacePaneProps) {
     const activeTreePaths = listTreePaths(activeShareTree)
     const { recentPaths, lastWorkspaceAction, lastWorkspaceActionAt, lastChangedPath } = metadata
     const selectedContent = selectedShareFileContent || selectedShareContent
-    const launchOwners = Array.from(new Set(deployments.map((deployment) => deployment.startedBy || deployment.ownerId).filter(Boolean)))
-    const reportOwners = Array.from(new Set(releases.map((release) => release.createdBy || release.ownerId).filter(Boolean)))
-    const latestRelease = releases[0] || null
-    const trustRelease = releases.find((release) => release.status === 'current') || latestRelease
+    const trustRelease = releases.find((release) => release.status === 'current') || releases[0] || null
     const trust = trustRelease?.trust || buildFallbackTrust(trustRelease)
     const launchReport = trust?.launchReport || []
     return (
@@ -108,9 +103,8 @@ export default function WorkspacePane(props: WorkspacePaneProps) {
                 <button type='button' onClick={onClose} aria-label='Close repository details' className='grid h-8 w-8 place-items-center rounded-lg text-ui-muted hover:bg-ui-panel hover:text-ui-text'><span aria-hidden='true'>×</span></button>
             </div>
             <WorkspaceRepositoryPanel importedRepos={importedRepos} initialShares={initialShares} activeConversation={activeConversation} activeRepoId={activeRepoId} syncingRepoId={syncingRepoId} selectedRepoFilePath={selectedRepoFilePath} activeTreePaths={activeTreePaths} selectedContent={selectedContent} recentPaths={recentPaths} lastChangedPath={lastChangedPath} importInput={importInput} githubToken={githubToken} importError={importError} importPending={importPending} onAttachRepo={onAttachRepo} onAttachShare={onAttachShare} onImportInputChange={onImportInputChange} onGitHubTokenChange={onGitHubTokenChange} onImportRepo={onImportRepo} onCreateRepository={name => onScaffoldStarter('nextjs_docker', name)} onRevokeRepoCredential={onRevokeRepoCredential} onRefreshRepo={onRefreshRepo} onSelectRepoFile={onSelectRepoFile} onSelectShareFile={onSelectShareFile} />
-            <WorkspaceOverviewPanels lastWorkspaceAction={lastWorkspaceAction} lastWorkspaceActionAt={lastWorkspaceActionAt} lastChangedPath={lastChangedPath} recentPaths={recentPaths} ownershipSummary={ownershipSummary} />
+            <WorkspaceRecentActivityPanel lastWorkspaceAction={lastWorkspaceAction} lastWorkspaceActionAt={lastWorkspaceActionAt} lastChangedPath={lastChangedPath} recentPaths={recentPaths} />
             <WorkspaceCollaborationPanel activeConversation={activeConversation} currentUserId={currentUserId} collaboratorPending={collaboratorPending} collaborationError={collaborationError} onInviteCollaborator={onInviteCollaborator} onRemoveCollaborator={onRemoveCollaborator} />
-            <WorkspaceAccessSummary activeConversation={activeConversation} launchOwners={launchOwners} reportOwners={reportOwners} ownershipSummary={ownershipSummary} latestRelease={latestRelease} />
             <WorkspaceReleasePanels trustRelease={trustRelease} trust={trust} launchReport={launchReport} releases={releases} rollbackPendingId={rollbackPendingId} onRollbackRelease={onRollbackRelease} />
             <WorkspaceDeployPanel availableVmTargets={availableVmTargets} activeRepo={activeRepo} activeConversation={activeConversation} deployQuota={deployQuota} deployPending={deployPending} deployments={deployments} onStartDeployment={onStartDeployment} />
 

@@ -18,7 +18,7 @@ export function ShareAnalyticsToggle() {
     return (
         <button
             type='button'
-            aria-label={open ? 'Hide share analytics' : 'Show share analytics'}
+            aria-label={open ? 'Hide file analytics' : 'Show file analytics'}
             aria-expanded={open}
             aria-controls='share-statistics'
             title='Analytics'
@@ -35,7 +35,7 @@ export function ShareAnalyticsPanel({ children }: { children: ReactNode }) {
 
     if (!open) return null
 
-    return <section id='share-statistics' aria-label='Share statistics' className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>{children}</section>
+    return <section id='share-statistics' aria-label='File statistics' className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>{children}</section>
 }
 
 function useShareAnalyticsState() {

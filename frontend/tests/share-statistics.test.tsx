@@ -29,8 +29,8 @@ test('compact date output keeps its English date fields and invalid-date fallbac
 test('empty shares hide statistics and retain the create action', async () => {
     shares = []
     const html = renderToStaticMarkup(await Shares())
-    expect(html).not.toContain('Share statistics')
-    expect(html).toContain('Create your first share')
+    expect(html).not.toContain('File statistics')
+    expect(html).toContain('No files yet')
     expect(html).toContain('href="/s"')
 })
 
@@ -38,10 +38,10 @@ test('populated shares keep analytics collapsed until requested', async () => {
     const share: Share = { id: 'code', alias: 'Code', path: 'code.ts', content: 'one two\n\nthree\n', wordCount: 99, estimatedMinutes: 1, timestamp: '2026-09-19T10:00:00Z', git: null, locked: false, owner: 'test', parent: '' }
     shares = [share, { ...share, id: 'note', content: 'single line', locked: true }]
     const html = renderToStaticMarkup(await Shares())
-    expect(html).toContain('aria-label="Show share analytics"')
+    expect(html).toContain('aria-label="Show file analytics"')
     expect(html).toContain('aria-expanded="false"')
-    expect(html).not.toContain('Share statistics')
-    expect(html).not.toContain('total lines shared')
+    expect(html).not.toContain('File statistics')
+    expect(html).not.toContain('total file lines')
     expect(html).toContain('3 lines')
     expect(html).toContain('1 line')
     expect(html).not.toContain('words')
@@ -50,6 +50,6 @@ test('populated shares keep analytics collapsed until requested', async () => {
 test('load errors do not show misleading zero statistics', async () => {
     shares = 'Unable to load shares.'
     const html = renderToStaticMarkup(await Shares())
-    expect(html).not.toContain('Share statistics')
-    expect(html).toContain('Unable to load shares.')
+    expect(html).not.toContain('File statistics')
+    expect(html).toContain('Could not load files.')
 })

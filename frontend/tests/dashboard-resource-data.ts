@@ -34,8 +34,7 @@ export const privilegedSidebarLinks = [
     'Collection runs',
     'Audit log',
     'VMs',
-    'Projects',
-    'Shares',
+    'Repositories',
     'Mail',
     'Automations',
     'Content management',
@@ -58,8 +57,7 @@ export const privilegedSidebarLinks = [
 
 export const privilegedDashboardRoutes = [
     { path: '/vms', heading: 'Virtual Machines' },
-    { path: '/projects', heading: 'Projects' },
-    { path: '/shares', heading: 'Code shares and projects' },
+    { path: '/repositories', heading: 'Repositories' },
     { path: '/mail', heading: 'Mail' },
     { path: '/automation', heading: 'Automations' },
     { path: '/notes', heading: 'Notes' },
@@ -81,8 +79,6 @@ export const privilegedDashboardRoutes = [
 
 export const adminOnlyOperationHrefs = [
     '/automation',
-    '/projects',
-    '/shares',
     '/logs',
     '/mail',
     '/db',

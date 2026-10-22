@@ -13,7 +13,7 @@ import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import dateSortValue from '@/utils/date/dateSortValue'
 import formatCompactDateTime from '@/utils/date/formatCompactDateTime'
 
-export default async function Shares() {
+export default async function Shares({ title = 'Files', showHeading = true }: { title?: string, showHeading?: boolean } = {}) {
     const Cookies = await cookies()
     const id = Cookies.get('id')?.value
     const token = Cookies.get('access_token')?.value
@@ -35,10 +35,10 @@ export default async function Shares() {
                         <div>
                             <div className='flex items-center gap-2'>
                                 <Radio className='h-4 w-4 text-ui-primary' />
-                                <h2 className='text-base font-semibold text-ui-text'>Shares</h2>
+                                {showHeading && <h2 className='text-base font-semibold text-ui-text'>{title}</h2>}
                             </div>
                             <p className='mt-1 text-sm text-ui-muted'>
-                                {typeof shares === 'string' ? 'Could not load shares.' : `${shareRows.length} share${shareRows.length === 1 ? '' : 's'}.`}
+                                {typeof shares === 'string' ? 'Could not load files.' : `${shareRows.length} file${shareRows.length === 1 ? '' : 's'}.`}
                             </p>
                         </div>
                         <div className='flex items-center gap-2'>
@@ -59,8 +59,8 @@ export default async function Shares() {
                                         <div className='mx-auto grid h-11 w-11 place-items-center rounded-full bg-ui-primary/10 text-ui-primary'>
                                             <Share2 className='h-5 w-5' />
                                         </div>
-                                        <h3 className='mt-3 text-lg font-semibold text-ui-text'>Create your first share</h3>
-                                        <p className='mt-2 text-sm leading-6 text-ui-muted'>Share a note, article, or workspace with a controlled link.</p>
+                                        <h3 className='mt-3 text-lg font-semibold text-ui-text'>No files yet</h3>
+                                        <p className='mt-2 text-sm leading-6 text-ui-muted'>Add a file to a repository to make it available to your AI chats.</p>
                                         <Link prefetch={false} href='/s' className='mt-4 inline-flex h-9 items-center gap-2 rounded-md bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary'>
                                             <Plus className='h-4 w-4' />
                                             Create
@@ -70,10 +70,10 @@ export default async function Shares() {
                     </div>
                 </DashboardPanel>
                 {shareRows.length > 0 && <ShareAnalyticsPanel>
-                    <DashboardMetricCard icon={<FileCode2 className='h-4 w-4' />} label='Shares' value={String(shareRows.length)} detail='total shares' tone='ok' />
+                    <DashboardMetricCard icon={<FileCode2 className='h-4 w-4' />} label='Files' value={String(shareRows.length)} detail='total files' tone='ok' />
                     <DashboardMetricCard icon={<LockKeyhole className='h-4 w-4' />} label='Locked' value={String(lockedCount)} detail={`${Math.max(shareRows.length - lockedCount, 0)} unlocked`} tone={lockedCount ? 'watch' : 'ok'} />
-                    <DashboardMetricCard icon={<Text className='h-4 w-4' />} label='Lines' value={totalLines.toLocaleString('en-US')} detail='total lines shared' tone='neutral' />
-                    <DashboardMetricCard icon={<Clock3 className='h-4 w-4' />} label='Latest share' value={latestShare ? formatCompactDateTime(latestShare.timestamp) : 'None'} detail={latestShare?.alias || latestShare?.path || 'No shares yet'} tone={latestShare ? 'ok' : 'neutral'} />
+                    <DashboardMetricCard icon={<Text className='h-4 w-4' />} label='Lines' value={totalLines.toLocaleString('en-US')} detail='total file lines' tone='neutral' />
+                    <DashboardMetricCard icon={<Clock3 className='h-4 w-4' />} label='Latest file' value={latestShare ? formatCompactDateTime(latestShare.timestamp) : 'None'} detail={latestShare?.alias || latestShare?.path || 'No files yet'} tone={latestShare ? 'ok' : 'neutral'} />
                 </ShareAnalyticsPanel>}
             </ShareAnalyticsProvider>
         </div>

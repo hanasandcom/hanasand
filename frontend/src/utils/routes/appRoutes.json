@@ -108,6 +108,10 @@
     "/shares"
   ],
   [
+    "/dashboard/repositories",
+    "/repositories"
+  ],
+  [
     "/dashboard/system",
     "/system"
   ],

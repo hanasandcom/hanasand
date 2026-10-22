@@ -2,7 +2,7 @@ import { ArtifactList } from './chatArtifacts'
 
 export function ArtifactSidebar({ groups, onPreview }: { groups: ReturnType<typeof import('./chatArtifacts').groupArtifacts>, onPreview: (artifact: AIArtifact | null) => void }) {
     return <aside className='min-h-0 border-t border-ui-border bg-ui-panel xl:border-t-0 xl:border-l'>
-        <div className='border-b border-ui-border px-4 py-3 text-[11px] font-semibold uppercase text-ui-muted'>Workspace output</div>
+        <div className='border-b border-ui-border px-4 py-3 text-[11px] font-semibold uppercase text-ui-muted'>Repository output</div>
         <div className='min-h-0 space-y-3 overflow-y-auto p-4'>
             {groups.map(group => <section key={group.kind} className='space-y-3'>
                 <div className='flex items-center justify-between gap-3'>

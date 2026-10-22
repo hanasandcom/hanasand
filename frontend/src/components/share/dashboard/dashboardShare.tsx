@@ -17,7 +17,7 @@ export default function DashboardShare({ share }: { share: Share }) {
             const token = getCookie('access_token')
             const userId = getCookie('id')
             const deleted = await deleteShare(share.id, token, userId)
-            return { deleted, error: `Unable to delete share ${share.id}.` }
+            return { deleted, error: `Unable to delete file ${share.id}.` }
         })
     }
 
@@ -36,7 +36,7 @@ export default function DashboardShare({ share }: { share: Share }) {
                     <Link href={`/s/${share.id}`} className='rounded-lg border border-ui-border bg-ui-panel px-2.5 py-1.5 text-xs font-semibold text-ui-text hover:bg-ui-raised'>
                         Open
                     </Link>
-                    <button type='button' onClick={() => void handleDelete()} aria-label={`Delete share ${share.alias || share.path || share.id}`} className='inline-flex h-8 w-8 items-center justify-center rounded-lg border border-ui-danger bg-ui-raised text-ui-text hover:bg-ui-raised dark:border-ui-danger/35 dark:bg-ui-raised/10 dark:text-ui-text dark:hover:bg-ui-raised/15'>
+                    <button type='button' onClick={() => void handleDelete()} aria-label={`Delete file ${share.alias || share.path || share.id}`} className='inline-flex h-8 w-8 items-center justify-center rounded-lg border border-ui-danger bg-ui-raised text-ui-text hover:bg-ui-raised dark:border-ui-danger/35 dark:bg-ui-raised/10 dark:text-ui-text dark:hover:bg-ui-raised/15'>
                         <Trash2 className='h-4 w-4' />
                     </button>
                 </div>

@@ -51,7 +51,7 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
         ? 'Hanasand GPT is unavailable right now.'
         : 'Sign in to send a message.'
     const blockedReason = readOnly
-        ? 'Reviewer mode: you can inspect this workspace but cannot send prompts.'
+        ? 'Reviewer mode: you can inspect this repository but cannot send prompts.'
         : !activeConversation ? provider === 'chatgpt' ? 'Preparing conversation…' : 'Starting a chat…'
             : awaitingResponse && provider !== 'chatgpt'
                 ? 'Hanasand is working on your reply.'

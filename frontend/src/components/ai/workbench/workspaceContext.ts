@@ -14,12 +14,12 @@ export async function buildWorkspaceContext(
 
     if (conversation.shareIds.length) {
         const activeShareId = conversation.workspaceId || conversation.shareIds[0]
-        const shareSummary = conversation.shareIds.map((shareId) => {
+        const fileSummary = conversation.shareIds.map((shareId) => {
             const content = shareContents[shareId] || ''
             const prefix = shareId === activeShareId ? 'active' : 'attached'
-            return `${prefix} share ${shareId}:\n${content.slice(0, shareId === activeShareId ? 12000 : 2500)}`
+            return `${prefix} repository file ${shareId}:\n${content.slice(0, shareId === activeShareId ? 12000 : 2500)}`
         })
-        sections.push(`Attached Hanasand shares:\n${shareSummary.join('\n\n')}`)
+        sections.push(`Repository files:\n${fileSummary.join('\n\n')}`)
     }
 
     const repositoryId = workspaceRepositoryId(conversation)

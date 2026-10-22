@@ -36,24 +36,22 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
     const availableCount = importedRepos.length + standaloneFiles.length
 
     return <Panel icon={<FolderGit2 className='h-4 w-4' />} title='Repositories' subtitle={`${availableCount} available`} grow>
-        <form className='grid min-w-0 gap-2' onSubmit={event => { event.preventDefault(); void onImportRepo() }}>
-            <label htmlFor='workspace-repository-url' className='text-xs font-medium text-ui-text'>Attach repository</label>
-            <div className='flex min-w-0 flex-wrap gap-2 sm:flex-nowrap'>
-                <input id='workspace-repository-url' value={importInput} onChange={event => onImportInputChange(event.target.value)} placeholder='owner/repo or repository URL' className='min-w-0 flex-1 rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
-                <WorkspacePrimaryAction type='submit' disabled={importPending}>{importPending ? 'Importing' : 'Attach repository'}</WorkspacePrimaryAction>
-            </div>
-            <input aria-label='GitHub token for a private repository (optional)' value={githubToken} onChange={event => onGitHubTokenChange(event.target.value)} placeholder='GitHub token for a private repository (optional)' type='password' autoComplete='off' spellCheck={false} className='min-w-0 rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
-            <div className='text-xs text-ui-muted'>The token is sent with the current repository request and cleared after successful use.</div>
-            {importError ? <ErrorNotice compact message={importError} /> : null}
-        </form>
+        <div className='grid min-w-0 grid-cols-2 gap-3'>
+            <form className='grid min-w-0 content-start gap-2' onSubmit={event => { event.preventDefault(); void onImportRepo() }}>
+                <label htmlFor='workspace-repository-url' className='text-xs font-medium text-ui-text'>Attach repository</label>
+                <input id='workspace-repository-url' value={importInput} onChange={event => onImportInputChange(event.target.value)} placeholder='owner/repo or repository URL' className='min-w-0 w-full rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
+                <WorkspacePrimaryAction type='submit' disabled={importPending} className='w-full min-w-0 text-xs'>{importPending ? 'Importing' : 'Attach repository'}</WorkspacePrimaryAction>
+                <input aria-label='GitHub token for a private repository (optional)' value={githubToken} onChange={event => onGitHubTokenChange(event.target.value)} placeholder='GitHub token for a private repository (optional)' type='password' autoComplete='off' spellCheck={false} className='min-w-0 w-full rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
+                <div className='col-span-2 text-xs text-ui-muted'>The token is sent with the current repository request and cleared after successful use.</div>
+                {importError ? <div className='col-span-2'><ErrorNotice compact message={importError} /></div> : null}
+            </form>
 
-        <form className='grid min-w-0 gap-2 border-t border-ui-border/70 pt-3' onSubmit={event => { event.preventDefault(); if (repositoryName.trim()) void onCreateRepository(repositoryName.trim()) }}>
-            <label htmlFor='workspace-repository-name' className='text-xs font-medium text-ui-text'>Create repository</label>
-            <div className='flex min-w-0 flex-wrap gap-2 sm:flex-nowrap'>
-                <input id='workspace-repository-name' value={repositoryName} onChange={event => setRepositoryName(event.target.value)} placeholder='Repository name' className='min-w-0 flex-1 rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
-                <WorkspacePrimaryAction type='submit' disabled={!repositoryName.trim()} hover>Create repository</WorkspacePrimaryAction>
-            </div>
-        </form>
+            <form className='grid min-w-0 content-start gap-2' onSubmit={event => { event.preventDefault(); if (repositoryName.trim()) void onCreateRepository(repositoryName.trim()) }}>
+                <label htmlFor='workspace-repository-name' className='text-xs font-medium text-ui-text'>Create repository</label>
+                <input id='workspace-repository-name' value={repositoryName} onChange={event => setRepositoryName(event.target.value)} placeholder='Repository name' className='min-w-0 w-full rounded-lg bg-ui-raised px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
+                <WorkspacePrimaryAction type='submit' disabled={!repositoryName.trim()} hover className='w-full min-w-0 text-xs'>Create repository</WorkspacePrimaryAction>
+            </form>
+        </div>
 
         <div className='min-w-0 space-y-2 border-t border-ui-border/70 pt-3'>
             {importedRepos.length || standaloneFiles.length ? <>
@@ -62,7 +60,7 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
                         <div className='min-w-0 flex-1'>
                             <div className='break-all text-sm font-medium text-ui-text'>{repo.fullName}</div>
                             <div className='mt-1 break-all text-xs text-ui-muted'>{repo.branch} · {repo.syncStatus === 'ready' ? 'Ready' : repo.syncStatus === 'syncing' ? 'Syncing…' : repo.lastSyncError || 'Sync failed'}</div>
-                            <div className='mt-1 break-all text-[11px] text-ui-muted'>{repo.accessScope === 'owned' ? `Owned by ${repo.ownerId}` : `Shared from ${repo.ownerId}`}</div>
+                            <div className='mt-1 break-all text-[11px] text-ui-muted'>{repo.accessScope === 'owned' ? `Owned by ${repo.ownerId}` : `Access from ${repo.ownerId}`}</div>
                             <div className='mt-1 text-[11px] text-ui-muted'>{repo.stackType === 'unknown' ? (repo.stackReason || 'Unsupported stack') : repo.stackType.replaceAll('_', ' ')}</div>
                             {repo.credential?.hasCredential ? <div className='mt-1 break-all text-[11px] text-ui-success'>Saved GitHub token {repo.credential.tokenHint || ''}{repo.credential.lastUsedAt ? ` · used ${formatActivityTime(repo.credential.lastUsedAt)}` : ''}</div> : repo.authHint ? <div className='mt-1 break-all text-[11px] text-ui-warning'>{repo.authHint}</div> : null}
                         </div>
@@ -74,13 +72,16 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
                     </div>
                     {repo.id === activeRepoId && repo.files.length ? <div className='mt-3 max-h-36 space-y-1 overflow-y-auto pr-1'>{repo.files.slice(0, 80).map(file => <WorkspaceFileButton key={file.path} path={file.path} selected={selectedRepoFilePath === file.path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} onSelect={onSelectRepoFile} />)}</div> : null}
                 </WorkspaceResourceCard>)}
-                {standaloneFiles.map(file => <WorkspaceResourceCard key={file.id} selected={file.id === activeConversation?.workspaceId}>
-                    <div className='flex min-w-0 items-start justify-between gap-3'>
-                        <div className='min-w-0 flex-1'><div className='break-all text-sm text-ui-text'>{file.alias || file.id}</div><div className='mt-1 break-all text-xs text-ui-muted'>{file.path || file.id}</div></div>
-                        <button type='button' onClick={() => void onAttachShare(file.id)} className='shrink-0 rounded-lg bg-ui-raised px-2.5 py-1.5 text-xs text-ui-text outline outline-ui-border hover:text-ui-primary'>Attach</button>
-                    </div>
-                    {file.id === activeConversation?.workspaceId && activeTreePaths.length ? <div className='mt-3 max-h-36 space-y-1 overflow-y-auto pr-1'>{activeTreePaths.slice(0, 120).map(path => <WorkspaceFileButton key={path} path={path} selected={selectedRepoFilePath === path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} onSelect={onSelectShareFile} />)}</div> : null}
-                </WorkspaceResourceCard>)}
+                {standaloneFiles.length ? <div className='col-span-full min-w-0 space-y-2 border-t border-ui-border/70 pt-3' aria-label='Repository files'>
+                    <h3 className='text-xs font-medium text-ui-text'>Repository files</h3>
+                    {standaloneFiles.map(file => <WorkspaceResourceCard key={file.id} selected={file.id === activeConversation?.workspaceId}>
+                        <div className='flex min-w-0 items-start justify-between gap-3'>
+                            <div className='min-w-0 flex-1'><div className='break-all text-sm text-ui-text'>{file.alias || file.id}</div><div className='mt-1 break-all text-xs text-ui-muted'>{file.path || file.id}</div></div>
+                            <button type='button' onClick={() => void onAttachShare(file.id)} className='shrink-0 rounded-lg bg-ui-raised px-2.5 py-1.5 text-xs text-ui-text outline outline-ui-border hover:text-ui-primary'>Attach file</button>
+                        </div>
+                        {file.id === activeConversation?.workspaceId && activeTreePaths.length ? <div className='mt-3 max-h-36 space-y-1 overflow-y-auto pr-1'>{activeTreePaths.slice(0, 120).map(path => <WorkspaceFileButton key={path} path={path} selected={selectedRepoFilePath === path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} onSelect={onSelectShareFile} />)}</div> : null}
+                    </WorkspaceResourceCard>)}
+                </div> : null}
             </> : <Empty text='No repositories yet. Attach an existing repository or create one to start working with files.' />}
         </div>
 

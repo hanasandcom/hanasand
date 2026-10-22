@@ -24,24 +24,24 @@ export async function runWorkspaceTool(
     const { hydrateShare, setShareContents, scaffoldStarter, runTerminalCommand, createVm, setStatusNotice } = dependencies
     if (toolCall.action === 'read_share') {
         const shareId = toolCall.shareId || conversation.workspaceId || conversation.shareIds[0]
-        if (!shareId) return { ok: false, message: 'Tool failed: no share is attached to this conversation.' }
+        if (!shareId) return { ok: false, message: 'Tool failed: no repository file is attached to this conversation.' }
         const share = await hydrateShare(shareId)
-        if (!share) return { ok: false, message: `Tool failed: unable to read share ${shareId}.` }
-        return { ok: true, message: `Read share ${shareId}.\n\n${share.content.slice(0, 12000)}` }
+        if (!share) return { ok: false, message: `Tool failed: unable to read repository file ${shareId}.` }
+        return { ok: true, message: `Read repository file ${shareId}.\n\n${share.content.slice(0, 12000)}` }
     }
     if (toolCall.action === 'update_share') {
         const shareId = toolCall.shareId || conversation.workspaceId || conversation.shareIds[0]
-        if (!shareId || !toolCall.content) return { ok: false, message: 'Tool failed: update_share requires a target share and content.' }
+        if (!shareId || !toolCall.content) return { ok: false, message: 'Tool failed: update_share requires a repository file and content.' }
         const updated = await updateShare(shareId, { content: toolCall.content, path: toolCall.path })
-        if (!updated) return { ok: false, message: `Tool failed: unable to update share ${shareId}.` }
+        if (!updated) return { ok: false, message: `Tool failed: unable to update repository file ${shareId}.` }
         setShareContents((prev) => ({ ...prev, [shareId]: updated.content }))
-        return { ok: true, message: `Updated share ${shareId}${toolCall.path ? ` at ${toolCall.path}` : ''}.` }
+        return { ok: true, message: `Updated repository file ${shareId}${toolCall.path ? ` at ${toolCall.path}` : ''}.` }
     }
     if (toolCall.action === 'scaffold_nextjs_docker') {
         const projectName = toolCall.projectName || conversation.title || 'hanasand-next-docker'
         await scaffoldStarter('nextjs_docker', projectName, toolCall.shareId || conversation.workspaceId || null)
-        const workspaceName = projectName.trim() || 'hanasand-next-docker'
-        return { ok: true, message: `Scaffolded a Next.js + Docker workspace for ${workspaceName}. The workspace is attached and ready for follow-up edits.` }
+        const repositoryName = projectName.trim() || 'hanasand-next-docker'
+        return { ok: true, message: `Created a Next.js + Docker repository for ${repositoryName}. It is attached and ready for follow-up edits.` }
     }
     if (toolCall.action === 'create_vm') {
         const vmName = slugify(toolCall.vmName || toolCall.projectName || conversation.title || 'hanasand-project')
@@ -57,7 +57,7 @@ export async function runWorkspaceTool(
         const vmName = safeVmName.length === 1 ? `${safeVmName}-app` : safeVmName
         const scaffold = await scaffoldStarter('nextjs_docker', projectName, toolCall.shareId || conversation.workspaceId || null, toolCall.projectFiles)
         if (!scaffold?.files.length) {
-            return { ok: false, message: `Could not create ${projectName}: the workspace scaffold did not return project files, so no VM was started.` }
+            return { ok: false, message: `Could not create ${projectName}: the repository setup did not return project files, so no VM was started.` }
         }
         setStatusNotice(`Creating ${vmName}, installing dependencies, building the app, and starting the preview...`)
         const result = await createVm({
@@ -70,13 +70,13 @@ export async function runWorkspaceTool(
         if (result.status === 409) {
             return {
                 ok: false,
-                message: `Created the ${projectName} workspace, but VM ${vmName} already exists. No new VM setup was started; choose another VM name or manage the existing VM.`,
+                message: `Created the ${projectName} repository, but VM ${vmName} already exists. No new VM setup was started; choose another VM name or manage the existing VM.`,
             }
         }
         if (result.status >= 400) {
             return {
                 ok: false,
-                message: `Created the ${projectName} workspace, but VM provisioning could not start: ${result.message}`,
+                message: `Created the ${projectName} repository, but VM provisioning could not start: ${result.message}`,
             }
         }
         const getProjectStatus = dependencies.getProjectStatus || (async (name: string) => {
@@ -110,13 +110,13 @@ export async function runWorkspaceTool(
     }
     if (toolCall.action === 'run_terminal_command') {
         const shareId = toolCall.shareId || conversation.workspaceId || conversation.shareIds[0]
-        if (!shareId || !toolCall.command) return { ok: false, message: 'Tool failed: run_terminal_command requires a target share and command.' }
+        if (!shareId || !toolCall.command) return { ok: false, message: 'Tool failed: run_terminal_command requires a repository and command.' }
         const result = await runTerminalCommand(shareId, toolCall.command, toolCall.timeoutMs)
         const unsupportedCommand = /command is not available in this browser terminal/i.test(result.output)
         return {
             ok: result.ok && !unsupportedCommand,
             message: [
-                unsupportedCommand ? `Could not run ${toolCall.command} on share ${shareId}.` : `Ran terminal command on share ${shareId}.`,
+                unsupportedCommand ? `Could not run ${toolCall.command} in repository ${shareId}.` : `Ran terminal command in repository ${shareId}.`,
                 `Command: ${toolCall.command}`,
                 'Output:',
                 result.output,

@@ -9,7 +9,7 @@ import prettyDate from '@/utils/date/prettyDate'
 import type { ReactNode } from 'react'
 import Button from '@/components/misc/button'
 
-export default async function Projects() {
+export default async function Projects({ emptyTitle = 'Projects' }: { emptyTitle?: string } = {}) {
     const Cookies = await cookies()
     const id = Cookies.get('id')?.value
     const token = Cookies.get('access_token')?.value
@@ -24,33 +24,33 @@ export default async function Projects() {
     const fileCount = sortedProjects.reduce((sum, project) => sum + (project.file_count || 0), 0)
     const editorCount = new Set(sortedProjects.flatMap((project) => project.editors || [])).size
 
-    if (!sortedProjects.length) return <WorkspaceWelcome />
+    if (!sortedProjects.length) return <WorkspaceWelcome title={emptyTitle} />
 
     return (
         <div className='grid gap-3 xl:grid-cols-[minmax(0,1fr)_19rem]'>
             <DashboardPanel className='grid content-start gap-3 border-ui-border bg-ui-panel p-3'>
                 <div className='flex flex-col gap-3 border-b border-ui-border pb-3 lg:flex-row lg:items-center lg:justify-between'>
                     <div className='grid gap-2 sm:grid-cols-3'>
-                        <WorkspaceMetric icon={<FolderKanban className='h-4 w-4' />} label='Workspaces' value={String(sortedProjects.length)} />
+                        <WorkspaceMetric icon={<FolderKanban className='h-4 w-4' />} label='Repositories' value={String(sortedProjects.length)} />
                         <WorkspaceMetric icon={<Clock3 className='h-4 w-4' />} label='Latest update' value={activeProject ? prettyDate(activeProject.last_updated) : 'Listening'} />
                         <WorkspaceMetric icon={<Users className='h-4 w-4' />} label='Editors' value={String(editorCount)} />
                     </div>
                     <Link href='/s' className='inline-flex h-9 w-fit items-center gap-2 rounded-md border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary/35 hover:bg-ui-primary/10'>
                         <Plus className='h-4 w-4' />
-                        <span>Create workspace</span>
+                        <span>Create repository</span>
                     </Link>
                 </div>
                 <div className='grid max-h-[calc(100vh-18rem)] gap-1 overflow-auto pr-1'>
                     {sortedProjects.length
                         ? sortedProjects.map((project) => <DashboardProject key={project.alias} project={project} />)
-                        : <p className='rounded-md border border-dashed border-ui-border bg-ui-canvas p-3 text-sm text-ui-muted'>Create or open a workspace to start activity.</p>}
+                        : <p className='rounded-md border border-dashed border-ui-border bg-ui-canvas p-3 text-sm text-ui-muted'>Create or open a repository to start activity.</p>}
                 </div>
             </DashboardPanel>
             <DashboardPanel className='grid content-start gap-3 border-ui-border bg-ui-panel p-3'>
                 <div className='rounded-md border border-ui-border bg-ui-canvas p-3'>
-                    <p className='text-xs font-semibold uppercase text-ui-muted'>Active workspace</p>
-                    <p className='mt-1 truncate text-base font-semibold text-ui-text'>{activeProject?.alias || 'Monitoring workspace'}</p>
-                    <p className='mt-1 text-xs text-ui-muted'>{activeProject ? `${activeProject.file_count || 0} files · ${activeProject.editors?.length || 0} editors` : 'Create or open a workspace.'}</p>
+                    <p className='text-xs font-semibold uppercase text-ui-muted'>Active repository</p>
+                    <p className='mt-1 truncate text-base font-semibold text-ui-text'>{activeProject?.alias || 'No repository selected'}</p>
+                    <p className='mt-1 text-xs text-ui-muted'>{activeProject ? `${activeProject.file_count || 0} files · ${activeProject.editors?.length || 0} editors` : 'Create or open a repository.'}</p>
                 </div>
                 <WorkspaceMetric icon={<FolderKanban className='h-4 w-4' />} label='Files' value={String(fileCount)} />
                 <div className='rounded-md border border-ui-border bg-ui-canvas p-3'>
@@ -70,13 +70,13 @@ export default async function Projects() {
     )
 }
 
-function WorkspaceWelcome() {
+function WorkspaceWelcome({ title }: { title: string }) {
     return (
         <section className='grid min-h-[26rem] place-items-center rounded-lg border border-ui-border bg-ui-panel p-6 text-center shadow-sm'>
             <div className='grid max-w-md justify-items-center gap-4'>
                 <div>
-                    <h2 className='text-2xl font-semibold text-ui-text'>Projects</h2>
-                    <p className='mt-2 text-sm leading-6 text-ui-muted'>Create your first project now.</p>
+                    {title && <h2 className='text-2xl font-semibold text-ui-text'>{title}</h2>}
+                    <p className='mt-2 text-sm leading-6 text-ui-muted'>Create your first {title.toLowerCase() || 'repository'} now.</p>
                 </div>
                 <Button path='/s' size='md' variant='secondary' text='Create' icon={<Plus className='h-4 w-4' />} />
             </div>

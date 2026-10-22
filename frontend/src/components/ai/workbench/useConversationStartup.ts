@@ -3,22 +3,8 @@ import { aiClientRequest } from '@/utils/ai/client'
 import { createConversation, toConversationPayload } from './conversationModel'
 import { promoteDraftOnce, readPendingConversationDraft, reusePendingConversationDraft } from './conversationDraftStorage'
 import type { WorkbenchState } from './useWorkbenchState'
-
-export function buildRecoveryNotice(savedConversationId: string | null, nextConversationId: string, conversation: AIConversation | null, runtimeState: AIRuntimeState | null | undefined, lastShownKey: string | null = null) {
-    const failure = runtimeState?.lastFailure
-    const toolRun = runtimeState?.lastToolRun
-    const detail = failure?.message || toolRun?.detail || null
-    if (!detail) return null
-    const recoveryKey = `${nextConversationId}:${failure?.updatedAt || toolRun?.updatedAt || ''}:${detail}`
-    if (lastShownKey === recoveryKey) return null
-    const source = savedConversationId === nextConversationId ? 'your last repository selection' : 'the most recent runtime activity'
-    return {
-        message: `Recovered ${source}: ${detail}`,
-        conversationId: nextConversationId,
-        workspaceId: conversation?.workspaceId || null,
-        recoveryKey,
-    }
-}
+import { buildRecoveryNotice } from './recoveryNotice'
+export { buildRecoveryNotice } from './recoveryNotice'
 
 export function useConversationStartup(state: WorkbenchState) {
     const {

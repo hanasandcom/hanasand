@@ -123,7 +123,7 @@ export default function AIPageClient({
                     {showWorkspaceRail && detailsOpen ? (
                         <>
                             <button type='button' aria-label='Close repository details' onClick={() => setDetailsOpen(false)} className='absolute inset-0 z-30 bg-ui-scrim/60 xl:hidden' />
-                            <div className='absolute inset-y-0 right-0 z-40 h-full w-[min(25rem,100%)] min-w-0 overflow-hidden p-2 xl:static xl:col-span-1 xl:w-auto xl:p-0'>
+                            <div className='absolute inset-y-0 right-0 z-40 h-full w-[min(25rem,100%)] min-w-0 overflow-hidden p-2 shadow-2xl xl:relative xl:inset-auto xl:z-auto xl:col-span-1 xl:w-full xl:p-0 xl:shadow-none'>
                                 <WorkspacePane
                                     activeConversation={ai.activeConversation}
                                     importedRepos={ai.importedRepos}
@@ -141,7 +141,6 @@ export default function AIPageClient({
                                     deployments={ai.deployments}
                                     releases={ai.releases}
                                     deployQuota={ai.deployQuota}
-                                    ownershipSummary={ai.ownershipSummary}
                                     availableVmTargets={ai.availableVmTargets}
                                     deployPending={ai.deployPending}
                                     collaboratorPending={ai.collaboratorPending}

@@ -60,7 +60,7 @@ export function useRepositoryManagement(
             const userId = getCookie('id')
             pendingRepo = withRepositorySync(repo, {
                 status: 'syncing', source: existing ? 'refresh' : 'import',
-                message: existing ? 'Refreshing repository and syncing workspace...' : 'Importing repository and creating workspace...',
+                message: existing ? 'Refreshing repository and syncing files...' : 'Importing repository and preparing files...',
             })
             upsertRepository(pendingRepo)
             await persistRepository(pendingRepo)
@@ -69,7 +69,7 @@ export function useRepositoryManagement(
                 pendingRepo = {
                     ...pendingRepo,
                     authMode: 'github_token',
-                    authHint: 'Private GitHub access is stored server-side for this repository. You can revoke it from the workspace.',
+                    authHint: 'Private GitHub access is stored server-side for this repository. You can revoke it here.',
                     credential,
                 }
                 upsertRepository(pendingRepo)
@@ -81,13 +81,13 @@ export function useRepositoryManagement(
             await hydrateShareRef.current(pendingRepo.id)
             const readyRepo = withRepositorySync(pendingRepo, {
                 status: 'ready', source: existing ? 'refresh' : 'import',
-                message: existing ? 'Repository refresh complete.' : 'Repository imported into the editor workspace.',
+                message: existing ? 'Repository refresh complete.' : 'Repository imported into the editor.',
             })
             upsertRepository(readyRepo)
             setImportInput('')
             setGitHubToken('')
             await persistRepository(readyRepo)
-            setStatusNotice(existing ? 'Repository refreshed and synced into the editor workspace.' : 'Repository imported and ready in the editor workspace.')
+            setStatusNotice(existing ? 'Repository refreshed and synced into the editor.' : 'Repository imported and ready in the editor.')
             await attachRepo(readyRepo.id, readyRepo)
         } catch (error) {
             if (pendingRepo) {

@@ -65,11 +65,12 @@ test('traffic has separate overview, recent, map, and blocklist destinations', (
     assert.deepEqual(traffic?.items?.map(item => item.href), ['/traffic', '/traffic/recent', '/traffic/map', '/traffic/blocklist'])
 })
 
-test('project and file routes share the Repositories navigation group', () => {
+test('workspaces and files have one Repositories navigation destination', () => {
     const links = navigationLinks(getDashboardNavigation({ id: 'admin', canViewInternalPages: true }))
-    const repositoryLinks = links.filter(link => ['/projects', '/shares'].includes(link.href))
-    assert.deepEqual(repositoryLinks.map(link => link.ancestors.at(-1)), ['Repositories', 'Repositories'])
-    assert.deepEqual(repositoryLinks.map(link => link.label), ['Projects', 'Files'])
+    const repositoryLinks = links.filter(link => ['/repositories', '/projects', '/shares'].includes(link.href))
+    assert.deepEqual(repositoryLinks.map(link => ({ label: link.label, href: link.href, section: link.ancestors.at(-1) })), [
+        { label: 'Repositories', href: '/repositories', section: 'Content' },
+    ])
 })
 
 test('virtual machines are reachable from Monitoring for accounts with VM access', () => {
