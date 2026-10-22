@@ -77,7 +77,7 @@ test('load test shortcut uses a distinct label from the operator load-testing da
     assert.equal(links.find(item => item.href === '/load-testing')?.label, 'Load Testing')
 })
 
-test('repositories have one navigation destination', () => {
+test('workspaces and files have one Repositories navigation destination', () => {
     const links = navigationLinks(getDashboardNavigation({ id: 'admin', canViewInternalPages: true }))
     const repositoryLinks = links.filter(link => ['/repositories', '/projects', '/shares'].includes(link.href))
     assert.deepEqual(repositoryLinks.map(link => ({ label: link.label, href: link.href, section: link.ancestors.at(-1) })), [
