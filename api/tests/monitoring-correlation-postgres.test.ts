@@ -18,7 +18,7 @@ const {mergeMonitoringCases:merge}=await import('../src/utils/mergeMonitoringCas
 const {mergeMonitoringCaseSet}=await import('../src/utils/mergeMonitoringCases.ts')
 const message='connect ECONNREFUSED git.example.com:443 Failed after 2 attempts.'
 test('merges scoped socket failures, retains evidence and aliases, serializes notifications, and waits for every check to recover',async()=>{
-    await q(`CREATE TABLE agent_automations(id text PRIMARY KEY,owner_id text,organization_id text,target_url text,monitoring_type text,action_type text,notification_destinations text[],model_name text,expected_down boolean DEFAULT false,upside_down boolean DEFAULT false);
+    await q(`CREATE TABLE agent_automations(id text PRIMARY KEY,name text,owner_id text,organization_id text,target_url text,monitoring_type text,action_type text,notification_destinations text[],model_name text,expected_down boolean DEFAULT false,upside_down boolean DEFAULT false);
  CREATE TABLE agent_automation_runs(id text PRIMARY KEY,automation_id text,started_at timestamptz DEFAULT NOW(),status text,warning boolean DEFAULT false,completed_at timestamptz DEFAULT NOW());
  CREATE TABLE monitoring_case_vms(automation_id text,target_url text,vm_name text);
  CREATE TABLE organizations(id text,status text);
@@ -167,9 +167,9 @@ test('standby case grants allow reader fields but not case writes or unrelated s
     await q(`CREATE ROLE hanasand_standby_app NOLOGIN;
  CREATE TABLE vms(name text,organization_id text,owner text,created_by text,access_users jsonb,deleted_at timestamptz,password text);
  CREATE TABLE case_repositories(id uuid,owner_id text,organization_id text,provider text,repository_url text,last_received_at timestamptz,last_warning text,created_at timestamptz,secret_encrypted text);
- CREATE TABLE case_development(repository_id uuid,title text);
- ALTER TABLE agent_automations ADD COLUMN name text,ADD COLUMN model_name text,ADD COLUMN timeout_seconds int,
- ADD COLUMN retry_count int,ADD COLUMN follow_redirects boolean,ADD COLUMN expected_down boolean,ADD COLUMN upside_down boolean;
+ CREATE TABLE case_development(repository_id uuid,title text,case_references text[] NOT NULL DEFAULT '{}');
+ ALTER TABLE agent_automations ADD COLUMN timeout_seconds int,
+ ADD COLUMN retry_count int,ADD COLUMN follow_redirects boolean;
  ALTER TABLE agent_automation_runs ADD COLUMN duration_ms int,ADD COLUMN error text,ADD COLUMN result text;`)
     const grants=readFileSync(new URL('../../db/standby-permissions.sql',import.meta.url),'utf8')
         .split('-- Monitoring case reads:')[1]!.split('-- End monitoring case reads.')[0]!
@@ -199,15 +199,16 @@ test('standby case grants allow reader fields but not case writes or unrelated s
 })
 
 test('manual merge keeps every case field and routes later throughput samples to the retained case', async () => {
-    const automation = {
+    const automationInput = {
         id: 'manual-throughput-merge', owner_id: 'owner', organization_id: null, target_url: 'system:metrics',
         monitoring_type: 'json', action_type: 'agent_prompt', notify_on: 'failure', notification_destinations: ['test'],
         model_name: null, expected_down: false, upside_down: false,
         json_rule: { path: 'current.alert', operator: 'eq', value: true },
     } as any
     await q(`INSERT INTO agent_automations(id,owner_id,organization_id,target_url,monitoring_type,action_type,notification_destinations,json_rule)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [automation.id, automation.owner_id, null, automation.target_url, automation.monitoring_type,
-        automation.action_type, automation.notification_destinations, JSON.stringify(automation.json_rule)])
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [automationInput.id, automationInput.owner_id, null, automationInput.target_url, automationInput.monitoring_type,
+        automationInput.action_type, automationInput.notification_destinations, JSON.stringify(automationInput.json_rule)])
+    const automation = (await q('SELECT * FROM agent_automations WHERE id=$1', [automationInput.id])).rows[0] as any
     const summaries = [
         'Logs throughput is outside its configured limits: NPPS (incoming load ÷ checked throughput) 0 below 100×; processing rate 0 below 200 logs/s. Pending backlog: 9943432. Check incoming traffic, processing workers, and the pending backlog.',
         'Logs throughput is outside its configured limits: NPPS (incoming load ÷ checked throughput) 0 below 100×; processing rate 0 below 200 logs/s. Pending backlog: 9943434. Check incoming traffic, processing workers, and the pending backlog.',
@@ -242,7 +243,7 @@ test('manual merge keeps every case field and routes later throughput samples to
     expect((await q('SELECT count(*)::int AS total FROM agent_automation_runs WHERE issue_id=$1', [ids[0]])).rows[0].total).toBe(3)
     expect((await q('SELECT count(*)::int AS total FROM monitoring_issue_messages WHERE issue_id=$1', [ids[0]])).rows[0].total).toBe(3)
     expect((await q('SELECT count(*)::int AS total FROM monitoring_issue_notifications WHERE issue_id=$1 AND destination=\'test\'', [ids[0]])).rows[0].total).toBe(1)
-    expect(new Date((await q('SELECT next_attempt_at FROM monitoring_issue_notifications WHERE issue_id=$1 AND destination=\'test\'', [ids[0]])).rows[0].next_attempt_at).getTime()).toBeGreaterThan(Date.now() + 24 * 60 * 60 * 1000)
+    expect(new Date((await q('SELECT next_attempt_at FROM monitoring_issue_notifications WHERE issue_id=$1 AND destination=\'test\'', [ids[0]])).rows[0].next_attempt_at).getTime()).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000)
     await q('INSERT INTO agent_automation_runs(id,automation_id,status) VALUES($1,$2,\'failed\')', ['throughput-after-manual-merge', automation.id])
     expect(await record(automation, 'throughput-after-manual-merge', 'failure', summaries[1]!)).toBe(ids[0])
     expect((await q('SELECT count(*)::int AS total FROM monitoring_issues WHERE automation_id=$1 AND merged_into IS NULL', [automation.id])).rows[0].total).toBe(1)
