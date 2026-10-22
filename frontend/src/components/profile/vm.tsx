@@ -107,8 +107,8 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                             <button type='button' onClick={openDetails} className={`${vmActionStyle} px-3 text-ui-primary`} data-vm-primary-action>
                                 Open details <ArrowRight className='h-4 w-4' />
                             </button>
-                            {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} hidden px-3 text-ui-text sm:inline-flex`} />}
-                            {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} hidden px-3 text-ui-primary sm:inline-flex`} />}
+                            {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} max-sm:hidden px-3 text-ui-text`} />}
+                            {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} max-sm:hidden px-3 text-ui-primary`} />}
                             <details className='relative w-full sm:w-auto' data-vm-actions data-vm-danger-actions>
                                 <summary aria-label={`More actions for ${name}`} title='More actions' className={`${vmActionStyle} ml-auto w-9 cursor-pointer list-none text-ui-muted [&::-webkit-details-marker]:hidden sm:ml-0`}>
                                     <Menu className='h-4 w-4' />
