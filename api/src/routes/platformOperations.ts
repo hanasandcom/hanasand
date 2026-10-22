@@ -10,7 +10,7 @@ import { getDatabaseHealth, getDatabaseRows, postDatabaseQuery } from '../handle
 import getDatabaseBrowse from '../handlers/database/browse.ts'
 import getDocker from '../handlers/docker/getDocker.ts'
 import { getVulnerabilities, getWebScanner, postVulnerabilityScan, postWebScanner, putWebScannerSchedule } from '../handlers/vulnerabilities.ts'
-import { deleteUvmTenableIntegration, getUvm, getUvmRun, postUvmAsset, postUvmAssetScan, postUvmAssetTenableScan, postUvmAssetVerification, postUvmRunCancel, putUvmAssetSchedule, putUvmFinding, putUvmTenableIntegration } from '../handlers/uvmScanner.ts'
+import { deleteUvmTenableIntegration, getUvm, getUvmRun, postUvmAsset, postUvmAssetScan, postUvmAssetTenableScan, postUvmAssetVerification, postUvmAssessment, postUvmAssessmentCancel, postUvmRunCancel, putUvmAssetSchedule, putUvmFinding, putUvmTenableIntegration } from '../handlers/uvmScanner.ts'
 import getStatus from '../handlers/status/get.ts'
 import ingestStatus from '../handlers/status/ingest.ts'
 import httpRequestTool from '../handlers/tools/httpRequest.ts'
@@ -101,6 +101,8 @@ export function registerPlatformOperationsRoutes(fastify: FastifyInstance) {
     fastify.put('/vulnerabilities/uvm/assets/:assetId/schedule', putUvmAssetSchedule)
     fastify.post('/vulnerabilities/uvm/assets/:assetId/scans', postUvmAssetScan)
     fastify.post('/vulnerabilities/uvm/assets/:assetId/tenable-scans', postUvmAssetTenableScan)
+    fastify.post('/vulnerabilities/uvm/assessments', postUvmAssessment)
+    fastify.post('/vulnerabilities/uvm/assessments/:assessmentId/cancel', postUvmAssessmentCancel)
     fastify.put('/vulnerabilities/uvm/integrations/tenable', putUvmTenableIntegration)
     fastify.delete('/vulnerabilities/uvm/integrations/tenable', deleteUvmTenableIntegration)
     fastify.put('/vulnerabilities/uvm/findings/:findingId', putUvmFinding)

@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import {
     cancelUvmRun, configureUvmTenable, createUvmAsset, disconnectUvmTenable, getUvmDashboard, getUvmNetworkRun,
+    cancelUvmAssessment, startUvmAssessment, validateUvmAssessmentInput,
     startUvmNetworkScan, startUvmTenableScan, updateUvmFinding, updateUvmSchedule, verifyUvmAsset,
     type UvmTriageStatus,
 } from '#utils/vulnerabilities/uvmScanner.ts'
@@ -126,6 +127,42 @@ export async function postUvmAssetTenableScan(req: FastifyRequest, res: FastifyR
         return res.status(202).send({ run: scan })
     } catch (error) {
         return res.status(400).send({ error: errorMessage(error) })
+    }
+}
+
+export async function postUvmAssessment(req: FastifyRequest, res: FastifyReply) {
+    const actorId = await requireHanasandInternalAccess(req, res)
+    if (!actorId) return
+    const input = validateUvmAssessmentInput(req.body)
+    if (!input) return res.status(400).send({ error: 'Choose one to ten registered assets and at least one supported scanner. Confirm authorization for the assessment.' })
+    try {
+        const assessment = await startUvmAssessment(input, actorId)
+        if (!assessment) return res.status(500).send({ error: 'The assessment could not be loaded after launch.' })
+        await recordSystemEvent(req, {
+            actionType: 'security_scanner.assessment.started', actorId, targetType: 'security_scanner_assessment', targetId: assessment.id,
+            context: { assetCount: input.assetIds.length, engines: input.engines.map(item => item.engine), jobCount: assessment.jobs.length },
+        })
+        return res.status(202).send({ assessment })
+    } catch (error) {
+        const message = errorMessage(error)
+        return res.status(message === 'assessment_request_conflict' ? 409 : 400).send({ error: message })
+    }
+}
+
+export async function postUvmAssessmentCancel(req: FastifyRequest, res: FastifyReply) {
+    const actorId = await requireHanasandInternalAccess(req, res)
+    if (!actorId) return
+    const { assessmentId } = req.params as { assessmentId: string }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(assessmentId)) {
+        return res.status(400).send({ error: 'Invalid assessment ID.' })
+    }
+    try {
+        const assessment = await cancelUvmAssessment(assessmentId)
+        if (!assessment) return res.status(404).send({ error: 'Assessment not found.' })
+        await recordSystemEvent(req, { actionType: 'security_scanner.assessment.cancelled', actorId, targetType: 'security_scanner_assessment', targetId: assessment.id, context: {} })
+        return res.send({ assessment })
+    } catch (error) {
+        return res.status(409).send({ error: errorMessage(error) })
     }
 }
 

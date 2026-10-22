@@ -3,8 +3,8 @@ import run from '#db'
 import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPagePolicy.ts'
 import { resolvePublicUvmAddresses, sameAuthorizedAddressSet } from '../uvmScope.ts'
 import {
-    cancelNetworkScannerRun, cancelTenableRun, getNetworkScannerRun, getTenableIntegration, getTenableScans,
-    getTenableRun, removeTenableIntegration, setTenableIntegration, startNetworkScannerRun, startTenableRun,
+    cancelGvmRun, cancelNetworkScannerRun, cancelTenableRun, getNetworkScannerRun, getTenableIntegration, getTenableScans,
+    getTenableRun, removeTenableIntegration, setTenableIntegration, startGvmRun, startNetworkScannerRun, startTenableRun,
 } from '../scanner.ts'
 import {
     ensureUvmSchema, errorMessage, getAsset, scheduledScanRetryMinutes, verifyDomainControl,
@@ -17,6 +17,19 @@ export async function configureUvmTenable(input: { region: 'us' | 'eu' | 'de' | 
 export async function disconnectUvmTenable() {
     await removeTenableIntegration(HANASAND_ORGANIZATION_ID)
     return getTenableIntegration(HANASAND_ORGANIZATION_ID)
+}
+
+export async function startUvmGvmScan(input: { assetId: string, actorId: string, authorized: boolean }) {
+    await ensureUvmSchema()
+    const asset = await getAsset(input.assetId)
+    if (!asset || asset.verificationStatus !== 'verified') throw new Error('Choose a verified asset before starting an assessment.')
+    if (asset.verificationMethod !== 'internal') await verifyDomainControl(asset)
+    const addresses = await resolvePublicUvmAddresses(asset.hostname)
+    const consentMatchesAddresses = sameAuthorizedAddressSet(asset.authorizedAddresses, addresses)
+    if (!input.authorized && !consentMatchesAddresses) throw new Error('The resolved IP addresses changed or have not been authorized. Confirm that you are authorized to scan the current addresses.')
+    const remote = await startGvmRun({ organizationId: HANASAND_ORGANIZATION_ID, assetId: asset.id, requestId: randomUUID(), target: asset.hostname, addresses })
+    if (input.authorized) await run('UPDATE uvm_assets SET scan_authorized_at = NOW(), scan_authorized_by = $2, authorized_addresses = $3::jsonb, updated_at = NOW() WHERE id = $1', [asset.id, input.actorId, JSON.stringify(addresses)])
+    return { ...remote, id: remote.runId, target: asset.hostname, engine: 'gvm', profile: 'Full and Fast', source: 'manual' as const }
 }
 
 export async function startUvmTenableScan(input: { assetId: string, actorId: string, scanId: string, authorized: boolean, source?: 'manual' | 'scheduled' }) {
@@ -62,6 +75,10 @@ export async function cancelUvmTenableRun(localRunId: string) {
     if (!result.rows[0]) return null
     if (!result.rows[0].scanner_run_id) throw new Error('The scan request is still being submitted. Try cancelling again shortly.')
     return cancelTenableRun(result.rows[0].scanner_run_id, HANASAND_ORGANIZATION_ID)
+}
+
+export async function cancelUvmGvmRun(runId: string) {
+    return cancelGvmRun(runId, HANASAND_ORGANIZATION_ID)
 }
 
 export async function startUvmNetworkScan(input: { assetId: string, actorId: string, source: 'manual' | 'scheduled', authorized: boolean }) {

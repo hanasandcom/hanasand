@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 process.env.HANASAND_SCANNER_URL = 'http://scanner.internal:18200'
 process.env.HANASAND_SCANNER_SERVICE_TOKEN = 'test-service-token'
 const originalFetch = globalThis.fetch
-const { cancelNetworkScannerRun, getNetworkScannerEngines, startNetworkScannerRun, getTenableIntegration, setTenableIntegration, getTenableScans, startTenableRun } = await import('../src/utils/vulnerabilities/scanner.ts')
+const { cancelNetworkScannerRun, getNetworkScannerEngines, startNetworkScannerRun, getTenableIntegration, setTenableIntegration, getTenableScans, startTenableRun, getGvmEngineStatus, startGvmRun, cancelGvmRun } = await import('../src/utils/vulnerabilities/scanner.ts')
 afterEach(() => { globalThis.fetch = originalFetch })
 
 describe('network scanner service client', () => {
@@ -93,5 +93,41 @@ describe('Tenable VM service client', () => {
         expect(JSON.parse(calls[0]?.body || '{}')).toEqual(request)
         expect(calls[1]?.url).toContain(`/v1/integrations/tenable/runs/${runId}?organizationId=org-1`)
         expect(result.runId).toBe(runId)
+    })
+})
+
+describe('Greenbone service client', () => {
+    test('checks manager readiness through the authenticated Scanner boundary', async() => {
+        let requestedUrl = ''
+        let requestToken: string | null = null
+        globalThis.fetch = (async(input, init) => {
+            requestedUrl = String(input)
+            requestToken = new Headers(init?.headers).get('x-hanasand-service-token')
+            expect(init?.signal).toBeInstanceOf(AbortSignal)
+            return Response.json({ id: 'gvm', name: 'Greenbone Vulnerability Management', provider: 'gvm', configured: true, ready: true, available: true, profile: 'Full and Fast', error: null })
+        }) as typeof fetch
+        const result = await getGvmEngineStatus()
+        expect(requestedUrl).toBe('http://scanner.internal:18200/v1/integrations/gvm/status')
+        expect(requestToken).toBe('test-service-token')
+        expect(result.ready).toBe(true)
+    })
+
+    test('starts and cancels only an organization-scoped GVM run', async() => {
+        const calls: Array<{ url: string, method: string, body?: string }> = []
+        const runId = '8f47e2d1-7382-4623-baf7-8fe7a0b3af29'
+        globalThis.fetch = (async(input, init) => {
+            calls.push({ url: String(input), method: init?.method || 'GET', body: typeof init?.body === 'string' ? init.body : undefined })
+            if (String(input).endsWith('/v1/integrations/gvm/runs')) return Response.json({ runId, status: 'queued' }, { status: 202 })
+            if ((init?.method || 'GET') === 'POST') return Response.json({ runId, status: 'cancelling', findings: [], addresses: ['8.8.8.8'] })
+            return Response.json({ runId, organizationId: 'org-1', assetId: 'asset-1', requestId: 'request-1', target: 'example.com', addresses: ['8.8.8.8'], status: 'queued', findings: [], coverage: null, createdAt: new Date().toISOString(), startedAt: null, finishedAt: null, error: null })
+        }) as typeof fetch
+        const request = { organizationId: 'org-1', assetId: 'asset-1', requestId: '7114929c-2376-42e4-a25c-0ff1fbb330ca', target: 'example.com', addresses: ['8.8.8.8'] }
+        const started = await startGvmRun(request)
+        await cancelGvmRun(runId, 'org-1')
+        expect(JSON.parse(calls[0]?.body || '{}')).toEqual(request)
+        expect(calls[1]?.url).toContain(`/v1/integrations/gvm/runs/${runId}?organizationId=org-1`)
+        expect(calls[2]?.method).toBe('POST')
+        expect(calls[2]?.url).toContain(`/v1/integrations/gvm/runs/${runId}/cancel?organizationId=org-1`)
+        expect(started.runId).toBe(runId)
     })
 })

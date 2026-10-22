@@ -1,4 +1,8 @@
 export { createUvmAsset, listUvmAssets, updateUvmSchedule, verifyUvmAsset } from './uvmScanner/assets.ts'
+export {
+    cancelUvmAssessment, getUvmAssessment, listUvmAssessments, reconcileUvmAssessments,
+    startUvmAssessment, validateUvmAssessmentInput,
+} from './uvmScanner/assessments.ts'
 export { getUvmDashboard } from './uvmScanner/dashboard.ts'
 export { reconcileUvmRuns, updateUvmFinding } from './uvmScanner/findings.ts'
 export {

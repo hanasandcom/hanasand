@@ -1,12 +1,15 @@
 import run from '#db'
 import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPagePolicy.ts'
 import {
-    getNetworkScannerEngines, getNetworkScannerRuns, getTenableIntegration, getTenableRuns, getTenableScans,
+    getGvmEngineStatus, getGvmRuns, getNetworkScannerEngines, getNetworkScannerRuns, getTenableIntegration, getTenableRuns, getTenableScans,
 } from '../scanner.ts'
 import { listUvmAssets } from './assets.ts'
+import { listUvmAssessments } from './assessments.ts'
+import { ensureUvmSchema } from './shared.ts'
 
 export async function getUvmDashboard() {
-    const [assets, localRuns, engines, scannerRuns, tenableIntegration, tenableRunResponse] = await Promise.all([
+    await ensureUvmSchema()
+    const [assets, localRuns, engines, scannerRuns, tenableIntegration, tenableRunResponse, assessments, gvmStatus, gvmRunResponse] = await Promise.all([
         listUvmAssets(),
         run(`SELECT r.id, r.asset_id, r.request_id, r.scanner_run_id, r.engine, r.profile, r.source, r.status,
                 r.actor_id, r.error, r.created_at, r.started_at, r.finished_at, a.hostname
@@ -16,6 +19,9 @@ export async function getUvmDashboard() {
         getNetworkScannerRuns(HANASAND_ORGANIZATION_ID, 50).catch(() => ({ runs: [], error: 'Scanner service is unavailable.' })),
         getTenableIntegration(HANASAND_ORGANIZATION_ID).catch(() => null),
         getTenableRuns(HANASAND_ORGANIZATION_ID, 50).catch(() => ({ runs: [], error: 'Scanner service is unavailable.' })),
+        listUvmAssessments(25),
+        getGvmEngineStatus().catch(() => ({ id: 'gvm' as const, name: 'Greenbone Vulnerability Management', provider: 'gvm' as const, available: false, configured: false, ready: false, profile: 'Full and Fast', error: 'Scanner service is unavailable.' })),
+        getGvmRuns(HANASAND_ORGANIZATION_ID, 50).catch(() => ({ runs: [], error: 'Scanner service is unavailable.' })),
     ])
     const serviceRuns = new Map(scannerRuns.runs.map(item => [item.runId, item]))
     const requestRuns = new Map(scannerRuns.runs.map(item => [item.requestId, item]))
@@ -30,8 +36,13 @@ export async function getUvmDashboard() {
             error: remote?.error || row.error || (scannerUnavailable && row.scanner_run_id ? 'Scanner service is unavailable; the run state could not be refreshed.' : null),
             hosts: remote?.hosts || [], engineVersion: remote?.engineVersion || null, rawXmlSha256: remote?.rawXmlSha256 || null,
             coverage: remote ? {
-                attemptedAddresses: remote.addresses.length,
-                completedAddresses: remote.hosts.length,
+                known: remote.coverage.known,
+                requestedAddresses: remote.coverage.requestedAddresses,
+                attemptedAddresses: remote.coverage.attemptedAddresses,
+                completedAddresses: remote.coverage.completedAddresses,
+                completedAddressList: remote.coverage.completedAddressList,
+                missingAddresses: remote.coverage.missingAddresses,
+                unattemptedAddresses: remote.coverage.unattemptedAddresses,
                 openPorts: remote.hosts.reduce((count, host) => count + host.ports.filter(port => port.state === 'open').length, 0),
             } : null,
         }
@@ -54,6 +65,13 @@ export async function getUvmDashboard() {
             engineVersion: null, rawXmlSha256: null, hosts: [], findings: remote?.findings || [], coverage: remote?.coverage || null,
         }
     })
+    const gvmRuns = gvmRunResponse.runs.map(item => ({
+        id: item.runId, scannerRunId: item.runId, requestId: item.requestId, assetId: item.assetId, target: item.target,
+        engine: 'gvm', profile: 'Full and Fast', source: 'manual' as const, status: item.status,
+        createdAt: item.createdAt, startedAt: item.startedAt, finishedAt: item.finishedAt, error: item.error,
+        hosts: [], findings: [], engineVersion: null, rawXmlSha256: item.rawReportSha256,
+        coverage: item.coverage ? { attemptedAddresses: item.coverage.attemptedAddresses, completedAddresses: item.coverage.completedAddresses } : null,
+    }))
     const findingRows = await run(`SELECT id, asset_id, asset_label, asset_address, engine, external_id, title, severity, cvss_score, cve_ids,
             description, solution, evidence, status, triage_note, first_seen, last_seen, updated_at
         FROM uvm_findings WHERE organization_id = $1 ORDER BY
@@ -67,13 +85,19 @@ export async function getUvmDashboard() {
     }
     return {
         assets,
-        engines: [...engines.engines.filter(engine => engine.id === 'nmap'), ...(tenableIntegration?.configured ? [{
+        engines: [...engines.engines.filter(engine => engine.id === 'nmap'), {
+            id: 'gvm', name: gvmStatus.name, status: gvmStatus.available ? 'available' as const : 'unavailable' as const, version: null, reason: gvmStatus.error,
+            profiles: [{ id: 'full-and-fast', name: gvmStatus.profile, safe: true }],
+            coverage: ['Greenbone Full and Fast vulnerability assessment', 'Authorized public IPv4 addresses', 'Loaded vulnerability feeds'],
+            notCovered: ['Coverage depends on the configured Greenbone port list and current feeds', 'No authentication or credentialed checks are configured by Hanasand'],
+        }, ...(tenableIntegration?.configured ? [{
             id: 'tenable-vm', name: 'Tenable Vulnerability Management', status: 'available', version: null, reason: null,
             profiles: tenableScans.map(scan => ({ id: scan.id, name: scan.name, safe: true })),
             coverage: ['Configured Tenable scan template', 'Authorized public IPv4 addresses'],
             notCovered: ['Authentication and plugin coverage depend on the selected Tenable scan configuration'],
         }] : [])],
-        runs: [...runs, ...tenableRuns].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50),
+        runs: [...runs, ...tenableRuns, ...gvmRuns].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50),
+        assessments,
         scannerError: ('error' in engines ? engines.error : null) || ('error' in scannerRuns ? scannerRuns.error : null) || tenableError,
         tenableIntegration, tenableScans,
         findings: findingRows.rows.map(row => ({

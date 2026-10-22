@@ -95,6 +95,18 @@ export async function cancelUvmRun(runId: string) {
     return result
 }
 
+export async function startUvmAssessment(input: { requestId: string, assetIds: string[], engines: Array<{ engine: 'nmap' | 'gvm' | 'tenable-vm', scanId?: string }>, authorized: boolean }) {
+    const result = await requestService<{ assessment: UvmDashboard['assessments'][number] }>('internal', 'vulnerabilities/uvm/assessments', { method: 'POST', body: JSON.stringify(input) })
+    if (typeof result === 'string') throw new Error(result)
+    return result
+}
+
+export async function cancelUvmAssessment(assessmentId: string) {
+    const result = await requestService<{ assessment: UvmDashboard['assessments'][number] }>('internal', `vulnerabilities/uvm/assessments/${encodeURIComponent(assessmentId)}/cancel`, { method: 'POST', body: JSON.stringify({}) })
+    if (typeof result === 'string') throw new Error(result)
+    return result
+}
+
 export async function updateUvmFinding(findingId: string, input: { status: UvmDashboard['findings'][number]['status'], note: string }) {
     const result = await requestService<{ finding: { id: string, status: UvmDashboard['findings'][number]['status'], triage_note: string | null, updated_at: string } }>('internal', `vulnerabilities/uvm/findings/${encodeURIComponent(findingId)}`, { method: 'PUT', body: JSON.stringify(input) })
     if (typeof result === 'string') throw new Error(result)

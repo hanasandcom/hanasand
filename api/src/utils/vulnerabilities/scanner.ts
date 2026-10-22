@@ -20,6 +20,7 @@ export type NetworkScannerEngine = {
 export type NetworkScannerHost = {
     address: string
     status: string
+    timedOut: boolean
     ports: Array<{
         port: number
         protocol: 'tcp'
@@ -46,6 +47,7 @@ export type NetworkScannerRun = {
     engineVersion: string | null
     rawXmlSha256: string | null
     hosts: NetworkScannerHost[]
+    coverage: { known: boolean, requestedAddresses: number, attemptedAddresses: number, completedAddresses: number, completedAddressList: string[], missingAddresses: string[], unattemptedAddresses: string[] }
     error: string | null
 }
 
@@ -97,6 +99,19 @@ export type TenableRun = {
     findings: TenableFinding[]
     coverage?: { attemptedAddresses: number, completedAddresses: number }
 }
+
+export type GvmFinding = {
+    findingId: string; provider: 'gvm'; nvtOid: string | null; cveIds: string[]; title: string; severity: SeverityLevel | 'info'
+    cvssScore: number | null; description: string | null; solution: string | null; evidence: string | null
+    assetAddress: string; port: number | null; protocol: string | null; qualityOfDetection: string | null
+}
+export type GvmRun = {
+    runId: string; organizationId: string; assetId: string; requestId: string; target: string; addresses: string[]
+    status: 'queued' | 'launching' | 'running' | 'cancelling' | 'succeeded' | 'partial' | 'failed' | 'cancelled'
+    progress: string | null; findings: GvmFinding[]; coverage: { attemptedAddresses: number, completedAddresses: number, completedAddressList: string[], missingAddresses: string[] } | null
+    rawReportSha256: string | null; error: string | null; createdAt: string; startedAt: string | null; finishedAt: string | null
+}
+export type GvmEngineStatus = { id: 'gvm', name: string, provider: 'gvm', available: boolean, configured: boolean, ready: boolean, profile: string, protocol?: string | null, feedsReady?: boolean, feedsSyncing?: boolean, feedVersions?: string[], error: string | null }
 
 export type VulnerabilityDetail = {
     id: string
@@ -315,7 +330,28 @@ export async function cancelTenableRun(runId: string, organizationId: string) {
     return requestScanner<TenableRun>(`/v1/integrations/tenable/runs/${encodeURIComponent(runId)}/cancel?organizationId=${encodeURIComponent(organizationId)}`, { method: 'POST' })
 }
 
-async function requestScanner<T>(route: string, options: { method?: string, body?: unknown } = {}): Promise<T> {
+export async function getGvmEngineStatus() {
+    return requestScanner<GvmEngineStatus>('/v1/integrations/gvm/status', { timeoutMs: 8_000 })
+}
+
+export async function startGvmRun(input: { organizationId: string, assetId: string, requestId: string, target: string, addresses: string[] }) {
+    const accepted = await requestScanner<{ runId: string, status: GvmRun['status'] }>('/v1/integrations/gvm/runs', { method: 'POST', body: input })
+    return getGvmRun(accepted.runId, input.organizationId)
+}
+
+export async function getGvmRun(runId: string, organizationId: string) {
+    return requestScanner<GvmRun>(`/v1/integrations/gvm/runs/${encodeURIComponent(runId)}?organizationId=${encodeURIComponent(organizationId)}`)
+}
+
+export async function getGvmRuns(organizationId: string, limit = 50) {
+    return requestScanner<{ runs: GvmRun[] }>(`/v1/integrations/gvm/runs?organizationId=${encodeURIComponent(organizationId)}&limit=${encodeURIComponent(String(limit))}`)
+}
+
+export async function cancelGvmRun(runId: string, organizationId: string) {
+    return requestScanner<GvmRun>(`/v1/integrations/gvm/runs/${encodeURIComponent(runId)}/cancel?organizationId=${encodeURIComponent(organizationId)}`, { method: 'POST' })
+}
+
+async function requestScanner<T>(route: string, options: { method?: string, body?: unknown, timeoutMs?: number } = {}): Promise<T> {
     if (!scannerUrl) throw new Error('HANASAND_SCANNER_URL is not configured.')
     if (!serviceToken) throw new Error('HANASAND_SCANNER_SERVICE_TOKEN is not configured.')
     const response = await fetch(`${scannerUrl}${route}`, {
@@ -325,7 +361,7 @@ async function requestScanner<T>(route: string, options: { method?: string, body
             ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
-        signal: AbortSignal.timeout(requestTimeoutMs),
+        signal: AbortSignal.timeout(options.timeoutMs || requestTimeoutMs),
     })
     if (!response.ok) {
         const body = await response.text().catch(() => '')
