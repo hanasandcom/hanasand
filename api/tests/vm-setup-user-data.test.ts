@@ -11,7 +11,7 @@ test('generated cloud-init installs each catalog service and reports setup state
     const cloudInit = vmSetupUserData('builder-vm', {
         os: 'ubuntu-24.04',
         resources: { cpu: '4', memory: '8GiB', disk: '40GiB' },
-        services: ['nodejs', 'bun', 'python', 'java', 'go', 'php', 'docker', 'postgresql', 'mysql', 'sqlite', 'redis', 'nginx'],
+        services: ['nodejs', 'bun', 'python', 'java', 'go', 'php', 'rust', 'ruby', 'cpp', 'docker', 'postgresql', 'mysql', 'sqlite', 'redis', 'nginx'],
     })
     const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { users: Array<{ name: string }>, write_files: Array<{ path: string; content: string }>, runcmd: string[][] }
     const script = config.write_files.find(file => file.path === '/usr/local/sbin/hanasand-vm-setup')?.content
@@ -22,6 +22,11 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('postgresql postgresql-contrib')
     expect(script).toContain('mysql-server')
     expect(script).toContain('docker-ce docker-ce-cli containerd.io')
+    expect(script).toContain('apt_packages+=(rustc cargo)')
+    expect(script).toContain('apt_packages+=(ruby ruby-dev)')
+    expect(script).toContain('apt_packages+=(build-essential)')
+    expect(script).toContain('rustc --version; cargo --version')
+    expect(script).toContain('ruby --version; gem --version')
     expect(script.indexOf('install -y --no-install-recommends ca-certificates curl gnupg unzip')).toBeLessThan(script.indexOf('nodesource.com/setup_24.x'))
     expect(script).toContain('write_state Running \'Setup complete\'')
     expect(config.runcmd.at(-1)).toEqual(['/usr/local/sbin/hanasand-vm-setup'])

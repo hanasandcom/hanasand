@@ -114,7 +114,7 @@ test('VM creation forwards Ubuntu Desktop and requires at least 4 GiB', async ()
 
 
 test('VM creation accepts and forwards every listed service', async () => {
-    const services = ['nodejs', 'bun', 'python', 'java', 'go', 'php', 'docker', 'postgresql', 'mysql', 'sqlite', 'redis', 'nginx', 'website', 'minecraft-java']
+    const services = ['nodejs', 'bun', 'python', 'java', 'go', 'php', 'rust', 'ruby', 'cpp', 'docker', 'postgresql', 'mysql', 'sqlite', 'redis', 'nginx', 'website', 'minecraft-java']
     const response = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
         payload: { name: 'remote-vm', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' }, services, minecraft_eula_accepted: true, minecraft_server_type: 'NEOFORGE' },

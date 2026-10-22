@@ -1,5 +1,5 @@
 export const supportedSetupServices = [
-    'nodejs', 'postgresql', 'mysql', 'sqlite', 'redis', 'python', 'bun',
+    'nodejs', 'postgresql', 'mysql', 'sqlite', 'redis', 'python', 'bun', 'rust', 'ruby', 'cpp',
     'docker', 'java', 'go', 'php', 'nginx', 'website', 'minecraft-java',
 ] as const
 

@@ -78,6 +78,9 @@ if printf '%s' "$services" | grep -q '"mysql"'; then apt_packages+=(mysql-server
 if printf '%s' "$services" | grep -q '"redis"'; then apt_packages+=(redis-server); fi
 if printf '%s' "$services" | grep -q '"sqlite"'; then apt_packages+=(sqlite3); fi
 if printf '%s' "$services" | grep -q '"python"'; then apt_packages+=(python3 python3-pip python3-venv); fi
+if printf '%s' "$services" | grep -q '"rust"'; then apt_packages+=(rustc cargo); fi
+if printf '%s' "$services" | grep -q '"ruby"'; then apt_packages+=(ruby ruby-dev); fi
+if printf '%s' "$services" | grep -q '"cpp"'; then apt_packages+=(build-essential); fi
 if printf '%s' "$services" | grep -q '"java"' && ! printf '%s' "$services" | grep -q '"minecraft-java"'; then apt_packages+=(default-jdk-headless); fi
 if printf '%s' "$services" | grep -q '"go"'; then apt_packages+=(golang-go); fi
 if printf '%s' "$services" | grep -q '"php"'; then apt_packages+=(php-cli php-curl php-mbstring php-xml composer); fi
@@ -134,6 +137,9 @@ set_stage 'Checking selected services'
 if printf '%s' "$services" | grep -q '"nodejs"'; then node --version; npm --version; fi
 if printf '%s' "$services" | grep -q '"bun"'; then bun --version; fi
 if printf '%s' "$services" | grep -q '"python"'; then python3 --version; python3 -m pip --version; fi
+if printf '%s' "$services" | grep -q '"rust"'; then rustc --version; cargo --version; fi
+if printf '%s' "$services" | grep -q '"ruby"'; then ruby --version; gem --version; fi
+if printf '%s' "$services" | grep -q '"cpp"'; then gcc --version >/dev/null; g++ --version >/dev/null; make --version >/dev/null; fi
 if printf '%s' "$services" | grep -q '"java"' || printf '%s' "$services" | grep -q '"minecraft-java"'; then java -version; fi
 if printf '%s' "$services" | grep -q '"go"'; then go version; fi
 if printf '%s' "$services" | grep -q '"php"'; then php --version >/dev/null; composer --version >/dev/null; fi

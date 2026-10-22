@@ -40,7 +40,7 @@ export default function VmOperatingSystemPicker({ value, onChange, disabled }: {
         <button ref={trigger} type='button' role='combobox' aria-label='Operating system' aria-haspopup='listbox' aria-expanded={open} aria-controls={listboxId} disabled={disabled} onClick={() => setOpen(current => !current)} onKeyDown={event => {
             if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true) }
             else if (event.key === 'Escape') setOpen(false)
-        }} className='flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-ui-border bg-ui-raised px-4 text-left text-sm text-ui-text outline-none transition hover:border-ui-primary/40 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/15 disabled:opacity-50'>
+        }} className='flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-ui-border bg-ui-raised pl-3 pr-5 text-left text-sm text-ui-text outline-none transition hover:border-ui-primary/40 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/15 disabled:opacity-50'>
             <span>{selected.label}</span>
             <span aria-hidden='true' className='grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-ui-border bg-ui-panel text-ui-muted shadow-sm'>
                 <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
