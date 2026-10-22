@@ -33,8 +33,7 @@ services:
       - "127.0.0.1:3280:3000"
     networks: !override
       hanasandnet: {}
-      identity-staging:
-        ipv4_address: 172.31.254.8
+      identity-staging: {}
       ai-staging: {}
     depends_on:
       api:
