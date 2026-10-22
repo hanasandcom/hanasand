@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MailUiApi } from '../api.js'
 import type { MailOverview } from '../types.js'
+import { messageIdForOverviewRequest, preserveSelectedMessageDuringRefresh } from './mailOverviewRefresh.js'
 
 export type LoadParams = {
     mailboxId?: string | null
@@ -56,17 +57,18 @@ export function useMailWorkspaceOverview({
             const next = await api.fetchMailOverview({
                 mailboxUser: params.mailboxUser ?? selection.current.user ?? mailboxUser ?? undefined,
                 mailboxId: params.mailboxId === undefined ? selection.current.mailbox : params.mailboxId,
-                messageId: params.messageId === undefined ? selection.current.message : params.messageId,
+                messageId: messageIdForOverviewRequest(params, selection.current.message),
             })
             if (version !== requestVersion.current) return
             const switched = next.mailboxUser !== selection.current.user || next.selectedMailboxId !== selection.current.mailbox
             setOverview(current => {
                 if (version !== requestVersion.current) return current
-                if (params.messageId === null || !current || current.mailboxUser !== next.mailboxUser || current.selectedMailboxId !== next.selectedMailboxId || current.messages.length <= 50) return next
+                const nextWithSelectedMessage = preserveSelectedMessageDuringRefresh(current, next, silent && params.messageId === undefined)
+                if (params.messageId === null || !current || current.mailboxUser !== next.mailboxUser || current.selectedMailboxId !== next.selectedMailboxId || current.messages.length <= 50) return nextWithSelectedMessage
                 const ids = new Set(next.messages.map(message => message.id))
                 const boundary = current.messages.findIndex(message => message.id === next.messages.at(-1)?.id)
                 const tail = current.messages.slice(boundary >= 0 ? boundary + 1 : 50)
-                return { ...next, messages: [...next.messages, ...tail.filter(message => !ids.has(message.id))], nextCursor: current.nextCursor }
+                return { ...nextWithSelectedMessage, messages: [...next.messages, ...tail.filter(message => !ids.has(message.id))], nextCursor: current.nextCursor }
             })
             if (switched) onMailboxChange?.(next.selectedMailboxId)
             setSelectedMailboxId(next.selectedMailboxId)
