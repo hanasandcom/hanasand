@@ -6,6 +6,7 @@ import { ACCOUNT_DELETION_PURGE_JOB_ID } from '../../auth/purgeDeletedAccounts.t
 import { RULE_STORAGE_ESTIMATE_JOB_ID } from '../../events/ruleStorageEstimateWorker.ts'
 import { VM_METRICS_JOB_ID } from '../../vms/collectMetrics.ts'
 import { VM_FAILOVER_JOB_ID } from '../../vms/failover.ts'
+import { VM_LIFECYCLE_MONITOR_JOB_ID } from '../../vms/lifecycleMonitor.ts'
 import { HOST_UPDATE_MONITOR_JOB_ID } from '../../cron.ts'
 import { VULNERABILITY_SCAN_CADENCE_SECONDS, VULNERABILITY_SCAN_JOB_ID } from '../../vulnerabilities/scanner.ts'
 import { DATABASE_BACKUP_JOB_ID } from '../../db/backups.ts'
@@ -81,6 +82,16 @@ export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
         cadenceSeconds: API_CRON_CADENCE_SECONDS,
         source: 'api/src/utils/aptUpdates.ts',
         controls: [],
+    },
+    {
+        id: VM_LIFECYCLE_MONITOR_JOB_ID,
+        name: 'VM lifecycle staging monitor',
+        description: 'Every six hours, creates a disposable VM on an explicitly configured isolated staging LXD host, checks inspection, configuration update, start and stop, then deletes it. Reports no data when no isolated target is configured.',
+        category: 'Other/System',
+        schedule: 'Every six hours (checked every minute)',
+        cadenceSeconds: 6 * 60 * 60,
+        source: 'api/src/utils/vms/lifecycleMonitor.ts',
+        controls: ['pause', 'resume', 'run_now'],
     },
     {
         id: 'api-security-case-delivery',

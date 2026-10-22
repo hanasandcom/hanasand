@@ -37,6 +37,8 @@ PgBouncer, Onion, browser workers, TURN, and the Discord bot run from independen
 
 ## Monitoring issues
 
+The VM lifecycle monitor runs every six hours. It creates a disposable virtual machine, checks its identity and configuration, starts and stops it, deletes it, and confirms the host no longer lists it. It reports a degraded check with no data when an isolated staging target is not configured. Configure `VM_LIFECYCLE_MONITOR_ENABLED=true`, `VM_LIFECYCLE_MONITOR_TARGET=isolated-staging`, `VM_LIFECYCLE_MONITOR_SOCKET_PATH`, `VM_LIFECYCLE_MONITOR_IMAGE_SERVER`, and `VM_LIFECYCLE_MONITOR_IMAGE_ALIAS` only in an API staging environment whose LXD host is isolated and disposable. The probe uses the configured staging socket directly and never falls back to `LXD_SOCKET_PATH` or a production VM host. The existing API runtime must already have access to that staging-only socket; do not grant it access to a production socket for this check.
+
 External sensor hubs can submit incident, recovery and heartbeat events to an **External events** check. See [external monitoring](docs/external-monitoring.md) for the event schema, sender setup and mock.
 
 All monitoring alerts, including replication, backups and failover, must go through HA cases. Never post individual events directly to Discord. Repeated events update the same case; only that case may notify Discord, once per destination every 24 hours. Recovery and recurrence do not reset that limit.

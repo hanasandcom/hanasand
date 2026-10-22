@@ -8,6 +8,7 @@ import { writeManagedCrontab } from '../managedCronHost.ts'
 import { updateTiCollectionScheduler, runTiJob } from './tiJobControls.ts'
 import type { ManagedCronUpdate } from './types.ts'
 import { updateExternallyManagedCronJob, updatedScheduledJob } from './externalJobControls.ts'
+import { VM_LIFECYCLE_MONITOR_JOB_ID } from '../vms/lifecycleMonitor.ts'
 
 export async function updateManagedCronJob(id: string, input: ManagedCronUpdate) {
     if (id === VULNERABILITY_SCAN_JOB_ID) {
@@ -40,7 +41,7 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
     if (canRunApiCronJobNow(id)) {
         return updateExternallyManagedCronJob(id, input, {
             runNow: {
-                run: () => runApiCronJobNow(id),
+                run: () => runApiCronJobNow(id, { force: id === VM_LIFECYCLE_MONITOR_JOB_ID }),
                 label: `API cron job ${id}`,
             },
             setPaused: paused => setApiCronJobPaused(id, paused),
