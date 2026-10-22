@@ -13,9 +13,18 @@ export type PromptPortalFile = {
     path: string
 }
 
+export type PromptPortalContextMessage = {
+    role: 'user' | 'assistant'
+    content: string
+    modelName?: string
+    files?: Array<{ itemId: string, fileId: string }>
+}
+
 export type PromptPortalItem = {
     id: string
     conversationId?: string
+    threadId?: string
+    context?: PromptPortalContextMessage[]
     prompt: string
     priority: 'now' | 'next'
     status: 'queued' | 'running' | 'done' | 'error'

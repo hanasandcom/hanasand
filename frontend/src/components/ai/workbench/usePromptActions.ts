@@ -24,7 +24,7 @@ export function usePromptActions(
         await patchConversation(activeConversation.id, { modelStrategy })
     }, [activeConversation, patchConversation])
 
-    const sendPrompt = useCallback(async () => {
+    const sendPrompt = useCallback(async (contextMessages: AIConversationMessage[] = activeConversation?.messages || []) => {
         const prompt = composer.trim()
         if (!prompt || !activeConversation) return
         if (activeConversation.messages.at(-1)?.pending) {
@@ -63,8 +63,9 @@ export function usePromptActions(
         }
         const messages = [
             { role: 'system' as const, content: buildSystemPrompt({ conversation: activeConversation, workspaceContext, currentPage }) },
-            ...activeConversation.messages
+            ...contextMessages
                 .filter((message) => message.role === 'user' || message.role === 'assistant' || message.role === 'tool')
+                .filter((message) => !(message.role === 'assistant' && ['queued', 'running'].includes(String(message.metadata?.promptPortalStatus))))
                 .map((message) => ({
                     role: message.role === 'tool' ? 'assistant' as const : message.role,
                     content: message.content,

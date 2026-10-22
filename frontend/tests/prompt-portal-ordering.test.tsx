@@ -18,8 +18,8 @@ mock.module('../src/utils/organizations/hanasandMembership', () => ({
     isHanasandOrganizationMember: async () => true,
 }))
 
-const { POST } = await import('../src/app/api/prompt/route')
-const { GET: workerGet } = await import('../src/app/api/prompt/worker/route')
+const { POST, GET: queueGet } = await import('../src/app/api/prompt/route')
+const { GET: workerGet, POST: workerPost } = await import('../src/app/api/prompt/worker/route')
 
 afterAll(async () => {
     await rm(stateDir, { recursive: true, force: true })
@@ -42,12 +42,15 @@ test('prompt queue ordering is priority-first and FIFO within priority', () => {
     expect([...items].sort(comparePromptItems).map(entry => entry.id)).toEqual(['now-old', 'now-new', 'next-new'])
 })
 
-test('shared ChatGPT conversation UI keeps attachments, priority, and queued request actions', async () => {
+test('ChatGPT queue UI keeps per-thread selection, context, attachments, priority, and queued request actions', async () => {
     const composer = await readFile(new URL('../src/components/ai/chat/chatComposer.tsx', import.meta.url), 'utf8')
     const transcript = await readFile(new URL('../src/components/ai/chat/chatTranscript.tsx', import.meta.url), 'utf8')
     expect(composer).toContain('provider === \'chatgpt\'')
     expect(composer).toContain('accept=\'image/*\' multiple')
     expect(composer).toContain('onPromptPriorityChange(\'now\')')
+    const portal = await readFile(new URL('../src/components/ai/workbench/usePromptPortal.ts', import.meta.url), 'utf8')
+    expect(portal).toContain('form.set(\'threadId\', threadId)')
+    expect(portal).toContain('form.set(\'context\'')
     expect(transcript).toContain('onEditPrompt')
     expect(transcript).toContain('onDeletePrompt')
     expect(transcript).toContain('onMovePrompt')
@@ -56,9 +59,9 @@ test('shared ChatGPT conversation UI keeps attachments, priority, and queued req
 test('reorder API and worker consume the same priority and FIFO order', async () => {
     const state: PromptPortalState = {
         items: [
-            item('first', 'first next', 'next', '2026-01-01T00:00:00Z'),
-            item('urgent', 'urgent now', 'now', '2026-01-02T00:00:00Z'),
-            item('last', 'last next', 'next', '2026-01-03T00:00:00Z'),
+            { ...item('first', 'first next', 'next', '2026-01-01T00:00:00Z'), conversationId: 'conversation-1', threadId: 'chatgpt-conversation-1' },
+            { ...item('urgent', 'urgent now', 'now', '2026-01-02T00:00:00Z'), conversationId: 'conversation-1', threadId: 'chatgpt-conversation-1' },
+            { ...item('last', 'last next', 'next', '2026-01-03T00:00:00Z'), conversationId: 'conversation-1', threadId: 'chatgpt-conversation-1' },
         ],
     }
     await writeFile(join(stateDir, 'state.json'), JSON.stringify(state))
@@ -66,16 +69,75 @@ test('reorder API and worker consume the same priority and FIFO order', async ()
     const reorder = await POST(new NextRequest('https://app.test/api/prompt', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'reorder', id: 'first', conversationId: 'conversation-1', direction: 'down' }),
+        body: JSON.stringify({ action: 'reorder', id: 'first', conversationId: 'conversation-1', threadId: 'chatgpt-conversation-1', direction: 'down' }),
     }))
     expect(reorder.status).toBe(200)
 
-    const worker = await workerGet(new NextRequest('https://app.test/api/prompt/worker', { headers: { authorization: 'Bearer worker-test-token' } }))
-    const payload = await worker.json()
-    expect(worker.status).toBe(200)
-    expect(payload.item.prompt).toContain('1. urgent now')
-    expect(payload.item.prompt).toContain('2. last next')
-    expect(payload.item.prompt).toContain('3. first next')
+    const nextPromptOrder: string[] = []
+    for (let index = 0; index < 3; index += 1) {
+        const worker = await workerGet(new NextRequest('https://app.test/api/prompt/worker', { headers: { authorization: 'Bearer worker-test-token' } }))
+        const payload = await worker.json()
+        expect(worker.status).toBe(200)
+        expect(payload.item.threadId).toBe('chatgpt-conversation-1')
+        expect(payload.threadId).toBe('chatgpt-conversation-1')
+        nextPromptOrder.push(payload.item.prompt)
+    }
+    expect(nextPromptOrder).toEqual(['urgent now', 'last next', 'first next'])
     const saved = JSON.parse(await readFile(join(stateDir, 'state.json'), 'utf8')) as PromptPortalState
     expect(saved.items.every(entry => entry.status === 'running')).toBe(true)
+})
+
+test('worker keeps queues separate per chat and rejects a response for the wrong thread', async () => {
+    await writeFile(join(stateDir, 'state.json'), JSON.stringify({ items: [
+        { ...item('thread-one-item', 'first chat request', 'now', '2026-01-01T00:00:00Z'), conversationId: 'conversation-one', threadId: 'chatgpt-conversation-one', context: [{ role: 'assistant', content: 'Earlier Hanasand context' }] },
+        { ...item('thread-two-item', 'second chat request', 'now', '2026-01-02T00:00:00Z'), conversationId: 'conversation-two', threadId: 'chatgpt-conversation-two' },
+    ] } satisfies PromptPortalState))
+
+    const firstResponse = await workerGet(new NextRequest('https://app.test/api/prompt/worker', { headers: { authorization: 'Bearer worker-test-token' } }))
+    const first = await firstResponse.json()
+    expect(first.item.threadId).toBe('chatgpt-conversation-one')
+    expect(first.item.prompt).toContain('first chat request')
+    expect(first.item.prompt).not.toContain('second chat request')
+    expect(first.item.context).toEqual([{ role: 'assistant', content: 'Earlier Hanasand context' }])
+
+    const wrongThread = await workerPost(new NextRequest('https://app.test/api/prompt/worker', {
+        method: 'POST', headers: { authorization: 'Bearer worker-test-token', 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'complete', id: 'thread-one-item', threadId: 'chatgpt-conversation-two', status: 'done', result: 'wrong' }),
+    }))
+    expect(wrongThread.status).toBe(409)
+
+    const correctThread = await workerPost(new NextRequest('https://app.test/api/prompt/worker', {
+        method: 'POST', headers: { authorization: 'Bearer worker-test-token', 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'complete', id: 'thread-one-item', threadId: 'chatgpt-conversation-one', status: 'done', result: 'right chat answer' }),
+    }))
+    expect(correctThread.status).toBe(200)
+    const secondResponse = await workerGet(new NextRequest('https://app.test/api/prompt/worker', { headers: { authorization: 'Bearer worker-test-token' } }))
+    expect((await secondResponse.json()).item.threadId).toBe('chatgpt-conversation-two')
+})
+
+test('enqueue stores the ChatGPT thread id and the complete prior transcript context', async () => {
+    const form = new FormData()
+    form.set('prompt', 'Continue this design')
+    form.set('conversationId', 'conversation-context')
+    form.set('threadId', 'chatgpt-conversation-context')
+    form.set('priority', 'now')
+    form.set('context', JSON.stringify([
+        { role: 'user', content: 'Earlier request' },
+        { role: 'assistant', content: 'Earlier reply', modelName: 'Hanasand GPT' },
+    ]))
+    const queued = await POST(new NextRequest('https://app.test/api/prompt', { method: 'POST', body: form }))
+    const payload = await queued.json()
+
+    expect(queued.status).toBe(200)
+    expect(payload.items[0]).toMatchObject({
+        conversationId: 'conversation-context',
+        threadId: 'chatgpt-conversation-context',
+        context: [
+            { role: 'user', content: 'Earlier request' },
+            { role: 'assistant', content: 'Earlier reply', modelName: 'Hanasand GPT' },
+        ],
+    })
+
+    const otherThread = await queueGet(new NextRequest('https://app.test/api/prompt?threadId=chatgpt-another&conversationId=another'))
+    expect((await otherThread.json()).items).toEqual([])
 })

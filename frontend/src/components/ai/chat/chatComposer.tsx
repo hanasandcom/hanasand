@@ -1,16 +1,18 @@
-import { ArrowDown, ArrowUp, Image, LoaderCircle, RefreshCw, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, Image, LoaderCircle, RefreshCw, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
-export function ChatComposer({ value, blockedReason, awaitingResponse, readOnly, provider, promptPriority, promptFiles, promptBusy, promptError, onPromptPriorityChange, onPromptFilesChange, onRefreshPrompts, onChange, onSend }: {
+export function ChatComposer({ value, blockedReason, awaitingResponse, readOnly, provider, canUseChatGPT, promptPriority, promptFiles, promptBusy, promptError, onProviderChange, onPromptPriorityChange, onPromptFilesChange, onRefreshPrompts, onChange, onSend }: {
     value: string
     blockedReason: string | null
     awaitingResponse: boolean
     readOnly: boolean
     provider: 'hanasand' | 'chatgpt'
+    canUseChatGPT: boolean
     promptPriority: 'now' | 'next'
     promptFiles: FileList | null
     promptBusy: boolean
     promptError: string
+    onProviderChange: (value: 'hanasand' | 'chatgpt') => void
     onPromptPriorityChange: (value: 'now' | 'next') => void
     onPromptFilesChange: (files: FileList | null) => void
     onRefreshPrompts: () => void
@@ -39,9 +41,19 @@ export function ChatComposer({ value, blockedReason, awaitingResponse, readOnly,
                         <button type='button' aria-pressed={promptPriority === 'now'} onClick={() => onPromptPriorityChange('now')} className={promptPriority === 'now' ? selectedButton : plainButton}><ArrowDown className='h-3.5 w-3.5' />Now</button>
                         <button type='button' aria-label='Refresh ChatGPT activity' title='Refresh activity' onClick={onRefreshPrompts} className={roundButton}><RefreshCw className='h-4 w-4' /></button>
                     </> : null}
-                    <button type='button' aria-label='Send' aria-describedby={blockedReason ? 'ai-composer-blocked-reason' : undefined} title={blockedReason || undefined} disabled={blocked || promptBusy || awaitingResponse || !value.trim()} onClick={onSend} className='ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ui-text text-ui-canvas transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45'>
-                        {promptBusy || awaitingResponse ? <LoaderCircle className='h-4 w-4 animate-spin' /> : <ArrowUp className='h-4 w-4 stroke-[2.8]' />}
-                    </button>
+                    <div className='ml-auto flex shrink-0 items-center gap-2'>
+                        {canUseChatGPT ? <label className='relative inline-flex h-9 items-center'>
+                            <span className='sr-only'>Assistant for this conversation</span>
+                            <select aria-label='Assistant for this conversation' value={provider} onChange={event => onProviderChange(event.target.value as 'hanasand' | 'chatgpt')} className='h-9 max-w-36 appearance-none rounded-full border border-ui-border bg-ui-raised py-0 pl-3 pr-8 text-xs font-medium text-ui-text outline-none transition focus:border-ui-primary/60 focus:ring-2 focus:ring-ui-primary/15'>
+                                <option value='hanasand'>Hanasand GPT</option>
+                                <option value='chatgpt'>ChatGPT</option>
+                            </select>
+                            <ChevronDown aria-hidden='true' className='pointer-events-none absolute right-2.5 h-3.5 w-3.5 text-ui-muted' />
+                        </label> : null}
+                        <button type='button' aria-label='Send' aria-describedby={blockedReason ? 'ai-composer-blocked-reason' : undefined} title={blockedReason || undefined} disabled={blocked || promptBusy || awaitingResponse || !value.trim()} onClick={onSend} className='grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ui-text text-ui-canvas transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45'>
+                            {promptBusy || awaitingResponse ? <LoaderCircle className='h-4 w-4 animate-spin' /> : <ArrowUp className='h-4 w-4 stroke-[2.8]' />}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
