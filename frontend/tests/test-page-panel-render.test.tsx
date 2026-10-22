@@ -13,7 +13,7 @@ function renderPanel(overrides: Partial<Parameters<typeof EndpointCheckPanel>[0]
         path='https://api.example.com/health'
         scenarioId='ramp'
         scenarios={scenarios}
-        quotaLabel='3 free checks remaining'
+        quotaLabel='3 free runs remaining'
         error={null}
         starting={false}
         recentScans={[]}
@@ -31,9 +31,10 @@ test('endpoint panel renders endpoint guidance, quota, and form labels', () => {
     expect(html).toContain('Check a service before users do.')
     expect(html).toContain('Test how much your endpoint can handle.')
     expect(html).toContain('Enter the endpoint to check.')
-    expect(html).toContain('3 free checks remaining')
+    expect(html).toContain('3 free runs remaining')
     expect(html).toContain('value="https://api.example.com/health"')
     expect(html).not.toContain('Endpoint check')
+    expect(html).toContain('Start test')
     expect(html).not.toContain('timeout')
     expect(html).not.toContain('p95 and failures')
     expect(html).not.toContain('logs and result link')

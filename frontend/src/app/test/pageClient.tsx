@@ -5,6 +5,7 @@ import useClearStateAfter from '@/hooks/useClearStateAfter'
 import copy from '@/utils/copy'
 import { fetchRecentTests } from '@/utils/test/fetchRecentTests'
 import { postTest } from '@/utils/test/postTest'
+import { isValidEndpoint, normalizeEndpoint } from '@/utils/test/normalizeEndpoint'
 import { ArrowLeft, CheckCircle2, Copy } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { SyntheticEvent, KeyboardEvent, useEffect, useState } from 'react'
@@ -31,7 +32,7 @@ export default function TestPageClient({ serverId, created, missingTestId }: { s
     const remainingChecks = loadTestQuota?.remaining ?? Math.max(0, freeTryLimit - freeTriesUsed)
     const quotaLabel = loadTestQuota && loadTestQuota.plan !== 'free'
         ? `${remainingChecks} ${loadTestQuota.plan} check${remainingChecks === 1 ? '' : 's'} remaining this month`
-        : `${remainingChecks} free check${remainingChecks === 1 ? '' : 's'} remaining`
+        : `${remainingChecks} free run${remainingChecks === 1 ? '' : 's'} remaining`
     const { condition: error, setCondition: setError } = useClearStateAfter()
     const { condition: didCopy, setCondition: setDidCopy } = useClearStateAfter({
         initialState: false,
@@ -70,7 +71,7 @@ export default function TestPageClient({ serverId, created, missingTestId }: { s
 
         const url = normalizeEndpoint(path)
         if (!isValidEndpoint(url)) {
-            setError('Enter a full HTTP or HTTPS endpoint you control.')
+            setError('Enter a valid HTTP or HTTPS endpoint.')
             return
         }
 
@@ -136,19 +137,6 @@ export default function TestPageClient({ serverId, created, missingTestId }: { s
         onEndpointKeyDown={handleEndpointKeyDown}
         onNavigate={url => router.push(url)}
     />
-}
-
-function normalizeEndpoint(value: string) {
-    return value.trim()
-}
-
-function isValidEndpoint(value: string) {
-    try {
-        const url = new URL(value)
-        return (url.protocol === 'http:' || url.protocol === 'https:') && Boolean(url.hostname)
-    } catch {
-        return false
-    }
 }
 
 function readFreeTriesUsed() {
