@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { UvmDashboard } from '../src/utils/monitoring/types'
 import UvmPanel, { filterAndSortUvmFindings } from '../src/app/dashboard/scanner/uvmPanel'
+import { UvmAssessmentStarter } from '../src/app/dashboard/scanner/uvmPanelViews'
 
 const data: UvmDashboard = {
     assets: [{
@@ -70,6 +71,11 @@ test('overview shows asset coverage, current scan state, and clear next actions'
     expect(html).toContain('do not validate exploitability or constitute a complete penetration test')
     expect(html).toContain('Verified assets')
     expect(html).toContain('1 / 1')
+    expect(html).toContain('Start an authorized assessment')
+    expect(html).toContain('Verify the target, confirm authorization, then choose the available engines. The service rechecks DNS at launch and limits scans to public IPv4 addresses.')
+    expect(html).toContain('Choose scope and scanners')
+    expect(html).toContain('Nessus scan configurations run through Tenable VM')
+    expect(html).toContain('Standalone Nessus Pro hosts are not connected.')
     expect(html).toContain('Scans in progress')
     expect(html).toContain('Findings needing attention')
     expect(html).toContain('Coverage state')
@@ -96,4 +102,39 @@ test('finding filters default to actionable statuses and order severity before a
     const newerHigh = { ...data.findings[1], id: 'finding-high', severity: 'high', firstSeen: '2025-01-01T00:00:00.000Z' }
     const results = filterAndSortUvmFindings([olderLow, resolved, newerHigh], { query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })
     expect(results.map(finding => finding.id)).toEqual(['finding-high', 'finding-low'])
+})
+
+test('first-run guide points to asset verification and scanner setup when neither is ready', () => {
+    const html = renderToStaticMarkup(<UvmAssessmentStarter
+        data={{ ...data, assets: [], engines: [], scannerError: null }}
+        onManageAssets={() => undefined}
+        onConfigureScanners={() => undefined}
+        onStartAssessment={() => undefined}
+    />)
+
+    expect(html).toContain('0 verified assets')
+    expect(html).toContain('Add and verify an asset')
+    expect(html).toContain('No engines are currently available.')
+    expect(html).toContain('Scanner setup')
+
+    const configureHtml = renderToStaticMarkup(<UvmAssessmentStarter
+        data={{ ...data, engines: [] }}
+        onManageAssets={() => undefined}
+        onConfigureScanners={() => undefined}
+        onStartAssessment={() => undefined}
+    />)
+    expect(configureHtml).toContain('Configure a scanner')
+})
+
+test('configured Tenable without an enabled scan is not shown as a ready engine', () => {
+    const html = renderToStaticMarkup(<UvmAssessmentStarter
+        data={{ ...data, engines: data.engines.filter(engine => engine.id === 'tenable-vm'), tenableScans: [] }}
+        onManageAssets={() => undefined}
+        onConfigureScanners={() => undefined}
+        onStartAssessment={() => undefined}
+    />)
+
+    expect(html).toContain('Configure a scanner')
+    expect(html).toContain('No engines are currently available.')
+    expect(html).toContain('No enabled network scan configurations.')
 })
