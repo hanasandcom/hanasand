@@ -1,42 +1,27 @@
 import { afterAll, expect, test } from 'bun:test'
-import { createServer } from 'node:http'
 import { backupWorkerCall } from '../src/utils/db/backupWorkerClient.ts'
 
 const previousUrl = process.env.DB_BACKUP_WORKER_URL
 const previousToken = process.env.DB_BACKUP_WORKER_TOKEN
+const previousFetch = globalThis.fetch
 const targetDatabase = process.env.DB || 'hanasand'
-let testPort = 0
-process.env.DB_BACKUP_WORKER_URL = 'http://127.0.0.1:18190'
+process.env.DB_BACKUP_WORKER_URL = 'http://backup-worker.test/'
 process.env.DB_BACKUP_WORKER_TOKEN = 'unit-test-database-backup-token'
-const calls: unknown[] = []
-const server = createServer(async (req, res) => {
-    let body = ''
-    for await (const chunk of req) body += chunk
-    const input = JSON.parse(body)
-    calls.push(input)
-    expect(req.headers.authorization).toBe(`Bearer ${process.env.DB_BACKUP_WORKER_TOKEN}`)
-    if (input.method === 'create') {
-        res.writeHead(409).end(JSON.stringify({ error: 'Another backup is running.' }))
-    } else if (input.method === 'restore-live') res.end(JSON.stringify({ value: { kind: 'restore_live', file: 'verified.dump' } }))
-    else res.end(JSON.stringify({ value: [{ file: 'verified.dump' }] }))
-})
-await new Promise<void>((resolve, reject) => {
-    const onError = (error: Error) => reject(error)
-    server.once('error', onError)
-    server.listen(0, '127.0.0.1', () => {
-        server.off('error', onError)
-        const address = server.address()
-        if (!address || typeof address === 'string') {
-            reject(new Error('Backup worker test server did not receive a TCP port'))
-            return
-        }
-        testPort = address.port
-        resolve()
-    })
-})
-process.env.DB_BACKUP_WORKER_URL = `http://127.0.0.1:${testPort}/`
+const calls: Array<{ method: string; args: unknown[] }> = []
+globalThis.fetch = async (input, init) => {
+    expect(input).toBe('http://backup-worker.test')
+    expect(init?.method).toBe('POST')
+    expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${process.env.DB_BACKUP_WORKER_TOKEN}`)
+    const payload = JSON.parse(String(init?.body)) as { method: string; args: unknown[] }
+    calls.push(payload)
+    if (payload.method === 'create') {
+        return Response.json({ error: 'Another backup is running.' }, { status: 409 })
+    }
+    if (payload.method === 'restore-live') return Response.json({ value: { kind: 'restore_live', file: 'verified.dump' } })
+    return Response.json({ value: [{ file: 'verified.dump' }] })
+}
 afterAll(async () => {
-    await new Promise<void>(resolve => server.close(() => resolve()))
+    globalThis.fetch = previousFetch
     if (previousUrl === undefined) delete process.env.DB_BACKUP_WORKER_URL
     else process.env.DB_BACKUP_WORKER_URL = previousUrl
     if (previousToken === undefined) delete process.env.DB_BACKUP_WORKER_TOKEN
