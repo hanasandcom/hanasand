@@ -10,12 +10,14 @@ const calls: Array<{ name: string, value?: unknown }> = []
 let pendingCookies: Promise<unknown> | null = null
 
 mock.module('next/headers', () => ({
+    headers: async () => new Headers(),
     cookies: async () => {
         calls.push({ name: 'cookies' })
         if (pendingCookies) await pendingCookies
         return { get: (name: string) => ({ value: cookieValues[name] }) }
     },
 }))
+mock.module('server-only', () => ({}))
 mock.module('next/link', () => ({
     default: ({ href, children, className }: { href: string, children: ReactNode, className?: string }) =>
         createElement('a', { href, className }, children),
