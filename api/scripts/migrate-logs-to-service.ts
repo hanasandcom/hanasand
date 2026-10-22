@@ -68,6 +68,8 @@ export async function clearMovedLogState(transaction = withTransaction) {
         if (receiptsRemaining.rows[0]?.present) {
             throw new Error('Cannot clear Hanasand Logs state while migration receipts remain.')
         }
+        const eventsRemain = await query('SELECT EXISTS(SELECT 1 FROM events) AS present')
+        const findingsRemain = await query('SELECT EXISTS(SELECT 1 FROM findings) AS present')
         const tables = await query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND c.relkind='r' AND left(c.relname,4)='log_'
               AND NOT (c.relname=ANY($1::text[])) ORDER BY c.relname`, [keepLogTables])
@@ -75,7 +77,14 @@ export async function clearMovedLogState(transaction = withTransaction) {
         for (const name of cleared) {
             if (!/^log_[a-z0-9_]+$/.test(name)) throw new Error('Unexpected log state relation name; cleanup stopped.')
         }
-        if (cleared.length) await query(`TRUNCATE TABLE ${cleared.map(name => `public.${name}`).join(', ')}`)
+        const truncate = [...cleared]
+        if (!eventsRemain.rows[0]?.present) truncate.push('events')
+        if (!findingsRemain.rows[0]?.present) truncate.push('findings')
+        if (truncate.length) {
+            const relations = truncate.map(name => `public.${name}`)
+            await query(`TRUNCATE TABLE ${relations.join(', ')}`)
+            cleared.push(...truncate.filter(name => name === 'events' || name === 'findings'))
+        }
         await query('TRUNCATE TABLE rule_hit_counts')
         await query('TRUNCATE TABLE rule_hit_count_deltas RESTART IDENTITY')
         await query(`INSERT INTO rule_hit_counts(organization_id,source,rule_id,hits)
@@ -604,7 +613,7 @@ async function main() {
             const clearedTables = await clearMovedLogState()
             await dropMigrationCursorIndex()
             console.log(JSON.stringify({ complete: true, moved, scope: 'logs events', clearedTables,
-                physicalRewriteRequired: ['events', 'findings'] }))
+                physicalRewriteRequired: ['events', 'findings'].filter(table => !clearedTables.includes(table)) }))
             return
         } else {
             // Another active worker or migration owns the remaining row locks.

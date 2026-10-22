@@ -21,6 +21,8 @@ let sourceThroughputSamples: Array<Record<string, unknown>> = []
 let sourceTuningSnapshots: Array<Record<string, unknown>> = []
 let findingScanReads = 0
 let sourceLogsRemain = false
+let sourceOtherEventsRemain = false
+let sourceFindingsRemain = false
 let sourceAnalyzeReceiptsRemain = false
 let sourceSpecializedReceiptsRemain = false
 let fetchHandler: typeof fetch
@@ -33,6 +35,8 @@ const query = async (sql: string, params: unknown[] = []) => {
         return { rows: findingScanReads === 1 ? [{ id: 'source-row-1' }] : [] }
     }
     if (sql.includes('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\')')) return { rows: [{ present: sourceLogsRemain }] }
+    if (sql === 'SELECT EXISTS(SELECT 1 FROM events) AS present') return { rows: [{ present: sourceOtherEventsRemain }] }
+    if (sql === 'SELECT EXISTS(SELECT 1 FROM findings) AS present') return { rows: [{ present: sourceFindingsRemain }] }
     if (sql.includes('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts)')) {
         return { rows: [{ present: sourceAnalyzeReceiptsRemain || sourceSpecializedReceiptsRemain }] }
     }
@@ -128,6 +132,8 @@ beforeEach(() => {
     sourceTuningSnapshots = []
     findingScanReads = 0
     sourceLogsRemain = false
+    sourceOtherEventsRemain = false
+    sourceFindingsRemain = false
     sourceAnalyzeReceiptsRemain = false
     sourceSpecializedReceiptsRemain = false
     fetchHandler = globalThis.fetch
@@ -383,12 +389,24 @@ test('transfers throughput history and tuning snapshots before deleting source r
 
 test('clears only log-owned state after the source log event set is empty and rebuilds shared hit counts', async () => {
     const cleared = await clearMovedLogState()
-    expect(cleared).toEqual(['log_analyze_receipts', 'log_dimensions'])
+    expect(cleared).toEqual(['log_analyze_receipts', 'log_dimensions', 'events', 'findings'])
     expect(statements.some(statement => statement.sql.includes('NOT (c.relname=ANY($1::text[]))'))).toBe(true)
     expect(statements.find(statement => statement.sql.includes('NOT (c.relname=ANY($1::text[]))'))?.params[0])
         .toEqual(['log_delivery_outbox', 'log_organization_sync_outbox', 'log_organization_sync_cursor'])
     expect(statements.some(statement => statement.sql === 'TRUNCATE TABLE rule_hit_count_deltas RESTART IDENTITY')).toBe(true)
     expect(statements.some(statement => statement.sql.includes('SELECT organization_id,\'findings\',rule_id,count(*) FROM findings'))).toBe(true)
+})
+
+test('preserves unrelated events and findings while clearing empty Logs tables', async () => {
+    sourceOtherEventsRemain = true
+    sourceFindingsRemain = true
+
+    const cleared = await clearMovedLogState()
+
+    expect(cleared).toEqual(['log_analyze_receipts', 'log_dimensions'])
+    const truncate = statements.find(statement => statement.sql.startsWith('TRUNCATE TABLE public.'))?.sql
+    expect(truncate).not.toContain('public.events')
+    expect(truncate).not.toContain('public.findings')
 })
 
 test('refuses to clear log-owned state while any Hanasand Logs event remains', async () => {
