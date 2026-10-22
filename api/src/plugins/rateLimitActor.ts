@@ -5,6 +5,7 @@ import { hasHanasandInternalPageAccess, HANASAND_ORGANIZATION_ID } from '#utils/
 import { canEditHanasandInternalPages } from '#utils/auth/organizationPagePolicy.ts'
 import { verifiedClientIp } from '#utils/http/publicBoundary.ts'
 import { withReadDatabase } from '#db'
+import { delegatesAuthenticationToIdentity } from '#utils/identityProxyPolicy.ts'
 import { deviceProofFromRequest, hasTrustedServerSession } from '#utils/auth/deviceProofRequest.ts'
 
 export type RateLimitActor = {
@@ -21,6 +22,9 @@ export async function resolveRateLimitActor(
     validateUserSession: typeof validateSession = validateSession,
 ): Promise<RateLimitActor> {
     const ip = verifiedClientIp(req)
+    // The Identity-owned proxy still passes through the core IP quota; Identity
+    // validates its original proof and applies its authenticated quota once.
+    if (delegatesAuthenticationToIdentity(req)) return { scope: 'anonymous', identifier: `ip:${ip}` }
 
     const apiKeySecret = extractPresentedApiKey(req)
     if (apiKeySecret) {
