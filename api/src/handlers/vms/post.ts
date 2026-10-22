@@ -276,7 +276,7 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null
     const selectedResources = (resources || { cpu: '1', memory: '2GiB', disk: '10GiB' }) as NonNullable<VmProvisionOptions['resources']>
     if (selectedServices.includes('minecraft-java') && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
-    if (os === 'ubuntu-24.04-desktop' && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
+    if (os === 'ubuntu-24.04-desktop' && (selectedResources.memory !== '8GiB' || selectedResources.disk !== '40GiB')) return null
     const supportedMinecraftTypes = new Set(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'])
     if (minecraftServerType !== undefined && (typeof minecraftServerType !== 'string' || !supportedMinecraftTypes.has(minecraftServerType))) return null
     if (minecraftServerType !== undefined && !selectedServices.includes('minecraft-java')) return null

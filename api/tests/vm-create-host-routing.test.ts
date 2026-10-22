@@ -100,15 +100,20 @@ test('VM creation forwards Ubuntu 26.04 LTS', async () => {
     expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-26.04', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: [], minecraftEulaAccepted: false }))
 })
 
-test('VM creation forwards Ubuntu Desktop and requires at least 4 GiB', async () => {
+test('VM creation forwards Ubuntu Desktop and requires the large resource plan', async () => {
     const tooSmall = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'desktop-vm', os: 'ubuntu-24.04-desktop' } })
     expect(tooSmall.statusCode).toBe(400)
     const response = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
         payload: { name: 'desktop-vm', os: 'ubuntu-24.04-desktop', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' } },
     })
-    expect(response.statusCode).toBe(201)
-    expect(calls.find(call => call.path.endsWith('/provision'))?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04-desktop', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' }, services: [], minecraftEulaAccepted: false }))
+    expect(response.statusCode).toBe(400)
+    const supported = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: { name: 'desktop-vm', os: 'ubuntu-24.04-desktop', resources: { cpu: '4', memory: '8GiB', disk: '40GiB' } },
+    })
+    expect(supported.statusCode).toBe(201)
+    expect(calls.find(call => call.path.endsWith('/provision'))?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04-desktop', resources: { cpu: '4', memory: '8GiB', disk: '40GiB' }, services: [], minecraftEulaAccepted: false }))
 })
 
 

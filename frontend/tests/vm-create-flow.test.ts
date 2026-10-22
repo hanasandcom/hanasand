@@ -34,6 +34,8 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('custom_apt_packages: customAptPackages')
     expect(source).toContain('Additional Ubuntu packages: {customAptPackages.join(\', \')}')
     expect(source).toContain('option.memory !== \'2GiB\'')
+    expect(source).toContain('const requiresLargePlan = operatingSystem === \'ubuntu-24.04-desktop\'')
+    expect(source).toContain('if (value === \'ubuntu-24.04-desktop\') setResourcePlan(\'large\')')
     expect(source).toContain('setCreationError(result.message)')
     expect(source).toContain('role=\'alert\' className=\'rounded-lg border border-ui-danger/25')
 })

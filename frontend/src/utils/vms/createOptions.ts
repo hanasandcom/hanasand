@@ -1,6 +1,6 @@
 export const vmOperatingSystems = [
     { id: 'ubuntu-24.04', label: 'Ubuntu 24.04 LTS', description: 'Stable choice for most projects' },
-    { id: 'ubuntu-24.04-desktop', label: 'Ubuntu 24.04 Desktop', description: 'Graphical desktop, accessed through an SSH tunnel · 4 GB minimum' },
+    { id: 'ubuntu-24.04-desktop', label: 'Ubuntu 24.04 Desktop', description: 'Graphical desktop, accessed through an SSH tunnel · 8 GB RAM and 40 GB disk' },
     { id: 'ubuntu-26.04', label: 'Ubuntu 26.04 LTS', description: 'Latest long-term support release' },
     { id: 'ubuntu-22.04', label: 'Ubuntu 22.04 LTS', description: 'For older software requirements' },
 ] as const

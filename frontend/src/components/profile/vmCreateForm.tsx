@@ -39,8 +39,11 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const [suggestingSetup, setSuggestingSetup] = useState(false)
     const [creating, setCreating] = useState(false)
     const [creationError, setCreationError] = useState('')
-    const requiresFourGiB = selectedServices.includes('minecraft-java') || operatingSystem === 'ubuntu-24.04-desktop'
-    const availableResources = vmResourceOptions.filter(option => !requiresFourGiB || option.memory !== '2GiB')
+    const requiresLargePlan = operatingSystem === 'ubuntu-24.04-desktop'
+    const requiresFourGiB = selectedServices.includes('minecraft-java')
+    const availableResources = vmResourceOptions.filter(option => requiresLargePlan
+        ? option.id === 'large'
+        : !requiresFourGiB || option.memory !== '2GiB')
     const currentSetupKey = `${operatingSystem}\n${setupPrompt.trim()}`
     const unresolvedSetupPrompt = setupPrompt.trim().length >= 5 && suggestedSetupKey !== currentSetupKey
         && selectedServices.length === 0 && customAptPackages.length === 0
@@ -124,7 +127,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                 setCustomAptPackages([])
                 setSuggestedSetupKey('')
                 if (setupPrompt.trim()) setSetupSuggestion('The operating system changed. Generate the setup again to check package compatibility.')
-                if (value === 'ubuntu-24.04-desktop' && resourcePlan === 'small') setResourcePlan('standard')
+                if (value === 'ubuntu-24.04-desktop') setResourcePlan('large')
             }} disabled={creating} />
             <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>Resources<select value={resourcePlan} onChange={event => setResourcePlan(event.target.value)} disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{availableResources.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
         </div>
