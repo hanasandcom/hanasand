@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const otherUnitTasks: TestTask[] = [
+    { id: 'organization-watchlist-reconcile-proxy', title: 'Explicit watchlist projection retry transport and legacy IDs', command: [bun, 'test', 'tests/organization-watchlist-reconcile-proxy.test.ts'] },
     { id: 'organization-watchlist-cleanup', title: 'Explicit selected watchlist archive consent and receipts', command: [bun, 'test', 'tests/organization-watchlist-cleanup.test.tsx'] },
     { id: 'customer-read-proof', title: 'Customer case and alert proof delegation', command: [bun, 'test', 'tests/customer-read-proof.test.ts'] },
     { id: 'logs-error-summary-render', title: 'Unavailable log summary preserves recent errors', command: [bun, 'test', 'tests/logs-error-summary-render.test.tsx'] },

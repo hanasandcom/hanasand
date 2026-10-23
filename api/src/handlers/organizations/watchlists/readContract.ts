@@ -45,6 +45,7 @@ export function organizationSharedWatchlistContract(organization: OrganizationRo
         schemaVersion: 'organization.shared_watchlist_contract.v1',
         capabilities: {
             authoritativeProjectionSync: true,
+            projectionReconcile: true,
             projectionReceiptSchemaVersion: 'organization.watchlist_projection_receipt.v1',
         },
         organizationId: organization.id,
@@ -74,6 +75,7 @@ export function organizationSharedWatchlistContract(organization: OrganizationRo
             archivedCount: archivedItems.length,
             cleanupRequired: pausedItems.length + archivedItems.length > 0,
             cleanupRoute: 'POST /api/organizations/:id/watchlists/cleanup',
+            reconcileRoute: 'POST /api/organizations/:id/watchlists/reconcile',
             archiveRoute: 'DELETE /api/organizations/:organizationId/watchlists/:itemId',
             actionRoute: 'POST /api/organizations/:organizationId/watchlists/:itemId/actions',
             cleanupIdempotent: true,
@@ -117,6 +119,7 @@ export function organizationSharedWatchlistContract(organization: OrganizationRo
             actorRole: organization.role ?? 'viewer',
             canRead: true,
             canWrite: roleCanWriteWatchlist(organization.role),
+            canReconcile: roleCanWriteWatchlist(organization.role),
             canArchive: roleCanWriteWatchlist(organization.role),
             canCleanup: roleCanManageOrganization(organization.role),
             writeRoles: ['owner', 'admin'],

@@ -23,8 +23,9 @@ function watchlistRoute(path: string, organizationId: string) {
 export async function organizationWatchlistSession(request: NextRequest, path: string, method: string, organizationId: string): Promise<{ identity: VerifiedWatchlistSession } | { response: NextResponse }> {
     const denied = (status = 401, code = 'invalid_session') => ({ response: NextResponse.json({ error: { code, message: 'A valid watchlist request is required.' } }, { status, headers: { 'cache-control': 'no-store' } }) })
     const match = watchlistRoute(path, organizationId)
-    const cleanup = match?.item === 'cleanup' && !match.actions
-    const supported = match && (cleanup ? method === 'POST' : match.actions ? method === 'POST' : match.item ? ['PUT', 'DELETE'].includes(method) : method === 'POST')
+    const cleanup = match?.item === 'cleanup' && !match.actions && method === 'POST'
+    const reconcile = match?.item === 'reconcile' && !match.actions && method === 'POST'
+    const supported = match && (cleanup || reconcile ? method === 'POST' : match.actions ? method === 'POST' : match.item ? ['PUT', 'DELETE'].includes(method) : method === 'POST')
     if (!supported || method !== request.method || request.nextUrl.pathname !== `/api${path}`) return denied(400, 'invalid_watchlist_route')
     const target = backendDeviceProofTarget(request)
     if (!target) return denied()
@@ -44,7 +45,7 @@ export async function organizationWatchlistSession(request: NextRequest, path: s
     if (!id || !token || token.startsWith('hsk_')) return denied()
     const body = await boundedBody(request)
     if (!body) return denied(400, 'invalid_watchlist_body')
-    const fields = cleanup ? ['itemIds', 'item_ids', 'reason', 'requestId', 'request_id'] : match?.actions ? ['action', 'reason', 'requestId', 'request_id'] : method === 'DELETE' ? ['reason', 'requestId', 'request_id'] : ['kind', 'value', 'notes', 'reason', 'requestId', 'request_id']
+    const fields = cleanup || reconcile ? ['itemIds', 'item_ids', 'reason', 'requestId', 'request_id'] : match?.actions ? ['action', 'reason', 'requestId', 'request_id'] : method === 'DELETE' ? ['reason', 'requestId', 'request_id'] : ['kind', 'value', 'notes', 'reason', 'requestId', 'request_id']
     if (Object.keys(body).some(name => ![...fields, 'organizationId', 'orgId', 'tenantId'].includes(name))) return denied(400, 'invalid_watchlist_body')
     for (const name of ['organizationId', 'orgId', 'tenantId']) {
         const query = request.nextUrl.searchParams.getAll(name)

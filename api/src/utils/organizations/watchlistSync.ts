@@ -16,7 +16,7 @@ export type WatchlistProjectionReceipt = {
 }
 
 type SyncOptions = { base?: string, token?: string, fetchImpl?: typeof fetch, timeoutMs?: number }
-const validId = (value: string) => /^[A-Za-z0-9_.:@-]{1,200}$/.test(value) && value !== '.' && value !== '..'
+export const isWatchlistProjectionId = (value: string) => /^[A-Za-z0-9_.:@-]{1,200}$/.test(value) && value !== '.' && value !== '..'
 
 export async function savedWatchlistProjection(organizationId: string, itemIds: string[], options: SyncOptions = {}) {
     return { saved: true as const, dwmAlertBridge: await syncWatchlistProjection(organizationId, itemIds, options) }
@@ -31,7 +31,7 @@ export async function syncWatchlistProjection(organizationId: string, itemIds: s
     const failure = (status: 'pending' | 'failed', code: string): WatchlistProjectionReceipt => ({ ...receipt,
         projection: { ...receipt.projection, status, error: { code, message: 'The watchlist was saved; monitoring projection synchronization did not complete.' } },
     })
-    if (!validId(organizationId) || receipt.itemIds.length > 50 || receipt.itemIds.some(id => !validId(id))) return failure('failed', 'invalid_projection_scope')
+    if (!isWatchlistProjectionId(organizationId) || receipt.itemIds.length > 50 || receipt.itemIds.some(id => !isWatchlistProjectionId(id))) return failure('failed', 'invalid_projection_scope')
     if (!receipt.itemIds.length) return { ...receipt, projection: { ...receipt.projection, status: 'unchanged', reason: 'no_changed_items' } }
     const base = (options.base ?? process.env.TI_SCRAPER_API_BASE)?.trim()
     const token = (options.token ?? process.env.TI_SCRAPER_SERVICE_TOKEN)?.trim()

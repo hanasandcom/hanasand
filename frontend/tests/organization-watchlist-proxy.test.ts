@@ -1,29 +1,6 @@
-import { expect, mock, test } from 'bun:test'
-let jar: Record<string, string> = {}
-let validations: unknown[] = []
-let requests: Array<{ url: string, init?: RequestInit }> = []
-let used = new Set<string>()
-let state = 'valid'
-let status = 201
-const payload = { saved: true, watchlistItem: { id: 'item' }, dwmAlertBridge: { projection: { status: 'pending' } } }
-mock.module('next/headers', () => ({ headers: async () => new Headers(), cookies: async () => ({ get: (name: string) => jar[name] ? { value: jar[name] } : undefined }) }))
-mock.module('../src/utils/proxy/tokenIsValid', () => ({ default: async (token: string, id: string, _unused: unknown, options: { deviceProof: { proof: string } }) => {
-    validations.push({ token, id, options })
-    if (used.has(options.deviceProof.proof)) return { valid: false, state: 'invalid' }
-    used.add(options.deviceProof.proof)
-    return { valid: state === 'valid', state }
-} }))
-process.env.FRONTEND_AUTH_API = 'https://core.invalid/api'
-process.env.SOCIAL_AUTH_ORIGIN = 'https://hanasand.com'
-globalThis.fetch = (async (target, init) => { requests.push({ url: String(target), init }); return Response.json(status === 409 ? { error: 'quota_exhausted' } : payload, { status }) }) as typeof fetch
-const { NextRequest } = await import('next/server')
-const { proxyOrganizationWatchlistMutation } = await import('../src/app/api/organizations/organizationWatchlistMutation')
-const { proxyOrganizationApiRequest } = await import('../src/app/api/organizations/_organizationApiProxy')
-function reset() { jar = {}; validations = []; requests = []; used = new Set(); state = 'valid'; status = 201; process.env.VM_API_TOKEN = 'synthetic-assertion' }
-function request(path = '/organizations/org/watchlists', method: 'POST' | 'PUT' | 'DELETE' = 'POST', headers: Record<string, string> = {}, body = '{}') {
-    return new NextRequest(`https://localhost:3000/api${path}`, { method, headers: { authorization: 'Bearer session', id: 'user', dpop: 'proof', ...headers }, body })
-}
-const send = (req = request(), path = '/organizations/org/watchlists', method: 'POST' | 'PUT' | 'DELETE' = 'POST') => proxyOrganizationWatchlistMutation(req, path, { method, organizationId: 'org' })
+import { expect, test } from 'bun:test'
+import { NextRequest, payload, validations, requests, reset, request, send, proxyOrganizationApiRequest, proxyOrganizationWatchlistMutation, setJar, setValidationState, setUpstreamStatus } from './helpers/organizationWatchlistProxyFixture'
+
 test('canonical verification runs once before one trusted core hop, retaining saved partial response', async () => {
     reset()
     const response = await send()
@@ -54,7 +31,7 @@ test('foreign targets, scope, impersonation and spoofed server context fail befo
     }
 })
 test('ambiguous credentials and malformed/oversized or conflicting bodies are rejected', async () => {
-    reset(); jar = { id: 'other', access_token: 'other-session' }
+    reset(); setJar({ id: 'other', access_token: 'other-session' })
     expect((await send()).status).toBe(401)
     for (const body of ['null', '[]', '{', JSON.stringify({ tenantId: 'other' }), JSON.stringify({ notes: 'x'.repeat(17000) })]) {
         reset()
@@ -64,7 +41,7 @@ test('ambiguous credentials and malformed/oversized or conflicting bodies are re
     }
 })
 test('validator outage and absent trusted-hop configuration fail closed', async () => {
-    reset(); state = 'unavailable'
+    reset(); setValidationState('unavailable')
     expect((await send()).status).toBe(503)
     expect(requests).toHaveLength(0)
     reset(); delete process.env.VM_API_TOKEN
@@ -74,7 +51,7 @@ test('validator outage and absent trusted-hop configuration fail closed', async 
 })
 test('finite actions preserve existing200 and body; wrong route is rejected', async () => {
     for (const [path, method] of [['/organizations/org/watchlists/item', 'PUT'], ['/organizations/org/watchlists/item', 'DELETE'], ['/organizations/org/watchlists/item/actions', 'POST'], ['/organizations/org/watchlists/cleanup', 'POST']] as const) {
-        reset(); status = 200
+        reset(); setUpstreamStatus(200)
         expect((await send(request(path, method), path, method)).status).toBe(200)
         expect(requests).toHaveLength(1)
         expect(requests[0].init?.body).toBe('{}')
@@ -85,14 +62,14 @@ test('finite actions preserve existing200 and body; wrong route is rejected', as
     expect(validations).toHaveLength(0)
 })
 test('original core rejection passes through without scraper fanout', async () => {
-    reset(); status = 409
+    reset(); setUpstreamStatus(409)
     const response = await send()
     expect(response.status).toBe(409)
     expect(await response.json()).toEqual({ error: 'quota_exhausted' })
     expect(requests).toHaveLength(1)
 })
 test('unrelated organization proxy retains its impersonation behavior', async () => {
-    reset(); jar = { impersonation_token: 'synthetic-impersonation' }
+    reset(); setJar({ impersonation_token: 'synthetic-impersonation' })
     await proxyOrganizationApiRequest(new NextRequest('https://hanasand.com/api/organizations/org'), '/organizations/org')
     expect(new Headers(requests[0].init?.headers).get('x-impersonation-token')).toBe('synthetic-impersonation')
 })
@@ -109,7 +86,7 @@ test('supported historical metadata and cleanup aliases remain intact', async ()
 test('actual Next mutation routes preserve encoded dot, colon and at-sign IDs with exact public proof target', async () => {
     const { PUT } = await import('../src/app/api/organizations/[id]/watchlists/[itemId]/route')
     for (const [id, itemId] of [['org.name', 'item.name'], ['org:colon', 'item:colon'], ['org@domain', 'item@domain'], ['.org', '.item']]) {
-        reset(); status = 200
+        reset(); setUpstreamStatus(200)
         const path = `/organizations/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(itemId)}`
         const response = await PUT(request(path, 'PUT'), { params: Promise.resolve({ id, itemId }) })
         expect(response.status).toBe(200)
