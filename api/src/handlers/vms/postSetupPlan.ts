@@ -29,6 +29,7 @@ const minecraftServerTypePatterns = [
     ['VANILLA', /\bvanilla\b/i],
     ['FABRIC', /\bfabric\b/i],
     ['QUILT', /\bquilt\b/i],
+    ['FORGE', /\bforge\b/i],
     ['NEOFORGE', /\bneo[- ]?forge\b/i],
     ['PURPUR', /\bpurpur\b/i],
     ['FOLIA', /\bfolia\b/i],
@@ -89,7 +90,7 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
             || !packages
             || (plan.projectFiles !== undefined && plan.projectFiles !== null && !projectFiles)
             || (plan.unsupportedReason !== undefined && plan.unsupportedReason !== null && typeof plan.unsupportedReason !== 'string')
-            || (plan.minecraftServerType !== null && !['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'].includes(String(plan.minecraftServerType)))
+            || (plan.minecraftServerType !== null && !['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'PURPUR', 'FOLIA'].includes(String(plan.minecraftServerType)))
             || (plan.website !== null && !isVmWebsitePlan(plan.website))) {
             throw new Error('The plan used unsupported services.')
         }
