@@ -50,7 +50,7 @@ export default function Header({ token, id, username, path: serverPath }: { toke
                 <div className='flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2'>
                     <PublicDesktopNavigation />
                     {token && <OrganizationSwitcher />}
-                    <Link href={token ? '/dashboard' : '/login'} className={`${token ? 'hidden sm:inline-flex' : 'inline-flex'} h-10 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted transition hover:bg-ui-canvas hover:text-ui-text sm:px-4`}>
+                    <Link href={token ? '/dashboard' : '/login'} className={`${token ? 'hidden sm:inline-flex' : 'inline-flex'} h-10 items-center gap-2 rounded-lg border border-ui-border px-3 text-sm font-semibold text-ui-muted transition hover:bg-ui-raised hover:text-ui-text sm:px-4`}>
                         <span className='sm:hidden'>Dashboard</span><span className='hidden sm:inline'>{token ? 'Dashboard' : 'Go to Dashboard'}</span>
                     </Link>
                     <SiteSearch token={token} />
