@@ -23,7 +23,7 @@ import deleteVMs from '../handlers/vms/deleteVMs.ts'
 import shutdownVMs from '../handlers/vms/shutdown.ts'
 import getVMDetails from '../handlers/vms/getVMDetails.ts'
 import getVmConnection from '../handlers/vms/getConnection.ts'
-import { getInternalVmPublicPorts, getVmPublicPorts } from '../handlers/vms/publicPorts.ts'
+import { deleteVmPublicPort, getInternalVmPublicPorts, getVmPublicPorts, postVmPublicPort } from '../handlers/vms/publicPorts.ts'
 import postVmSudoPassword from '../handlers/vms/postSudoPassword.ts'
 import getAgentTarget from '../handlers/vms/getAgentTarget.ts'
 import getAgentTargets from '../handlers/vms/getAgentTargets.ts'
@@ -133,6 +133,8 @@ export function registerOrganizationsAndComputeRoutes(fastify: FastifyInstance) 
     fastify.get('/vm/:id', getVM)
     fastify.get('/vm/:id/connection', getVmConnection)
     fastify.get('/vm/:id/public-services', getVmPublicPorts)
+    fastify.post('/vm/:id/public-services', postVmPublicPort)
+    fastify.delete('/vm/:id/public-services/:routeId', deleteVmPublicPort)
     fastify.get('/vms/internal/public-ports', getInternalVmPublicPorts)
     fastify.post('/vm/:id/sudo-password', postVmSudoPassword)
     fastify.put('/vm/:id/host-features', putVmHostFeatures)
