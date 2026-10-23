@@ -2,6 +2,9 @@
 # every local LXD request is scoped to the restricted hns-stage project.
 services:
   vm-stage-api:
+    build:
+      args:
+        HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-vm-stage}
     environment:
       LXD_PROJECT: hns-stage
       VM_LIFECYCLE_MONITOR_ENABLED: "true"
