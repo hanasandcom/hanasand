@@ -8,7 +8,11 @@ mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => (
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: false }) }))
 mock.module('../src/utils/vms/access.ts', () => ({ hasVmAccess: async () => true }))
 mock.module('../src/utils/vms/lifecycleLock.ts', () => ({ vmLifecycleLock: async (_name: string, work: () => Promise<unknown>) => work() }))
-mock.module('../src/utils/vms/lxd.ts', () => ({ getLocalLxdInstance: async () => ({ config: {} }), updateLocalLxdConfig: async () => {} }))
+mock.module('../src/utils/vms/lxd.ts', () => ({
+    getLocalLxdInstance: async () => ({ config: {} }),
+    lxdProjectPath: (path: string) => path,
+    updateLocalLxdConfig: async () => {},
+}))
 mock.module('../src/utils/sanitize.ts', () => ({ default: (value: string) => value }))
 mock.module('../src/utils/db.ts', () => ({ default: async (sql: string) => ({ rows: sql.includes('FROM vms') ? [{
     name: 'status-cache-regression-vm', owner: 'owner', created_by: 'owner', access_users: [], primary_host: 'inspur', deleted_at: null,

@@ -20,6 +20,7 @@ mock.module('../src/utils/db.ts', () => ({
 mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'ovhcloud' } }))
 mock.module('../src/utils/vms/lxd.ts', () => ({
     canUseLocalLxd: async () => true,
+    lxdProjectPath: (path: string) => path,
     setLocalLxdInstanceState: async () => { throw new Error('Unexpected local action') },
     getLocalLxdInstance: async () => ({ config: {} }),
     updateLocalLxdConfig: async () => {},
