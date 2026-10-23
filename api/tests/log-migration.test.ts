@@ -25,6 +25,7 @@ let sourceIngestionCopies: Array<Record<string, unknown>> = []
 let sourceRuntimeState: Record<string, Array<Record<string, unknown>>> = {}
 let selectedRowsOverride: Array<Record<string, unknown>> | null = null
 let sourceDeleteRowsOverride: Array<Record<string, unknown>> | null = null
+let sourceDeleteMismatchTable: string | null = null
 let transactionErrors = 0
 let findingScanReads = 0
 let sourceLogsRemain = false
@@ -76,8 +77,10 @@ const query = async (sql: string, params: unknown[] = []) => {
         const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
         const ids = new Set(rows.map(row => `${row.organization_id}:${row.event_id}`))
         const deleted = sourceArchiveRows.filter(row => ids.has(`${row.organization_id}:${row.event_id}`))
-        sourceArchiveRows = sourceArchiveRows.filter(row => !ids.has(`${row.organization_id}:${row.event_id}`))
-        return { rows: deleted }
+        const returned = sourceDeleteMismatchTable === 'log_analyze_event_linkage_archive' ? deleted.slice(0, -1) : deleted
+        const deletedIds = new Set(returned.map(row => `${row.organization_id}:${row.event_id}`))
+        sourceArchiveRows = sourceArchiveRows.filter(row => !deletedIds.has(`${row.organization_id}:${row.event_id}`))
+        return { rows: returned }
     }
     if (sql.startsWith('DELETE FROM log_model_probe_receipts')) {
         const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
@@ -111,15 +114,19 @@ const query = async (sql: string, params: unknown[] = []) => {
         const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
         const ids = new Set(rows.map(row => String(row.sampled_at)))
         const deleted = sourceThroughputSamples.filter(row => ids.has(String(row.sampled_at)))
-        sourceThroughputSamples = sourceThroughputSamples.filter(row => !ids.has(String(row.sampled_at)))
-        return { rows: deleted }
+        const returned = sourceDeleteMismatchTable === 'log_throughput_samples' ? deleted.slice(0, -1) : deleted
+        const deletedIds = new Set(returned.map(row => String(row.sampled_at)))
+        sourceThroughputSamples = sourceThroughputSamples.filter(row => !deletedIds.has(String(row.sampled_at)))
+        return { rows: returned }
     }
     if (sql.startsWith('DELETE FROM log_tuning_snapshots')) {
         const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
         const ids = new Set(rows.map(row => String(row.organization_id)))
         const deleted = sourceTuningSnapshots.filter(row => ids.has(String(row.organization_id)))
-        sourceTuningSnapshots = sourceTuningSnapshots.filter(row => !ids.has(String(row.organization_id)))
-        return { rows: deleted }
+        const returned = sourceDeleteMismatchTable === 'log_tuning_snapshots' ? deleted.slice(0, -1) : deleted
+        const deletedIds = new Set(returned.map(row => String(row.organization_id)))
+        sourceTuningSnapshots = sourceTuningSnapshots.filter(row => !deletedIds.has(String(row.organization_id)))
+        return { rows: returned }
     }
     if (sql.startsWith('DELETE FROM log_access_counts')) {
         const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
@@ -158,8 +165,15 @@ const query = async (sql: string, params: unknown[] = []) => {
 mock.module('#db', () => ({
     queryOnce: async () => ({ rows: [] }),
     withTransaction: async (work: (tx: typeof query) => unknown) => {
+        const stateBefore = structuredClone({ sourceArchiveRows, sourceThroughputSamples, sourceTuningSnapshots })
         try { return await work(query) }
-        catch (error) { transactionErrors++; throw error }
+        catch (error) {
+            sourceArchiveRows = stateBefore.sourceArchiveRows
+            sourceThroughputSamples = stateBefore.sourceThroughputSamples
+            sourceTuningSnapshots = stateBefore.sourceTuningSnapshots
+            transactionErrors++
+            throw error
+        }
     },
 }))
 
@@ -183,6 +197,7 @@ beforeEach(() => {
     sourceRuntimeState = {}
     selectedRowsOverride = null
     sourceDeleteRowsOverride = null
+    sourceDeleteMismatchTable = null
     transactionErrors = 0
     findingScanReads = 0
     sourceLogsRemain = false
@@ -503,6 +518,45 @@ test('transfers throughput history and tuning snapshots before deleting source r
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_access_counts'))).toBe(true)
 })
 
+test('rolls back each verified runtime-state delete when a source row changed after transfer', async () => {
+    const linkage = { organization_id: 'tenant-a', event_id: 'a'.repeat(64), rule_id: 'ssh.audit.v1',
+        event_timestamp: '2026-10-20T10:00:00Z', host: 'inspur', process_pid: null, parent_pid: null,
+        executable: null, caller_executable: null, user_id: null, login_id: null, audit_id: null,
+        archived_at: '2026-10-20T10:01:00Z' }
+    const sample = { sampled_at: '2026-10-20T10:00:00.123456Z', checked_count: '42', pps: 1.2, eps: 1.4,
+        historical_eps: 0.2, npps: 1.1, remaining: '3' }
+    const linkageTwo = { ...linkage, event_id: 'b'.repeat(64) }
+    const sampleTwo = { ...sample, sampled_at: '2026-10-20T10:01:00.123456Z' }
+    const snapshot = { organization_id: 'tenant-a', logs: [{ key: 'ingest', value: 3 }], generated_at: null,
+        refresh_requested_at: '2026-10-20T10:00:00.123456Z' }
+    const snapshotTwo = { ...snapshot, organization_id: 'tenant-b' }
+    globalThis.fetch = (async (_input, init) => {
+        const payload = JSON.parse(String(init?.body)) as { rows?: unknown[], receipts?: unknown[] }
+        return new Response(JSON.stringify({ ok: true, accepted: payload.rows?.length ?? payload.receipts?.length ?? 0 }), { status: 200 })
+    }) as typeof fetch
+
+    sourceArchiveRows = [linkage, linkageTwo]
+    sourceDeleteMismatchTable = 'log_analyze_event_linkage_archive'
+    await expect(migrateLinkageArchive('https://logs.hanasand.com', 's'.repeat(40))).rejects.toThrow('delete transaction was rolled back')
+    expect(transactionErrors).toBe(1)
+    expect(sourceArchiveRows).toEqual([linkage, linkageTwo])
+
+    transactionErrors = 0
+    sourceDeleteMismatchTable = 'log_throughput_samples'
+    sourceThroughputSamples = [sample, sampleTwo]
+    await expect(migrateLogRuntimeState('https://logs.hanasand.com', 's'.repeat(40))).rejects.toThrow('delete transaction was rolled back')
+    expect(transactionErrors).toBe(1)
+    expect(sourceThroughputSamples).toEqual([sample, sampleTwo])
+
+    transactionErrors = 0
+    sourceDeleteMismatchTable = 'log_tuning_snapshots'
+    sourceThroughputSamples = []
+    sourceTuningSnapshots = [snapshot, snapshotTwo]
+    await expect(migrateLogRuntimeState('https://logs.hanasand.com', 's'.repeat(40))).rejects.toThrow('delete transaction was rolled back')
+    expect(transactionErrors).toBe(1)
+    expect(sourceTuningSnapshots).toEqual([snapshot, snapshotTwo])
+})
+
 test('migrates ingestion canonicals before copies and deletes canonicals after their dependents', async () => {
     sourceIngestionCanonical = [{ key: 'canonical-a', organization_id: 'tenant-a', source_event_id: 'source-event-a',
         canonical_event_id: 'target-event-a', original: { message: 'canonical' }, created_at: '2026-10-20T10:00:00Z' }]
@@ -566,6 +620,10 @@ test('clears only log-owned state after the source log event set is empty and re
     expect(statements.some(statement => statement.sql.includes('NOT (c.relname=ANY($1::text[]))'))).toBe(true)
     expect(statements.find(statement => statement.sql.includes('NOT (c.relname=ANY($1::text[]))'))?.params[0])
         .toEqual(['log_delivery_outbox', 'log_organization_sync_outbox', 'log_organization_sync_cursor'])
+    const stateLocksAt = statements.findIndex(statement => statement.sql.includes('IN ACCESS EXCLUSIVE MODE NOWAIT') && statement.sql.includes('log_dimensions'))
+    const firstStateCheckAt = statements.findIndex(statement => statement.sql === 'SELECT EXISTS(SELECT 1 FROM public.log_access_counts) AS present')
+    expect(stateLocksAt).toBeGreaterThan(-1)
+    expect(stateLocksAt).toBeLessThan(firstStateCheckAt)
     expect(statements.some(statement => statement.sql === 'TRUNCATE TABLE rule_hit_count_deltas RESTART IDENTITY')).toBe(true)
     expect(statements.some(statement => statement.sql.includes('SELECT organization_id,\'findings\',rule_id,count(*) FROM findings'))).toBe(true)
     expect(statements.some(statement => statement.sql.startsWith('INSERT INTO rule_hit_count_deltas'))).toBe(false)

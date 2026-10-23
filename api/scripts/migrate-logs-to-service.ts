@@ -92,6 +92,19 @@ export async function clearMovedLogState(transaction = withTransaction) {
         await query('SET LOCAL lock_timeout = \'2s\'')
         await query('SET LOCAL statement_timeout = \'5min\'')
         await query('LOCK TABLE events, findings, rule_hit_counts, rule_hit_count_deltas, log_analyze_receipts, log_model_probe_receipts, log_readiness_audit_receipts, log_proxy_receipts IN SHARE ROW EXCLUSIVE MODE')
+        const tables = await query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relkind='r' AND left(c.relname,4)='log_'
+              AND NOT (c.relname=ANY($1::text[])) ORDER BY c.relname`, [keepLogTables])
+        const cleared = tables.rows.map(row => String(row.relname))
+        for (const name of cleared) {
+            if (!/^log_[a-z0-9_]+$/.test(name)) throw new Error('Unexpected log state relation name; cleanup stopped.')
+        }
+        if (cleared.length) {
+            // Hold an exclusive lock from the emptiness checks through TRUNCATE.
+            // NOWAIT makes active readers/writers defer cleanup rather than wait
+            // while this transaction owns locks on the shared Hanasand tables.
+            await query(`LOCK TABLE ${cleared.map(name => `public.${name}`).join(', ')} IN ACCESS EXCLUSIVE MODE NOWAIT`)
+        }
         const remaining = await query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present')
         if (remaining.rows[0]?.present) {
             throw new Error('Cannot clear Hanasand Logs state while source log events remain.')
@@ -113,21 +126,19 @@ export async function clearMovedLogState(transaction = withTransaction) {
         }
         const eventsRemain = await query('SELECT EXISTS(SELECT 1 FROM events) AS present')
         const findingsRemain = await query('SELECT EXISTS(SELECT 1 FROM findings) AS present')
-        const tables = await query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-            WHERE n.nspname='public' AND c.relkind='r' AND left(c.relname,4)='log_'
-              AND NOT (c.relname=ANY($1::text[])) ORDER BY c.relname`, [keepLogTables])
-        const cleared = tables.rows.map(row => String(row.relname))
-        for (const name of cleared) {
-            if (!/^log_[a-z0-9_]+$/.test(name)) throw new Error('Unexpected log state relation name; cleanup stopped.')
-        }
         const truncate = [...cleared]
         if (!eventsRemain.rows[0]?.present) truncate.push('events')
         if (!findingsRemain.rows[0]?.present) truncate.push('findings')
         if (truncate.length) {
+            const sharedRelations = truncate.filter(name => name === 'events' || name === 'findings')
+            if (sharedRelations.length) {
+                await query(`LOCK TABLE ${sharedRelations.map(name => `public.${name}`).join(', ')} IN ACCESS EXCLUSIVE MODE NOWAIT`)
+            }
             const relations = truncate.map(name => `public.${name}`)
             await query(`TRUNCATE TABLE ${relations.join(', ')}`)
             cleared.push(...truncate.filter(name => name === 'events' || name === 'findings'))
         }
+        await query('LOCK TABLE rule_hit_counts, rule_hit_count_deltas IN ACCESS EXCLUSIVE MODE NOWAIT')
         await query('TRUNCATE TABLE rule_hit_counts')
         await query('TRUNCATE TABLE rule_hit_count_deltas RESTART IDENTITY')
         await query(`INSERT INTO rule_hit_counts(organization_id,source,rule_id,hits)
@@ -353,10 +364,10 @@ export async function migrateLinkageArchive(url: string, syncToken: string) {
             acknowledged = true
         }
 
-        const deleted = await withTransaction(async query => {
+        await withTransaction(async query => {
             await query('SET LOCAL lock_timeout = \'1s\'')
             await query('SET LOCAL statement_timeout = \'20s\'')
-            return query(`DELETE FROM log_analyze_event_linkage_archive AS source USING jsonb_to_recordset($1::jsonb) AS expected(
+            const deleted = await query(`DELETE FROM log_analyze_event_linkage_archive AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                     organization_id text,event_id text,rule_id text,event_timestamp timestamptz,host text,process_pid text,
                     parent_pid text,executable text,caller_executable text,user_id text,login_id text,audit_id text,archived_at timestamptz)
                 WHERE source.organization_id=expected.organization_id AND source.event_id=expected.event_id AND source.rule_id=expected.rule_id
@@ -366,8 +377,8 @@ export async function migrateLinkageArchive(url: string, syncToken: string) {
                   AND source.user_id IS NOT DISTINCT FROM expected.user_id AND source.login_id IS NOT DISTINCT FROM expected.login_id
                   AND source.audit_id IS NOT DISTINCT FROM expected.audit_id AND source.archived_at=expected.archived_at
                 RETURNING source.organization_id,source.event_id`, [JSON.stringify(rows)])
+            if (deleted.rows.length !== rows.length) throw new Error('A linkage archive row changed during migration; its delete transaction was rolled back.')
         })
-        if (deleted.rows.length !== rows.length) throw new Error('A linkage archive row changed during migration; its delete transaction was rolled back.')
         const last = rows[rows.length - 1]!
         organizationCursor = String(last.organization_id)
         eventCursor = String(last.event_id)
@@ -585,17 +596,17 @@ export async function migrateLogRuntimeState(url: string, syncToken: string) {
         }
         if (!rows.length) throw permanentError('A throughput sample exceeds the Logs migration payload limit; it remains in Hanasand.')
         await sendMigrationState(url, syncToken, 'throughput_samples', rows)
-        const deleted = await withTransaction(async query => {
+        await withTransaction(async query => {
             await query('SET LOCAL lock_timeout = \'1s\'')
             await query('SET LOCAL statement_timeout = \'20s\'')
-            return query(`DELETE FROM log_throughput_samples AS source USING jsonb_to_recordset($1::jsonb) AS expected(
+            const deleted = await query(`DELETE FROM log_throughput_samples AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                     sampled_at timestamptz,checked_count bigint,pps double precision,eps double precision,
                     historical_eps double precision,npps double precision,remaining bigint)
                 WHERE source.sampled_at=expected.sampled_at AND source.checked_count=expected.checked_count
                   AND source.pps=expected.pps AND source.eps=expected.eps AND source.historical_eps=expected.historical_eps
                   AND source.npps=expected.npps AND source.remaining=expected.remaining RETURNING source.sampled_at`, [JSON.stringify(rows)])
+            if (deleted.rows.length !== rows.length) throw new Error('A throughput sample changed during migration; its delete transaction was rolled back.')
         })
-        if (deleted.rows.length !== rows.length) throw new Error('A throughput sample changed during migration; its delete transaction was rolled back.')
         sampleCursor = String(rows[rows.length - 1]!.sampled_at)
         migratedSamples += rows.length
     }
@@ -617,16 +628,16 @@ export async function migrateLogRuntimeState(url: string, syncToken: string) {
         }
         if (!rows.length) throw permanentError('A tuning snapshot exceeds the Logs migration payload limit; it remains in Hanasand.')
         await sendMigrationState(url, syncToken, 'tuning_snapshots', rows)
-        const deleted = await withTransaction(async query => {
+        await withTransaction(async query => {
             await query('SET LOCAL lock_timeout = \'1s\'')
             await query('SET LOCAL statement_timeout = \'20s\'')
-            return query(`DELETE FROM log_tuning_snapshots AS source USING jsonb_to_recordset($1::jsonb) AS expected(
+            const deleted = await query(`DELETE FROM log_tuning_snapshots AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                     organization_id text,logs jsonb,generated_at timestamptz,refresh_requested_at timestamptz)
                 WHERE source.organization_id=expected.organization_id AND source.logs=expected.logs
                   AND source.generated_at IS NOT DISTINCT FROM expected.generated_at
                   AND source.refresh_requested_at=expected.refresh_requested_at RETURNING source.organization_id`, [JSON.stringify(rows)])
+            if (deleted.rows.length !== rows.length) throw new Error('A tuning snapshot changed during migration; its delete transaction was rolled back.')
         })
-        if (deleted.rows.length !== rows.length) throw new Error('A tuning snapshot changed during migration; its delete transaction was rolled back.')
         organizationCursor = String(rows[rows.length - 1]!.organization_id)
         migratedSnapshots += rows.length
     }
