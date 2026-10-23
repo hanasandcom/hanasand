@@ -35,24 +35,23 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
             {integration?.configured && !data.tenableScans.length && <p className='mt-3 text-sm text-ui-muted'>{data.scannerError || 'No Tenable scan templates are available.'}</p>}
         </section>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-center justify-between gap-3'><h2 className='text-lg font-semibold'>Scanner suite · {scannerSuiteCatalog.length}</h2><UvmHelp label='Scanner suite' text='Integrated engines are shown with live status. Catalog entries need a compatible adapter and license review before they can run.' /></div>
+            <div className='flex items-center justify-between gap-3'><h2 className='text-lg font-semibold'>Scanner suite · {scannerSuiteCatalog.length}</h2><UvmHelp label='Scanner suite' text='Each product shows whether its integration is configured, needs adapter or license work, or requires a desktop app.' /></div>
             {servicesPaused && <p role='status' className='mt-2 text-xs text-ui-warning'>Configured services are stopped pending disk expansion. No scanner is running.</p>}
             <div className='mt-3 grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>
                 {scannerSuiteCatalog.map(item => {
                     const engine = ['nmap', 'tenable-vm', 'gvm', 'zap'].includes(item.integration)
                         ? data.engines.find(candidate => candidate.id === item.integration)
                         : undefined
-                    const status = item.integration === 'desktop-only' ? 'Desktop only'
-                        : item.integration === 'cli-review' ? 'CLI validation needed'
-                            : item.integration === 'catalog-only' ? 'Adapter setup needed'
-                                : servicesPaused && item.integration === 'nmap' ? 'Stopped · disk and license review'
-                                    : servicesPaused ? 'Stopped · disk expansion'
-                                        : engine?.status || (item.integration === 'image-worker' ? 'Integrated · image worker' : 'Unavailable')
-                    const statusClass = servicesPaused && !['desktop-only', 'cli-review', 'catalog-only'].includes(item.integration)
-                        ? 'text-ui-warning'
-                        : item.integration === 'catalog-only' || item.integration === 'desktop-only' || item.integration === 'cli-review'
-                            ? 'text-ui-muted'
-                            : engine?.status === 'available' ? 'text-ui-success' : 'text-ui-warning'
+                    const status = item.setup === 'desktop-only' ? 'Desktop app'
+                        : item.setup === 'cli-review-needed' ? 'CLI review needed'
+                            : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
+                                : item.setup === 'adapter-needed' ? 'Adapter needed'
+                                    : servicesPaused ? 'Stopped · pending disk'
+                                        : item.integration === 'image-worker' ? 'Integrated · image worker'
+                                            : engine?.status || 'Unavailable'
+                    const statusClass = item.setup !== 'configured' ? 'text-ui-muted'
+                        : servicesPaused ? 'text-ui-warning'
+                            : engine?.status === 'available' || item.integration === 'image-worker' ? 'text-ui-success' : 'text-ui-warning'
                     return <div key={item.name} className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-ui-border py-2 text-sm'>
                         <span className='font-medium'>{item.name}<span className='ml-2 text-xs font-normal text-ui-muted'>{item.category}</span></span>
                         <span className={`text-xs ${statusClass}`}>{status}</span>
