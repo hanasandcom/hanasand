@@ -71,6 +71,7 @@ export default function ScannerWorkspace() {
             cancelRunAction={client.cancelRun}
             startAssessmentAction={client.startAssessment}
             cancelAssessmentAction={client.cancelAssessment}
+            getAssessmentReportAction={client.getAssessmentReport}
         />
     </div>
 }

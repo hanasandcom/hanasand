@@ -1,7 +1,7 @@
 'use client'
 
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
-import type { UvmAsset, UvmDashboard, UvmFinding } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAsset, UvmDashboard, UvmEngineSelection, UvmFinding } from '@/utils/monitoring/types'
 import { formatDate, type UvmFindingFilters } from './uvmPanelHelpers'
 import { DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
 import { UvmHelp } from './uvmPanelHelp'
@@ -17,12 +17,12 @@ export type AssetViewProps = {
     setAuthorization: Dispatch<SetStateAction<Record<string, boolean>>>
     intervals: Record<string, string>
     setIntervals: Dispatch<SetStateAction<Record<string, string>>>
-    scheduleEngines: Record<string, 'nmap' | 'tenable-vm' | 'gvm' | 'zap'>
-    setScheduleEngines: Dispatch<SetStateAction<Record<string, 'nmap' | 'tenable-vm' | 'gvm' | 'zap'>>>
-    scheduleProfiles: Record<string, 'tcp-top-100' | 'tcp-top-1000'>
-    setScheduleProfiles: Dispatch<SetStateAction<Record<string, 'tcp-top-100' | 'tcp-top-1000'>>>
-    assetNmapProfiles: Record<string, 'tcp-top-100' | 'tcp-top-1000'>
-    setAssetNmapProfiles: Dispatch<SetStateAction<Record<string, 'tcp-top-100' | 'tcp-top-1000'>>>
+    schedulePlans: Record<string, UvmEngineSelection[]>
+    setSchedulePlans: Dispatch<SetStateAction<Record<string, UvmEngineSelection[]>>>
+    scheduleProfiles: Record<string, NmapScanProfile>
+    setScheduleProfiles: Dispatch<SetStateAction<Record<string, NmapScanProfile>>>
+    assetNmapProfiles: Record<string, NmapScanProfile>
+    setAssetNmapProfiles: Dispatch<SetStateAction<Record<string, NmapScanProfile>>>
     zapApiDefinitionPaths: Record<string, string>
     setZapApiDefinitionPaths: Dispatch<SetStateAction<Record<string, string>>>
     scheduleScanIds: Record<string, string>
@@ -65,15 +65,15 @@ export function UvmAssetsView(props: AssetViewProps) {
 
 function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps }) {
     const { data, busy, authorization, setAuthorization } = props
-    const scheduleEngine = props.scheduleEngines[asset.id] || asset.scheduleEngine || 'nmap'
-    const scheduleScanId = props.scheduleScanIds[asset.id] || asset.scheduleScanId || data.tenableScans.find(scan => scan.enabled)?.id || ''
+    const schedulePlan = props.schedulePlans[asset.id] || asset.schedulePlan || [{ engine: asset.scheduleEngine || 'nmap' }]
+    const scheduleScanId = props.scheduleScanIds[asset.id] || schedulePlan.find(choice => choice.engine === 'tenable-vm')?.scanId || data.tenableScans.find(scan => scan.enabled)?.id || ''
     const tenableReady = data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.id === scheduleScanId && scan.enabled)
     const canScan = asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'nmap' && engine.status === 'available')
-    const canSchedule = scheduleEngine === 'nmap'
+    const canSchedule = schedulePlan.length > 0 && schedulePlan.every(choice => choice.engine === 'nmap'
         ? canScan
-        : scheduleEngine === 'tenable-vm'
+        : choice.engine === 'tenable-vm'
             ? asset.verificationStatus === 'verified' && tenableReady
-            : asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === scheduleEngine && engine.status === 'available')
+            : asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === choice.engine && engine.status === 'available'))
     const authorized = authorization[asset.id] === true
 
     return <article className='rounded-lg border border-ui-border bg-ui-panel p-4'>
@@ -95,12 +95,12 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
         </div>
         <div className='mt-3 flex flex-wrap items-end gap-3'>
             <label className='flex items-start gap-2 text-xs text-ui-muted'><input type='checkbox' checked={authorized} onChange={event => setAuthorization(current => ({ ...current, [asset.id]: event.target.checked }))} className='mt-0.5 accent-ui-primary' /><span>I authorize scans of this asset and its current public IPs.</span><UvmHelp label='Scan authorization' text='Confirm you have permission for this asset and every IP address returned by DNS. Scanner rechecks public IP scope when each scan starts.' /></label>
-            <label className='grid gap-1 text-[11px] text-ui-muted'>Nmap coverage<select aria-label={`Nmap coverage for ${asset.hostname}`} value={props.assetNmapProfiles[asset.id] || 'tcp-top-1000'} onChange={event => props.setAssetNmapProfiles(current => ({ ...current, [asset.id]: event.target.value as 'tcp-top-100' | 'tcp-top-1000' }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'><option value='tcp-top-1000'>Standard · top 1,000</option><option value='tcp-top-100'>Quick · top 100</option></select></label>
+            <label className='grid gap-1 text-[11px] text-ui-muted'>Nmap coverage<select aria-label={`Nmap coverage for ${asset.hostname}`} value={props.assetNmapProfiles[asset.id] || 'tcp-top-1000'} onChange={event => props.setAssetNmapProfiles(current => ({ ...current, [asset.id]: event.target.value as NmapScanProfile }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'><option value='tcp-top-1000'>Standard · top 1,000</option><option value='tcp-top-100'>Quick · top 100</option><option value='tcp-all'>Thorough · all 65,535 TCP ports</option></select>{props.assetNmapProfiles[asset.id] === 'tcp-all' && <small className='text-ui-warning'>Full sweep · up to 20 min/address.</small>}</label>
             <button type='button' onClick={() => props.onScan(asset)} disabled={busy === asset.id || !canScan || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>Run Nmap inventory</button>
             {data.tenableIntegration?.configured && data.tenableScans.length > 0 && <TenableScanControl asset={asset} props={props} />}
             {data.engines.some(engine => engine.id === 'gvm' && engine.status === 'available') && <button type='button' onClick={() => props.onScanWithGvm(asset)} disabled={busy === `${asset.id}:gvm` || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `${asset.id}:gvm` ? 'Queueing…' : 'Run Greenbone scan'}</button>}
             {data.engines.some(engine => engine.id === 'zap' && engine.status === 'available') && <button type='button' onClick={() => props.onScanWithZap(asset)} disabled={busy === `${asset.id}:zap` || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `${asset.id}:zap` ? 'Queueing…' : 'Run ZAP web scan'}</button>}
-            <ScheduleControl asset={asset} props={props} canSchedule={canSchedule} scheduleEngine={scheduleEngine} scheduleScanId={scheduleScanId} />
+            <ScheduleControl asset={asset} props={props} canSchedule={canSchedule} schedulePlan={schedulePlan} scheduleScanId={scheduleScanId} />
         </div>
     </article>
 }
@@ -150,7 +150,7 @@ export function UvmAssessmentStarter({ data, onManageAssets, onConfigureScanners
     const tenableReady = data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)
     const selectable = (engine: UvmDashboard['engines'][number]) => engine.status === 'available' && (engine.id !== 'tenable-vm' || tenableReady)
     const readyEngines = data.engines.filter(selectable)
-    const unavailableEngines = data.engines.filter(engine => !selectable(engine))
+    const unavailableEngineCount = data.engines.filter(engine => !selectable(engine)).length
     const statusUnavailable = Boolean(data.scannerError)
     const nextAction = !verifiedAssets ? onManageAssets : readyEngines.length ? onStartAssessment : onConfigureScanners
     const nextLabel = !verifiedAssets ? 'Add and verify an asset' : readyEngines.length ? 'Choose scope and scanners' : 'Configure a scanner'
@@ -162,9 +162,9 @@ export function UvmAssessmentStarter({ data, onManageAssets, onConfigureScanners
             </div>
             <div className='flex items-center gap-2'><UvmHelp label='Assessment scope and engines' text='Nmap inventories TCP services; Tenable VM and Greenbone check known vulnerabilities; ZAP checks the web origin. DNS scope is rechecked at launch. Nessus Pro is not connected; scans do not replace a penetration test.' /><button type='button' onClick={nextAction} disabled={statusUnavailable} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>{statusUnavailable ? 'Unavailable' : nextLabel}</button></div>
         </div>
-        {statusUnavailable ? <p className='mt-2 text-sm text-ui-warning'>Scanner status unavailable: {data.scannerError}</p> : <p className='mt-2 text-sm text-ui-muted'>{verifiedAssets} verified asset{verifiedAssets === 1 ? '' : 's'} · {readyEngines.length} engines ready · {unavailableEngines.length} unavailable</p>}
-        {!statusUnavailable && !readyEngines.length && <p className='mt-2 text-sm text-ui-warning'>Configure an engine to continue. <button type='button' onClick={onConfigureScanners} className='font-semibold underline underline-offset-2'>Scanner setup</button></p>}
-        {!statusUnavailable && unavailableEngines.length > 0 && <ul className='mt-2 grid gap-1 text-xs text-ui-warning' aria-label='Unavailable scanners'>{unavailableEngines.map(engine => <li key={engine.id}><span className='font-semibold'>{engine.name}:</span> {engine.id === 'tenable-vm' && !tenableReady ? 'Connect Tenable VM and enable a network scan configuration.' : engine.reason || engine.status}</li>)}</ul>}
+        {statusUnavailable ? <p className='mt-2 text-sm text-ui-warning'>Scanner status unavailable: {data.scannerError}</p> : <p className='mt-2 text-sm text-ui-muted'>{verifiedAssets} verified asset{verifiedAssets === 1 ? '' : 's'} · {readyEngines.length} engines ready{unavailableEngineCount ? ` · ${unavailableEngineCount} unavailable` : ''}</p>}
+        {!statusUnavailable && !readyEngines.length && <p className='mt-2 text-sm text-ui-warning'>No engines ready. <button type='button' onClick={onConfigureScanners} className='font-semibold underline underline-offset-2'>Scanner setup</button></p>}
+        {!statusUnavailable && readyEngines.length > 0 && unavailableEngineCount > 0 && <button type='button' onClick={onConfigureScanners} className='mt-2 w-fit text-xs font-semibold text-ui-muted underline underline-offset-2'>View scanner status</button>}
     </section>
 }
 
@@ -183,8 +183,8 @@ function FindingCard({ finding, busy, update, setFindingUpdates, onUpdate }: {
             </div>
             <span className='text-xs font-semibold'>{finding.status.replaceAll('_', ' ')}</span>
         </div>
-        {finding.description && <p className='mt-2 text-sm'>{finding.description}</p>}
-        {finding.solution && <p className='mt-2 text-sm'><span className='font-semibold'>Suggested fix:</span> {finding.solution}</p>}
+        {finding.description && <details className='mt-2 text-sm'><summary className='cursor-pointer text-ui-muted'>Description</summary><p className='mt-1'>{finding.description}</p></details>}
+        {finding.solution && <details className='mt-2 text-sm'><summary className='cursor-pointer text-ui-muted'>Suggested fix</summary><p className='mt-1'>{finding.solution}</p></details>}
         {finding.evidence && <details className='mt-2 text-xs'><summary className='cursor-pointer text-ui-muted'>Scanner evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{finding.evidence}</pre></details>}
         {finding.status !== 'resolved' && <div className='mt-3 flex flex-wrap items-end gap-2'>
             <label className='grid gap-1 text-[11px] text-ui-muted'>Status<select value={update.status} onChange={event => setFindingUpdates(current => ({ ...current, [finding.id]: { ...update, status: event.target.value as UvmFinding['status'] } }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'><option value='open'>Open</option><option value='in_progress'>In progress</option><option value='pending_verification'>Pending verification</option><option value='accepted_risk'>Accepted risk</option><option value='false_positive'>False positive</option></select></label>

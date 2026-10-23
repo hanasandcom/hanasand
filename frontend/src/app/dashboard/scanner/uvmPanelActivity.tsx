@@ -46,12 +46,12 @@ function ScheduledAssessments({ data, unavailable, onManageAssets }: { data: Uvm
         {unavailable ? <p className='mt-3 text-sm text-ui-warning'>Schedule status unavailable while Scanner is offline.</p>
             : scheduled.length ? <ol className='mt-3 grid gap-2'>
                 {scheduled.slice(0, 5).map(asset => {
-                    const coverage = coverageFor(asset.id, asset.scheduleEngine)
-                    const lastComplete = coverage?.lastCompleteRun
+                    const plan = asset.schedulePlan?.length ? asset.schedulePlan : [{ engine: asset.scheduleEngine }]
+                    const coverage = plan.map(choice => ({ engine: choice.engine, coverage: coverageFor(asset.id, choice.engine) }))
                     return <li key={asset.id} className='rounded-md border border-ui-border bg-ui-raised p-3'>
-                        <div className='flex flex-wrap items-center justify-between gap-2'><strong className='text-sm'>{asset.hostname}</strong><span className='text-xs text-ui-muted'>{asset.scheduleEngine}</span></div>
+                        <div className='flex flex-wrap items-center justify-between gap-2'><strong className='text-sm'>{asset.hostname}</strong><span className='text-xs text-ui-muted'>{plan.map(choice => choice.engine).join(' → ')}</span></div>
                         <p className='mt-1 text-xs text-ui-muted'>Every {asset.intervalMinutes} min · next {formatDate(asset.nextRunAt)}</p>
-                        <p className='mt-1 text-xs text-ui-muted'>Last complete: {lastComplete ? `${coverage?.freshness || 'unknown'} · ${formatDate(lastComplete.at)}` : 'none recorded'}</p>
+                        {coverage.map(item => <p key={item.engine} className='mt-1 text-xs text-ui-muted'>{item.engine} last complete: {item.coverage?.lastCompleteRun ? `${item.coverage.freshness} · ${formatDate(item.coverage.lastCompleteRun.at)}` : 'none recorded'}</p>)}
                     </li>
                 })}
             </ol> : <p className='mt-3 text-sm text-ui-muted'>No recurring assessments enabled.</p>}

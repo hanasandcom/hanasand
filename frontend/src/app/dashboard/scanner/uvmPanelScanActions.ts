@@ -1,14 +1,14 @@
-import type { UvmAsset, UvmDashboard, UvmRun } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAsset, UvmDashboard, UvmRun } from '@/utils/monitoring/types'
 
 export function createUvmPanelScanActions(input: {
     authorization: Record<string, boolean>
-    assetNmapProfiles: Record<string, 'tcp-top-100' | 'tcp-top-1000'>
+    assetNmapProfiles: Record<string, NmapScanProfile>
     tenableScanIds: Record<string, string>
     defaultTenableScanId?: string
     setBusy: (value: string) => void
     setMessage: (value: string) => void
     refresh: () => Promise<UvmDashboard>
-    runNmap: (assetId: string, authorized: boolean, profile: 'tcp-top-100' | 'tcp-top-1000') => Promise<{ run: UvmRun }>
+    runNmap: (assetId: string, authorized: boolean, profile: NmapScanProfile) => Promise<{ run: UvmRun }>
     runTenable: (assetId: string, scanId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runGvm: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runZap: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
