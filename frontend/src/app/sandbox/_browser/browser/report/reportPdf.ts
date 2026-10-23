@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 
 export async function exportReportPdf(markdown: string) {
-    const response = await fetch('/sandbox/fonts/ThesisSans.ttf')
+    const response = await fetch('/fonts/ThesisSans.ttf')
     if (!response.ok) throw new Error('Report font unavailable')
     const bytes = new Uint8Array(await response.arrayBuffer())
     let binary = ''
