@@ -16,9 +16,24 @@ export const defaultCustomStages: CustomTrafficStage[] = [
 
 export const maxCustomStages = 8
 export const maxCustomDurationSeconds = 600
+export const maxCustomUsers = 2_000
+export const customCurveSteps = 8
 
 export function toK6Stages(stages: CustomTrafficStage[]): K6Stage[] {
-    return stages.map(stage => ({ duration: `${stage.durationSeconds}s`, target: stage.target }))
+    let previousTarget = 0
+    return stages.flatMap(stage => {
+        const start = previousTarget
+        previousTarget = stage.target
+        return Array.from({ length: customCurveSteps }, (_, index) => {
+            const progress = (index + 1) / customCurveSteps
+            const eased = progress * progress * (3 - 2 * progress)
+            const durationMs = stage.durationSeconds * 1000 / customCurveSteps
+            return {
+                duration: `${durationMs}ms`,
+                target: Math.round(start + (stage.target - start) * eased),
+            }
+        })
+    })
 }
 
 export function totalDurationSeconds(stages: CustomTrafficStage[]) {

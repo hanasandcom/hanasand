@@ -85,8 +85,8 @@ export default function TestMetricCharts({ metrics, isDone }: { metrics: TestMet
             ) : (
                 <TestEmptyState
                     icon={<FileText className='h-5 w-5' />}
-                    title='Chart data is collecting'
-                    body={isDone ? 'This run did not include time-series samples.' : 'Charts update as the runner sends request, latency, or error samples.'}
+                    title={isDone ? 'No chart data' : 'Chart data is collecting'}
+                    body={isDone ? 'No request samples were recorded during this run.' : 'Charts update as the runner sends request, latency, or error samples.'}
                 />
             )}
         </>

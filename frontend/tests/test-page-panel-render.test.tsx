@@ -75,4 +75,12 @@ test('custom traffic exposes the graph and precise input mode', () => {
     expect(html).toContain('aria-pressed="false"')
     expect(html).toContain('role="slider"')
     expect(html).toContain('Add stage')
+    expect(html).toContain('aria-valuemax="2000"')
+    expect(html).toContain('Up to 2,000 users')
+    expect(html).toContain(' C ')
+})
+
+test('starting state uses the requested progress label', () => {
+    const html = renderPanel({ starting: true })
+    expect(html).toContain('Starting test')
 })
