@@ -76,9 +76,6 @@ function normalize(value: string) {
 function isAllowedIncidentalSchedulerFile(file: string) {
     return [
         'api/src/plugins/ws.ts', // Socket, worker-lease, and live telemetry maintenance.
-        'api/src/plugins/ws/browserStream.ts', // Keepalive timer owned by one browser stream connection.
-        'api/src/plugins/ws/browserStreamRuntime.ts', // Metrics timer owned by one browser stream connection.
-        'api/src/plugins/ws/ephemeralBrowserSession.ts', // Browser-run lease timer owned by one ephemeral session.
         'api/src/utils/cron.ts', // Dispatches the API jobs that the unified registry lists individually.
         // These timers exist only for an open WebSocket session and are cleared with that connection.
         'api/src/handlers/hostConsole.ts',
