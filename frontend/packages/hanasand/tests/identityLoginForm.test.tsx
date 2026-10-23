@@ -9,8 +9,9 @@ test('shared Identity login renders credentials and providers in server HTML', (
         loginUrl: '/api/auth/login',
         passkeyOptionsUrl: '/api/auth/passkeys/authenticate/options',
         passkeyVerifyUrl: '/api/auth/passkeys/authenticate/verify',
-        ssoHref: '/api/auth/sso/start',
+        ssoStartUrl: '/api/auth/sso/start',
         redirectPath: '/dashboard',
+        identifierField: 'username',
     }))
 
     expect(html).toContain('name="username"')
@@ -18,4 +19,16 @@ test('shared Identity login renders credentials and providers in server HTML', (
     expect(html).toContain('Continue with Google')
     expect(html).toContain('Sign in with passkey')
     expect(html).not.toContain('<hanasand-login-form')
+    expect(html).not.toContain('name="id"')
+})
+
+test('shared Identity login preserves the legacy id field by default', () => {
+    const html = renderToStaticMarkup(createElement(IdentityLoginForm, {
+        loginUrl: '/api/auth/login',
+        passkeyOptionsUrl: '/api/auth/passkeys/authenticate/options',
+        passkeyVerifyUrl: '/api/auth/passkeys/authenticate/verify',
+        redirectPath: '/dashboard',
+    }))
+
+    expect(html).toContain('name="id"')
 })

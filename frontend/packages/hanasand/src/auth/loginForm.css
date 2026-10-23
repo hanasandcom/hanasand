@@ -1,6 +1,8 @@
-hanasand-login-form { display: block; color: var(--color-ui-text, #f6f6f3); font: inherit; }
+hanasand-login-form, .hanasand-login-form { display: block; color: var(--color-ui-text, #f6f6f3); font: inherit; }
 hanasand-login-form *, hanasand-login-form *::before, hanasand-login-form *::after { box-sizing: border-box; }
+.hanasand-login-form *, .hanasand-login-form *::before, .hanasand-login-form *::after { box-sizing: border-box; }
 hanasand-login-form [hidden] { display: none !important; }
+.hanasand-login-form [hidden] { display: none !important; }
 .hanasand-login-form__fields { display: grid; gap: 1rem; }
 .hanasand-login-form__label { display: grid; gap: .4rem; color: var(--color-ui-text, #f6f6f3); font-size: .875rem; font-weight: 500; }
 .hanasand-login-form__label input { display: block; width: 100%; height: 3rem; border: 1px solid var(--color-ui-border, #393939); border-radius: .55rem; outline: none; background: var(--color-ui-canvas, #080808); color: var(--color-ui-text, #f6f6f3); padding: .75rem .85rem; font: inherit; font-size: 1rem; }
@@ -11,7 +13,7 @@ hanasand-login-form [hidden] { display: none !important; }
 .hanasand-login-form__provider:hover { border-color: var(--color-ui-primary, #707070); }
 .hanasand-login-form__submit:focus-visible, .hanasand-login-form__provider:focus-visible { outline: 2px solid var(--color-ui-primary, #aaa); outline-offset: 3px; }
 .hanasand-login-form__submit:disabled, .hanasand-login-form__provider:disabled { cursor: wait; opacity: .6; }
-.hanasand-login-form__providers { display: grid; gap: .65rem; margin-top: .25rem; }
+.hanasand-login-form__providers { display: grid; gap: 1rem; margin-top: 1rem; }
 .hanasand-login-form__error { margin: 0; border: 1px solid #784747; border-radius: .55rem; background: #281818; color: #f6bcbc; padding: .75rem; font-size: .875rem; line-height: 1.4; }
 .hanasand-login-form__spinner { width: 1rem; height: 1rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: hanasand-login-spin .7s linear infinite; }
 @keyframes hanasand-login-spin { to { transform: rotate(360deg); } }

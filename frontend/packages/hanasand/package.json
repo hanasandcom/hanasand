@@ -1,6 +1,6 @@
 {
   "name": "hanasand",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Shared Hanasand web components, hooks, and utilities",
   "type": "module",
   "files": [

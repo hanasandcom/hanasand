@@ -44,10 +44,15 @@ import { IdentityLoginForm } from 'hanasand'
   loginUrl='/api/auth/login'
   passkeyOptionsUrl='/api/auth/passkeys/authenticate/options'
   passkeyVerifyUrl='/api/auth/passkeys/authenticate/verify'
-  ssoHref='/api/auth/sso/start'
+  ssoStartUrl='/api/auth/sso/start'
   redirectPath='/dashboard'
 />
 ```
+
+The shared component supports `identifierField='username'` for APIs that accept a
+username field, as well as `onAuthenticated` for hosts that must exchange the returned
+session for browser cookies. Network requests time out after 15 seconds and return an
+actionable error instead of leaving the submit button busy indefinitely.
 
 Browser-only hosts can register the same controls from `hanasand/auth` and load
 `hanasand/auth.css`. The package entry has no remote script dependency; hosts provide
