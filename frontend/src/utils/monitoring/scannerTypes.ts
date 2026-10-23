@@ -1,4 +1,4 @@
-export type NmapScanProfile = 'tcp-top-100' | 'tcp-top-1000' | 'tcp-top-1000-safe-vuln' | 'tcp-all'
+export type NmapScanProfile = 'tcp-top-100' | 'tcp-top-1000' | 'tcp-top-1000-safe-vuln' | 'tcp-all' | 'udp-top-100'
 export type UvmEngineSelection = { engine: 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei', scanId?: string, profile?: NmapScanProfile }
 export type UvmAsset = {
     id: string

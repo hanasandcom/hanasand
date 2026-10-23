@@ -6,7 +6,7 @@ import { TestsslObservationList } from './uvmTestsslObservations'
 export type UvmFindingFilters = { query: string, engine: string, severity: string, status: string, asset: string }
 
 export function isNmapScanProfile(value: unknown): value is NmapScanProfile {
-    return value === 'tcp-top-100' || value === 'tcp-top-1000' || value === 'tcp-top-1000-safe-vuln' || value === 'tcp-all'
+    return value === 'tcp-top-100' || value === 'tcp-top-1000' || value === 'tcp-top-1000-safe-vuln' || value === 'tcp-all' || value === 'udp-top-100'
 }
 
 export function filterAndSortUvmFindings(findings: UvmFinding[], filters: UvmFindingFilters) {
@@ -45,7 +45,9 @@ export function SummaryCard({ label, value, detail }: { label: string, value: st
 export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRun, defaultOpen: boolean, cancelBusy: boolean, onCancel: () => void }) {
     const [open, setOpen] = useState(defaultOpen)
     const canCancel = run.engine === 'nmap' ? run.status === 'queued' : ['tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei'].includes(run.engine) && ['queued', 'launching', 'running', 'cancelling'].includes(run.status)
-    const openPorts = (run.hosts || []).flatMap(host => host.ports.filter(port => port.state === 'open').map(port => ({ host, port })))
+    const observedPorts = (run.hosts || []).flatMap(host => host.ports.map(port => ({ host, port })))
+    const confirmedOpenPorts = observedPorts.filter(({ port }) => port.state === 'open')
+    const ambiguousUdpPorts = observedPorts.filter(({ port }) => port.protocol === 'udp' && port.state === 'open|filtered')
     const hasNmapScripts = run.hosts?.some(host => host.scriptResults?.length || host.ports.some(port => port.scriptResults?.length))
     return <article className='rounded-md border border-ui-border bg-ui-raised p-3'>
         <button type='button' onClick={() => setOpen(value => !value)} aria-expanded={open} className='flex w-full flex-wrap items-center justify-between gap-2 text-left'><span><strong>{run.target}</strong><span className='ml-2 text-xs text-ui-muted'>{run.engine} · {run.profile} · {run.source}</span></span><span className='text-xs font-semibold'>{run.status}</span><span className='text-xs text-ui-muted'>{formatDate(run.finishedAt || run.startedAt || run.createdAt)}</span></button>
@@ -63,14 +65,14 @@ export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRu
                     {run.coverage?.missingAddresses?.length ? <p className='sm:col-span-2'>Attempted but without a complete host result (including Nmap timeouts): {run.coverage.missingAddresses.join(', ')}</p> : null}
                     {run.coverage?.unattemptedAddresses?.length ? <p className='sm:col-span-2'>Not attempted: {run.coverage.unattemptedAddresses.join(', ')}</p> : null}
                     {run.coverage?.completedAddressList?.length ? <p className='sm:col-span-2'>Completed host results: {run.coverage.completedAddressList.join(', ')}</p> : null}
-                    {run.engine === 'nmap' && <><p>Open TCP ports: {run.coverage?.openPorts ?? openPorts.length}</p><p>Raw Nmap XML SHA-256: <code className='break-all'>{run.rawXmlSha256 || 'pending'}</code></p></>}
+                    {run.engine === 'nmap' && <><p>{run.profile === 'udp-top-100' ? `Open UDP ports: ${confirmedOpenPorts.length} · open|filtered: ${ambiguousUdpPorts.length}` : `Open TCP ports: ${run.coverage?.openPorts ?? confirmedOpenPorts.length}`}</p><p>Raw Nmap XML SHA-256: <code className='break-all'>{run.rawXmlSha256 || 'pending'}</code></p></>}
                     {run.engine === 'gvm' && <p>Raw Greenbone report SHA-256: <code className='break-all'>{run.rawXmlSha256 || 'pending'}</code></p>}
                     {run.engine === 'testssl' && <><p>TLS addresses attempted: {run.attemptedAddresses?.length ?? 'unknown'}</p><p>TLS addresses completed: {run.completedAddresses?.length ?? 'unknown'}</p></>}
                 </>}
             </div>
             {run.error && <p className='mt-2 text-xs text-ui-warning'>{run.error}</p>}
             {canCancel && <button type='button' onClick={onCancel} disabled={cancelBusy} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{cancelBusy ? 'Cancelling…' : 'Cancel scan'}</button>}
-            {(run.hosts || []).length > 0 && <div className='mt-3 grid gap-2'>{run.hosts!.map(host => <div key={host.address} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><p className='font-semibold'>{host.address} · {host.timedOut ? 'timed out' : host.status}</p>{host.ports.filter(port => port.state === 'open').length ? <div className='mt-2 grid gap-1'>{host.ports.filter(port => port.state === 'open').map(port => <div key={`${host.address}-${port.protocol}-${port.port}`}><p><code>{port.port}/{port.protocol}</code> · {port.service || 'unknown service'}{port.product ? ` · ${port.product}` : ''}{port.version ? ` ${port.version}` : ''}{port.extraInfo ? ` · ${port.extraInfo}` : ''}</p><NmapScriptEvidence results={port.scriptResults} /></div>)}</div> : <p className='mt-1 text-ui-muted'>No open ports were reported.</p>}<NmapScriptEvidence results={host.scriptResults} /></div>)}</div>}
+            {(run.hosts || []).length > 0 && <div className='mt-3 grid gap-2'>{run.hosts!.map(host => <div key={host.address} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><p className='font-semibold'>{host.address} · {host.timedOut ? 'timed out' : host.status}</p>{host.ports.length ? <div className='mt-2 grid gap-1'>{host.ports.map(port => <div key={`${host.address}-${port.protocol}-${port.port}`}><p><code>{port.port}/{port.protocol}</code> · {port.state}{port.service ? ` · ${port.service}` : ' · unknown service'}{port.product ? ` · ${port.product}` : ''}{port.version ? ` ${port.version}` : ''}{port.extraInfo ? ` · ${port.extraInfo}` : ''}</p><NmapScriptEvidence results={port.scriptResults} /></div>)}</div> : <p className='mt-1 text-ui-muted'>No matching ports were reported.</p>}<NmapScriptEvidence results={host.scriptResults} /></div>)}</div>}
             {run.findings?.length ? <div className='mt-3 grid gap-2'><h4 className='text-xs font-semibold'>Vulnerability findings · {run.findings.length}</h4>{run.findings.map(finding => <RunFinding key={finding.findingId} finding={finding} />)}</div> : null}
             {run.engine === 'testssl' && <TestsslObservationList observations={run.observations} />}
             {run.status === 'succeeded' && run.engine === 'nmap' && run.profile !== 'tcp-top-1000-safe-vuln' && <p className='mt-2 text-xs text-ui-muted'>Service inventory only. No vulnerability checks were performed by this run.</p>}

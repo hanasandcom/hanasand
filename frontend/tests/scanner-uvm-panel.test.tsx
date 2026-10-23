@@ -4,7 +4,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { UvmDashboard } from '../src/utils/monitoring/types'
 import UvmPanel, { filterAndSortUvmFindings } from '../src/app/dashboard/scanner/uvmPanel'
 import { UvmAssessmentStarter, UvmAssetsView, UvmHelp } from '../src/app/dashboard/scanner/uvmPanelViews'
+import { UvmActivityAndSchedules } from '../src/app/dashboard/scanner/uvmPanelActivity'
+import { isNmapScanProfile } from '../src/app/dashboard/scanner/uvmPanelHelpers'
+import { UvmAssessmentEngineChoices } from '../src/app/dashboard/scanner/uvmPanelAssessmentControls'
 import ScannerPauseNotice from '../src/app/dashboard/scanner/scannerPauseNotice'
+import { UvmPanelScannerSetup } from '../src/app/dashboard/scanner/uvmPanelScannerSetup'
 
 const data: UvmDashboard = {
     assets: [{
@@ -59,6 +63,20 @@ test('scanner page states which services are stopped pending disk expansion', ()
     expect(html).toContain('Image worker is also stopped.')
 })
 
+test('paused scanner setup still lists the complete product suite', () => {
+    const noopSetter = (() => undefined) as never
+    const html = renderToStaticMarkup(<UvmPanelScannerSetup data={{ ...data, scannerCatalog: [] }} busy='' region='eu'
+        setRegion={noopSetter} accessKey='' setAccessKey={noopSetter} secretKey='' setSecretKey={noopSetter}
+        servicesPaused onSave={() => undefined} onDisconnect={() => undefined} />)
+
+    expect(html).toContain('Scanner suite · 30')
+    expect(html).toContain('Nmap')
+    expect(html).toContain('Advanced IP Scanner')
+    expect(html).toContain('Angry IP Scanner')
+    expect(html).toContain('Stopped · pending disk')
+    expect(html).toContain('Adapter needed')
+})
+
 test('overview shows compact readiness, honest coverage, and clear next actions', () => {
     const html = renderToStaticMarkup(<UvmPanel initialData={data}
         refreshAction={async() => data}
@@ -77,13 +95,11 @@ test('overview shows compact readiness, honest coverage, and clear next actions'
 
     expect(html).toContain('example.com')
     expect(html).toContain('Security scanner')
-    expect(html).toContain('Nmap inventories TCP services; Tenable VM and Greenbone check known vulnerabilities; ZAP checks the web origin.')
+    expect(html).toContain('Nmap inventories selected TCP or UDP services')
     expect(html).toContain('About Assessment scope and engines')
-    expect(html).toContain('scans do not replace a penetration test.')
     expect(html).toContain('1 verified asset')
     expect(html).toContain('New assessment')
     expect(html).toContain('Choose scope and scanners')
-    expect(html).toContain('Nessus Pro is not connected;')
     expect(html).toContain('Recent activity')
     expect(html).toContain('All runs')
     expect(html).toContain('1 open TCP port · service inventory only')
@@ -194,4 +210,26 @@ test('asset controls expose standard Nmap coverage and recurring Greenbone scans
     expect(html).toContain('Standard · top 1,000')
     expect(html).toContain('Run Greenbone scan')
     expect(html).toContain('Quick · top 100')
+    expect(html).toContain('UDP · top 100')
+})
+
+test('UDP profile is accepted and recent activity keeps ambiguous ports distinct', () => {
+    expect(isNmapScanProfile('udp-top-100')).toBe(true)
+    expect(isNmapScanProfile('udp-all')).toBe(false)
+    const html = renderToStaticMarkup(<UvmActivityAndSchedules data={{ ...data, runs: [{
+        ...data.runs[0], profile: 'udp-top-100', coverage: { known: true, requestedAddresses: 1, attemptedAddresses: 1, completedAddresses: 1 },
+        hosts: [{ address: '8.8.8.8', status: 'up', timedOut: false, ports: [
+            { port: 53, protocol: 'udp', state: 'open|filtered', service: 'domain', product: null, version: null, extraInfo: null },
+        ] }],
+    }] }} onViewRuns={() => undefined} onManageAssets={() => undefined} />)
+    expect(html).toContain('0 open · 1 open|filtered UDP · UDP inventory')
+})
+
+test('manual assessment profile selector includes the bounded UDP option', () => {
+    const noopSetter = (() => undefined) as never
+    const html = renderToStaticMarkup(<UvmAssessmentEngineChoices data={data} selectedEngines={['nmap']}
+        setSelectedEngines={noopSetter} scanId='' setScanId={noopSetter} nmapProfile='udp-top-100'
+        setNmapProfile={noopSetter} servicesPaused={false} onSetup={() => undefined} />)
+    expect(html).toContain('UDP · top 100 ports')
+    expect(html).toContain('UDP results may be open or open|filtered.')
 })

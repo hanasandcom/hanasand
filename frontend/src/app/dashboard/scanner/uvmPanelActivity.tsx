@@ -3,11 +3,15 @@ import { formatDate } from './uvmPanelHelpers'
 
 function runResult(run: UvmRun) {
     if (run.engine === 'nmap') {
-        const openPorts = (run.hosts || []).reduce((sum, host) => sum + host.ports.filter(port => port.state === 'open').length, 0)
-        const ports = `${openPorts} open TCP port${openPorts === 1 ? '' : 's'}`
+        const observations = (run.hosts || []).flatMap(host => host.ports)
+        const confirmedOpenPorts = observations.filter(port => port.state === 'open').length
+        const ambiguousUdpPorts = observations.filter(port => port.protocol === 'udp' && port.state === 'open|filtered').length
+        const ports = run.profile === 'udp-top-100'
+            ? `${confirmedOpenPorts} open · ${ambiguousUdpPorts} open|filtered UDP`
+            : `${confirmedOpenPorts} open TCP port${confirmedOpenPorts === 1 ? '' : 's'}`
         const total = run.coverage?.requestedAddresses ?? run.coverage?.attemptedAddresses
         const coverage = total === undefined ? '' : `Address coverage ${run.coverage?.completedAddresses}/${total} · `
-        return `${coverage}${ports}${run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : ' · service inventory only'}`
+        return `${coverage}${ports}${run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : run.profile === 'udp-top-100' ? ' · UDP inventory' : ' · service inventory only'}`
     }
     if (run.engine === 'testssl') {
         const flagged = run.observations?.filter(observation => observation.disposition === 'finding').length || 0
