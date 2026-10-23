@@ -9,13 +9,15 @@ type LocalInstance = { name?: string; status?: string; config?: Record<string, s
 const checks = new Map<string, { expires: number; result: Promise<State> }>()
 let localInventory: { expires: number; result: Promise<Map<string, State>> } | undefined
 const provisioningConfigKey = 'user.hanasand.provisioning_state'
+const missingSetupStatusReason = 'VM startup finished without reporting whether the selected services were installed. Contact Support if the problem persists.'
+const waitingForHostSetupStatusReason = 'Waiting for the VM host to confirm service setup.'
 
 export function invalidateLiveVmStatus(name: string) {
     for (const key of checks.keys()) if (key.endsWith(':' + name)) checks.delete(key)
     localInventory = undefined
 }
 
-export async function localVmStatus(name: string): Promise<State> {
+export async function localVmStatus(name: string, statusOptions: { allowHostWorkerProbe?: boolean } = {}): Promise<State> {
     const options: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
     const statePath = lxdProjectPath(`/1.0/instances/${encodeURIComponent(name)}/state`, config.lxd_project)
     const response = await fetch(`http://localhost${statePath}`, options)
@@ -37,13 +39,26 @@ export async function localVmStatus(name: string): Promise<State> {
     const persistedState = instance.config?.['user.hanasand.provisioning_state']
     const persistedSetupState = persistedState ? parsePersistedSetupState(persistedState) : undefined
     const cloudInitFinished = !setupResponse?.ok && await hasCloudInitFinished(name)
+    const cloudInitUserData = instance.config?.['cloud-init.user-data']?.trim() || ''
     let state: State | undefined
     if (setupStatus === 'Provisioning' || setupStatus === 'Error' || setupStatus === 'Running') {
         state = { status: setupStatus, status_reason: setupMessage || undefined }
+    } else if (cloudInitFinished && !cloudInitUserData && !config.lxd_project) {
+        // Some host-worker VMs have no cloud-init payload. Ask the worker for queued or
+        // persisted terminal state before declaring setup failed.
+        if (statusOptions.allowHostWorkerProbe === false) {
+            // The internal host route is the worker source itself. Avoid recursion and
+            // trust terminal evidence only; an empty marker is not proof of success.
+            state = persistedSetupState && persistedSetupState.status.toLowerCase() !== 'provisioning'
+                ? persistedSetupState
+                : { status: 'Error', status_reason: missingSetupStatusReason }
+        } else {
+            state = await hostWorkerSetupStatus(name) || { status: 'Provisioning', status_reason: waitingForHostSetupStatusReason }
+        }
     } else if (persistedSetupState && persistedSetupState.status.toLowerCase() !== 'provisioning') {
         state = persistedSetupState
     } else if (cloudInitFinished) {
-        state = { status: 'Error', status_reason: 'VM startup finished without reporting whether the selected services were installed. Contact Support if the problem persists.' }
+        state = { status: 'Error', status_reason: missingSetupStatusReason }
     } else {
         state = persistedSetupState
     }
@@ -53,6 +68,21 @@ export async function localVmStatus(name: string): Promise<State> {
         await updateLocalLxdConfig(name, { 'user.hanasand.provisioning_state': JSON.stringify(setupState) }).catch(() => {})
     }
     return setupState
+}
+
+async function hostWorkerSetupStatus(name: string): Promise<State | undefined> {
+    try {
+        const response = await internalHostFetch(config.vm_host_id, `/vms/internal/${encodeURIComponent(name)}/status`, { signal: AbortSignal.timeout(2000) })
+        if (!response.ok) return undefined
+        const body = await response.json() as { status?: unknown; status_reason?: unknown }
+        if (typeof body.status !== 'string' || !['running', 'provisioning', 'error'].includes(body.status.toLowerCase())) return undefined
+        return {
+            status: body.status,
+            ...(typeof body.status_reason === 'string' && body.status_reason ? { status_reason: body.status_reason } : {}),
+        }
+    } catch {
+        return undefined
+    }
 }
 
 async function hasCloudInitFinished(name: string) {

@@ -3,12 +3,15 @@ import { afterEach, expect, mock, test } from 'bun:test'
 const remoteRequests: Array<{ host: string; path: string }> = []
 let hostWorkerStatus: { status: string; status_reason?: string } = { status: 'Running' }
 const hostWorkerStatuses = new Map<string, { status: string; status_reason?: string }>()
+let hostWorkerHttpStatus = 200
+let localLxdProject = ''
 let localConfig: Record<string, string> = {}
 const localConfigUpdates: Array<Record<string, string>> = []
-mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur', lxd_socket_path: '/var/lib/lxd/unix.socket' } }))
+mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur', lxd_socket_path: '/var/lib/lxd/unix.socket', get lxd_project() { return localLxdProject } } }))
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
     internalHostFetch: async (host: string, path: string) => {
         remoteRequests.push({ host, path })
+        if (hostWorkerHttpStatus !== 200) return new Response(null, { status: hostWorkerHttpStatus })
         return Response.json(hostWorkerStatuses.get(path) || hostWorkerStatus)
     },
 }))
@@ -32,6 +35,8 @@ afterEach(() => {
     remoteRequests.length = 0
     hostWorkerStatuses.clear()
     hostWorkerStatus = { status: 'Running' }
+    hostWorkerHttpStatus = 200
+    localLxdProject = ''
     localConfig = {}
     localConfigUpdates.length = 0
 })
@@ -96,9 +101,22 @@ test('local VM status reads completed cloud-init setup and persists its terminal
     expect(localConfigUpdates).toEqual([{ 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Running', status_reason: 'Setup complete' }) }])
 })
 
+test('completed Java setup uses its guest success marker without probing the host worker', async () => {
+    localConfig = { 'user.hanasand.setup_plan': 'setup-hash', 'cloud-init.user-data': '' }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        if (String(input).includes('/files?')) return new Response('Running\tJava setup complete')
+        return Response.json({ metadata: { status: 'Running' } })
+    }) as typeof fetch
+
+    expect(await localVmStatus('java-setup-vm')).toEqual({ status: 'Running', status_reason: 'Java setup complete' })
+    expect(remoteRequests).toHaveLength(0)
+    expect(localConfigUpdates).toEqual([{ 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Running', status_reason: 'Java setup complete' }) }])
+})
+
 test('local VM status reports setup failure when cloud-init finished without writing the service status marker', async () => {
     localConfig = {
         'user.hanasand.setup_plan': 'setup-hash',
+        'cloud-init.user-data': '#cloud-config\nruncmd: []',
         'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Installing nodejs, postgresql…' }),
     }
     globalThis.fetch = (async (input: string | URL | Request) => {
@@ -115,6 +133,69 @@ test('local VM status reports setup failure when cloud-init finished without wri
     expect(localConfigUpdates).toEqual([{
         'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', status_reason: 'VM startup finished without reporting whether the selected services were installed. Contact Support if the problem persists.' }),
     }])
+})
+
+test('local status asks the host worker before marking an empty cloud-init setup as failed', async () => {
+    localConfig = {
+        'user.hanasand.setup_plan': 'setup-hash',
+        'cloud-init.user-data': '',
+        'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', status_reason: 'VM startup finished without reporting whether the selected services were installed. Contact Support if the problem persists.' }),
+    }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        const path = new URL(String(input)).searchParams.get('path')
+        if (path === '/var/lib/hanasand-vm-setup/status') return new Response('Not found', { status: 404 })
+        if (path === '/var/lib/cloud/instance/boot-finished') return new Response('')
+        return Response.json({ metadata: { status: 'Running' } })
+    }) as typeof fetch
+
+    expect(await localVmStatus('host-worker-setup-vm')).toEqual({ status: 'Running' })
+    expect(remoteRequests).toEqual([{ host: 'inspur', path: '/vms/internal/host-worker-setup-vm/status' }])
+    expect(localConfigUpdates).toEqual([{ 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Running' }) }])
+})
+
+test('local LXD project keeps missing cloud-init setup as an error instead of querying the host worker', async () => {
+    localLxdProject = 'hanasand-vm-stage'
+    localConfig = { 'user.hanasand.setup_plan': 'setup-hash', 'cloud-init.user-data': '' }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        const path = new URL(String(input)).searchParams.get('path')
+        if (path === '/var/lib/hanasand-vm-setup/status') return new Response('Not found', { status: 404 })
+        if (path === '/var/lib/cloud/instance/boot-finished') return new Response('')
+        return Response.json({ metadata: { status: 'Running' } })
+    }) as typeof fetch
+
+    expect((await localVmStatus('cloud-init-setup-vm')).status).toBe('Error')
+    expect(remoteRequests).toHaveLength(0)
+})
+
+test('local status stays in provisioning while the host worker cannot confirm an empty cloud-init setup', async () => {
+    localConfig = { 'user.hanasand.setup_plan': 'setup-hash', 'cloud-init.user-data': '' }
+    hostWorkerHttpStatus = 503
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        const path = new URL(String(input)).searchParams.get('path')
+        if (path === '/var/lib/hanasand-vm-setup/status') return new Response('Not found', { status: 404 })
+        if (path === '/var/lib/cloud/instance/boot-finished') return new Response('')
+        return Response.json({ metadata: { status: 'Running' } })
+    }) as typeof fetch
+
+    expect(await localVmStatus('host-worker-unavailable-vm')).toEqual({
+        status: 'Provisioning',
+        status_reason: 'Waiting for the VM host to confirm service setup.',
+    })
+    expect(localConfigUpdates).toHaveLength(0)
+})
+
+test('local status keeps a host-worker setup failure authoritative with empty cloud-init user data', async () => {
+    localConfig = { 'user.hanasand.setup_plan': 'setup-hash', 'cloud-init.user-data': '' }
+    hostWorkerStatus = { status: 'Error', status_reason: 'Java installation failed.' }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        const path = new URL(String(input)).searchParams.get('path')
+        if (path === '/var/lib/hanasand-vm-setup/status') return new Response('Not found', { status: 404 })
+        if (path === '/var/lib/cloud/instance/boot-finished') return new Response('')
+        return Response.json({ metadata: { status: 'Running' } })
+    }) as typeof fetch
+
+    expect(await localVmStatus('host-worker-failed-setup-vm')).toEqual({ status: 'Error', status_reason: 'Java installation failed.' })
+    expect(localConfigUpdates).toEqual([{ 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', status_reason: 'Java installation failed.' }) }])
 })
 
 test('local VM status accepts its own persisted status_reason field while cloud-init is still running', async () => {
