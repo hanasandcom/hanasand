@@ -25,11 +25,11 @@ export function toPublicServiceStatus(status: ServiceStatus, nowMs = Date.now())
     const checks = hasCanonicalChecks
         ? status.checks.map(toPublicServiceCheck)
         : requiredPublicChecks.map(required => {
-        const check = currentChecks.get(checkKey(required))
-        if (check) return toPublicServiceCheck(check)
-        const previous = allChecks.get(checkKey(required))
-        return previous ? toPublicServiceCheck(previous) : missingPublicCheck(required)
-    })
+            const check = currentChecks.get(checkKey(required))
+            if (check) return toPublicServiceCheck(check)
+            const previous = allChecks.get(checkKey(required))
+            return previous ? toPublicServiceCheck(previous) : missingPublicCheck(required)
+        })
 
     const relevantChecks = hasCanonicalChecks
         ? status.checks.filter(check => ['API', 'Website', 'Authentication'].includes(check.check_name))
