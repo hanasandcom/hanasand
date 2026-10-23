@@ -22,9 +22,20 @@ test('mobile repository drawer constrains its height and scrolls the selected se
 
     expect(pageClient).toContain('absolute right-0 top-0 z-40 h-full max-h-[calc(100dvh-5rem)] min-h-0')
     expect(pageClient).toContain('lg:h-full lg:max-h-none')
-    expect(workspacePane).toContain('h-full max-h-full min-h-0')
-    expect(workspacePane).toContain('className=\'min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1\'')
+    expect(workspacePane).toContain('h-fit max-h-[calc(100dvh-5rem)] min-h-0')
     expect(workspacePane).toContain('lg:h-full lg:max-h-none')
+    expect(workspacePane).toContain('role=\'tabpanel\'')
+    expect(workspacePane).toContain('min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain')
+})
+
+test('mobile repository panel keeps its controls inside the bounded scroll region', async () => {
+    const workspacePane = await readFile(new URL('../src/components/ai/workspacePane.tsx', import.meta.url), 'utf8')
+    const collaborationPanel = await readFile(new URL('../src/components/ai/workspaceCollaborationPanel.tsx', import.meta.url), 'utf8')
+
+    expect(workspacePane).toContain('max-h-[calc(100dvh-5rem)]')
+    expect(workspacePane).toContain('overflow-y-auto overscroll-contain')
+    expect(collaborationPanel).toContain('Invite collaborator')
+    expect(collaborationPanel).not.toMatch(/sticky|fixed/)
 })
 
 test('empty repository panel shows both actions without a duplicate empty card', () => {
