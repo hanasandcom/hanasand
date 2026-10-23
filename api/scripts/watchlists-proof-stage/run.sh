@@ -75,7 +75,18 @@ create() {
  test "$(docker inspect -f '{{.Id}}|{{index .Config.Labels "hanasand.stage.owner"}}' "$last_id")" = "$last_id|$prefix"
  echo "owned_container=$last_id name=$name owner=$prefix"
 }
-start_wait() { docker start -a "$last_id"; test "$(docker wait "$last_id")" = 0; }
+log_owned() {
+ container=$1; owned=0
+ for record in $created; do if test "${record%%:*}" = "$container"; then owned=1; break; fi; done
+ if test "$owned" = 1 && test "$(docker inspect -f '{{.Id}}|{{index .Config.Labels "hanasand.stage.owner"}}' "$container")" = "$container|$prefix"; then
+  echo "owned_failure_logs=$container tail=80"
+  docker logs --tail 80 "$container" || return 1
+ else echo 'Cannot verify failed stage container ownership; logs preserved.' >&2; return 1; fi
+}
+start_wait() {
+ if ! docker start -a "$last_id"; then log_owned "$last_id"; return 1; fi
+ if test "$(docker wait "$last_id")" != 0; then log_owned "$last_id"; return 1; fi
+}
 probe() { create "$prefix-version-$1" --network none --read-only "$2" bun -e "console.log('Bun='+Bun.version);if(Bun.version!=='$3')process.exit(1)"; start_wait; }
 probe core "$WATCHLIST_API_IMAGE" 1.3.13
 probe identity "$WATCHLIST_IDENTITY_IMAGE" 1.3.13
@@ -98,7 +109,7 @@ create "$prefix-db" --network "$network_id" --read-only \
 db_id=$last_id; docker start "$db_id" >/dev/null
 ready=0
 for attempt in 1 2 3 4 5 6 7 8 9 10; do if docker exec "$db_id" pg_isready -U synthetic -d ti_native_proof_test >/dev/null 2>&1; then ready=1; break; fi; sleep 1; done
-test "$ready" = 1
+if test "$ready" != 1; then log_owned "$db_id"; exit 1; fi
 create "$prefix-identity" --network "$network_id" --read-only \
  --tmpfs /tmp:rw,size=32m \
  -v "$WATCHLIST_IDENTITY_ROOT/src:/app/src:ro" \
@@ -119,7 +130,7 @@ docker start "$last_id" >/dev/null
 http_ready() {
  container=$1; url=$2; ready=0
  for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do if docker exec "$container" bun -e "fetch('$url',{signal:AbortSignal.timeout(1000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then ready=1; break; fi; sleep 1; done
- test "$ready" = 1
+ if test "$ready" != 1; then log_owned "$container"; return 1; fi
 }
 http_ready "$last_id" http://127.0.0.1:8081/ready
 # Every Core process gets only synthetic configuration. Sources and script mounts are read-only.
@@ -169,7 +180,15 @@ create "$prefix-projection" --network "$network_id" --read-only \
  -e HANASAND_IDENTITY_SERVICE_TOKEN=synthetic-internal-only \
  -e SCRAPER_HOST=0.0.0.0 "$WATCHLIST_BUN_IMAGE" bun /stage/projection-server.ts
 docker start "$last_id" >/dev/null
-http_ready "$last_id" http://127.0.0.1:8098/ready
+# The minimal projection schema cannot claim full service/database health.
+# This exact unauthenticated command rejects before body, scope or store access.
+projection_ready=0
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+ if docker exec "$last_id" bun -e "fetch('http://127.0.0.1:8097/v1/internal/organization-watchlists/reconcile',{method:'POST',signal:AbortSignal.timeout(1000)}).then(async r=>{const body=await r.json();process.exit(r.status===401&&body.error?.code==='authentication_required'?0:1)}).catch(()=>process.exit(1))" >/dev/null 2>&1; then projection_ready=1; break; fi
+ sleep 1
+done
+if test "$projection_ready" != 1; then log_owned "$last_id"; exit 1; fi
+echo 'Projection transport accepts the registered command and rejects missing service authentication; no full health claim.'
 core_process "$prefix-core" core-server.ts
 docker start "$last_id" >/dev/null
 http_ready "$last_id" http://127.0.0.1:8082/ready

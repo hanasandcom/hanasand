@@ -10,7 +10,7 @@ const { startApiServer } = await import(`${sourceRoot}/api/server.ts`)
 const sql = new SQL({ hostname: process.env.PGHOST, port: 5432, database: process.env.PGDATABASE,
     username: 'synthetic', password: 'synthetic-local-only', prepare: false })
 const store = new PostgresScraperStore(sql, [])
-const server = startApiServer({ port: 8097, readinessPort: 8098, store, serviceToken: 'synthetic-projection-service' })
+const server = startApiServer({ port: 8097, readinessPort: 0, store, serviceToken: 'synthetic-projection-service' })
 process.on('SIGTERM', async () => { await server.stop(); await store.close(); process.exit(0) })
 
 export {}

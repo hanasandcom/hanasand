@@ -90,10 +90,57 @@ class Guards(unittest.TestCase):
         self.assertNotIn('docker rm -f "$resource_name"', source)
         self.assertIn('docker ps -a --no-trunc', source)
         self.assertIn('docker network ls --no-trunc', source)
-        self.assertIn('test "$ready" = 1', source)
+        self.assertIn('if test "$ready" != 1; then log_owned', source)
         self.assertIn('--security-opt no-new-privileges', source)
         self.assertIn('--read-only', source)
         self.assertIn('--memory "$memory" --cpus 1', source)
+
+    def test_actual_projection_readiness_and_owned_failure_logs(self):
+        import os
+        source = (ROOT / 'run.sh').read_text()
+        self.assertIn("http://127.0.0.1:8097/v1/internal/organization-watchlists/reconcile", source)
+        self.assertIn("r.status===401&&body.error?.code==='authentication_required'", source)
+        self.assertIn("{method:'POST',signal:AbortSignal.timeout(1000)}", source)
+        self.assertIn('readinessPort: 0', (ROOT / 'projection-server.ts').read_text())
+        self.assertNotIn('http://127.0.0.1:8098/ready', source)
+        # When supplied, verify against the exact Git source used by the real stage.
+        scraper = os.environ.get('WATCHLIST_SCRAPER_ROOT')
+        if scraper:
+            actual = (Path(scraper) / 'src/api/organizationWatchlistSync.ts').read_text()
+            self.assertIn('watchlistSyncPath = "/v1/internal/organization-watchlists/reconcile"', actual)
+            self.assertLess(actual.index('timingSafeEqual(a, b)'), actual.index('request.method !== "POST"'))
+            self.assertLess(actual.index('timingSafeEqual(a, b)'), actual.index('request.body?.getReader()'))
+            self.assertLess(actual.index('timingSafeEqual(a, b)'), actual.index('reconcile.call(options.store'))
+            self.assertIn('error("authentication_required"', actual)
+        helper = source[source.index('log_owned() {'):source.index('start_wait() {')]
+        self.assertLess(helper.index('for record in $created'), helper.index('docker logs --tail 80'))
+        self.assertLess(helper.index('"$container|$prefix"'), helper.index('docker logs --tail 80'))
+        self.assertIn('if ! docker start -a "$last_id"; then log_owned "$last_id"; return 1', source)
+        self.assertIn('if test "$(docker wait "$last_id")" != 0; then log_owned "$last_id"; return 1', source)
+        self.assertIn('if test "$ready" != 1; then log_owned "$container"; return 1', source)
+
+    def test_failure_logs_require_captured_id_and_exact_owner(self):
+        import os
+        import tempfile
+        source = (ROOT / 'run.sh').read_text()
+        helper = source[source.index('log_owned() {'):source.index('start_wait() {')]
+        with tempfile.TemporaryDirectory(prefix='watchlists-log-guard-') as directory:
+            root = Path(directory)
+            docker = root / 'docker'
+            docker.write_text(r"""#!/usr/bin/env python3
+import os,sys
+args=sys.argv[1:]
+with open(os.environ['LOG_FILE'],'a') as out: out.write(' '.join(args)+'\n')
+if args[0]=='inspect': print('captured|'+os.environ['ACTUAL_OWNER'])
+""")
+            docker.chmod(0o755)
+            script = 'prefix=ti-native-proof-123456abcdef; created=captured:synthetic; '+helper+'\nlog_owned "$REQUEST_ID"'
+            for request, owner, permitted in [('captured', 'ti-native-proof-123456abcdef', True), ('captured', 'other', False), ('unknown', 'ti-native-proof-123456abcdef', False)]:
+                with self.subTest(request=request, owner=owner):
+                    log = root / 'commands'; log.write_text('')
+                    result = subprocess.run(['sh', '-c', script], env={**os.environ, 'PATH': str(root)+os.pathsep+os.environ['PATH'], 'REQUEST_ID': request, 'ACTUAL_OWNER': owner, 'LOG_FILE': str(log)}, capture_output=True)
+                    self.assertEqual(result.returncode == 0, permitted)
+                    self.assertEqual('logs --tail 80 captured' in log.read_text(), permitted)
 
     def test_topology_does_not_mask_fdw_or_audit(self):
         setup = (ROOT / 'setup-databases.ts').read_text()

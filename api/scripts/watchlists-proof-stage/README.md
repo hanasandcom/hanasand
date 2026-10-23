@@ -96,6 +96,14 @@ organization updated_at and billing usage stay unchanged across retry. Repeat
 reconcile is unchanged; replayed proof rejects; a fresh native proof proceeds.
 Only dwm_watchlist records may exist; no alert/case/plan/run/delivery generation.
 
+The projection fixture disables the separate readiness worker, as in the existing
+service-only fixture. Its minimal workflow table cannot satisfy full service health
+metadata queries. Startup checks only the actual protected command transport: POST
+without a service credential must return 401 with `authentication_required`, before
+body, scope or store access. This is not a full service/database health claim.
+Readiness or foreground setup/version failures retain at most 80 log lines from the
+captured container ID after checking its exact owner, before cleanup.
+
 Best-effort result logging uses actual code but this fixture does not provision the
 full independent Logs service/schema. Related warnings are not durable audit proof;
 recordSystemEvent remains real and awaited. No production log delivery claim.
