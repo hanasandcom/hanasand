@@ -47,6 +47,10 @@ test('VM inventory puts every row action behind the hamburger on narrow screens'
         device_eth0_ipv4_address: '10.0.0.5', limits_cpu: '2', limits_memory: '2GiB',
         config_image_os: 'ubuntu', config_image_version: '24.04',
     }] }))
+    await page.route('**/api/vm/my-machine/sudo-password', async route => {
+        await new Promise(resolve => setTimeout(resolve, 4000))
+        await route.fulfill({ json: { password: 'fixture-sudo-password' } })
+    })
     await page.setViewportSize({ width: 390, height: 900 })
     await page.goto('/vms', { waitUntil: 'domcontentloaded' })
     const name = page.getByRole('heading', { name: 'my-machine', exact: true })
@@ -73,6 +77,14 @@ test('VM inventory puts every row action behind the hamburger on narrow screens'
         expect(bounds).not.toBeNull()
         expect(bounds!.height).toBeLessThan(50)
     }
+
+    const sudoAction = row.locator('details[data-vm-actions] > div').getByRole('button', { name: 'Show sudo password', exact: true })
+    await sudoAction.click()
+    const sudoDialog = page.getByRole('dialog')
+    await sudoDialog.getByLabel('Password', { exact: true }).fill('fixture-account-password')
+    await sudoDialog.getByRole('button', { name: 'Confirm', exact: true }).click()
+    await expect(sudoDialog.locator('output')).toHaveText('fixture-sudo-password', { timeout: 8_000 })
+    await sudoDialog.getByRole('button', { name: 'Hide password', exact: true }).click()
 
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(row.getByRole('link', { name: 'Open my-machine console' }).first()).toBeVisible()

@@ -8,6 +8,8 @@ import { copyTextToClipboard } from '@/utils/copyTextToClipboard'
 import { getCookie } from 'hanasand/cookies'
 
 const PASSWORD_VISIBLE_MS = 30_000
+const SUDO_PASSWORD_REQUEST_TIMEOUT_MS = 125_000
+const SUDO_PASSWORD_UNAVAILABLE_MESSAGE = 'Unavailable. Contact Support if the problem persists.'
 
 function supportHref(vmName: string) {
     const params = new URLSearchParams({ newTicket: 'vm-sudo-password', vm: vmName })
@@ -94,17 +96,22 @@ export default function VMSudoPassword({ vmName, compact = false, triggerClassNa
                 headers: { Authorization: `Bearer ${token}`, id, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ currentPassword: password }),
                 cache: 'no-store',
-                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(config.abortTimeout)]),
+                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(SUDO_PASSWORD_REQUEST_TIMEOUT_MS)]),
             })
             const body = await response.json().catch(() => ({})) as { password?: unknown, error?: unknown, code?: unknown }
             if (!response.ok) {
-                if (body.code === 'SUDO_PASSWORD_UNAVAILABLE') throw new Error('Unavailable. Contact Support if the problem persists.')
+                if (body.code === 'SUDO_PASSWORD_UNAVAILABLE') throw new Error(SUDO_PASSWORD_UNAVAILABLE_MESSAGE)
                 throw new Error(typeof body.error === 'string' ? body.error : 'Unable to show the VM sudo password.')
             }
             if (typeof body.password !== 'string' || !body.password) throw new Error('The VM host returned an invalid sudo password.')
             setSudoPassword(body.password)
         } catch (cause) {
-            if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Unable to show the VM sudo password.')
+            if (controller.signal.aborted) return
+            if (cause instanceof DOMException && cause.name === 'TimeoutError') {
+                setError(SUDO_PASSWORD_UNAVAILABLE_MESSAGE)
+            } else {
+                setError(cause instanceof Error ? cause.message : 'Unable to show the VM sudo password.')
+            }
         } finally {
             if (request.current === controller) request.current = null
             setBusy(false)
