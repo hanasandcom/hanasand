@@ -142,6 +142,26 @@ if args[0]=='inspect': print('captured|'+os.environ['ACTUAL_OWNER'])
                     self.assertEqual(result.returncode == 0, permitted)
                     self.assertEqual('logs --tail 80 captured' in log.read_text(), permitted)
 
+    def test_actual_core_process_arguments_use_bun_test_only_for_workflow(self):
+        import os
+        source = (ROOT / 'run.sh').read_text()
+        function = source[source.index('core_process() {'):source.index('core_process "$prefix-setup"')]
+        environment = {**os.environ, 'network_id': 'synthetic-network', 'stage': '/synthetic/stage', 'prefix': 'ti-native-proof-123456abcdef',
+            'WATCHLIST_CORE_ROOT': '/synthetic/core', 'WATCHLIST_SCRAPER_ROOT': '/synthetic/scraper',
+            'WATCHLIST_CORE_SHA': 'a'*40, 'WATCHLIST_STAGE_MODE': 'core-only', 'WATCHLIST_API_IMAGE': 'sha256:'+'1'*64}
+        for file in ('setup-databases.ts', 'core-server.ts', 'workflow.test.ts'):
+            with self.subTest(file=file):
+                script = 'create() { printf "%s\\n" "$@"; }; '+function+'\ncore_process synthetic '+file
+                result = subprocess.run(['sh', '-eu', '-c', script], env=environment, text=True, capture_output=True, check=True)
+                argv = result.stdout.splitlines()
+                expected = ['bun', '/app/scripts/watchlists-proof-stage/'+file]
+                if file == 'workflow.test.ts':
+                    expected = ['bun', 'test', '/app/scripts/watchlists-proof-stage/'+file, '--timeout', '60000']
+                self.assertEqual(argv[-len(expected):], expected)
+                self.assertIn('WATCHLIST_PROOF_STAGE=synthetic-only', argv)
+                self.assertIn('--read-only', argv)
+                self.assertNotIn('--publish', argv)
+
     def test_topology_does_not_mask_fdw_or_audit(self):
         setup = (ROOT / 'setup-databases.ts').read_text()
         self.assertIn('IMPORT FOREIGN SCHEMA public LIMIT TO', setup)

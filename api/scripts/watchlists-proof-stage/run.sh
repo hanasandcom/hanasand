@@ -136,6 +136,8 @@ http_ready "$last_id" http://127.0.0.1:8081/ready
 # Every Core process gets only synthetic configuration. Sources and script mounts are read-only.
 core_process() {
  name=$1; script=$2
+ set -- "/app/scripts/watchlists-proof-stage/$script"
+ if test "$script" = workflow.test.ts; then set -- test "$@" --timeout 60000; fi
  create "$name" --network "$network_id" --read-only \
  --tmpfs /tmp:rw,size=32m \
  -v "$WATCHLIST_CORE_ROOT/api/src:/app/src:ro" \
@@ -161,7 +163,7 @@ core_process() {
  -e HANASAND_IDENTITY_SERVICE_TOKEN=synthetic-internal-only \
  -e VM_API_TOKEN=synthetic-web-assertion \
  -e TI_SCRAPER_API_BASE="http://$prefix-projection:8097" \
- -e TI_SCRAPER_SERVICE_TOKEN=synthetic-projection-service "$WATCHLIST_API_IMAGE" bun "/app/scripts/watchlists-proof-stage/$script"
+ -e TI_SCRAPER_SERVICE_TOKEN=synthetic-projection-service "$WATCHLIST_API_IMAGE" bun "$@"
 }
 core_process "$prefix-setup" setup-databases.ts
 start_wait
