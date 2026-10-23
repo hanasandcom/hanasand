@@ -7,7 +7,7 @@ set -eu
 identity_sha=90feba62a71844b0f3b6ac7b097ff72c400534eb
 identity_runtime=5e712f2a3eb9fef204592018cf591f941c533f0d
 scraper_sha=c3c01136bbfb1c6527fae1c97c8df62e2046a4f0
-core_runtime=33d7c82b89af65de78d3e9c9d94c5a2d8c0ba9a1
+core_runtime=1b0a405e5136d368125c5666665a728032a73780
 case "$WATCHLIST_STAGE_MODE" in core-only) ;; full) : "${WATCHLIST_WEBSITE_IMAGE:?}" ;; *) exit 1 ;; esac
 stage=$WATCHLIST_CORE_ROOT/api/scripts/watchlists-proof-stage
 verify_source() {

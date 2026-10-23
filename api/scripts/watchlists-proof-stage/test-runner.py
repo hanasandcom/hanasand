@@ -150,7 +150,7 @@ with open(os.environ['DOCKER_LOG'],'a') as out: out.write(' '.join(args)+'\n')
 if args[:2]==['image','inspect']:
  if os.getenv('FAILURE')=='missing-image': sys.exit(1)
  if args[3]=='{{.Id}}': print('sha256:'+'f'*64 if os.getenv('FAILURE')=='image-id' else args[-1])
- else: print('33d7c82b89af65de78d3e9c9d94c5a2d8c0ba9a1' if args[-1].endswith('1'*64) else '5e712f2a3eb9fef204592018cf591f941c533f0d')
+ else: print('1b0a405e5136d368125c5666665a728032a73780' if args[-1].endswith('1'*64) else '5e712f2a3eb9fef204592018cf591f941c533f0d')
 elif args[0]=='inspect': sys.exit(0 if os.getenv('FAILURE')=='collision' else 1)
 else: sys.exit(99)
 """)

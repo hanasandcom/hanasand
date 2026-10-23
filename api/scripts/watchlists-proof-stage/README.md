@@ -19,8 +19,8 @@ Required environment (all image values are full immutable sha256 IDs):
   this fixture and approved Watchlists9b. No primary checkout.
 - `WATCHLIST_IDENTITY_ROOT`: exact 90feba62a71844b0f3b6ac7b097ff72c400534eb.
 - `WATCHLIST_SCRAPER_ROOT`: exact c3c01136bbfb1c6527fae1c97c8df62e2046a4f0.
-- `WATCHLIST_API_IMAGE`: cached 33d7c82b89af65de78d3e9c9d94c5a2d8c0ba9a1 runtime,
-  known ID `sha256:620fc1ee0d8979b0a961146c166733b9c19f304729e909549507f7993e2968de`.
+- `WATCHLIST_API_IMAGE`: cached 1b0a405e5136d368125c5666665a728032a73780 runtime,
+  known ID `sha256:6929bb23b7a18d73a8ae9fecb04115b06fd8925b8d7c644294cc86c5cbcb2ab9`.
 - `WATCHLIST_IDENTITY_IMAGE`: `sha256:9cc911ac52fe7110e0aba81818fbdfabaa33034c32afccb6e3f266b1d5e2e8eb`;
   remains labelled 5e712f2a3eb9fef204592018cf591f941c533f0d, not 90.
 - `WATCHLIST_BUN_IMAGE`: cached TI66 Bun1.3.11 runtime/deps,
@@ -34,7 +34,7 @@ Required environment (all image values are full immutable sha256 IDs):
 - `WATCHLIST_WEBSITE_IMAGE`: required only for full mode; canonical final compiled
   frontend image whose OCI revision equals `WATCHLIST_CORE_SHA`.
 
-Images are not relabelled. Core actual final src is mounted into 33d only after
+Images are not relabelled. Core actual final src is mounted into cached 1b only after
 Git equality of api/package.json, bun.lock, bunfig.toml and Dockerfile. Identity 90
 src/migrations are mounted into 5e only after package/lock/Dockerfile equality.
 Actual runtime probes require Core/Identity Bun 1.3.13, service Bun 1.3.11 and PG 15.
