@@ -6,6 +6,7 @@ export const productTasks: TestTask[] = [
     { id: 'dashboard-queued-refresh', title: 'Dashboard sidebar refresh coalescing and abort behavior', command: [bun, 'test', 'tests/dashboard-queued-refresh.test.ts'] },
     { id: 'solution-feature-card', title: 'Solution feature card content and presentation', command: [bun, 'test', 'tests/solution-feature-card.test.tsx'] },
     { id: 'scanner-uvm-panel', title: 'Verified asset scope, engine coverage, and service evidence rendering', command: [bun, 'test', 'tests/scanner-uvm-panel.test.tsx'] },
+    { id: 'scanner-uvm-activity', title: 'Scanner run activity and recurring schedule rendering', command: [bun, 'test', 'tests/scanner-uvm-activity.test.tsx'] },
     { id: 'content-editor-header', title: 'Article and thought editor header rendering', command: [bun, 'test', 'tests/content-editor-header.test.tsx'] },
     { id: 'auth-form-fields', title: 'Login and signup field, error, and submit presentation', command: [bun, 'test', 'tests/auth-form-fields.test.tsx'] },
     { id: 'upload-media-preview', title: 'Gallery and upload image and video preview contracts', command: [bun, 'test', 'tests/upload-media-preview.test.tsx'] },
