@@ -4,14 +4,27 @@ import { backendDeviceProofTarget } from '@/utils/auth/backendDeviceProofTarget'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
 
 export type VerifiedWatchlistSession = { id: string, token: string }
-const identifier = '[A-Za-z0-9_:@-]{1,200}'
-const route = new RegExp(`^/organizations/(${identifier})/watchlists(?:/(${identifier}))?(?:/(actions))?$`)
+const validId = (value: string) => /^[A-Za-z0-9_.:@-]{1,200}$/.test(value) && value !== '.' && value !== '..'
+
+function watchlistRoute(path: string, organizationId: string) {
+    const match = path.match(/^\/organizations\/([^/]+)\/watchlists(?:\/([^/]+))?(?:\/(actions))?$/)
+    if (!match || !validId(organizationId)) return null
+    try {
+        // Next route params are decoded; internal proxy paths encode each ID once.
+        // Reconstruct that exact path before authorizing the original public target.
+        const org = decodeURIComponent(match[1])
+        const item = match[2] === undefined ? undefined : decodeURIComponent(match[2])
+        if (org !== organizationId || !validId(org) || item !== undefined && !validId(item)) return null
+        const canonical = `/organizations/${encodeURIComponent(org)}/watchlists${item === undefined ? '' : `/${encodeURIComponent(item)}`}${match[3] ? '/actions' : ''}`
+        return canonical === path ? { item, actions: Boolean(match[3]) } : null
+    } catch { return null }
+}
 
 export async function organizationWatchlistSession(request: NextRequest, path: string, method: string, organizationId: string): Promise<{ identity: VerifiedWatchlistSession } | { response: NextResponse }> {
     const denied = (status = 401, code = 'invalid_session') => ({ response: NextResponse.json({ error: { code, message: 'A valid watchlist request is required.' } }, { status, headers: { 'cache-control': 'no-store' } }) })
-    const match = path.match(route)
-    const cleanup = path === `/organizations/${organizationId}/watchlists/cleanup`
-    const supported = match && match[1] === organizationId && (cleanup ? method === 'POST' : match[3] ? method === 'POST' : match[2] ? ['PUT', 'DELETE'].includes(method) : method === 'POST')
+    const match = watchlistRoute(path, organizationId)
+    const cleanup = match?.item === 'cleanup' && !match.actions
+    const supported = match && (cleanup ? method === 'POST' : match.actions ? method === 'POST' : match.item ? ['PUT', 'DELETE'].includes(method) : method === 'POST')
     if (!supported || method !== request.method || request.nextUrl.pathname !== `/api${path}`) return denied(400, 'invalid_watchlist_route')
     const target = backendDeviceProofTarget(request)
     if (!target) return denied()
@@ -31,7 +44,7 @@ export async function organizationWatchlistSession(request: NextRequest, path: s
     if (!id || !token || token.startsWith('hsk_')) return denied()
     const body = await boundedBody(request)
     if (!body) return denied(400, 'invalid_watchlist_body')
-    const fields = cleanup ? ['itemIds', 'item_ids', 'reason', 'requestId', 'request_id'] : match?.[3] ? ['action', 'reason', 'requestId', 'request_id'] : method === 'DELETE' ? ['reason', 'requestId', 'request_id'] : ['kind', 'value', 'notes', 'reason', 'requestId', 'request_id']
+    const fields = cleanup ? ['itemIds', 'item_ids', 'reason', 'requestId', 'request_id'] : match?.actions ? ['action', 'reason', 'requestId', 'request_id'] : method === 'DELETE' ? ['reason', 'requestId', 'request_id'] : ['kind', 'value', 'notes', 'reason', 'requestId', 'request_id']
     if (Object.keys(body).some(name => ![...fields, 'organizationId', 'orgId', 'tenantId'].includes(name))) return denied(400, 'invalid_watchlist_body')
     for (const name of ['organizationId', 'orgId', 'tenantId']) {
         const query = request.nextUrl.searchParams.getAll(name)

@@ -16,7 +16,7 @@ export type WatchlistProjectionReceipt = {
 }
 
 type SyncOptions = { base?: string, token?: string, fetchImpl?: typeof fetch, timeoutMs?: number }
-const validId = (value: string) => /^[A-Za-z0-9_:@-]{1,200}$/.test(value)
+const validId = (value: string) => /^[A-Za-z0-9_.:@-]{1,200}$/.test(value) && value !== '.' && value !== '..'
 
 export async function savedWatchlistProjection(organizationId: string, itemIds: string[], options: SyncOptions = {}) {
     return { saved: true as const, dwmAlertBridge: await syncWatchlistProjection(organizationId, itemIds, options) }

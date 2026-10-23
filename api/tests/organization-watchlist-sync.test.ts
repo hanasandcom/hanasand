@@ -81,3 +81,25 @@ test('projection request cancellation reports pending once', async () => {
     expect(result.dwmAlertBridge.projection.status).toBe('pending')
     expect(calls).toBe(1)
 })
+
+test('canonical Identity ID grammar permits dots, colon and at-sign without decoding JSON selectors', async () => {
+    for (const [organizationId, itemId] of [['org.name', 'item.name'], ['org:colon', 'item:colon'], ['org@domain', 'item@domain'], ['.org', '.item']]) {
+        let calls = 0
+        const result = await syncWatchlistProjection(organizationId, [itemId], options((async (_url, init) => {
+            calls++
+            expect(JSON.parse(String(init?.body))).toEqual({ organizationId, itemIds: [itemId] })
+            expect(new Headers(init?.headers).get('x-organization-id')).toBe(organizationId)
+            return Response.json({ ...receipt(), organizationId, itemIds: [itemId], projection: { ...receipt().projection, watchlistIds: [`org_shared_watchlist:${organizationId}:${itemId}`] } })
+        }) as typeof fetch))
+        expect(result.projection.status).toBe('synchronized')
+        expect(calls).toBe(1)
+    }
+    for (const bad of ['.', '..', 'bad/item', 'bad\\item', '%2F', '%252F', 'bad\u0000item', 'bad item']) {
+        for (const [organizationId, ids] of [[bad, ['item']], ['org', [bad]]] as Array<[string, string[]]>) {
+            let calls = 0
+            const result = await syncWatchlistProjection(organizationId, ids, options((async () => { calls++; throw Error('must not fetch') }) as typeof fetch))
+            expect(result.projection.status).toBe('failed')
+            expect(calls).toBe(0)
+        }
+    }
+})

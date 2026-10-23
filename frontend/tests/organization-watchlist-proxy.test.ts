@@ -105,3 +105,74 @@ test('supported historical metadata and cleanup aliases remain intact', async ()
         expect(requests[0].init?.body).toBe(text)
     }
 })
+
+test('actual Next mutation routes preserve encoded dot, colon and at-sign IDs with exact public proof target', async () => {
+    const { PUT } = await import('../src/app/api/organizations/[id]/watchlists/[itemId]/route')
+    for (const [id, itemId] of [['org.name', 'item.name'], ['org:colon', 'item:colon'], ['org@domain', 'item@domain'], ['.org', '.item']]) {
+        reset(); status = 200
+        const path = `/organizations/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(itemId)}`
+        const response = await PUT(request(path, 'PUT'), { params: Promise.resolve({ id, itemId }) })
+        expect(response.status).toBe(200)
+        expect(validations).toHaveLength(1)
+        expect(validations[0]).toEqual({ token: 'session', id: 'user', options: { includeInternalAccess: false, deviceProof: { proof: 'proof', method: 'PUT', url: `https://hanasand.com/api${path}` } } })
+        expect(requests).toHaveLength(1)
+        expect(requests[0].url).toBe(`https://core.invalid/api${path}`)
+    }
+})
+
+test('encoded separators, double encoding, dotsegments and noncanonical internal paths fail before verifier', async () => {
+    const { PUT } = await import('../src/app/api/organizations/[id]/watchlists/[itemId]/route')
+    for (const bad of ['.', '..', 'bad/item', 'bad\\item', '%2F', '%252F', 'bad\u0000item', 'bad item']) {
+        for (const [id, itemId] of [[bad, 'item'], ['org', bad]]) {
+            reset()
+            const path = `/organizations/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(itemId)}`
+            const response = await PUT(request(path, 'PUT'), { params: Promise.resolve({ id, itemId }) })
+            expect(response.status).toBe(400)
+            expect(validations).toHaveLength(0)
+            expect(requests).toHaveLength(0)
+        }
+    }
+    for (const path of ['/organizations/org%252Fother/watchlists/item', '/organizations/org/watchlists/item%2Fother', '/organizations/org/watchlists/item%5Cother', '/organizations/org/watchlists/%2E%2E', '/organizations/org/watchlists/%', '/organizations/org%2Ename/watchlists/item']) {
+        reset()
+        const response = await proxyOrganizationWatchlistMutation(request(path, 'PUT'), path, { method: 'PUT', organizationId: path.includes('org%2Ename') ? 'org.name' : 'org' })
+        expect(response.status).toBe(400)
+        expect(validations).toHaveLength(0)
+        expect(requests).toHaveLength(0)
+    }
+})
+
+test('valid encoded IDs cannot change asserted public target, organization or actual incoming path', async () => {
+    const path = '/organizations/org%3Aname/watchlists/item%40domain'
+    for (const [req, org] of [[request(path, 'PUT', { 'x-device-proof-url': 'https://hanasand.com/api/organizations/org:name/watchlists/item@domain' }), 'org:name'], [request(path, 'PUT'), 'other'], [request('/organizations/org%3Aname/watchlists/other', 'PUT'), 'org:name']] as const) {
+        reset()
+        const response = await proxyOrganizationWatchlistMutation(req, path, { method: 'PUT', organizationId: org })
+        expect(response.status).toBeGreaterThanOrEqual(400)
+        expect(validations).toHaveLength(0)
+        expect(requests).toHaveLength(0)
+    }
+})
+
+test('encoded organization works for actual create, cleanup and action routes without alternate proof targets', async () => {
+    const create = await import('../src/app/api/organizations/[id]/watchlists/route')
+    const cleanup = await import('../src/app/api/organizations/[id]/watchlists/cleanup/route')
+    const action = await import('../src/app/api/organizations/[id]/watchlists/[itemId]/actions/route')
+    const id = 'org.name:tenant@example'
+    const itemId = 'item.name:watch@example'
+    const root = `/organizations/${encodeURIComponent(id)}/watchlists`
+    for (const [path, invoke] of [
+        [root, (req: InstanceType<typeof NextRequest>) => create.POST(req, { params: Promise.resolve({ id }) })],
+        [`${root}/cleanup`, (req: InstanceType<typeof NextRequest>) => cleanup.POST(req, { params: Promise.resolve({ id }) })],
+        [`${root}/${encodeURIComponent(itemId)}/actions`, (req: InstanceType<typeof NextRequest>) => action.POST(req, { params: Promise.resolve({ id, itemId }) })],
+    ] as const) {
+        reset()
+        expect((await invoke(request(path))).status).toBe(201)
+        expect(validations).toHaveLength(1)
+        expect(requests).toHaveLength(1)
+    }
+    for (const path of ['/organizations/org%3aname/watchlists/item', '/organizations/org:name/watchlists/item']) {
+        reset()
+        expect((await proxyOrganizationWatchlistMutation(request(path, 'PUT'), path, { method: 'PUT', organizationId: 'org:name' })).status).toBe(400)
+        expect(validations).toHaveLength(0)
+        expect(requests).toHaveLength(0)
+    }
+})
