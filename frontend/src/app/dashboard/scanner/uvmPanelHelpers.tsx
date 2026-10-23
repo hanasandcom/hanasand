@@ -42,7 +42,7 @@ export function SummaryCard({ label, value, detail }: { label: string, value: st
 }
 
 export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRun, defaultOpen: boolean, cancelBusy: boolean, onCancel: () => void }) {
-    const [open, setOpen] = useState(defaultOpen || run.status === 'running' || run.status === 'queued')
+    const [open, setOpen] = useState(defaultOpen)
     const canCancel = run.engine === 'nmap' ? run.status === 'queued' : ['tenable-vm', 'gvm', 'zap'].includes(run.engine) && ['queued', 'launching', 'running', 'cancelling'].includes(run.status)
     const openPorts = (run.hosts || []).flatMap(host => host.ports.filter(port => port.state === 'open').map(port => ({ host, port })))
     return <article className='rounded-md border border-ui-border bg-ui-raised p-3'>
