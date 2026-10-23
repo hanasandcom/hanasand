@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { NextRequest, payload, validations, requests, reset, request, send, proxyOrganizationApiRequest, proxyOrganizationWatchlistMutation, setJar, setValidationState, setUpstreamStatus } from './helpers/organizationWatchlistProxyFixture'
+import { NextRequest, payload, validations, requests, reset, request, send, proxyOrganizationApiRequest, proxyOrganizationWatchlistMutation, proxyOrganizationWatchlistRead, setJar, setValidationState, setUpstreamStatus, readKinds, readPath, readRoute, rejectedReads } from './helpers/organizationWatchlistProxyFixture'
 
 test('canonical verification runs once before one trusted core hop, retaining saved partial response', async () => {
     reset()
@@ -152,4 +152,44 @@ test('encoded organization works for actual create, cleanup and action routes wi
         expect(validations).toHaveLength(0)
         expect(requests).toHaveLength(0)
     }
+})
+test('all three actual read wrappers verify exact encoded targets once and preserve filters through one trusted hop', async () => {
+    for (const kind of readKinds) for (const id of ['org', 'org.name:tenant@example', '.org']) {
+        reset(); setUpstreamStatus(200)
+        const path = readPath(kind, id, 'item.name:watch@example')
+        const response = await readRoute(kind, request(path+'?status=active&organizationId='+encodeURIComponent(id), 'GET'), id, 'item.name:watch@example')
+        expect(response.status).toBe(200); expect(await response.json()).toEqual(payload)
+        expect(validations).toEqual([{ token: 'session', id: 'user', options: { includeInternalAccess: false, deviceProof: { proof: 'proof', method: 'GET', url: `https://hanasand.com/api${path}` } } }])
+        expect(requests).toHaveLength(1); expect(requests[0].init?.body).toBeUndefined(); expect(requests[0].init?.method).toBe('GET')
+        expect(requests[0].url).toBe(`https://core.invalid/api${path}?status=active&organizationId=${encodeURIComponent(id)}`)
+        const headers = new Headers(requests[0].init?.headers)
+        expect(headers.get('x-hanasand-server-session-id')).toBe('user'); expect(headers.get('x-hanasand-server-session-assertion')).toBe('synthetic-assertion')
+        expect(headers.get('x-organization-id')).toBe(id); expect(headers.get('x-tenant-id')).toBe(id); expect(headers.get('dpop')).toBeNull(); expect(headers.get('x-device-proof-url')).toBeNull()
+    }
+})
+test('read route, organization, tenant, method, target and server-context conflicts fail before verification', async () => {
+    for (const [req, path, id] of rejectedReads()) {
+        reset(); expect((await proxyOrganizationWatchlistRead(req, path, id)).status).toBeGreaterThanOrEqual(400)
+        expect(validations).toHaveLength(0); expect(requests).toHaveLength(0)
+    }
+})
+test('cookie read impersonation retains the original actor and forwards only the matching cookie for Core authorization', async () => {
+    for (const kind of readKinds) for (const headers of [{}, { 'x-impersonation-token': 'impersonation:target' }] as Array<Record<string, string>>) {
+        reset(); setJar({ id: 'user', access_token: 'session', impersonation_token: 'impersonation:target' }); setUpstreamStatus(200)
+        expect((await readRoute(kind, request(readPath(kind), 'GET', headers))).status).toBe(200)
+        expect(validations[0]).toMatchObject({ id: 'user', impersonationToken: 'impersonation:target' })
+        const upstream = new Headers(requests[0].init?.headers)
+        expect(upstream.get('id')).toBe('user'); expect(upstream.get('x-hanasand-server-session-id')).toBe('user'); expect(upstream.get('x-impersonation-token')).toBe('impersonation:target')
+    }
+    for (const cookie of ['', 'impersonation:target']) {
+        reset(); setJar({ impersonation_token: cookie })
+        expect((await readRoute('list', request(readPath('list'), 'GET', { 'x-impersonation-token': 'impersonation:other' }))).status).toBe(401)
+        expect(validations).toHaveLength(0); expect(requests).toHaveLength(0)
+    }
+})
+test('read replay, validator outage and absent trusted-hop configuration fail closed without a second Core request', async () => {
+    reset(); expect((await readRoute('list')).status).toBe(201); expect((await readRoute('list')).status).toBe(401); expect(requests).toHaveLength(1)
+    expect((await readRoute('list', request(readPath('list'), 'GET', { dpop: 'fresh' }))).status).toBe(201); expect(requests).toHaveLength(2)
+    reset(); setValidationState('unavailable'); expect((await readRoute('item')).status).toBe(503); expect(requests).toHaveLength(0)
+    reset(); delete process.env.VM_API_TOKEN; expect((await readRoute('alert-terms')).status).toBe(503); expect(validations).toHaveLength(0); expect(requests).toHaveLength(0)
 })
