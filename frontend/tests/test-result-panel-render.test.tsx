@@ -17,6 +17,9 @@ test('result page has short headings and collapsible mobile panels', () => {
 
     expect(details).toContain('>Details</h1>')
     expect(details).toContain('aria-label="Collapse details"')
+    expect(details).toContain('href="/test"')
+    expect(details).toContain('Test another endpoint')
+    expect(details).toContain('>Rerun</span>')
     expect(details).not.toContain('Check details')
     expect(results).toContain('>Results</h1>')
     expect(results).toContain('aria-label="Collapse results"')

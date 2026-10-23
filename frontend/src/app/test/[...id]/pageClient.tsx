@@ -2,6 +2,7 @@
 
 import prettyDate from '@/utils/date/prettyDate'
 import upperCaseFirstLetter from '@/utils/text/upperCaseFirstLetter'
+import Link from 'next/link'
 import { ActivityIcon, Bug, ChevronDown, Fingerprint, Hourglass, LinkIcon, Logs, RefreshCw, Timer, Users, Watch, Wifi, WifiOff, Workflow } from 'lucide-react'
 import Visits from '@/components/test/visits'
 import Content from '@/components/test/content'
@@ -161,10 +162,16 @@ function LeftSide({
                         <span className='min-w-0 wrap-break-word text-sm'>{showErrors ? 'Hide' : 'Show'} ({test.errors.length}) errors</span>
                     </button>}
                 </div>
-                <div>
+                <div className='flex flex-col gap-2 sm:flex-row'>
+                    <Link
+                        href='/test'
+                        className='flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg border border-ui-border px-3 text-center text-sm font-medium text-ui-text transition hover:border-ui-primary hover:bg-ui-raised'
+                    >
+                        Test another endpoint
+                    </Link>
                     <button
                         onClick={handleRerun}
-                        className={`group flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-lg text-sm font-medium transition ${rerun
+                        className={`group flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-medium transition ${rerun
                             ? 'cursor-not-allowed border border-ui-warning/30 bg-ui-warning/10 text-ui-warning'
                             : 'cursor-pointer border border-ui-border bg-ui-raised text-ui-text hover:border-ui-primary'
                         }`}
