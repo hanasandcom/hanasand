@@ -10,7 +10,7 @@ test('scanner page states that configured services are stopped pending disk expa
     const html = renderToStaticMarkup(<ScannerPauseNotice />)
 
     expect(html).toContain('Scanner services are stopped pending disk expansion')
-    expect(html).toContain('API, database, Nmap worker, Greenbone, ZAP runner/proxy, testssl.sh, and Nuclei workers')
+    expect(html).toContain('API, database, Nmap/Naabu worker, Greenbone, ZAP runner/proxy, testssl.sh, and Nuclei workers')
     expect(html).toContain('Image worker is also stopped.')
 })
 
@@ -23,9 +23,11 @@ test('paused Scanner lists at least 20 products and labels setup state', () => {
 
     expect(scannerSuiteCatalog.length).toBeGreaterThanOrEqual(20)
     expect(new Set(scannerSuiteCatalog.map(item => item.name)).size).toBe(scannerSuiteCatalog.length)
-    expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(8)
+    expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(9)
     expect(html).toContain(`Scanner suite · ${scannerSuiteCatalog.length}`)
     expect(html).toContain('Nmap')
+    expect(html).toContain('Naabu')
+    expect(html).toContain('Stopped · pending disk')
     expect(html).toContain('testssl.sh')
     expect(html).toContain('Angry IP Scanner')
     expect(html).toContain('Advanced IP Scanner')
