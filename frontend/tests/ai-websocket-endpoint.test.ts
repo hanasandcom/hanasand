@@ -25,4 +25,7 @@ test('Docker build forwards the AI WebSocket endpoint into the Next.js build', a
     const dockerfile = await readFile(new URL('../Dockerfile', import.meta.url), 'utf8')
     expect(dockerfile).toContain('ARG NEXT_PUBLIC_AI_API_WS=')
     expect(dockerfile).toContain('ENV NEXT_PUBLIC_AI_API_WS=$NEXT_PUBLIC_AI_API_WS')
+
+    const stagingCompose = await readFile(new URL('../../docker-compose.staging.yml', import.meta.url), 'utf8')
+    expect(stagingCompose).toContain('NEXT_PUBLIC_AI_API_WS: ws://127.0.0.1:8389/api')
 })

@@ -204,7 +204,7 @@ HANASAND_RELEASE_COMMIT=$(git rev-parse HEAD) docker compose \
   up -d --build api frontend
 ```
 
-Check the app and API revisions with `curl -fsS http://127.0.0.1:3280/api/health`, and check API process health with `curl -fsS http://127.0.0.1:3282/health`. Check inference from the staging API container, which is connected to the staging AI network: `docker exec hanasand_app_staging_api curl -fsS http://172.31.254.6:19182/api/ai/health/inference`. To review the staged UI from another machine, forward the loopback ports with SSH (`-L 3280:127.0.0.1:3280 -L 3282:127.0.0.1:3282`) and open `http://localhost:3280/ai`. Resetting the staged app database means removing only the `hanasand_app_staging_postgres_data` volume after stopping this Compose project; never remove the production `hanasand_postgres_data` volume.
+Check the app and API revisions with `curl -fsS http://127.0.0.1:3280/api/health`, and check API process health with `curl -fsS http://127.0.0.1:3282/health`. Check inference from the staging API container, which is connected to the staging AI network: `docker exec hanasand_app_staging_api curl -fsS http://172.31.254.6:19182/api/ai/health/inference`. To review the staged UI from another machine, forward ports 3280 and 3282 as above plus the AI staging WebSocket (`-L 8389:172.31.254.6:19182`), then open `http://localhost:3280/ai`. Resetting the staged app database means removing only the `hanasand_app_staging_postgres_data` volume after stopping this Compose project; never remove the production `hanasand_postgres_data` volume.
 
 ## Data and operations
 
