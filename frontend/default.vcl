@@ -68,6 +68,14 @@ Expires: 2027-10-04T00:00:00Z
 }
 
 sub vcl_hash {
+    # Keep each resource and origin isolated before adding theme/session data.
+    if (req.http.host) {
+        hash_data(req.http.host);
+    } else {
+        hash_data(server.ip);
+    }
+    hash_data(req.url);
+
     # Hash theme and the complete authenticated session for general pages so
     # cached HTML cannot cross users, tenants, impersonation targets or roles.
     hash_data(req.http.X-Theme);
@@ -133,7 +141,14 @@ sub vcl_backend_response {
     } else if (beresp.http.Cache-Control ~ "(?i)(no-cache|no-store|private)") {
         set beresp.uncacheable = true;
         set beresp.ttl = 0s;
+    } else if (beresp.http.Content-Type ~ "(?i)^text/html(?:;|$)") {
+        # Release-specific HTML must never outlive the build that emitted its
+        # hashed CSS and JavaScript assets.
+        set beresp.uncacheable = true;
+        set beresp.ttl = 0s;
+        set beresp.http.Cache-Control = "private, no-store";
     } else {
+        # Static assets keep their immutable URL cache lifetime.
         set beresp.ttl = 52w;
     }
     return (deliver);
