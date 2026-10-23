@@ -1,15 +1,13 @@
 import type { Metadata } from 'next'
+import SandboxApplication from './_browser/SandboxApplication'
 
 export const metadata: Metadata = {
     title: 'Sandbox',
-    description: 'Investigate websites in an isolated browser session.',
+    description: 'Investigate domains quickly. Onion addresses are also supported.',
 }
 
+export const dynamic = 'force-dynamic'
+
 export default function SandboxPage() {
-    return <iframe
-        title='Sandbox'
-        src='/sandbox/ui'
-        allow='autoplay; fullscreen'
-        className='h-full min-h-0 w-full flex-1 border-0 bg-ui-canvas'
-    />
+    return <SandboxApplication />
 }

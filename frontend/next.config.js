@@ -2,6 +2,8 @@ const appRoutes = require('./src/utils/routes/appRoutes.json')
 
 const nextConfig = {
     distDir: process.env.NEXT_DIST_DIR || '.next',
+    // Keep client-side navigation aligned with the release serving its assets.
+    deploymentId: process.env.NEXT_PUBLIC_HANASAND_RELEASE_COMMIT || process.env.NEXT_DEPLOYMENT_ID,
     allowedDevOrigins: ['127.0.0.1'],
     experimental: {
         cpus: 2,

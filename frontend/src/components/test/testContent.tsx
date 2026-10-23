@@ -33,20 +33,19 @@ export default function TestContent({ test, showLogs, showErrors }: TestContentP
 
     return (
         <div className='relative grid min-h-0 min-w-0 content-start grid-rows-[auto_auto] gap-4 overflow-hidden pb-1 xl:h-full xl:grid-rows-[auto_minmax(0,1fr)]'>
-            <div className='flex flex-wrap items-start justify-between gap-3 border-b border-ui-border pb-3'>
+            <div className='flex items-start justify-between gap-3 border-b border-ui-border pb-3'>
                 <div className='min-w-0'>
                     <h1 className='text-lg font-semibold text-ui-text'>Results</h1>
-                    <p className='mt-1 max-w-2xl text-xs leading-5 text-ui-muted'>
-                        Metrics, charts, logs, and evidence from the selected run.
-                    </p>
                 </div>
-                <div className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${statusTone}`}>
-                    <StatusIcon className='h-4 w-4' />
-                    <span>{isFailed ? 'Failed' : isDone ? 'Complete' : isPending ? 'Pending' : test.status}</span>
+                <div className='flex shrink-0 items-center gap-3'>
+                    <div className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${statusTone}`}>
+                        <StatusIcon className='h-4 w-4' />
+                        <span>{isFailed ? 'Failed' : isDone ? 'Complete' : isPending ? 'Pending' : test.status}</span>
+                    </div>
+                    <button type='button' aria-label={`${resultsExpanded ? 'Collapse' : 'Expand'} results`} aria-expanded={resultsExpanded} onClick={() => setResultsExpanded(value => !value)} className='grid h-9 w-9 shrink-0 place-items-center rounded border border-ui-border text-ui-muted xl:hidden'>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${resultsExpanded ? 'rotate-180' : ''}`} />
+                    </button>
                 </div>
-                <button type='button' aria-label={`${resultsExpanded ? 'Collapse' : 'Expand'} results`} aria-expanded={resultsExpanded} onClick={() => setResultsExpanded(value => !value)} className='grid h-9 w-9 shrink-0 place-items-center rounded border border-ui-border text-ui-muted xl:hidden'>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${resultsExpanded ? 'rotate-180' : ''}`} />
-                </button>
             </div>
 
             <div className={`min-w-0 overflow-y-auto overflow-x-hidden pr-1 ${resultsExpanded ? '' : 'hidden xl:block'}`}>

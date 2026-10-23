@@ -27,11 +27,13 @@ test('test metrics and all time-series panels render from run summary data', () 
     expect(html).toContain('timeout')
 })
 
-test('missing run metrics show the existing collection and evidence states', () => {
+test('missing completed run metrics show empty states and evidence guidance', () => {
     const run = { status: 'done', summary: null, logs: [], errors: [] } as unknown as Test
     const html = renderToStaticMarkup(<TestContent test={run} showLogs={false} showErrors={false} />)
 
     expect(html).toContain('Aggregate metrics are collecting')
-    expect(html).toContain('Chart data is collecting')
+    expect(html).toContain('No chart data')
+    expect(html).toContain('No request samples were recorded during this run.')
+    expect(html).not.toContain('Chart data is collecting')
     expect(html).toContain('Logs and errors are hidden')
 })

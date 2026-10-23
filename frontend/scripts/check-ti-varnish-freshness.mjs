@@ -10,7 +10,11 @@ const healthCacheRoute = vcl.indexOf('bereq.url ~ "^/(?:dashboard/)?automation/h
 const healthBackgroundFailure = vcl.indexOf('bereq.is_bgfetch && beresp.status >= 500', healthCacheRoute)
 const healthFreshTtl = vcl.indexOf('set beresp.ttl = 15s;', healthCacheRoute)
 const healthGrace = vcl.indexOf('set beresp.grace = 52w;', healthCacheRoute)
-const sessionHash = vcl.indexOf('hash_data(req.http.Cookie);', vcl.indexOf('sub vcl_hash'))
+const hashStart = vcl.indexOf('sub vcl_hash')
+const hostHash = vcl.indexOf('hash_data(req.http.host);', hashStart)
+const urlHash = vcl.indexOf('hash_data(req.url);', hashStart)
+const sessionHash = vcl.indexOf('hash_data(req.http.Cookie);', hashStart)
+const htmlNoStore = vcl.indexOf('beresp.http.Content-Type ~ "(?i)^text/html')
 
 assert(dynamicRoutes >= 0, 'TI and DWM routes must bypass the year-long public HTML cache')
 assert(dynamicRoutes < cacheReturn, 'TI and DWM cache bypass must run before Varnish hashes the request')
@@ -20,5 +24,7 @@ assert(healthCacheRoute >= 0, 'Health page responses need a dedicated cache poli
 assert(healthBackgroundFailure > healthCacheRoute, 'A failed background health-page refresh must preserve the previous response')
 assert(healthFreshTtl > healthCacheRoute && healthGrace > healthFreshTtl, 'Health pages must stay fresh briefly and remain available in grace')
 assert(sessionHash > vcl.indexOf('sub vcl_hash'), 'Authenticated cache keys must include the complete session cookie')
+assert(hostHash > hashStart && urlHash > hostHash, 'Varnish cache keys must include the request host and full URL')
+assert(htmlNoStore >= 0 && htmlNoStore < yearLongTtl, 'Release-specific HTML must bypass the year-long static asset cache')
 
-console.log('Health pages keep a session-keyed response available during background refresh.')
+console.log('Varnish isolates cache keys by host and URL, keeps release HTML uncached, and preserves the health-page grace policy.')
