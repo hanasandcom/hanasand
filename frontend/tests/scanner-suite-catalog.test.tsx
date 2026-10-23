@@ -4,6 +4,15 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { emptyUvmDashboard } from '../src/app/dashboard/scanner/scannerClient'
 import { getScannerSuiteCatalog, scannerSuiteCatalog } from '../src/app/dashboard/scanner/scannerSuiteCatalog'
 import { UvmPanelScannerSetup } from '../src/app/dashboard/scanner/uvmPanelScannerSetup'
+import ScannerPauseNotice from '../src/app/dashboard/scanner/scannerPauseNotice'
+
+test('scanner page states that configured services are stopped pending disk expansion', () => {
+    const html = renderToStaticMarkup(<ScannerPauseNotice />)
+
+    expect(html).toContain('Scanner services are stopped pending disk expansion')
+    expect(html).toContain('API, database, Nmap worker, Greenbone, ZAP runner/proxy, testssl.sh, and Nuclei workers')
+    expect(html).toContain('Image worker is also stopped.')
+})
 
 test('paused Scanner lists at least 20 products and labels setup state', () => {
     const noop = () => undefined
