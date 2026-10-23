@@ -11,6 +11,7 @@ mock.module('next/link', () => ({
 
 const { WorkspaceRepositoryPanel } = await import('../src/components/ai/workspaceRepositoryPanel')
 const { WorkspaceCollaborationPanel } = await import('../src/components/ai/workspaceCollaborationPanel')
+const { WorkspaceRecentActivityPanel } = await import('../src/components/ai/workspaceRecentActivityPanel')
 const { WorkspaceDeployPanel } = await import('../src/components/ai/workspaceDeployPanel')
 const { WorkspaceReleasePanels } = await import('../src/components/ai/workspaceReleasePanels')
 const WorkspacePane = (await import('../src/components/ai/workspacePane')).default
@@ -21,7 +22,8 @@ test('mobile repository drawer constrains its height and scrolls the selected se
     const pageClient = await readFile(new URL('../src/app/ai/pageClient.tsx', import.meta.url), 'utf8')
     const workspacePane = await readFile(new URL('../src/components/ai/workspacePane.tsx', import.meta.url), 'utf8')
 
-    expect(pageClient).toContain('absolute right-0 top-0 z-40 h-full max-h-[calc(100dvh-5rem)] min-h-0')
+    expect(pageClient).toContain('absolute right-0 top-0 z-40 h-fit max-h-[calc(100dvh-5rem)] min-h-0')
+    expect(pageClient).toContain('self-start')
     expect(pageClient).toContain('lg:h-full lg:max-h-none')
     expect(workspacePane).toContain('h-fit max-h-[calc(100dvh-5rem)] min-h-0')
     expect(workspacePane).toContain('lg:h-full lg:max-h-none')
@@ -81,7 +83,7 @@ test('empty repository panel shows both actions without a duplicate empty card',
 
 test('access panel reports seat usage once', () => {
     const conversation = {
-        id: 'conversation-1', ownerId: 'eirikhanasand',
+        id: 'conversation-1', ownerId: '',
         collaboration: { role: 'owner', canInvite: true, seatLimit: 5, seatCount: 0, remainingSeats: 5, collaborators: [] },
     } as AIConversation
     const html = renderToStaticMarkup(createElement(WorkspaceCollaborationPanel, {
@@ -90,7 +92,33 @@ test('access panel reports seat usage once', () => {
     }))
 
     expect(html).toContain('0/5 used')
+    expect(html).toContain('You')
     expect(html).not.toContain('Collaborator seats remaining')
+    expect(html).toContain('aria-label="Collaborator role"')
+    expect(html).toContain('appearance-none')
+    expect(html).toContain('pointer-events-none absolute right-3')
+    expect(html).toContain('h-11')
+    expect(html.match(/rounded-lg bg-ui-raised/g)?.length).toBe(1)
+})
+
+test('activity tab explains when no repository activity has been recorded', () => {
+    const html = renderToStaticMarkup(createElement(WorkspaceRecentActivityPanel, {
+        lastWorkspaceAction: null, lastWorkspaceActionAt: null, lastChangedPath: null, recentPaths: [],
+    }))
+
+    expect(html).toContain('No activity yet.')
+    expect(html).toContain('Code changes will appear here when a repository is updated.')
+})
+
+test('activity tab shows recent change details when activity exists', () => {
+    const html = renderToStaticMarkup(createElement(WorkspaceRecentActivityPanel, {
+        lastWorkspaceAction: 'Updated package.json', lastWorkspaceActionAt: '2026-10-23T09:00:00.000Z',
+        lastChangedPath: 'package.json', recentPaths: ['package.json'],
+    }))
+
+    expect(html).toContain('Updated package.json')
+    expect(html).toContain('package.json')
+    expect(html).toContain('1 recent path')
 })
 
 test('launch options stay collapsed and empty launch history renders no empty cards', () => {

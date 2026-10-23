@@ -1,7 +1,7 @@
-import { Panel, Stat } from './workbenchPaneDisplay'
+import { Panel } from './workbenchPaneDisplay'
 import { useState } from 'react'
 import Link from 'next/link'
-import { UsersRound } from 'lucide-react'
+import { ChevronDown, UsersRound } from 'lucide-react'
 import ErrorNotice from '@/components/error/errorNotice'
 
 export function WorkspaceCollaborationPanel({ activeConversation, currentUserId, collaboratorPending, collaborationError, onInviteCollaborator, onRemoveCollaborator }: { activeConversation: AIConversation | null, currentUserId: string | null, collaboratorPending: boolean, collaborationError: string | null, onInviteCollaborator: (input: { userId: string, role: 'reviewer' | 'editor' }) => void | Promise<void>, onRemoveCollaborator: (userId: string) => void | Promise<void> }) {
@@ -13,28 +13,42 @@ export function WorkspaceCollaborationPanel({ activeConversation, currentUserId,
             title='Review access'
             subtitle={activeConversation?.collaboration?.role === 'owner' ? 'Invite an editor or reviewer.' : `Shared with you as ${activeConversation?.collaboration?.role || 'viewer'}.`}
         >
-            <Stat label='Owner' value={activeConversation?.ownerId || 'Unknown'} />
-            <Stat label='Collaborators' value={`${activeConversation?.collaboration?.collaborators?.length || 0} invited`} />
-            <Stat label='Seats' value={`${activeConversation?.collaboration?.seatCount || 0}/${activeConversation?.collaboration?.seatLimit || 0} used`} />
+            <div className='grid min-w-0 grid-cols-3 divide-x divide-ui-border rounded-lg bg-ui-raised px-2 py-2 outline outline-ui-border'>
+                <div className='min-w-0 px-2 first:pl-1'>
+                    <div className='text-[9px] uppercase tracking-[0.12em] text-ui-muted'>Owner</div>
+                    <div className='mt-1 break-all text-xs font-medium leading-4 text-ui-text'>{activeConversation?.collaboration?.role === 'owner' ? 'You' : activeConversation?.ownerId || 'Unknown'}</div>
+                </div>
+                <div className='min-w-0 px-2'>
+                    <div className='text-[9px] uppercase tracking-[0.12em] text-ui-muted'>Collaborators</div>
+                    <div className='mt-1 wrap-break-word text-xs font-medium leading-4 text-ui-text'>{activeConversation?.collaboration?.collaborators?.length || 0} invited</div>
+                </div>
+                <div className='min-w-0 px-2 last:pr-1'>
+                    <div className='text-[9px] uppercase tracking-[0.12em] text-ui-muted'>Seats</div>
+                    <div className='mt-1 wrap-break-word text-xs font-medium leading-4 text-ui-text'>{activeConversation?.collaboration?.seatCount || 0}/{activeConversation?.collaboration?.seatLimit || 0} used</div>
+                </div>
+            </div>
             {activeConversation?.id ? (
-                <Link href={`/ai/${activeConversation.id}`} className='text-xs text-ui-muted underline-offset-4 hover:text-ui-text hover:underline'>
+                <Link href={`/ai/${activeConversation.id}`} title={`/ai/${activeConversation.id}`} className='block truncate text-xs text-ui-muted underline-offset-4 hover:text-ui-text hover:underline'>
                     Session link: /ai/{activeConversation.id}
                 </Link>
             ) : null}
             {activeConversation?.collaboration?.canInvite ? (
                 <>
-                    <div className='grid grid-cols-[minmax(0,1fr)_6.5rem] gap-2'>
-                        <input value={collaboratorUserId} onChange={(event) => setCollaboratorUserId(event.target.value)} placeholder='user id' className='min-w-0 rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
-                        <select value={collaboratorRole} onChange={(event) => setCollaboratorRole(event.target.value === 'reviewer' ? 'reviewer' : 'editor')} className='rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border'>
-                            <option value='editor'>Editor</option>
-                            <option value='reviewer'>Reviewer</option>
-                        </select>
+                    <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,6.5rem)] gap-2'>
+                        <input id='collaborator-user-id' aria-label='Collaborator user ID' value={collaboratorUserId} onChange={(event) => setCollaboratorUserId(event.target.value)} placeholder='user id' className='h-11 min-w-0 rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
+                        <div className='relative min-w-0'>
+                            <select aria-label='Collaborator role' value={collaboratorRole} onChange={(event) => setCollaboratorRole(event.target.value === 'reviewer' ? 'reviewer' : 'editor')} className='h-11 w-full min-w-0 appearance-none rounded-lg bg-ui-panel py-2 pl-3 pr-8 text-sm text-ui-text outline outline-ui-border'>
+                                <option value='editor'>Editor</option>
+                                <option value='reviewer'>Reviewer</option>
+                            </select>
+                            <ChevronDown aria-hidden='true' className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' />
+                        </div>
                     </div>
                     <button
                         type='button'
                         onClick={() => void onInviteCollaborator({ userId: collaboratorUserId, role: collaboratorRole })}
                         disabled={collaboratorPending || (activeConversation.collaboration.remainingSeats <= 0 && !activeConversation.collaboration.collaborators.some((collaborator) => collaborator.userId === collaboratorUserId.trim()))}
-                        className='rounded-lg bg-ui-panel px-3 py-2 text-sm font-semibold text-ui-text outline outline-ui-border transition-colors hover:text-ui-primary disabled:opacity-60'
+                        className='h-11 rounded-lg bg-ui-panel px-3 py-2 text-sm font-semibold text-ui-text outline outline-ui-border transition-colors hover:text-ui-primary disabled:opacity-60'
                     >
                         {collaboratorPending ? 'Inviting...' : 'Invite collaborator'}
                     </button>

@@ -1,8 +1,18 @@
-import { Panel, Stat, formatActivityTime } from './workbenchPaneDisplay'
+import { Empty, Panel, Stat, formatActivityTime } from './workbenchPaneDisplay'
 import { RefreshCcw } from 'lucide-react'
 
 export function WorkspaceRecentActivityPanel({ lastWorkspaceAction, lastWorkspaceActionAt, lastChangedPath, recentPaths }: { lastWorkspaceAction: string | null, lastWorkspaceActionAt: string | null, lastChangedPath: string | null, recentPaths: string[] }) {
-    if (!lastWorkspaceAction) return null
+    if (!lastWorkspaceAction) {
+        return (
+            <Panel
+                icon={<RefreshCcw className='h-4 w-4' />}
+                title='Recent repository activity'
+                subtitle='No activity yet.'
+            >
+                <Empty text='Code changes will appear here when a repository is updated.' />
+            </Panel>
+        )
+    }
     return (
         <Panel
             icon={<RefreshCcw className='h-4 w-4' />}
