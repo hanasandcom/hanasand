@@ -11,8 +11,9 @@ test('vm inventory exposes explicit safe and destructive actions', async () => {
     expect(vmRow).toContain('Open details')
     expect(vmRow).toContain('router.push(`/vm/${vm.name}`)')
     expect(vmRow).toContain('<RestartButtons vm={vm} onFeedback={onFeedback} showLabels />')
-    expect(vmRow).toContain('xl:grid-cols-[minmax(0,1fr)_auto]')
+    expect(vmRow).toContain('flex min-w-0 items-start justify-between gap-3')
     expect(vmRow).toContain('className=\'min-w-0 wrap-break-word text-base font-semibold text-ui-text\'')
+    expect(vmRow).toContain('bg-ui-canvas px-2.5 py-1.5 text-xs\'>VM</span>')
     expect(vmRow).toContain('className=\'hidden xl:block\'')
 
     expect(vmRow).toContain('data-vm-actions')

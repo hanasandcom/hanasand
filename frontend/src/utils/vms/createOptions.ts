@@ -31,7 +31,11 @@ export const vmServices = [
     { id: 'minecraft-java', group: 'Game servers', label: 'Minecraft Java', description: 'Paper, Vanilla, Fabric, Quilt, NeoForge, Purpur or Folia · 4 GB minimum · port 443 access' },
 ] as const
 
-export const vmServiceGroups = ['Development', 'Data', 'Web', 'Game servers'] as const
+export const vmServiceTabs = [
+    { id: 'development', label: 'Development', groups: ['Development'] },
+    { id: 'data', label: 'Data', groups: ['Data'] },
+    { id: 'web-games', label: 'Web & games', groups: ['Web', 'Game servers'] },
+] as const
 export const vmMinecraftServerTypes = [
     { id: 'PAPER', label: 'Paper', description: 'Fast server with plugin support' },
     { id: 'VANILLA', label: 'Vanilla', description: 'The official unmodified server' },

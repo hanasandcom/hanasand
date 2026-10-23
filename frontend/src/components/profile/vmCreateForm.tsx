@@ -3,7 +3,7 @@
 import postVM from '@/utils/vms/fetch/postVM'
 import suggestVmSetup, { type VmWebsitePlan } from '@/utils/vms/fetch/suggestVmSetup'
 import { useEffect, useId, useRef, useState } from 'react'
-import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceGroups, vmServices } from '@/utils/vms/createOptions'
+import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceTabs, vmServices } from '@/utils/vms/createOptions'
 import type { NotifyVmAction } from '@/components/vms/vmActionFeedback'
 import VmOperatingSystemPicker from './vmOperatingSystemPicker'
 import VmWebsiteEditor from './vmWebsiteEditor'
@@ -27,11 +27,13 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     onCreated: (vm: VM | undefined, name: string) => void
 }) {
     const nameInput = useRef<HTMLInputElement>(null)
+    const serviceTabRefs = useRef<Array<HTMLButtonElement | null>>([])
     const promptId = useId()
     const [name, setName] = useState('')
     const [operatingSystem, setOperatingSystem] = useState<string>(vmOperatingSystems[0].id)
     const [resourcePlan, setResourcePlan] = useState<string>(vmResourceOptions[0].id)
     const [selectedServices, setSelectedServices] = useState<string[]>([])
+    const [activeServiceTab, setActiveServiceTab] = useState<(typeof vmServiceTabs)[number]['id']>('development')
     const [customAptPackages, setCustomAptPackages] = useState<string[]>([])
     const [minecraftEulaAccepted, setMinecraftEulaAccepted] = useState(false)
     const [minecraftServerType, setMinecraftServerType] = useState<typeof vmMinecraftServerTypes[number]['id']>('PAPER')
@@ -142,8 +144,23 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         {operatingSystem === 'ubuntu-24.04-desktop' && <p className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-xs leading-5 text-ui-muted'>After creation, open the VM's Access panel and use its SSH details with <code className='rounded bg-ui-raised px-1 py-0.5 text-ui-text'>-N -L 3389:127.0.0.1:3389</code> added. Then open Remote Desktop at <code className='rounded bg-ui-raised px-1 py-0.5 text-ui-text'>127.0.0.1:3389</code> and sign in with your VM username and password.</p>}
         <fieldset disabled={creating} className='grid gap-2'>
             <legend className='mb-1 text-sm font-medium text-ui-text'>Install services</legend>
-            <div className='grid gap-3'>
-                {vmServiceGroups.map(group => <section key={group} aria-label={`${group} services`} className='grid gap-2'>
+            <div role='tablist' aria-label='Service categories' onKeyDown={event => {
+                const currentIndex = vmServiceTabs.findIndex(tab => tab.id === activeServiceTab)
+                const nextIndex = event.key === 'ArrowRight' ? (currentIndex + 1) % vmServiceTabs.length
+                    : event.key === 'ArrowLeft' ? (currentIndex - 1 + vmServiceTabs.length) % vmServiceTabs.length
+                        : event.key === 'Home' ? 0
+                            : event.key === 'End' ? vmServiceTabs.length - 1 : -1
+                if (nextIndex < 0) return
+                event.preventDefault()
+                setActiveServiceTab(vmServiceTabs[nextIndex].id)
+                serviceTabRefs.current[nextIndex]?.focus()
+            }} className='grid grid-cols-3 gap-1 rounded-lg border border-ui-border bg-ui-panel p-1'>
+                {vmServiceTabs.map((tab, index) => <button key={tab.id} ref={element => { serviceTabRefs.current[index] = element }} type='button' role='tab' id={`${promptId}-service-tab-${tab.id}`} aria-selected={activeServiceTab === tab.id} aria-controls={`${promptId}-service-panel`} tabIndex={activeServiceTab === tab.id ? 0 : -1} onClick={() => setActiveServiceTab(tab.id)} className={`min-h-10 min-w-0 rounded-md px-1.5 text-xs font-medium leading-4 transition-colors sm:px-3 sm:text-sm ${activeServiceTab === tab.id ? 'bg-ui-raised text-ui-text shadow-sm' : 'text-ui-muted hover:bg-ui-raised/60 hover:text-ui-text'}`}>
+                    {tab.label}
+                </button>)}
+            </div>
+            <section role='tabpanel' id={`${promptId}-service-panel`} aria-labelledby={`${promptId}-service-tab-${activeServiceTab}`} tabIndex={0} className='grid min-w-0 gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>
+                {vmServiceTabs.find(tab => tab.id === activeServiceTab)?.groups.map(group => <section key={group} aria-label={`${group} services`} className='grid gap-2'>
                     <h3 className='text-xs font-medium uppercase tracking-wide text-ui-muted'>{group}</h3>
                     <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-4'>
                         {vmServices.filter(service => service.group === group).map(service => <label key={service.id} className='flex cursor-pointer items-start gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5'>
@@ -156,7 +173,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                         </label>)}
                     </div>
                 </section>)}
-            </div>
+            </section>
         </fieldset>
         {selectedServices.includes('minecraft-java') && <label className='flex items-start gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm text-ui-muted'><input type='checkbox' checked={minecraftEulaAccepted} onChange={event => setMinecraftEulaAccepted(event.target.checked)} className='mt-1 accent-ui-primary' /><span>I accept the <a href='https://www.minecraft.net/eula' target='_blank' rel='noopener noreferrer' className='font-medium text-ui-primary underline underline-offset-4'>Minecraft EULA</a>.</span></label>}
         {selectedServices.includes('website') && <VmWebsiteEditor plan={websitePlan} onChange={setWebsitePlan} disabled={creating} />}

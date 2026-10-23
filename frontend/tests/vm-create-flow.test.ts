@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
-import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServices } from '../src/utils/vms/createOptions'
+import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceTabs, vmServices } from '../src/utils/vms/createOptions'
 import { getVmProvisioningFeedback } from '../src/components/vms/useVmProvisioningStatus'
 import getVM from '../src/utils/vms/fetch/getVM'
 
@@ -16,11 +16,20 @@ test('the VM create form offers locally bundled operating systems and installabl
     const [source, picker, websiteEditor] = await Promise.all([readFile(createForm, 'utf8'), readFile(osPicker, 'utf8'), readFile(new URL('../src/components/profile/vmWebsiteEditor.tsx', import.meta.url), 'utf8')])
     expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-24.04-desktop', 'ubuntu-26.04', 'ubuntu-22.04'])
     expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'go', 'php', 'rust', 'ruby', 'cpp', 'docker', 'postgresql', 'mysql', 'redis', 'sqlite', 'nginx', 'website', 'minecraft-java'])
+    expect(vmServiceTabs).toEqual([
+        { id: 'development', label: 'Development', groups: ['Development'] },
+        { id: 'data', label: 'Data', groups: ['Data'] },
+        { id: 'web-games', label: 'Web & games', groups: ['Web', 'Game servers'] },
+    ])
     expect(vmServices.find(service => service.id === 'java')?.description).toContain('selected Ubuntu release')
     expect(vmResourceOptions.map(option => `${option.cpu}:${option.memory}:${option.disk}`)).toEqual(['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'])
     expect(vmMinecraftServerTypes.map(server => server.id)).toEqual(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'])
     expect(picker).toContain('Operating system')
     expect(source).toContain('Install services')
+    expect(source).toContain('role=\'tablist\' aria-label=\'Service categories\'')
+    expect(source).toContain('aria-selected={activeServiceTab === tab.id}')
+    expect(source).toContain('aria-labelledby={`${promptId}-service-tab-${activeServiceTab}`}')
+    expect(source).toContain('setActiveServiceTab(tab.id)')
     expect(source).toContain('selectedServices')
     expect(source).toContain('resources: { cpu: resources.cpu, memory: resources.memory, disk: resources.disk }')
     expect(source).toContain('minecraft_eula_accepted: minecraftEulaAccepted')

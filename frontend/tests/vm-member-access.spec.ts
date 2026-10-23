@@ -76,6 +76,9 @@ test('VM inventory puts every row action behind the hamburger on narrow screens'
         const bounds = await name.boundingBox()
         expect(bounds).not.toBeNull()
         expect(bounds!.height).toBeLessThan(50)
+        const menuBounds = await more.boundingBox()
+        expect(menuBounds).not.toBeNull()
+        expect(Math.abs(bounds!.y - menuBounds!.y), `Title and menu should share a row at ${width}px`).toBeLessThan(8)
     }
 
     const sudoAction = row.locator('details[data-vm-actions] > div').getByRole('button', { name: 'Show sudo password', exact: true })

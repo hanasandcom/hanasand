@@ -80,8 +80,8 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
     return (
         <>
             <article className='grid gap-3 rounded-lg border border-ui-border bg-ui-raised p-4 transition-colors hover:bg-ui-panel sm:gap-4'>
-                <div className='grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start'>
-                    <div className='min-w-0'>
+                <div className='flex min-w-0 items-start justify-between gap-3'>
+                    <div className='min-w-0 flex-1'>
                         <div className='flex min-w-0 flex-wrap items-center gap-2'>
                             <h3 className='min-w-0 wrap-break-word text-base font-semibold text-ui-text'>{name}</h3>
                             {vm.managed === true && <span title='Provisioned through a share' className='rounded-md border border-ui-border bg-ui-canvas px-2 py-0.5 text-[0.68rem] font-semibold text-ui-muted'>Managed</span>}
@@ -94,7 +94,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                         </div>
                         {statusNote && <p className='mt-1 text-xs leading-5 text-ui-muted'>{statusNote}</p>}
                     </div>
-                    <div className='flex w-full max-w-full flex-wrap items-center gap-2 xl:w-auto xl:flex-nowrap xl:justify-end'>
+                    <div className='flex w-auto shrink-0 flex-wrap items-center gap-2 xl:flex-nowrap xl:justify-end'>
                         {!deleted && <>
                             <div className='hidden xl:block'><RestartButtons vm={vm} onFeedback={onFeedback} showLabels /></div>
                             <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} max-xl:!hidden w-auto px-2.5 text-ui-primary xl:!inline-flex`}>
@@ -139,7 +139,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                     <div className='min-w-0'><p className='text-xs font-medium text-ui-muted'>{vm.organization_id ? 'Access' : 'Editors'}</p><p className='mt-1 wrap-break-word text-ui-text'>{vm.organization_id ? 'Organization members' : `${editors} editor${editors === 1 ? '' : 's'}`}</p></div>
                 </div>
                 <div className='flex min-w-0 flex-wrap gap-2 text-xs text-ui-muted'>
-                    <span title='Virtual machine' className='inline-flex items-center rounded border border-ui-border bg-ui-raised px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-ui-muted'>VM</span>
+                    <span title='Virtual machine' className='inline-flex items-center rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5 text-xs'>VM</span>
                     <span className='inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><HardDrive className='h-3.5 w-3.5 shrink-0' /><span className='wrap-break-word'>{image}</span></span>
                     <span className='inline-flex items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><Cpu className='h-3.5 w-3.5' /><span>{vm.limits_cpu ? `${vm.limits_cpu} CPU` : 'CPU pending'}</span></span>
                     <span className='inline-flex items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><Network className='h-3.5 w-3.5' /><span>{vm.limits_memory || 'Memory pending'}</span></span>
