@@ -68,7 +68,7 @@ function publicOverall(sourceChecks: ServiceCheck[], monitoring?: ServiceStatus[
     if (anchors.every(status => status === 'down')) return 'down'
     if (sourceChecks.some(check => check.status === 'down' || check.status === 'degraded')) return 'degraded'
     if (!sourceChecks.length || monitoring !== 'live' && monitoring !== undefined) return 'unknown'
-    return anchors.every(status => status === 'up') ? 'up' : 'degraded'
+    return 'up'
 }
 
 function missingPublicCheck(required: typeof requiredPublicChecks[number]): ServiceCheck {
