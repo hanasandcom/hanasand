@@ -55,6 +55,7 @@ function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestricted
     let running = false
     let patchSeen = false
     let rootPoolUsed: string | undefined
+    let ephemeralSetting: boolean | undefined
     const request = async <T>(socketPath: string, path: string, requestOptions: LxdRequestOptions = {}) => {
         expect(socketPath).toBe(safeSettings.socketPath)
         const method = requestOptions.method || 'GET'
@@ -87,8 +88,9 @@ function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestricted
                 },
             }
         } else if (resourcePath === '/1.0/instances' && method === 'POST') {
-            const body = requestOptions.body as { name: string, type: string, ephemeral: boolean, devices: { root: { pool?: string } }, config: Record<string, string> }
+            const body = requestOptions.body as { name: string, type: string, ephemeral?: boolean, devices: { root: { pool?: string } }, config: Record<string, string> }
             rootPoolUsed = body.devices.root.pool
+            ephemeralSetting = body.ephemeral
             instance = { name: body.name, type: body.type, status: 'Stopped', config: { ...body.config } }
             response = { status_code: 202, status: 'Accepted', metadata: {}, operation: '/1.0/operations/create' }
         } else if (resourcePath === '/1.0/instances' && path.includes('recursion=1')) {
@@ -124,7 +126,7 @@ function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestricted
         }
         return response as LxdResponse<T>
     }
-    return { calls, request, wasPatched: () => patchSeen, rootPoolUsed: () => rootPoolUsed }
+    return { calls, request, wasPatched: () => patchSeen, rootPoolUsed: () => rootPoolUsed, ephemeralSetting: () => ephemeralSetting }
 }
 
 test('staging probe exercises the virtual machine lifecycle and removes its disposable VM', async () => {
@@ -137,6 +139,7 @@ test('staging probe exercises the virtual machine lifecycle and removes its disp
     expect(lxd.calls.filter(call => call.action).map(call => call.action)).toEqual(['start', 'stop'])
     expect(lxd.calls.some(call => call.method === 'DELETE')).toBe(true)
     expect(lxd.rootPoolUsed()).toBe('default')
+    expect(lxd.ephemeralSetting()).not.toBe(true)
     expect(lxd.calls.some(call => call.path === '/1.0/profiles/default?project=hns-stage')).toBe(true)
     expect(lxd.calls.find(call => call.path.includes('/operations/create/wait?timeout=600'))).toMatchObject({ timeout: 610000 })
     expect(lxd.calls.at(-1)).toEqual({ path: '/1.0/instances?recursion=1&project=hns-stage', method: 'GET' })

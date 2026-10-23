@@ -121,7 +121,6 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
             body: {
                 name,
                 type: 'virtual-machine',
-                ephemeral: true,
                 profiles: ['default'],
                 devices: { root: { type: 'disk', path: '/', pool: rootDiskPool, size: RESOURCE_LIMITS.disk } },
                 config: { 'limits.cpu': RESOURCE_LIMITS.cpu, 'limits.memory': RESOURCE_LIMITS.memory },
