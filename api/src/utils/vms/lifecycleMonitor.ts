@@ -7,6 +7,7 @@ export const VM_LIFECYCLE_MONITOR_CHECK = 'Disposable staging VM lifecycle'
 const MONITOR_INTERVAL_MS = 6 * 60 * 60 * 1000
 const RESOURCE_LIMITS = { cpu: '1', memory: '2GiB', disk: '10GiB' }
 const ISOLATED_STAGING_PROJECT = 'hns-stage'
+const ISOLATED_STAGING_NETWORK = 'hanai-stage0'
 
 type LxdRequest = <T>(socketPath: string, path: string, options?: LxdRequestOptions) => Promise<LxdResponse<T>>
 type MonitorConfig = { enabled: boolean, target: string | null, socketPath: string | null, project: string | null, imageServer: string | null, imageAlias: string | null }
@@ -183,9 +184,10 @@ async function assertRestrictedStagingProject(socketPath: string, project: strin
     const config = result.config || {}
     const instanceLimit = Number(config['limits.instances'])
     const vmLimit = Number(config['limits.virtual-machines'])
+    const allowedNetworks = (config['restricted.networks.access'] || '').split(',').map(network => network.trim()).filter(Boolean)
     if (result.name !== project
         || config.restricted !== 'true'
-        || !config['restricted.networks.access']
+        || allowedNetworks.length !== 1 || allowedNetworks[0] !== ISOLATED_STAGING_NETWORK
         || !Number.isInteger(instanceLimit) || instanceLimit < 1
         || !Number.isInteger(vmLimit) || vmLimit < 1) {
         throw new Error('LXD hns-stage must be restricted, network-limited, and quota-limited before lifecycle probes run.')

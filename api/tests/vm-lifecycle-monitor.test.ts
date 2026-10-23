@@ -49,7 +49,7 @@ test('lifecycle monitor requires explicit isolated staging configuration', () =>
 
 type Instance = { name?: string, type?: string, status?: string, config?: Record<string, string> }
 
-function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestrictedProject?: boolean } = {}) {
+function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestrictedProject?: boolean, wrongNetwork?: boolean } = {}) {
     const calls: { path: string, method: string, action?: string }[] = []
     let instance: Instance | null = null
     let running = false
@@ -70,7 +70,7 @@ function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestricted
                     name: 'hns-stage',
                     config: {
                         restricted: options.unrestrictedProject ? 'false' : 'true',
-                        'restricted.networks.access': 'hanai-stage0',
+                        'restricted.networks.access': options.wrongNetwork ? 'lxdbr0' : 'hanai-stage0',
                         'limits.instances': '2',
                         'limits.virtual-machines': '2',
                     },
@@ -196,6 +196,13 @@ test('default LXD project is rejected even when probe functions are called direc
 
 test('an hns-stage project without restrictions or quotas is rejected before any instance request', async () => {
     const lxd = fakeLxd({ unrestrictedProject: true })
+    await expect(exerciseDisposableInstance(safeSettings, lxd.request)).rejects.toThrow('must be restricted, network-limited, and quota-limited')
+
+    expect(lxd.calls).toEqual([{ path: '/1.0/projects/hns-stage', method: 'GET' }])
+})
+
+test('an hns-stage project with a non-staging network is rejected before any instance request', async () => {
+    const lxd = fakeLxd({ wrongNetwork: true })
     await expect(exerciseDisposableInstance(safeSettings, lxd.request)).rejects.toThrow('must be restricted, network-limited, and quota-limited')
 
     expect(lxd.calls).toEqual([{ path: '/1.0/projects/hns-stage', method: 'GET' }])
