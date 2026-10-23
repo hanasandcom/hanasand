@@ -157,3 +157,20 @@ test('canonical route registration retains default API-owned authentication poli
     const routes = readFileSync(new URL('../src/routes/organizationsAndCompute.ts', import.meta.url), 'utf8')
     expect(routes).toContain('fastify.post(\'/organizations/:id/watchlists/reconcile\', postOrganizationWatchlistReconcile)')
 })
+
+test('registered handler accepts exact browser/native proxy scope headers and rejects previous default scope', async () => {
+    // These are the exact decoded scopes asserted on the real Next proxy output
+    // by organization-watchlist-reconcile-proxy.test.ts, for both credential modes.
+    const organizationId = 'org.name:tenant@example'
+    const url = `/organizations/${encodeURIComponent(organizationId)}/watchlists/reconcile`
+    const headers = { 'x-organization-id': organizationId, 'x-tenant-id': organizationId }
+    for (const mode of ['browser-cookie', 'native-header']) {
+        const response = await send({ itemIds: ['active', 'archived'], requestId: mode }, { url, headers })
+        expect(response.statusCode).toBe(200)
+        expect(response.json().organizationId).toBe(organizationId)
+        expect(calls.at(-1)?.body).toEqual({ organizationId, itemIds: ['active', 'archived'] })
+    }
+    expect(calls).toHaveLength(2)
+    expect((await send({ itemIds: ['active'] }, { url, headers: { ...headers, 'x-tenant-id': 'default' } })).statusCode).toBe(400)
+    expect(calls).toHaveLength(2)
+})

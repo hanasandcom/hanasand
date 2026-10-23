@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { backendDeviceProofTarget } from '@/utils/auth/backendDeviceProofTarget'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
 
-export type VerifiedWatchlistSession = { id: string, token: string }
+export type VerifiedWatchlistSession = { id: string, token: string, organizationId: string }
 const validId = (value: string) => /^[A-Za-z0-9_.:@-]{1,200}$/.test(value) && value !== '.' && value !== '..'
 
 function watchlistRoute(path: string, organizationId: string) {
@@ -59,7 +59,7 @@ export async function organizationWatchlistSession(request: NextRequest, path: s
         proof: request.headers.get('dpop') || undefined, method: target.method, url: target.url,
     } })
     if (!validation.valid) return denied(validation.state === 'unavailable' ? 503 : 401, validation.state === 'unavailable' ? 'authentication_service_unavailable' : 'invalid_session')
-    return { identity: { id, token } }
+    return { identity: { id, token, organizationId } }
 }
 
 async function boundedBody(request: NextRequest): Promise<Record<string, unknown> | null> {

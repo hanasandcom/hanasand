@@ -32,7 +32,10 @@ export async function proxyOrganizationApiRequest(request: NextRequest, path: st
             headers: {
                 ...sessionHeaders,
                 'content-type': 'application/json',
-                'x-tenant-id': request.headers.get('x-tenant-id') || 'default',
+                ...(options.verifiedWatchlistSession ? {
+                    'x-organization-id': options.verifiedWatchlistSession.organizationId,
+                    'x-tenant-id': options.verifiedWatchlistSession.organizationId,
+                } : { 'x-tenant-id': request.headers.get('x-tenant-id') || 'default' }),
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 ...(id ? { id } : {}),
                 ...(options.forwardImpersonation !== false && cookieStore.get('impersonation_token')?.value
