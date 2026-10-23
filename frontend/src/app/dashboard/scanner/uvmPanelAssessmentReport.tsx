@@ -54,7 +54,7 @@ export function UvmAssessmentReportView({ assessment, onClose }: { assessment: U
                     <div className='mt-3 grid gap-2'>
                         {job.run.findings?.map(finding => <article key={finding.findingId} className='border-t border-ui-border pt-2'>
                             <p className='text-sm font-medium'>{finding.title}<span className='ml-2 text-xs text-ui-muted'>{finding.severity}</span>{finding.provider !== 'zap' && finding.cvssScore !== null && <span className='ml-2 text-xs text-ui-muted'>CVSS {finding.cvssScore}</span>}</p>
-                            <p className='mt-1 break-words text-xs text-ui-muted'>
+                            <p className='mt-1 wrap-break-word text-xs text-ui-muted'>
                                 {finding.provider === 'tenable-vm' ? `Plugin ${finding.pluginId}` : finding.provider === 'gvm' ? `NVT ${finding.nvtOid || 'unknown'}` : `ZAP ${finding.alertRef}`}
                                 {' · '}{finding.provider === 'zap' ? `${finding.method || 'HTTP'} · ${finding.instanceUrl}` : `${finding.assetAddress}${finding.port ? ` · ${finding.protocol || 'tcp'}/${finding.port}` : ''}`}
                                 {finding.provider === 'zap' && finding.parameter ? ` · parameter ${finding.parameter}` : ''}
@@ -63,9 +63,9 @@ export function UvmAssessmentReportView({ assessment, onClose }: { assessment: U
                             </p>
                             {(finding.description || finding.solution || finding.evidence) && <details className='mt-2 rounded border border-ui-border px-2 py-1 text-xs'>
                                 <summary className='cursor-pointer font-medium'>Technical details</summary>
-                                {finding.description && <p className='mt-2 whitespace-pre-wrap break-words text-ui-muted'>{finding.description}</p>}
-                                {finding.solution && <p className='mt-2 whitespace-pre-wrap break-words'><strong>Remediation:</strong> {finding.solution}</p>}
-                                {finding.evidence && <p className='mt-2 whitespace-pre-wrap break-words text-ui-muted'><strong>Evidence:</strong> {finding.evidence}</p>}
+                                {finding.description && <p className='mt-2 whitespace-pre-wrap wrap-break-word text-ui-muted'>{finding.description}</p>}
+                                {finding.solution && <p className='mt-2 whitespace-pre-wrap wrap-break-word'><strong>Remediation:</strong> {finding.solution}</p>}
+                                {finding.evidence && <p className='mt-2 whitespace-pre-wrap wrap-break-word text-ui-muted'><strong>Evidence:</strong> {finding.evidence}</p>}
                             </details>}
                         </article>)}
                         {job.engine !== 'nmap' && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
