@@ -17,12 +17,13 @@ Required environment (all image values are full immutable sha256 IDs):
 
 - `WATCHLIST_CORE_ROOT`, `WATCHLIST_CORE_SHA`: clean final reviewed source containing
   this fixture and approved Watchlists9b. No primary checkout.
-- `WATCHLIST_IDENTITY_ROOT`: exact 90feba62a71844b0f3b6ac7b097ff72c400534eb.
+- `WATCHLIST_IDENTITY_ROOT`: exact 0c110b9127d469d98c3e75490fd395ade63c6270.
 - `WATCHLIST_SCRAPER_ROOT`: exact c3c01136bbfb1c6527fae1c97c8df62e2046a4f0.
 - `WATCHLIST_API_IMAGE`: cached 1b0a405e5136d368125c5666665a728032a73780 runtime,
   known ID `sha256:6929bb23b7a18d73a8ae9fecb04115b06fd8925b8d7c644294cc86c5cbcb2ab9`.
-- `WATCHLIST_IDENTITY_IMAGE`: `sha256:9cc911ac52fe7110e0aba81818fbdfabaa33034c32afccb6e3f266b1d5e2e8eb`;
-  remains labelled 5e712f2a3eb9fef204592018cf591f941c533f0d, not 90.
+- `WATCHLIST_IDENTITY_IMAGE`: the reviewed immutable ID from a canonical build of
+  0c110b9127d469d98c3e75490fd395ade63c6270. Its OCI revision must equal that source;
+  older 5e or 90 images are rejected before resource creation.
 - `WATCHLIST_BUN_IMAGE`: cached TI66 Bun1.3.11 runtime/deps,
   `sha256:971982aae0fb1b84a02152b8fe6a6ed3079985c6347e1ee61343cb91376222ab`.
 - `WATCHLIST_POSTGRES_IMAGE`: cached 15.19,
@@ -35,8 +36,9 @@ Required environment (all image values are full immutable sha256 IDs):
   frontend image whose OCI revision equals `WATCHLIST_CORE_SHA`.
 
 Images are not relabelled. Core actual final src is mounted into cached 1b only after
-Git equality of api/package.json, bun.lock, bunfig.toml and Dockerfile. Identity 90
-src/migrations are mounted into 5e only after package/lock/Dockerfile equality.
+Git equality of api/package.json, bun.lock, bunfig.toml and Dockerfile. Identity
+source and canonical image both require exact 0c110b9127d469d98c3e75490fd395ade63c6270;
+its package/lock/Dockerfile equality guard remains in place before mounting source.
 Actual runtime probes require Core/Identity Bun 1.3.13, service Bun 1.3.11 and PG 15.
 An absent cached image is a stop, not permission to inspect/copy live files or build.
 
@@ -81,7 +83,7 @@ One fresh tmpfs PG 15 container holds three databases, not one shared applicatio
    query normalizer that strips FK references to detached views.
 3. `ti_watchlist_projection_test`: only the actual workflow_records table DDL from
    scraper migration006. Actual PostgresScraperStore and registered service route
-   read fresh Identity 90 context and commit selected projections.
+   read fresh Identity 0c context and commit selected projections.
 
 Core `HANASAND_IDENTITY_FDW_HOST`/`IDENTITY_DB_NAME` configure the actual direct
 identityPool. Real recordSystemEvent INSERT must produce a durable Identity

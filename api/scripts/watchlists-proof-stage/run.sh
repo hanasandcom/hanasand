@@ -4,8 +4,8 @@ set -eu
 : "${WATCHLIST_CORE_ROOT:?}" "${WATCHLIST_CORE_SHA:?}" "${WATCHLIST_IDENTITY_ROOT:?}" "${WATCHLIST_SCRAPER_ROOT:?}"
 : "${WATCHLIST_API_IMAGE:?}" "${WATCHLIST_IDENTITY_IMAGE:?}" "${WATCHLIST_BUN_IMAGE:?}" "${WATCHLIST_POSTGRES_IMAGE:?}"
 : "${WATCHLIST_STAGE_PREFIX:?}" "${WATCHLIST_STAGE_SUBNET:?}" "${WATCHLIST_STAGE_MODE:?}"
-identity_sha=90feba62a71844b0f3b6ac7b097ff72c400534eb
-identity_runtime=5e712f2a3eb9fef204592018cf591f941c533f0d
+identity_sha=0c110b9127d469d98c3e75490fd395ade63c6270
+identity_runtime=0c110b9127d469d98c3e75490fd395ade63c6270
 scraper_sha=c3c01136bbfb1c6527fae1c97c8df62e2046a4f0
 core_runtime=1b0a405e5136d368125c5666665a728032a73780
 case "$WATCHLIST_STAGE_MODE" in core-only) ;; full) : "${WATCHLIST_WEBSITE_IMAGE:?}" ;; *) exit 1 ;; esac
@@ -197,14 +197,21 @@ http_ready "$last_id" http://127.0.0.1:8082/ready
 if test "$WATCHLIST_STAGE_MODE" = full; then
  create "$prefix-website" --network "$network_id" --read-only \
  --tmpfs /tmp:rw,size=32m \
- --tmpfs /var/lib/varnish:rw,size=128m \
+ --tmpfs /var/lib/varnish:rw,exec,size=128m \
  --tmpfs /run:rw,size=16m \
  -e FRONTEND_INTERNAL_API="http://$prefix-core:8082/api" \
  -e FRONTEND_IDENTITY_API="http://$prefix-identity:8081/api" \
  -e SOCIAL_AUTH_ORIGIN=https://hanasand.com \
- -e VM_API_TOKEN=synthetic-web-assertion "$WATCHLIST_WEBSITE_IMAGE"
+ -e VM_API_TOKEN=synthetic-web-assertion "$WATCHLIST_WEBSITE_IMAGE" sh /app/entrypoint.sh
  docker start "$last_id" >/dev/null
- http_ready "$last_id" http://127.0.0.1:3000/api/health
+ # The minimal Core fixture does not expose aggregate /health. Check only
+ # Varnish/Next transport and the real unauthenticated Watchlist route denial.
+ website_ready=0
+ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  if docker exec "$last_id" bun -e "fetch('http://127.0.0.1:3000/api/organizations/stage-transport-only/watchlists',{method:'GET',signal:AbortSignal.timeout(1000)}).then(async r=>{const body=await r.json();process.exit(r.status===401&&body.error?.code==='invalid_session'?0:1)}).catch(()=>process.exit(1))" >/dev/null 2>&1; then website_ready=1; break; fi
+  sleep 1
+ done
+ if test "$website_ready" != 1; then log_owned "$last_id"; exit 1; fi
 fi
 printf 'core_source=%s runtime_source=%s identity_source=%s scraper_source=%s mode=%s\n' "$WATCHLIST_CORE_SHA" "$core_runtime" "$identity_sha" "$scraper_sha" "$WATCHLIST_STAGE_MODE"
 printf 'images api=%s identity=%s bun=%s postgres=%s website=%s\n' "$WATCHLIST_API_IMAGE" "$WATCHLIST_IDENTITY_IMAGE" "$WATCHLIST_BUN_IMAGE" "$WATCHLIST_POSTGRES_IMAGE" "${WATCHLIST_WEBSITE_IMAGE:-none}"
