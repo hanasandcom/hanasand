@@ -1,4 +1,3 @@
-import { getCookie } from 'hanasand/cookies'
 import { vmMinecraftServerTypes, type VmMinecraftServerType } from '../createOptions'
 
 export type VmWebsiteImage = { url: string, alt: string, caption: string }
@@ -6,12 +5,11 @@ export type VmWebsitePlan = { title: string, tagline: string, sections: Array<{ 
 export type VmSetupPlan = { summary: string, services: string[], aptPackages: string[], website: VmWebsitePlan | null, minecraftServerType: VmMinecraftServerType | null, projectFiles: Array<{ path: string, content: string }> | null }
 
 export default async function suggestVmSetup(prompt: string, os: string): Promise<VmSetupPlan> {
-    const token = getCookie('access_token')
-    const id = getCookie('id')
-    if (!token || !id) throw new Error('Sign in again to ask for a setup suggestion.')
     const response = await fetch('/api/backend/vm/setup-plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, id },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, os }),
         signal: AbortSignal.timeout(25_000),
     })
