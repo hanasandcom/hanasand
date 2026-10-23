@@ -1,12 +1,12 @@
 'use client'
 
 import type { Dispatch, SetStateAction } from 'react'
-import type { NmapScanProfile, UvmDashboard } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, UvmDashboard } from '@/utils/monitoring/types'
 import { UvmHelp } from './uvmPanelHelp'
 import { getScannerSuiteCatalog } from './scannerSuiteCatalog'
 
-export type UvmAssessmentEngineId = 'nmap' | 'gvm' | 'tenable-vm' | 'zap' | 'testssl' | 'nuclei'
-type NmapProfile = NmapScanProfile
+export type UvmAssessmentEngineId = 'nmap' | 'naabu' | 'gvm' | 'tenable-vm' | 'zap' | 'testssl' | 'nuclei'
+type NmapProfile = NetworkScanProfile
 
 export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedEngines, scanId, setScanId, nmapProfile, setNmapProfile, servicesPaused, onSetup }: {
     data: UvmDashboard
@@ -24,8 +24,8 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
         const engine = data.engines.find(item => item.id === id)
         return !servicesPaused && engine?.status === 'available' && (id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
     })
-    const engineLabel = (id: UvmAssessmentEngineId) => id === 'nmap' ? 'Nmap' : id === 'gvm' ? 'Greenbone' : id === 'zap' ? 'OWASP ZAP' : id === 'testssl' ? 'testssl.sh' : id === 'nuclei' ? 'Nuclei' : 'Nessus via Tenable VM'
-    const engineProfile = (id: UvmAssessmentEngineId) => id === 'nmap'
+    const engineLabel = (id: UvmAssessmentEngineId) => id === 'nmap' ? 'Nmap' : id === 'naabu' ? 'Naabu' : id === 'gvm' ? 'Greenbone' : id === 'zap' ? 'OWASP ZAP' : id === 'testssl' ? 'testssl.sh' : id === 'nuclei' ? 'Nuclei' : 'Nessus via Tenable VM'
+    const engineProfile = (id: UvmAssessmentEngineId) => id === 'naabu' ? 'top 100 TCP ports · 25 probes/second' : id === 'nmap'
         ? nmapProfile === 'udp-top-100' ? 'top 100 UDP ports' : nmapProfile === 'tcp-all' ? 'all TCP ports' : nmapProfile === 'tcp-top-100' ? 'top 100 TCP ports' : nmapProfile === 'tcp-top-1000-safe-vuln' ? 'top 1,000 TCP ports + NSE checks' : 'top 1,000 TCP ports'
         : id === 'gvm' ? 'Full and Fast'
             : id === 'zap' ? 'same-origin web assessment'
@@ -46,9 +46,9 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
     }
     return <fieldset className='grid gap-2'>
         <legend className='text-sm font-semibold'>Scanner products · {productCatalog.length}</legend>
-        <div className='flex justify-end'><UvmHelp label='Assessment engines' text='Nmap inventories selected TCP or UDP ports and can optionally run bounded NSE checks. Greenbone uses Full and Fast. Nessus configurations run through Tenable VM. OWASP ZAP assesses the web origin. testssl.sh checks TLS configuration. Nuclei checks pinned HTTP templates.' /></div>
+        <div className='flex justify-end'><UvmHelp label='Assessment engines' text='Nmap and Naabu discover network services. Nessus and Greenbone check vulnerabilities. ZAP, testssl.sh and Nuclei check web and TLS exposure.' /></div>
         <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{productCatalog.map(item => {
-            const engineId: UvmAssessmentEngineId | null = item.integration === 'nmap' || item.integration === 'gvm' || item.integration === 'tenable-vm' || item.integration === 'zap' || item.integration === 'testssl' || item.integration === 'nuclei'
+            const engineId: UvmAssessmentEngineId | null = item.integration === 'nmap' || item.integration === 'naabu' || item.integration === 'gvm' || item.integration === 'tenable-vm' || item.integration === 'zap' || item.integration === 'testssl' || item.integration === 'nuclei'
                 ? item.integration
                 : null
             const engine = engineId ? data.engines.find(candidate => candidate.id === engineId) : undefined
@@ -69,6 +69,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
                     setSelectedEngines(current => event.target.checked ? [...current, engineId] : current.filter(id => id !== engineId))
                 }} className='mt-1 accent-ui-primary' /><span className='font-semibold'>{item.name}<small className='ml-2 font-normal text-ui-muted'>{item.category}</small><small className={`block font-normal ${ready ? 'text-ui-success' : 'text-ui-warning'}`}>{ready ? 'Ready' : reason}</small></span></span>
                 {ready && engineId === 'nmap' && selected && <span className='ml-6 flex flex-wrap items-center gap-2 text-xs text-ui-muted'><label className='grid gap-1'>Port coverage<select aria-label='Nmap port coverage' value={nmapProfile} onChange={event => setNmapProfile(event.target.value as NmapProfile)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='tcp-top-1000'>Standard · top 1,000 TCP ports</option><option value='tcp-top-100'>Quick · top 100 TCP ports</option><option value='tcp-top-1000-safe-vuln'>NSE checks · top 1,000 TCP ports</option><option value='tcp-all'>Thorough · all 65,535 TCP ports</option><option value='udp-top-100'>UDP · top 100 ports</option></select></label>{nmapProfile === 'tcp-all' && <small className='text-ui-warning'>Full sweep · up to 20 min/address, 100 min/run.</small>}{nmapProfile === 'udp-top-100' && <small className='text-ui-warning'>UDP results may be open or open|filtered.</small>}{nmapProfile === 'tcp-top-1000-safe-vuln' && <UvmHelp label='Nmap NSE checks' text='Runs scripts tagged both safe and vuln. Nmap cannot guarantee no adverse effects. Results are heuristic evidence and do not confirm exploitability.' />}</span>}
+                {ready && engineId === 'naabu' && selected && <small className='ml-6 text-xs text-ui-muted'>Top 100 TCP ports · 25 probes/second</small>}
                 {ready && engineId === 'tenable-vm' && selected && <span className='ml-6 grid gap-1 text-xs text-ui-muted'>Enabled scan configuration<select aria-label='Tenable scan configuration' value={scanId} onChange={event => setScanId(event.target.value)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value=''>Choose configuration</option>{data.tenableScans.filter(scan => scan.enabled).map(scan => <option key={scan.id} value={scan.id}>{scan.name}</option>)}</select></span>}
             </label>
         })}</div>

@@ -69,6 +69,7 @@ export default function ScannerWorkspace() {
             verifyAssetAction={client.verifyAsset}
             saveZapApiDefinitionAction={client.saveZapApiDefinition}
             runScanAction={client.runAsset}
+            runNaabuAction={client.runNaabu}
             scheduleAction={client.scheduleAsset}
             configureTenableAction={client.configureTenable}
             disconnectTenableAction={client.disconnectTenable}

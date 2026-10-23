@@ -1,5 +1,8 @@
 export type NmapScanProfile = 'tcp-top-100' | 'tcp-top-1000' | 'tcp-top-1000-safe-vuln' | 'tcp-all' | 'udp-top-100'
-export type UvmEngineSelection = { engine: 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei', scanId?: string, profile?: NmapScanProfile }
+export type NaabuScanProfile = 'naabu-top-100'
+export type NetworkScanProfile = NmapScanProfile | NaabuScanProfile
+export type UvmEngineId = 'nmap' | 'naabu' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei'
+export type UvmEngineSelection = { engine: UvmEngineId, scanId?: string, profile?: NetworkScanProfile }
 export type UvmAsset = {
     id: string
     hostname: string
@@ -12,9 +15,9 @@ export type UvmAsset = {
     authorizedAddresses: string[]
     scheduleEnabled: boolean
     schedulePlan: UvmEngineSelection[]
-    scheduleEngine: 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei'
+    scheduleEngine: UvmEngineId
     scheduleScanId: string | null
-    scheduleProfile: NmapScanProfile | 'bounded-web-dast-v1' | 'tls-default-v1' | 'safe-http-v1'
+    scheduleProfile: NetworkScanProfile | 'bounded-web-dast-v1' | 'tls-default-v1' | 'safe-http-v1'
     zapApiDefinitionPath?: string | null
     intervalMinutes: number
     nextRunAt: string | null
@@ -22,7 +25,7 @@ export type UvmAsset = {
 }
 export type UvmAssetEngineCoverage = {
     assetId: string
-    engine: 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei'
+    engine: UvmEngineId
     state: 'never_scanned' | 'queued' | 'running' | 'complete' | 'partial' | 'failed' | 'cancelled' | 'unknown'
     freshness: 'never' | 'fresh' | 'stale' | 'unknown'
     lastRunId: string | null
@@ -62,7 +65,7 @@ export type UvmScannerCatalogEntry = {
     id: string
     name: string
     category: 'Discovery' | 'Vulnerability' | 'Web' | 'Cloud and code'
-    integration: 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei' | 'image-worker' | 'catalog-only' | 'desktop-only' | 'cli-review'
+    integration: 'nmap' | 'naabu' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei' | 'image-worker' | 'catalog-only' | 'desktop-only' | 'cli-review'
     setup: 'configured' | 'adapter-needed' | 'license-and-adapter-needed' | 'desktop-only' | 'cli-review-needed'
 }
 export type UvmScriptEvidence = { id: string, output: string, truncated: boolean }
@@ -77,9 +80,9 @@ export type UvmTenableIntegration = { provider: 'tenable-vm', configured: boolea
 export type UvmTenableScan = { id: string, scheduleUuid: string | null, name: string, enabled: boolean, status: string | null, scannerName: string | null, targets: string }
 export type UvmFinding = { id: string, assetId: string | null, asset: string, address: string | null, engine: string, externalId: string, title: string, severity: string, cvssScore: number | null, cveIds: string[], description: string | null, solution: string | null, evidence: string | null, status: 'open' | 'in_progress' | 'pending_verification' | 'accepted_risk' | 'false_positive' | 'resolved', triageNote: string | null, firstSeen: string | null, lastSeen: string | null, updatedAt: string }
 export type UvmFindingHistoryPage = { findings: UvmFinding[], nextCursor: string | null }
-export type UvmRun = { id: string, scannerRunId: string | null, requestId: string, assetId: string, target: string, targetOrigin?: string, engine: string, profile: string, source?: 'manual' | 'scheduled' | 'assessment' | 'unknown', status: string, createdAt: string, startedAt: string | null, finishedAt: string | null, error: string | null, hosts?: UvmHost[], findings?: Array<UvmTenableFinding | UvmGvmFinding | UvmZapFinding | UvmNucleiFinding>, observations?: UvmTestsslObservation[], attemptedAddresses?: string[], completedAddresses?: string[], reportHashes?: Record<string, string>, engineVersion: string | null, rawXmlSha256: string | null, coverage: { known?: boolean, requestedAddresses?: number, attemptedAddresses?: number, completedAddresses?: number, completedAddressList?: string[], missingAddresses?: string[], unattemptedAddresses?: string[], openPorts?: number, origin?: string, urlsVisited?: number | null, urlsDiscovered?: number | null, clientUrlsDiscovered?: number | null, traditionalSpiderComplete?: boolean, clientSpiderComplete?: boolean, crawlComplete?: boolean, totalAlerts?: number, acceptedAlerts?: number, acceptedInstances?: number, scopeFiltered?: boolean, truncationReasons?: string[], truncated?: boolean, complete?: boolean } | null }
+export type UvmRun = { id: string, scannerRunId: string | null, requestId: string, assetId: string, target: string, targetOrigin?: string, engine: string, profile: string, source?: 'manual' | 'scheduled' | 'assessment' | 'unknown', status: string, createdAt: string, startedAt: string | null, finishedAt: string | null, error: string | null, hosts?: UvmHost[], findings?: Array<UvmTenableFinding | UvmGvmFinding | UvmZapFinding | UvmNucleiFinding>, observations?: UvmTestsslObservation[], attemptedAddresses?: string[], completedAddresses?: string[], reportHashes?: Record<string, string>, engineVersion: string | null, rawXmlSha256: string | null, rawOutputSha256?: string | null, coverage: { known?: boolean, requestedAddresses?: number, attemptedAddresses?: number, completedAddresses?: number, completedAddressList?: string[], missingAddresses?: string[], unattemptedAddresses?: string[], openPorts?: number, origin?: string, urlsVisited?: number | null, urlsDiscovered?: number | null, clientUrlsDiscovered?: number | null, traditionalSpiderComplete?: boolean, clientSpiderComplete?: boolean, crawlComplete?: boolean, totalAlerts?: number, acceptedAlerts?: number, acceptedInstances?: number, scopeFiltered?: boolean, truncationReasons?: string[], truncated?: boolean, complete?: boolean } | null }
 export type UvmRunHistoryPage = { runs: UvmRun[], nextCursor: string | null }
-export type UvmAssessment = { id: string, requestId: string, status: 'queued' | 'running' | 'cancelling' | 'succeeded' | 'partial' | 'failed' | 'cancelled', source: 'manual' | 'scheduled', createdAt: string, startedAt: string | null, finishedAt: string | null, jobs: Array<{ id: string, assetId: string, asset: string, engine: 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei', profile: string, stageIndex: number, stage: string, runId: string | null, status: string, error: string | null, attemptCount: number, nextAttemptAt: string | null, createdAt: string, startedAt: string | null, finishedAt: string | null }> }
+export type UvmAssessment = { id: string, requestId: string, status: 'queued' | 'running' | 'cancelling' | 'succeeded' | 'partial' | 'failed' | 'cancelled', source: 'manual' | 'scheduled', createdAt: string, startedAt: string | null, finishedAt: string | null, jobs: Array<{ id: string, assetId: string, asset: string, engine: UvmEngineId, profile: string, stageIndex: number, stage: string, runId: string | null, status: string, error: string | null, attemptCount: number, nextAttemptAt: string | null, createdAt: string, startedAt: string | null, finishedAt: string | null }> }
 export type UvmAssessmentHistoryPage = { assessments: UvmAssessment[], nextCursor: string | null }
 export type UvmAssessmentReport = Omit<UvmAssessment, 'jobs'> & { jobs: Array<UvmAssessment['jobs'][number] & { run: UvmRun | null, reportError?: string }> }
 export type UvmDashboard = { assets: UvmAsset[], coverage?: UvmAssetEngineCoverage[], engines: UvmEngine[], scannerCatalog?: UvmScannerCatalogEntry[], runs: UvmRun[], runsNextCursor?: string | null, assessments: UvmAssessment[], assessmentsNextCursor?: string | null, scannerError: string | null, tenableIntegration: UvmTenableIntegration | null, tenableScans: UvmTenableScan[], findings: UvmFinding[], findingsNextCursor?: string | null, findingSummary?: { total: number, actionable: number, criticalOrHigh: number } }

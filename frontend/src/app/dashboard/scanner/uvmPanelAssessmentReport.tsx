@@ -39,6 +39,14 @@ export function UvmAssessmentReportView({ assessment, onClose }: { assessment: U
                             {host.ports.some(port => port.scriptResults?.length) && <div className='mt-2 grid gap-1 text-xs'><p className='font-semibold'>Nmap NSE script evidence · heuristic only</p>{host.ports.flatMap(port => (port.scriptResults || []).map((script, index) => <details key={`${port.protocol}:${port.port}:${script.id}:${index}`}><summary className='cursor-pointer'>{port.protocol}/{port.port} · {script.id}</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word text-ui-muted'>{script.output}{script.truncated ? '\n… output truncated' : ''}</pre></details>))}</div>}
                         </details>)}</div>
                     </>}
+                    {job.engine === 'naabu' && <>
+                        <p className='mt-2 text-xs text-ui-muted'>Naabu top 100 TCP port discovery · {job.run.hosts?.length || 0} hosts · {job.run.hosts?.reduce((sum, host) => sum + host.ports.filter(port => port.state === 'open').length, 0) ?? 0} open ports · 25 probes/second</p>
+                        <div className='mt-2 grid gap-2'>{job.run.hosts?.map(host => <details key={host.address} className='rounded border border-ui-border px-3 py-2'>
+                            <summary className='cursor-pointer text-xs font-medium'>{host.address} · {host.status}{host.timedOut ? ' · timed out' : ''} · {host.ports.length} open ports</summary>
+                            <ul className='mt-2 grid gap-1 text-xs text-ui-muted'>{host.ports.map(port => <li key={`${port.protocol}:${port.port}`}>{port.protocol}/{port.port} · {port.state}</li>)}{!host.ports.length && <li>No open ports reported.</li>}</ul>
+                        </details>)}</div>
+                        {job.run.rawOutputSha256 && <p className='mt-2 break-all text-xs text-ui-muted'>Raw output SHA-256: {job.run.rawOutputSha256}</p>}
+                    </>}
                     {job.engine === 'testssl' && <>
                         <p className='mt-2 text-xs text-ui-muted'>testssl.sh TLS configuration checks · {job.run.observations?.length || 0} observations · {job.run.completedAddresses?.length ?? job.run.coverage?.completedAddresses ?? 'unknown'} addresses completed</p>
                         <TestsslObservationList observations={job.run.observations} />

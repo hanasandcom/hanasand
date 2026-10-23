@@ -16,7 +16,7 @@ export const scannerSuiteCatalog: ScannerCatalogEntry[] = [
     { id: 'masscan', name: 'Masscan', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'rustscan', name: 'RustScan', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'zmap', name: 'ZMap', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
-    { id: 'naabu', name: 'Naabu', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'naabu', name: 'Naabu', category: 'Discovery', integration: 'naabu', setup: 'configured' },
     { id: 'fping', name: 'fping', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'arp-scan', name: 'arp-scan', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'netdiscover', name: 'Netdiscover', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },

@@ -36,14 +36,14 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
 }) {
     const { data, busy, authorization } = props
     const engineOptions: Array<{ id: UvmEngineSelection['engine'], label: string }> = [
-        { id: 'nmap', label: 'Nmap inventory' }, { id: 'tenable-vm', label: 'Nessus via Tenable VM' },
+        { id: 'nmap', label: 'Nmap inventory' }, { id: 'naabu', label: 'Naabu · top 100 TCP' }, { id: 'tenable-vm', label: 'Nessus via Tenable VM' },
         { id: 'gvm', label: 'Greenbone' }, { id: 'zap', label: 'OWASP ZAP' }, { id: 'testssl', label: 'testssl.sh TLS checks' }, { id: 'nuclei', label: 'Nuclei safe HTTP checks' },
     ]
     function toggleEngine(engine: UvmEngineSelection['engine'], checked: boolean) {
         props.setSchedulePlans(current => {
             const selected = current[asset.id] || schedulePlan
             return { ...current, [asset.id]: checked
-                ? [...selected, { engine, ...(engine === 'nmap' ? { profile: 'tcp-top-1000' as const } : {}) }]
+                ? [...selected, ...(engine === 'nmap' ? [{ engine, profile: 'tcp-top-1000' as const }] : engine === 'naabu' ? [{ engine, profile: 'naabu-top-100' as const }] : [{ engine }])]
                 : selected.filter(choice => choice.engine !== engine) }
         })
     }
@@ -74,6 +74,7 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
                     {props.scheduleProfiles[asset.id] === 'udp-top-100' && <small className='text-ui-warning'>Includes ambiguous open|filtered results.</small>}
                     {props.scheduleProfiles[asset.id] === 'tcp-top-1000-safe-vuln' && <UvmHelp label='Nmap NSE checks' text='Runs scripts tagged both safe and vuln. Nmap cannot guarantee no adverse effects. Results are heuristic evidence and do not confirm exploitability.' />}
                 </label>}
+                {choice.engine === 'naabu' && <span className='pb-2 text-xs text-ui-muted'>Top 100 TCP ports · 25 probes/second</span>}
                 {choice.engine === 'tenable-vm' && <label className='grid gap-1'>Tenable template
                     <select value={scheduleScanId} onChange={event => props.setScheduleScanIds(current => ({ ...current, [asset.id]: event.target.value }))} disabled={!data.tenableIntegration?.configured || !data.tenableScans.some(scan => scan.enabled)} className='h-8 min-w-44 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'>
                         <option value=''>Choose an enabled template</option>{data.tenableScans.filter(scan => scan.enabled).map(scan => <option key={scan.id} value={scan.id}>{scan.name}</option>)}

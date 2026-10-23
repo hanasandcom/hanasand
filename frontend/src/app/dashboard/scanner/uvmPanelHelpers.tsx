@@ -44,7 +44,7 @@ export function SummaryCard({ label, value, detail }: { label: string, value: st
 
 export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRun, defaultOpen: boolean, cancelBusy: boolean, onCancel: () => void }) {
     const [open, setOpen] = useState(defaultOpen)
-    const canCancel = run.engine === 'nmap' ? run.status === 'queued' : ['tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei'].includes(run.engine) && ['queued', 'launching', 'running', 'cancelling'].includes(run.status)
+    const canCancel = ['nmap', 'naabu'].includes(run.engine) ? run.status === 'queued' : ['tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei'].includes(run.engine) && ['queued', 'launching', 'running', 'cancelling'].includes(run.status)
     const observedPorts = (run.hosts || []).flatMap(host => host.ports.map(port => ({ host, port })))
     const confirmedOpenPorts = observedPorts.filter(({ port }) => port.state === 'open')
     const ambiguousUdpPorts = observedPorts.filter(({ port }) => port.protocol === 'udp' && port.state === 'open|filtered')
@@ -66,6 +66,7 @@ export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRu
                     {run.coverage?.unattemptedAddresses?.length ? <p className='sm:col-span-2'>Not attempted: {run.coverage.unattemptedAddresses.join(', ')}</p> : null}
                     {run.coverage?.completedAddressList?.length ? <p className='sm:col-span-2'>Completed host results: {run.coverage.completedAddressList.join(', ')}</p> : null}
                     {run.engine === 'nmap' && <><p>{run.profile === 'udp-top-100' ? `Open UDP ports: ${confirmedOpenPorts.length} · open|filtered: ${ambiguousUdpPorts.length}` : `Open TCP ports: ${run.coverage?.openPorts ?? confirmedOpenPorts.length}`}</p><p>Raw Nmap XML SHA-256: <code className='break-all'>{run.rawXmlSha256 || 'pending'}</code></p></>}
+                    {run.engine === 'naabu' && <><p>Open TCP ports: {run.coverage?.openPorts ?? confirmedOpenPorts.length}</p><p>Raw Naabu output SHA-256: <code className='break-all'>{run.rawOutputSha256 || 'pending'}</code></p></>}
                     {run.engine === 'gvm' && <p>Raw Greenbone report SHA-256: <code className='break-all'>{run.rawXmlSha256 || 'pending'}</code></p>}
                     {run.engine === 'testssl' && <><p>TLS addresses attempted: {run.attemptedAddresses?.length ?? 'unknown'}</p><p>TLS addresses completed: {run.completedAddresses?.length ?? 'unknown'}</p></>}
                 </>}
@@ -76,6 +77,7 @@ export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRu
             {run.findings?.length ? <div className='mt-3 grid gap-2'><h4 className='text-xs font-semibold'>Vulnerability findings · {run.findings.length}</h4>{run.findings.map(finding => <RunFinding key={finding.findingId} finding={finding} />)}</div> : null}
             {run.engine === 'testssl' && <TestsslObservationList observations={run.observations} />}
             {run.status === 'succeeded' && run.engine === 'nmap' && run.profile !== 'tcp-top-1000-safe-vuln' && <p className='mt-2 text-xs text-ui-muted'>Service inventory only. No vulnerability checks were performed by this run.</p>}
+            {run.status === 'succeeded' && run.engine === 'naabu' && <p className='mt-2 text-xs text-ui-muted'>Top 100 TCP port discovery only. No service identification or vulnerability checks were performed.</p>}
             {run.engine === 'nmap' && run.profile === 'tcp-top-1000-safe-vuln' && <p className='mt-2 text-xs text-ui-muted'>NSE output is heuristic evidence. Review results; they do not confirm exploitability.</p>}
             {run.engine === 'nmap' && run.profile === 'tcp-top-1000-safe-vuln' && !hasNmapScripts && <p className='mt-2 text-xs text-ui-muted'>No Nmap NSE script output was reported.</p>}
         </div>}

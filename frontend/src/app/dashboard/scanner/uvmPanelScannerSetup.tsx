@@ -36,7 +36,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
             {servicesPaused && <p role='status' className='mt-2 text-xs text-ui-warning'>Configured services are stopped pending disk expansion. No scanner is running.</p>}
             <div className='mt-3 grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>
                 {productCatalog.map(item => {
-                    const engine = ['nmap', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei'].includes(item.integration)
+                    const engine = ['nmap', 'naabu', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei'].includes(item.integration)
                         ? data.engines.find(candidate => candidate.id === item.integration)
                         : undefined
                     const status = item.setup === 'desktop-only' ? 'Desktop app'

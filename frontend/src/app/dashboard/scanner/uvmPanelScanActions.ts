@@ -10,6 +10,7 @@ export function createUvmPanelScanActions(input: {
     setMessage: (value: string) => void
     refresh: () => Promise<UvmDashboard>
     runNmap: (assetId: string, authorized: boolean, profile: NmapScanProfile) => Promise<{ run: UvmRun }>
+    runNaabu: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runTenable: (assetId: string, scanId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runGvm: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runZap: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
@@ -34,6 +35,8 @@ export function createUvmPanelScanActions(input: {
         scan: (asset: UvmAsset) => run(asset, '', 'Nmap', () => input.runNmap(
             asset.id, input.authorization[asset.id] === true, input.assetNmapProfiles[asset.id] || 'tcp-top-1000',
         )),
+        scanWithNaabu: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'naabu', 'Naabu', () => input.runNaabu(asset.id, input.authorization[asset.id] === true)),
         scanWithTenable: (asset: UvmAsset) => {
             const scanId = input.tenableScanIds[asset.id] || input.defaultTenableScanId
             return scanId ? run(asset, 'tenable', 'Tenable', () => input.runTenable(asset.id, scanId, input.authorization[asset.id] === true)) : Promise.resolve()

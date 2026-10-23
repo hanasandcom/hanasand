@@ -2,16 +2,17 @@ import type { UvmAssetEngineCoverage, UvmDashboard, UvmRun } from '@/utils/monit
 import { formatDate } from './uvmPanelHelpers'
 
 function runResult(run: UvmRun) {
-    if (run.engine === 'nmap') {
+    if (run.engine === 'nmap' || run.engine === 'naabu') {
         const observations = (run.hosts || []).flatMap(host => host.ports)
         const confirmedOpenPorts = observations.filter(port => port.state === 'open').length
         const ambiguousUdpPorts = observations.filter(port => port.protocol === 'udp' && port.state === 'open|filtered').length
-        const ports = run.profile === 'udp-top-100'
-            ? `${confirmedOpenPorts} open · ${ambiguousUdpPorts} open|filtered UDP`
-            : `${confirmedOpenPorts} open TCP port${confirmedOpenPorts === 1 ? '' : 's'}`
+        const ports = run.engine === 'naabu' ? `${confirmedOpenPorts} open TCP ports`
+            : run.profile === 'udp-top-100'
+                ? `${confirmedOpenPorts} open · ${ambiguousUdpPorts} open|filtered UDP`
+                : `${confirmedOpenPorts} open TCP port${confirmedOpenPorts === 1 ? '' : 's'}`
         const total = run.coverage?.requestedAddresses ?? run.coverage?.attemptedAddresses
         const coverage = total === undefined ? '' : `Address coverage ${run.coverage?.completedAddresses}/${total} · `
-        return `${coverage}${ports}${run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : run.profile === 'udp-top-100' ? ' · UDP inventory' : ' · service inventory only'}`
+        return `${coverage}${ports}${run.engine === 'naabu' ? ' · port discovery only' : run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : run.profile === 'udp-top-100' ? ' · UDP inventory' : ' · service inventory only'}`
     }
     if (run.engine === 'testssl') {
         const flagged = run.observations?.filter(observation => observation.disposition === 'finding').length || 0
