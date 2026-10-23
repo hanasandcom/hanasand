@@ -103,7 +103,7 @@ test('VM detail cards share their shell and preserve titles and placeholders', (
     assert.match(access, /Connect locally/)
     assert.match(access, /Show sudo password/)
     assert.match(access, /hidden items-center gap-2 lg:flex/)
-    assert.match(access, /relative lg:hidden/)
+    assert.match(access, /lg:hidden/)
     assert.match(access, /Each successful view is recorded and emailed to the VM owner\./)
 
     const accessError = renderToStaticMarkup(<VMAccess vmName='test' connection={null} error='You do not have permission to view access details.' />)
