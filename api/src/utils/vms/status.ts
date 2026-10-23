@@ -11,6 +11,7 @@ let localInventory: { expires: number; result: Promise<Map<string, State>> } | u
 const provisioningConfigKey = 'user.hanasand.provisioning_state'
 const missingSetupStatusReason = 'VM startup finished without reporting whether the selected services were installed. Contact Support if the problem persists.'
 const waitingForHostSetupStatusReason = 'Waiting for the VM host to confirm service setup.'
+const missingHostVmStatusReason = 'VM could not be found on its host. Contact Support if the problem persists.'
 
 export function invalidateLiveVmStatus(name: string) {
     for (const key of checks.keys()) if (key.endsWith(':' + name)) checks.delete(key)
@@ -125,21 +126,23 @@ async function probe(name: string, host = config.vm_host_id): Promise<State> {
                 // worker for its queued state so the inventory can show provisioning instead
                 // of incorrectly labelling a newly created VM offline.
                 const response = await internalHostFetch(targetHost, `/vms/internal/${encodeURIComponent(name)}/status`, { signal: AbortSignal.timeout(5000) })
-                if (!response.ok) throw new Error('VM host is not responding.')
-                const body = await response.json() as { status?: string; status_reason?: string }
-                if (!body.status) throw new Error('VM host did not report a state.')
-                return { status: body.status, status_reason: body.status_reason }
+                return await readHostStatus(response)
             }
         }
         const response = await internalHostFetch(targetHost, `/vms/internal/${encodeURIComponent(name)}/status`, { signal: AbortSignal.timeout(5000) })
-        if (!response.ok) throw new Error('VM host is not responding.')
-        const body = await response.json() as { status?: string; status_reason?: string }
-        if (!body.status) throw new Error('VM host did not report a state.')
-        return { status: body.status, status_reason: body.status_reason }
+        return await readHostStatus(response)
     })()
     if (checks.size >= 512) checks.delete(checks.keys().next().value!)
     checks.set(key, { expires: Date.now() + 5000, result })
     return result
+}
+
+async function readHostStatus(response: Response): Promise<State> {
+    if (response.status === 404) return { status: 'Error', status_reason: missingHostVmStatusReason }
+    if (!response.ok) throw new Error('VM host is not responding.')
+    const body = await response.json() as { status?: string; status_reason?: string }
+    if (!body.status) throw new Error('VM host did not report a state.')
+    return { status: body.status, status_reason: body.status_reason }
 }
 
 export async function withLiveVmStatus<T extends Vm>(vm: T, check: (name: string, host?: string) => Promise<State> = probe) {

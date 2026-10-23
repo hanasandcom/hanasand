@@ -79,6 +79,37 @@ test('default remote status probe requests the assigned host receiver path', asy
     }])
 })
 
+test('a host 404 marks a missing VM as an error instead of leaving it offline', async () => {
+    hostWorkerHttpStatus = 404
+
+    const result = await withLiveVmStatus({ name: 'missing-on-host-vm', primary_host: 'ovhcloud' })
+
+    expect(result.status).toBe('ERROR')
+    expect(result.status_reason).toBe('VM could not be found on its host. Contact Support if the problem persists.')
+})
+
+test('a host 503 remains offline rather than being reported as a missing VM', async () => {
+    hostWorkerHttpStatus = 503
+
+    const result = await withLiveVmStatus({ name: 'temporarily-unavailable-host-vm', primary_host: 'ovhcloud' })
+
+    expect(result.status).toBe('OFFLINE')
+    expect(result.status_reason).toBe('Cannot reach this VM on its host.')
+})
+
+test('a VM missing during local allocation resolves to an error when the host confirms 404', async () => {
+    hostWorkerHttpStatus = 404
+    globalThis.fetch = (async () => { throw new Error('Local LXD inventory is unavailable.') }) as typeof fetch
+
+    const result = await withLiveVmStatus({ name: 'missing-during-allocation-vm' })
+
+    expect(result.status).toBe('ERROR')
+    expect(remoteRequests).toEqual([{
+        host: 'inspur',
+        path: '/vms/internal/missing-during-allocation-vm/status',
+    }])
+})
+
 test('local status keeps reporting service setup while the guest is already running', async () => {
     globalThis.fetch = (async () => Response.json({ metadata: { status: 'Running' } })) as typeof fetch
     hostWorkerStatus = { status: 'Provisioning', status_reason: 'Installing nodejs, postgresql…' }
