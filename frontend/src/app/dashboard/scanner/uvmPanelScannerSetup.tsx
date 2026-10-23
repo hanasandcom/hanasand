@@ -45,9 +45,9 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
                     const status = item.integration === 'desktop-only' ? 'Desktop only'
                         : item.integration === 'cli-review' ? 'CLI validation needed'
                             : item.integration === 'catalog-only' ? 'Adapter setup needed'
-                            : servicesPaused && item.integration === 'nmap' ? 'Stopped · disk and license review'
-                                : servicesPaused ? 'Stopped · disk expansion'
-                                    : engine?.status || (item.integration === 'image-worker' ? 'Integrated · image worker' : 'Unavailable')
+                                : servicesPaused && item.integration === 'nmap' ? 'Stopped · disk and license review'
+                                    : servicesPaused ? 'Stopped · disk expansion'
+                                        : engine?.status || (item.integration === 'image-worker' ? 'Integrated · image worker' : 'Unavailable')
                     const statusClass = servicesPaused && !['desktop-only', 'cli-review', 'catalog-only'].includes(item.integration)
                         ? 'text-ui-warning'
                         : item.integration === 'catalog-only' || item.integration === 'desktop-only' || item.integration === 'cli-review'
