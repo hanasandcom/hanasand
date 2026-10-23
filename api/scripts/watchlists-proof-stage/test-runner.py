@@ -162,6 +162,25 @@ if args[0]=='inspect': print('captured|'+os.environ['ACTUAL_OWNER'])
                 self.assertIn('--read-only', argv)
                 self.assertNotIn('--publish', argv)
 
+    def test_full_website_uses_canonical_shell_entrypoint_on_read_only_root(self):
+        import os
+        source = (ROOT / 'run.sh').read_text()
+        start = source.index('if test "$WATCHLIST_STAGE_MODE" = full; then\n create "$prefix-website"')
+        block = source[start:source.index('\nfi', start)+3]
+        self.assertIn('--read-only', block)
+        self.assertIn('--security-opt no-new-privileges --memory "$memory" --cpus 1', source[source.index('create() {'):source.index('log_owned() {')])
+        script = 'create() { printf "%s\\n" "$@"; }; docker() { :; }; http_ready() { :; }; '+block
+        result = subprocess.run(['sh', '-eu', '-c', script], env={**os.environ,
+            'WATCHLIST_STAGE_MODE': 'full', 'WATCHLIST_WEBSITE_IMAGE': 'sha256:'+'5'*64,
+            'prefix': 'ti-native-proof-123456abcdef', 'network_id': 'synthetic-network', 'last_id': 'captured'},
+            text=True, capture_output=True, check=True)
+        argv = result.stdout.splitlines()
+        self.assertEqual(argv[-3:], ['sha256:'+'5'*64, 'sh', '/app/entrypoint.sh'])
+        self.assertEqual([value for value in argv if value.startswith('/tmp:') or value.startswith('/run:') or value.startswith('/var/lib/varnish:')],
+            ['/tmp:rw,size=32m', '/var/lib/varnish:rw,size=128m', '/run:rw,size=16m'])
+        self.assertNotIn('chmod', argv)
+        self.assertNotIn('--publish', argv)
+
     def test_topology_does_not_mask_fdw_or_audit(self):
         setup = (ROOT / 'setup-databases.ts').read_text()
         self.assertIn('IMPORT FOREIGN SCHEMA public LIMIT TO', setup)

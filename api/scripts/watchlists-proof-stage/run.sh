@@ -202,7 +202,7 @@ if test "$WATCHLIST_STAGE_MODE" = full; then
  -e FRONTEND_INTERNAL_API="http://$prefix-core:8082/api" \
  -e FRONTEND_IDENTITY_API="http://$prefix-identity:8081/api" \
  -e SOCIAL_AUTH_ORIGIN=https://hanasand.com \
- -e VM_API_TOKEN=synthetic-web-assertion "$WATCHLIST_WEBSITE_IMAGE"
+ -e VM_API_TOKEN=synthetic-web-assertion "$WATCHLIST_WEBSITE_IMAGE" sh /app/entrypoint.sh
  docker start "$last_id" >/dev/null
  http_ready "$last_id" http://127.0.0.1:3000/api/health
 fi
