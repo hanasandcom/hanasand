@@ -23,7 +23,10 @@ export function getVmProvisioningFeedback(status?: string, statusReason?: string
     if (normalizedStatus === 'OFFLINE') {
         return { state: 'provisioning', message: 'Waiting for the VM host to respond…' }
     }
-    return { state: 'provisioning', message: 'Starting your VM and selected services…' }
+    if (normalizedStatus === 'STOPPED') {
+        return { state: 'provisioning', message: 'Waiting for the VM host to start this VM…' }
+    }
+    return { state: 'provisioning', message: 'Waiting for the VM host to report this VM…' }
 }
 
 export function useVmProvisioningStatus(name: string | undefined) {

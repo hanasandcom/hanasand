@@ -75,7 +75,16 @@ test('the console reports real VM setup progress, completion, and failure separa
         state: 'error',
         message: 'Package installation failed.',
     })
+    expect(getVmProvisioningFeedback('STOPPED')).toEqual({
+        state: 'provisioning',
+        message: 'Waiting for the VM host to start this VM…',
+    })
+    expect(getVmProvisioningFeedback()).toEqual({
+        state: 'provisioning',
+        message: 'Waiting for the VM host to report this VM…',
+    })
     expect(consoleClient).toContain('session.provisioning &&')
+    expect(consoleClient).toContain('session.provisioning?.state !== \'provisioning\'')
     expect(consoleClient).toContain('role={session.provisioning.state === \'error\' ? \'alert\' : \'status\'}')
 })
 

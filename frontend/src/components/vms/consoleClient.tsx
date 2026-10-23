@@ -30,9 +30,11 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
             <header className='flex flex-wrap items-center justify-between gap-3'>
                 <div>
                     <h1 className='text-lg font-semibold'>{consoleTarget} console</h1>
-                    <p role='status' title={session.status} className='h-5 min-h-5 max-w-full truncate text-sm text-ui-muted'>
-                        {session.status}{session.username ? ` · ${session.username}` : ''}
-                    </p>
+                    {session.provisioning?.state !== 'provisioning' && (
+                        <p role='status' title={session.status} className='h-5 min-h-5 max-w-full truncate text-sm text-ui-muted'>
+                            {session.status}{session.username ? ` · ${session.username}` : ''}
+                        </p>
+                    )}
                 </div>
                 <div className='flex flex-wrap items-center gap-2'>
                     {name && <VMConnectLocally vmName={name} className='hidden h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 text-sm font-medium text-ui-text transition hover:bg-ui-raised sm:inline-flex' />}
