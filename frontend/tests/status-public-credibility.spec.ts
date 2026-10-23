@@ -13,16 +13,15 @@ test('public status does not claim operational health without fresh public check
     }, Date.parse('2026-07-05T00:00:00.000Z'))
 
     expect(status.overall).toBe('unknown')
-    expect(status.checks).toHaveLength(8)
+    expect(status.checks).toHaveLength(7)
     expect(status.checks.map(check => check.service)).toEqual([
         'Core platform',
         'Website',
-        'Threat intelligence',
-        'Threat intelligence',
-        'Threat intelligence',
-        'Sandbox',
-        'Dark web monitoring',
-        'Dark web monitoring',
+        'Threat Intelligence',
+        'Threat Intelligence',
+        'Threat Intelligence',
+        'Dark Web Monitoring',
+        'Dark Web Monitoring',
     ])
     expect(status.checks[0]).toMatchObject({
         check_name: 'API Health',
@@ -51,12 +50,48 @@ test('public status keeps fresh failing checks more severe than freshness fallba
         incidents: [],
     } satisfies ServiceStatus, now)
 
-    expect(status.overall).toBe('down')
+    expect(status.overall).toBe('degraded')
     expect(status.checks[0]).toMatchObject({
         service: 'Core platform',
         check_name: 'API Health',
         status: 'down',
     })
+})
+
+test('public status preserves the live canonical monitor feed used by production', () => {
+    const now = Date.parse('2026-10-23T14:00:05.395Z')
+    const checkedAt = '2026-10-23T14:00:03.550Z'
+    const status = toPublicServiceStatus({
+        overall: 'up',
+        monitoring: 'live',
+        generated_at: new Date(now).toISOString(),
+        checks: [
+            serviceCheck('core', 'API', checkedAt),
+            serviceCheck('website', 'Website', checkedAt),
+            serviceCheck('docker', 'Authentication', checkedAt),
+            serviceCheck('docker', 'Mail', checkedAt),
+        ],
+        history: [],
+        incidents: [],
+    } satisfies ServiceStatus, now)
+
+    expect(status).toMatchObject({ overall: 'up', monitoring: 'live' })
+    expect(status.checks.map(check => check.check_name)).toEqual(['API', 'Website', 'Authentication', 'Mail'])
+    expect(status.checks.every(check => check.status === 'up')).toBe(true)
+    expect(status.last_verified_at).toBe(checkedAt)
+})
+
+test('public status is down only when API, website, and authentication are all down', () => {
+    const now = Date.now()
+    const checkedAt = new Date(now).toISOString()
+    const checks = [
+        serviceCheck('core', 'API', checkedAt),
+        serviceCheck('website', 'Website', checkedAt),
+        serviceCheck('docker', 'Authentication', checkedAt),
+    ].map(check => ({ ...check, status: 'down' as const }))
+
+    expect(toPublicServiceStatus({ overall: 'down', monitoring: 'live', generated_at: checkedAt, checks, history: [], incidents: [] }, now).overall).toBe('down')
+    expect(toPublicServiceStatus({ overall: 'degraded', monitoring: 'live', generated_at: checkedAt, checks: [{ ...checks[0], status: 'down' }, { ...checks[1], status: 'up' }, { ...checks[2], status: 'up' }], history: [], incidents: [] }, now).overall).toBe('degraded')
 })
 
 test('public status is operational only when every buyer-facing monitor is fresh', () => {
@@ -80,7 +115,7 @@ test('public status is operational only when every buyer-facing monitor is fresh
     }, now)
 
     expect(status.overall).toBe('up')
-    expect(status.checks).toHaveLength(8)
+    expect(status.checks).toHaveLength(7)
     expect(status.checks.every(check => check.status === 'up')).toBe(true)
     expect(status.checks.find(check => check.check_name === 'Source Collection')?.status).toBe('up')
 })
@@ -104,7 +139,7 @@ test('public status reports fresh processing and source-collection failures with
         incidents: [],
     }, now)
 
-    expect(status.overall).toBe('down')
+    expect(status.overall).toBe('degraded')
     expect(status.checks.find(check => check.check_name === 'Processing Backlog')).toMatchObject({
         status: 'down',
         message: 'Threat intelligence processing is delayed.',
@@ -134,7 +169,7 @@ test('public status exposes stale latest activity as a service failure', () => {
         incidents: [],
     }, now)
 
-    expect(status.overall).toBe('down')
+    expect(status.overall).toBe('degraded')
     expect(status.checks.find(check => check.check_name === 'Latest Activity')).toMatchObject({
         status: 'down',
         message: 'The activity feed was 113 minutes out of date.',

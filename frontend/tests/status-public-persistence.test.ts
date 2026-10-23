@@ -45,7 +45,7 @@ test('missing monitoring retains the last verified snapshot and never invents a 
     expect(failed.checks.every(check => check.status === 'up' && check.checked_at === at)).toBe(true)
     expect(isVerifiedStatus(failed)).toBe(false)
     const stale = toPublicServiceStatus(raw, Date.now() + 6 * 60_000)
-    expect(stale).toMatchObject({ overall: 'up', monitoring: 'unavailable', last_verified_at: at })
+    expect(stale).toMatchObject({ overall: 'unknown', monitoring: 'unavailable', last_verified_at: at })
     raw.checks[0].status = 'down'
     expect(toPublicServiceStatus(raw).overall).toBe('degraded')
 })
@@ -148,7 +148,7 @@ test('restricted local storage cannot interrupt restore or a stale status refres
     }
 
     expect(refreshError).toBe(true)
-    expect(current).toMatchObject({ overall: 'up', monitoring: 'unavailable' })
+    expect(current).toMatchObject({ overall: 'unknown', monitoring: 'unavailable' })
 })
 
 function verifiedStatus(at: string) {

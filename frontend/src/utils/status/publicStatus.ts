@@ -19,31 +19,39 @@ export function toPublicServiceStatus(status: ServiceStatus, nowMs = Date.now())
     const currentChecks = new Map(status.checks
         .filter(check => isCurrentPublicCheck(check, nowMs) && status.monitoring !== 'unavailable')
         .map(check => [checkKey(check), check]))
+    const hasCanonicalChecks = ['API', 'Website'].every(name =>
+        status.checks.some(check => check.check_name.toLowerCase() === name.toLowerCase()))
     const publicCheckKeys = new Set(requiredPublicChecks.map(checkKey))
-    const checks = requiredPublicChecks.map(required => {
+    const checks = hasCanonicalChecks
+        ? status.checks.map(toPublicServiceCheck)
+        : requiredPublicChecks.map(required => {
         const check = currentChecks.get(checkKey(required))
         if (check) return toPublicServiceCheck(check)
         const previous = allChecks.get(checkKey(required))
         return previous ? toPublicServiceCheck(previous) : missingPublicCheck(required)
     })
 
-    const evidenceTimes = requiredPublicChecks.map(required => Date.parse(allChecks.get(checkKey(required))?.checked_at || ''))
-    const lastVerifiedAt = evidenceTimes.every(Number.isFinite) ? new Date(Math.min(...evidenceTimes)).toISOString() : status.last_verified_at
+    const relevantChecks = hasCanonicalChecks
+        ? status.checks.filter(check => ['API', 'Website', 'Authentication'].includes(check.check_name))
+        : requiredPublicChecks.map(required => allChecks.get(checkKey(required))).filter((check): check is ServiceCheck => Boolean(check))
+    const evidenceTimes = relevantChecks.map(check => Date.parse(check.checked_at))
+    const lastVerifiedAt = evidenceTimes.length && evidenceTimes.every(Number.isFinite) ? new Date(Math.min(...evidenceTimes)).toISOString() : status.last_verified_at
+    const hasFreshEvidence = relevantChecks.length > 0 && relevantChecks.every(check =>
+        isCurrentPublicCheck(check, nowMs) && ['up', 'degraded', 'down'].includes(check.status))
     return {
-        overall: publicOverall(status.checks.filter(check => isCurrentPublicCheck(check, nowMs)), status.monitoring, status.overall),
-        monitoring: status.monitoring === 'live' || status.monitoring === undefined
-            && requiredPublicChecks.every(required => currentChecks.has(checkKey(required))) ? 'live' : 'unavailable',
+        overall: publicOverall(status.checks.filter(check => isCurrentPublicCheck(check, nowMs)), status.monitoring),
+        monitoring: (status.monitoring === 'live' || status.monitoring === undefined && hasFreshEvidence) && hasFreshEvidence ? 'live' : 'unavailable',
         last_verified_at: lastVerifiedAt,
         history_available: status.history_available,
         history_generated_at: status.history_generated_at,
         generated_at: status.generated_at,
         checks,
-        history: status.history.filter(row => publicCheckKeys.has(checkKey(row))).map(row => ({
+        history: status.history.filter(row => (hasCanonicalChecks || publicCheckKeys.has(checkKey(row)))).map(row => ({
             ...row,
             service: publicStatusLabel(row.service),
             check_name: publicStatusLabel(row.check_name),
         })),
-        incidents: status.incidents.filter(incident => publicCheckKeys.has(checkKey(incident))).map(incident => ({
+        incidents: status.incidents.filter(incident => (hasCanonicalChecks || publicCheckKeys.has(checkKey(incident)))).map(incident => ({
             ...incident,
             service: publicStatusLabel(incident.service),
             check_name: publicStatusLabel(incident.check_name),
@@ -63,12 +71,12 @@ function checkKey(value: { service: string, check_name: string }) {
     return `${value.service}\n${value.check_name}`
 }
 
-function publicOverall(sourceChecks: ServiceCheck[], monitoring: ServiceStatus['monitoring'] | undefined, reported: ServiceStatus['overall']): ServiceStatus['overall'] {
+function publicOverall(sourceChecks: ServiceCheck[], monitoring: ServiceStatus['monitoring'] | undefined): ServiceStatus['overall'] {
     const statusFor = (names: string[]) => sourceChecks.find(check => names.some(name => check.check_name.toLowerCase() === name.toLowerCase()))?.status
     const anchors = [statusFor(['API', 'API health']), statusFor(['Website', 'Public website']), statusFor(['Authentication', 'Identity'])]
     if (anchors.every(status => status === 'down')) return 'down'
     if (sourceChecks.some(check => check.status === 'down' || check.status === 'degraded')) return 'degraded'
-    if (!sourceChecks.length) return reported === 'up' || reported === 'degraded' || reported === 'down' ? reported : 'unknown'
+    if (!sourceChecks.some(check => check.status === 'up')) return 'unknown'
     if (monitoring !== 'live' && monitoring !== undefined) return 'unknown'
     return 'up'
 }
@@ -107,8 +115,12 @@ function toPublicServiceCheck(check: ServiceCheck): ServiceCheck {
 // The browser and server use the same evidence rule. Polling cannot turn an
 // empty or stale response into a verified snapshot.
 export function isVerifiedStatus(status: ServiceStatus, now = Date.now()) {
-    return status.monitoring !== 'unavailable' && status.checks.length === requiredPublicChecks.length
-        && requiredPublicChecks.every(required => status.checks.some(check => check.service === publicStatusLabel(required.service) && check.check_name === publicStatusLabel(required.check_name) && ['up', 'degraded', 'down'].includes(check.status) && isCurrentPublicCheck(check, now)))
+    const canonicalChecks = ['API', 'Website', 'Authentication']
+    const canonical = canonicalChecks.every(name => status.checks.some(check => check.check_name === name))
+    const hasRequiredEvidence = canonical
+        ? canonicalChecks.every(name => status.checks.some(check => check.check_name === name && ['up', 'degraded', 'down'].includes(check.status) && isCurrentPublicCheck(check, now)))
+        : status.checks.length === requiredPublicChecks.length && requiredPublicChecks.every(required => status.checks.some(check => check.service === publicStatusLabel(required.service) && check.check_name === publicStatusLabel(required.check_name) && ['up', 'degraded', 'down'].includes(check.status) && isCurrentPublicCheck(check, now)))
+    return status.monitoring !== 'unavailable' && hasRequiredEvidence
 }
 
 export function retainVerifiedStatus(next: ServiceStatus, previous?: ServiceStatus): ServiceStatus {
