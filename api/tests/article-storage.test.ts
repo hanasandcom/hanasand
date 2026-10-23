@@ -58,7 +58,7 @@ test('article saves publish to both mirrors, retry partial publishes, and preser
         const firstHead = execFileSync('git', ['-C', directory, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
         expect(execFileSync('git', ['--git-dir', githubRemote, 'rev-parse', 'refs/heads/main'], { encoding: 'utf8' }).trim()).toBe(firstHead)
         expect(execFileSync('git', ['--git-dir', forgejoRemote, 'rev-parse', 'refs/heads/main'], { encoding: 'utf8' }).trim()).toBe(firstHead)
-        expect(execFileSync('git', ['-C', directory, 'diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], { encoding: 'utf8' }).trim()).toBe('articles/first.md')
+        expect(execFileSync('git', ['-C', directory, 'diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], { encoding: 'utf8' }).trim()).toBe('articles/example.md')
         expect(execFileSync('git', ['-C', directory, 'diff', '--cached', '--name-only'], { encoding: 'utf8' }).trim()).toBe('unrelated.md')
 
         await writeFile(file, '# Partial publish')
