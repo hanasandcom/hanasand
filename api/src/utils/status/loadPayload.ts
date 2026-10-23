@@ -122,11 +122,7 @@ export async function loadStatusPayload(summary = false, query = run) {
     const checks = rawChecks
     const incidents = buildStatusIncidents(incidentResult.rows)
     const history = buildStatusHistory(historyResult.rows, incidents)
-    const overall = !checks.length ? 'unknown' : checks.length && checks.every(check => check.status === 'up')
-        ? 'up'
-        : checks.some(check => check.status === 'down')
-            ? 'down'
-            : 'degraded'
+    const overall = calculateOverallStatus(checks)
 
     return {
         overall,
@@ -136,6 +132,23 @@ export async function loadStatusPayload(summary = false, query = run) {
         history,
         incidents,
     }
+}
+
+export function calculateOverallStatus(checks: Pick<MonitorRow, 'service' | 'check_name' | 'status'>[]) {
+    if (!checks.length) return 'unknown'
+    const isCheck = (row: typeof checks[number], service: string, names: string[]) =>
+        row.service.toLowerCase() === service && names.includes(row.check_name.trim().toLowerCase())
+    const isApi = (row: typeof checks[number]) => isCheck(row, 'core', ['api', 'api health'])
+        || isCheck(row, 'docker', ['api', 'api health'])
+    const isWebsite = (row: typeof checks[number]) => isCheck(row, 'website', ['website', 'public website'])
+        || isCheck(row, 'docker', ['website', 'public website'])
+    const isIdentity = (row: typeof checks[number]) => ['auth', 'authentication', 'identity'].includes(row.service.toLowerCase())
+        || isCheck(row, 'docker', ['authentication', 'identity', 'auth primary', 'auth secondary'])
+    const critical = [checks.find(isApi), checks.find(isWebsite), checks.find(isIdentity)]
+    if (critical.every(row => row?.status === 'down')) return 'down'
+    if (checks.some(row => row.status === 'down' || row.status === 'degraded')) return 'degraded'
+    if (checks.some(row => row.status === 'unknown')) return 'unknown'
+    return 'up'
 }
 
 export function toPublicMonitorRow(row: MonitorRow): MonitorRow {

@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run, { withTransaction } from '#db'
 import { ensureStatusSnapshots } from '#utils/status/snapshotSchema.ts'
 import { createDashboardSerializer, searchHealth } from '#utils/status/presentation.ts'
-import { loadStatusPayload, isCurrentCheck, time, toPublicMonitorRow, type MonitorRow } from '#utils/status/loadPayload.ts'
+import { calculateOverallStatus, loadStatusPayload, isCurrentCheck, time, toPublicMonitorRow, type MonitorRow } from '#utils/status/loadPayload.ts'
 
 export { buildStatusIncidents as buildIncidents } from '#utils/status/incidentHistory.ts'
 
@@ -62,7 +62,9 @@ async function statusPayload(summary: boolean) {
         // The expensive rebuild still runs in the background.
         if (!historySnapshot || Date.now() - Date.parse(historySnapshot.generated_at) >= MONITOR_STALE_MS) await historyLoad?.catch(() => {})
     }
-    if (statusCache && expiresAt > Date.now()) return summary ? withPublicChecks(statusCache) : withHistory(statusCache)
+    if (statusCache && expiresAt > Date.now()) {
+        return withCanonicalMonitorFallback(summary ? withPublicChecks(statusCache) : withHistory(statusCache))
+    }
     statusInflight ||= loadStatusPayload(true).then(payload => {
         statusCache = payload.checks.length ? payload : { ...(statusCache || historySnapshot || payload), monitoring: 'unavailable' }
         expiresAt = Date.now() + STATUS_CACHE_MS
@@ -80,7 +82,41 @@ async function statusPayload(summary: boolean) {
     // A slow database refresh must not delay readers that already have evidence.
     const current = statusCache && statusCache.monitoring === 'live'
         && Date.now() - Date.parse(statusCache.generated_at) < MONITOR_STALE_MS ? statusCache : await statusInflight
-    return summary ? withPublicChecks(current) : withHistory(current)
+    return withCanonicalMonitorFallback(summary ? withPublicChecks(current) : withHistory(current))
+}
+
+async function withCanonicalMonitorFallback<T extends { checks?: MonitorRow[], monitoring?: string }>(payload: T) {
+    if (payload.checks?.length) return payload
+    const feedUrl = process.env.PUBLIC_STATUS_FEED_URL || 'https://status.hanasand.com/api/status'
+    try {
+        const response = await fetch(feedUrl, { cache: 'no-store', signal: AbortSignal.timeout(2500) })
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const feed = await response.json() as {
+            overall?: string
+            monitoring?: string
+            generated_at?: string
+            checks?: MonitorRow[]
+            history?: unknown[]
+            incidents?: unknown[]
+            history_available?: boolean
+        }
+        const checks = Array.isArray(feed.checks) ? feed.checks.filter(check => check && check.service && check.check_name
+            && ['up', 'degraded', 'down', 'unknown'].includes(check.status)) : []
+        if (!checks.length || !checks.some(check => check.status !== 'unknown')) return payload
+        return {
+            ...payload,
+            overall: calculateOverallStatus(checks),
+            monitoring: feed.monitoring || 'unavailable',
+            generated_at: feed.generated_at || payload.generated_at,
+            checks,
+            history: feed.history || (payload as { history?: unknown[] }).history || [],
+            incidents: feed.incidents || (payload as { incidents?: unknown[] }).incidents || [],
+            history_available: feed.history_available ?? (payload as { history_available?: boolean }).history_available,
+        }
+    } catch (error) {
+        console.error('[production-monitor] canonical public status feed unavailable:', error instanceof Error ? error.message : String(error))
+        return payload
+    }
 }
 
 function prepareDashboard() {

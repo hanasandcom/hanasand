@@ -62,7 +62,7 @@ test('loads current checks, daily history, and incident evidence sequentially', 
     const payload = await pending
     expect(callCount).toBe(3)
     expect(payload).toMatchObject({
-        overall: 'down',
+        overall: 'degraded',
         monitoring: 'live',
         generated_at: '2026-10-16T10:03:00.000Z',
         checks: [
