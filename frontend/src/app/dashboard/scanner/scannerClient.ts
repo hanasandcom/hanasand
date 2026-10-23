@@ -3,15 +3,40 @@
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
 import type { UvmDashboard } from '@/utils/monitoring/types'
 
+type UvmEngineId = 'nmap' | 'tenable-vm' | 'gvm' | 'zap'
+
 const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.hanasand.com/api').replace(/\/$/, '')
-const organizationId = '3e735e7b-4d7f-444d-9806-231fa26cfcec'
 
 export const emptyUvmDashboard: UvmDashboard = {
     assets: [], coverage: [], engines: [], runs: [], assessments: [], findings: [], tenableScans: [],
     scannerError: 'Scanner service is loading.', tenableIntegration: null,
 }
 
-export async function scannerRequest<T>(path: string, init: { method?: string, body?: unknown } = {}): Promise<T> {
+export function createScannerClient(organizationId: string) {
+    const request = <T>(path: string, init: { method?: string, body?: unknown } = {}) =>
+        scannerRequest<T>(organizationId, path, init)
+
+    return {
+        getDashboard: () => request<UvmDashboard>('/v1/uvm/dashboard'),
+        createAsset: (input: { hostname: string }) => request<{ asset: UvmDashboard['assets'][number] }>('/v1/uvm/assets', { method: 'POST', body: input }),
+        verifyAsset: (assetId: string) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/verify`, { method: 'POST', body: {} }),
+        saveZapApiDefinition: (assetId: string, path: string | null) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-api-definition`, { method: 'PUT', body: { path } }),
+        runAsset: (assetId: string, authorized: boolean, profile: 'tcp-top-100' | 'tcp-top-1000' = 'tcp-top-1000') => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized, profile } }),
+        scheduleAsset: (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engine: UvmEngineId, scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/schedule`, { method: 'PUT', body: input }),
+        configureTenable: (input: { region: 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp', accessKey: string, secretKey: string }) => request<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>('/v1/uvm/integrations/tenable', { method: 'PUT', body: input }),
+        disconnectTenable: () => request<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>('/v1/uvm/integrations/tenable', { method: 'DELETE', body: {} }),
+        runTenable: (assetId: string, scanId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/tenable-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), scanId, authorized } }),
+        runGvm: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>('/v1/uvm/integrations/gvm/runs', { method: 'POST', body: { requestId: crypto.randomUUID(), organizationId, assetId, authorized } }),
+        runZap: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        updateFinding: (findingId: string, input: { status: UvmDashboard['findings'][number]['status'], note: string }) => request(`/v1/uvm/findings/${encodeURIComponent(findingId)}`, { method: 'PUT', body: input }),
+        cancelRun: (runId: string) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST', body: {} }),
+        startAssessment: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: UvmEngineId, scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }>, authorized: boolean }) => request<{ assessment: UvmDashboard['assessments'][number] }>('/v1/uvm/assessments', { method: 'POST', body: input }),
+        cancelAssessment: (assessmentId: string) => request<{ assessment: UvmDashboard['assessments'][number] }>(`/v1/uvm/assessments/${encodeURIComponent(assessmentId)}/cancel`, { method: 'POST', body: {} }),
+    }
+}
+
+async function scannerRequest<T>(organizationId: string, path: string, init: { method?: string, body?: unknown } = {}): Promise<T> {
+    if (!organizationId) throw new Error('Choose an organization from the workspace selector to use Scanner.')
     const token = getCookie('access_token') || ''
     const id = getCookie('id') || ''
     const separator = path.includes('?') ? '&' : '?'
@@ -30,16 +55,3 @@ export async function scannerRequest<T>(path: string, init: { method?: string, b
     if (!response.ok) throw new Error(result.message || result.error || `Scanner request failed (${response.status}).`)
     return result
 }
-
-export const getScannerDashboard = () => scannerRequest<UvmDashboard>('/v1/uvm/dashboard')
-export const createScannerAsset = (input: { hostname: string }) => scannerRequest<{ asset: UvmDashboard['assets'][number] }>('/v1/uvm/assets', { method: 'POST', body: input })
-export const verifyScannerAsset = (assetId: string) => scannerRequest<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/verify`, { method: 'POST', body: {} })
-export const runScannerAsset = (assetId: string, authorized: boolean, profile: 'tcp-top-100' | 'tcp-top-1000' = 'tcp-top-1000') => scannerRequest<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized, profile } })
-export const scheduleScannerAsset = (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engine: 'nmap' | 'tenable-vm' | 'gvm' | 'zap', scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }) => scannerRequest<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/schedule`, { method: 'PUT', body: input })
-export const configureScannerTenable = (input: { region: 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp', accessKey: string, secretKey: string }) => scannerRequest<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>('/v1/uvm/integrations/tenable', { method: 'PUT', body: input })
-export const disconnectScannerTenable = () => scannerRequest<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>('/v1/uvm/integrations/tenable', { method: 'DELETE', body: {} })
-export const runScannerTenable = (assetId: string, scanId: string, authorized: boolean) => scannerRequest<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/tenable-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), scanId, authorized } })
-export const updateScannerFinding = (findingId: string, input: { status: UvmDashboard['findings'][number]['status'], note: string }) => scannerRequest(`/v1/uvm/findings/${encodeURIComponent(findingId)}`, { method: 'PUT', body: input })
-export const cancelScannerRun = (runId: string) => scannerRequest<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST', body: {} })
-export const startScannerAssessment = (input: { requestId: string, assetIds: string[], engines: Array<{ engine: 'nmap' | 'gvm' | 'tenable-vm' | 'zap', scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }>, authorized: boolean }) => scannerRequest<{ assessment: UvmDashboard['assessments'][number] }>('/v1/uvm/assessments', { method: 'POST', body: input })
-export const cancelScannerAssessment = (assessmentId: string) => scannerRequest<{ assessment: UvmDashboard['assessments'][number] }>(`/v1/uvm/assessments/${encodeURIComponent(assessmentId)}/cancel`, { method: 'POST', body: {} })
