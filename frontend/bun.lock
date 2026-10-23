@@ -13,7 +13,7 @@
         "eslint-config-next": "^16.2.4",
         "fflate": "0.8.3",
         "formik": "^2.4.9",
-        "hanasand": "1.0.4",
+        "hanasand": "1.0.5",
         "highlight.js": "^11.11.1",
         "jspdf": "4.2.1",
         "jspdf-autotable": "5.0.8",
@@ -655,7 +655,7 @@
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
 
-    "hanasand": ["hanasand@1.0.4", "", { "dependencies": { "fflate": "^0.8.3" }, "peerDependencies": { "@types/react": ">=19 <20", "@types/react-dom": ">=19 <20", "lucide-react": ">=1", "react": ">=19 <20", "react-dom": ">=19 <20" }, "optionalPeers": ["@types/react-dom", "lucide-react", "react-dom"] }, "sha512-nrXOXLSVAoU97QRODI69vQsJTHLopWr8dCwHUvLj4W98CBKNcc3WqU0Tyxa5XMk67okXT+M13j9/UKlLLa10vw=="],
+    "hanasand": ["hanasand@1.0.5", "", { "dependencies": { "fflate": "^0.8.3" }, "peerDependencies": { "@types/react": ">=19 <20", "@types/react-dom": ">=19 <20", "lucide-react": ">=1", "react": ">=19 <20", "react-dom": ">=19 <20" }, "optionalPeers": ["@types/react-dom", "lucide-react", "react-dom"] }, "sha512-aoXCE8AOlro+cZ4pagBwvbTUoa+vrol12NBpXP8B69jyTGspo9J0v8kTpoRJy7ZYaiGjQUt9rYViINdUJxKx/Q=="],
 
     "has-bigints": ["has-bigints@1.1.0", "", {}, "sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg=="],
 

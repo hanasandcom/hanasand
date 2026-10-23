@@ -3,6 +3,7 @@
 @source "../../node_modules/hanasand/mail/src";
 @source "../../node_modules/hanasand/dist";
 @import 'hanasand/auth.css';
+@import 'hanasand/chrome.css';
 @import './global-styles/theme-tokens.css';
 @import './global-styles/component-primitives.css';
 @import './global-styles/theme-surfaces.css';

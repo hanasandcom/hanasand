@@ -1,6 +1,6 @@
 # hanasand
 
-Shared web UI and browser utilities used by Hanasand applications. The root exports common dashboard primitives and cookie helpers. Mail UI stays behind the `hanasand/mail` entry so applications that do not use Mail do not load its dependencies.
+Shared web UI and browser utilities used by Hanasand applications. The root exports common dashboard primitives, application header and sidebar components, and cookie helpers. Mail UI stays behind the `hanasand/mail` entry so applications that do not use Mail do not load its dependencies.
 
 ## Install
 
@@ -15,6 +15,22 @@ React applications using the Mail entry also need `next`, `lucide-react`, and `f
 ```tsx
 import { DashboardPage, DashboardPanel, DashboardTable } from 'hanasand'
 ```
+
+Use `Header` for the Hanasand brand and service links, and `Sidebar` to provide a
+shared semantic container around an application's own navigation. Load the header
+styles from the app's local package bundle and pass its locally served logo path:
+
+```tsx
+import { Header, Sidebar } from 'hanasand'
+import 'hanasand/chrome.css'
+
+<Header logoSrc='/assets/hanasand-logo.png' />
+<Sidebar aria-label='Dashboard sidebar' className='app-sidebar'>...</Sidebar>
+```
+
+The package includes a small monochrome-ready logo in `dist/assets`. Copy it into a
+host's local static assets or serve it from the package. Header links and logo
+requests stay local to each app.
 
 ## Identity login UI
 
