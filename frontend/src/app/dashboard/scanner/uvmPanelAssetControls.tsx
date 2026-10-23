@@ -3,6 +3,7 @@
 import type { NmapScanProfile, UvmAsset, UvmEngineSelection } from '@/utils/monitoring/types'
 import { formatDate, isNmapScanProfile } from './uvmPanelHelpers'
 import type { AssetViewProps } from './uvmPanelViews'
+import { UvmHelp } from './uvmPanelHelp'
 
 export function DnsRecord({ asset }: { asset: UvmAsset }) {
     return <div className='mt-3 rounded-md border border-ui-border bg-ui-raised p-3 text-xs'>
@@ -68,8 +69,9 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
                 <span className='pb-2 font-semibold'>{index + 1}. {engineOptions.find(option => option.id === choice.engine)?.label}</span>
                 <button type='button' aria-label={`Move ${choice.engine} earlier`} onClick={() => moveEngine(index, -1)} disabled={index === 0} className='rounded border border-ui-border px-2 py-1 disabled:opacity-40'>↑</button>
                 <button type='button' aria-label={`Move ${choice.engine} later`} onClick={() => moveEngine(index, 1)} disabled={index === schedulePlan.length - 1} className='rounded border border-ui-border px-2 py-1 disabled:opacity-40'>↓</button>
-                {choice.engine === 'nmap' && <label className='grid gap-1'>Nmap coverage
-                    <select value={props.scheduleProfiles[asset.id] || (isNmapScanProfile(choice.profile) ? choice.profile : 'tcp-top-1000')} onChange={event => props.setScheduleProfiles(current => ({ ...current, [asset.id]: event.target.value as NmapScanProfile }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'><option value='tcp-top-1000'>Standard · top 1,000</option><option value='tcp-top-100'>Quick · top 100</option><option value='tcp-all'>Thorough · all TCP ports</option></select>
+                {choice.engine === 'nmap' && <label className='grid gap-1'>Nmap profile
+                    <select value={props.scheduleProfiles[asset.id] || (isNmapScanProfile(choice.profile) ? choice.profile : 'tcp-top-1000')} onChange={event => props.setScheduleProfiles(current => ({ ...current, [asset.id]: event.target.value as NmapScanProfile }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'><option value='tcp-top-1000'>Standard · top 1,000</option><option value='tcp-top-100'>Quick · top 100</option><option value='tcp-top-1000-safe-vuln'>NSE checks · top 1,000</option><option value='tcp-all'>Thorough · all TCP ports</option></select>
+                    {props.scheduleProfiles[asset.id] === 'tcp-top-1000-safe-vuln' && <UvmHelp label='Nmap NSE checks' text='Runs scripts tagged both safe and vuln. Nmap cannot guarantee no adverse effects. Results are heuristic evidence and do not confirm exploitability.' />}
                 </label>}
                 {choice.engine === 'tenable-vm' && <label className='grid gap-1'>Tenable template
                     <select value={scheduleScanId} onChange={event => props.setScheduleScanIds(current => ({ ...current, [asset.id]: event.target.value }))} disabled={!data.tenableIntegration?.configured || !data.tenableScans.some(scan => scan.enabled)} className='h-8 min-w-44 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'>

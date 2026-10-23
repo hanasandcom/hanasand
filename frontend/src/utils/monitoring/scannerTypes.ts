@@ -1,4 +1,4 @@
-export type NmapScanProfile = 'tcp-top-100' | 'tcp-top-1000' | 'tcp-all'
+export type NmapScanProfile = 'tcp-top-100' | 'tcp-top-1000' | 'tcp-top-1000-safe-vuln' | 'tcp-all'
 export type UvmEngineSelection = { engine: 'nmap' | 'tenable-vm' | 'gvm' | 'zap', scanId?: string, profile?: NmapScanProfile }
 export type UvmAsset = {
     id: string
@@ -65,8 +65,9 @@ export type UvmScannerCatalogEntry = {
     integration: 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'image-worker' | 'catalog-only' | 'desktop-only' | 'cli-review'
     setup: 'configured' | 'adapter-needed' | 'license-and-adapter-needed' | 'desktop-only' | 'cli-review-needed'
 }
-export type UvmPort = { port: number, protocol: string, state: string, service: string | null, product: string | null, version: string | null, extraInfo: string | null }
-export type UvmHost = { address: string, status: string, timedOut: boolean, ports: UvmPort[] }
+export type UvmScriptEvidence = { id: string, output: string, truncated: boolean }
+export type UvmPort = { port: number, protocol: string, state: string, service: string | null, product: string | null, version: string | null, extraInfo: string | null, scriptResults?: UvmScriptEvidence[] }
+export type UvmHost = { address: string, status: string, timedOut: boolean, ports: UvmPort[], scriptResults?: UvmScriptEvidence[] }
 export type UvmTenableFinding = { findingId: string, provider: 'tenable-vm', pluginId: string, cveIds: string[], title: string, severity: string, cvssScore: number | null, description: string | null, solution: string | null, evidence: string | null, assetAddress: string, firstSeen: string | null, lastSeen: string | null, status: string, observed: boolean, port: number | null, protocol: string | null }
 export type UvmGvmFinding = { findingId: string, provider: 'gvm', nvtOid: string | null, cveIds: string[], title: string, severity: string, cvssScore: number | null, description: string | null, solution: string | null, evidence: string | null, assetAddress: string, port: number | null, protocol: string | null, qualityOfDetection: string | null }
 export type UvmZapFinding = { findingId: string, provider: 'zap', alertRef: string, title: string, severity: string, confidence: string, description: string | null, solution: string | null, evidence: string | null, instanceUrl: string, method: string | null, parameter: string | null }

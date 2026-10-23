@@ -7,7 +7,7 @@ function runResult(run: UvmRun) {
         const ports = `${openPorts} open TCP port${openPorts === 1 ? '' : 's'}`
         const total = run.coverage?.requestedAddresses ?? run.coverage?.attemptedAddresses
         const coverage = total === undefined ? '' : `Address coverage ${run.coverage?.completedAddresses}/${total} · `
-        return `${coverage}${ports} · service inventory only`
+        return `${coverage}${ports}${run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : ' · service inventory only'}`
     }
     if (run.findings) return `${run.findings.length} findings reported`
     if (run.coverage) {
