@@ -71,13 +71,13 @@ test('pricing and developer pages render their public buyer copy', async () => {
 })
 
 test('public header navigation and footer render the buyer destinations', () => {
-    const headerMarkup = renderToStaticMarkup(createElement(PublicDesktopNavigation, { pricingHref: '/pricing' }))
+    const headerMarkup = renderToStaticMarkup(createElement(PublicDesktopNavigation))
     const header = visibleText(headerMarkup)
     const footer = renderToStaticMarkup(createElement(Footer))
 
     expect(header).toContain('Check Password')
     expect(headerMarkup).toContain('href="/pwned"')
-    expect(header).toContain('Pricing')
+    expect(header).not.toContain('Pricing')
     expect(headerMarkup).toContain('href="/developers"')
     expect(footer).toContain('aria-label="Footer"')
     expect(footer).toContain('Check Password')

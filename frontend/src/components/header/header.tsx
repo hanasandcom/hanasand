@@ -16,11 +16,6 @@ import { isAppSurfacePath } from '@/components/layout/appSurface'
 import { readRecentUsers, rememberCurrentUser, type RecentUser } from '@/utils/auth/savedProfiles'
 import { Header as SharedHeader } from 'hanasand'
 
-const serviceLinks = [
-    { href: 'https://mail.hanasand.com', label: 'Mail' },
-    { href: 'https://cdn.hanasand.com', label: 'CDN' },
-]
-
 export default function Header({ token, id, username, path: serverPath }: { token: boolean, id: string, username: string, path: string }) {
     const mobile = useMobileNavigation()
     const pathname = usePathname() || serverPath
@@ -31,8 +26,6 @@ export default function Header({ token, id, username, path: serverPath }: { toke
         loggedInTi: token && (pathname === '/ti' || pathname.startsWith('/ti/')),
         aiPath: pathname.endsWith('/ai') || pathname.includes('/ai/'),
     })
-    const pricingHref = token ? '/subscription' : '/pricing'
-
     useEffect(() => {
         if (token && id) rememberCurrentUser()
         setRecentUsers(readRecentUsers())
@@ -43,7 +36,7 @@ export default function Header({ token, id, username, path: serverPath }: { toke
     if (isAiWorkbench) {
         return (
             <div data-site-header className='site-chrome fixed left-0 top-0 z-1000 w-full border-b border-ui-border bg-ui-panel text-ui-text px-4 sm:px-6'>
-                <SharedHeader brandHref={token ? '/dashboard' : '/login'} logoSrc='/hanasand-logo-transparent.png' links={serviceLinks} className='mx-auto h-14 w-full justify-between gap-3' actions={<div className='flex min-w-0 items-center gap-2'>
+                <SharedHeader brandHref={token ? '/dashboard' : '/login'} logoSrc='/hanasand-logo-transparent.png' links={[]} className='mx-auto h-14 w-full justify-between gap-3' actions={<div className='flex min-w-0 items-center gap-2'>
                     {token && <OrganizationSwitcher />}
                     <AccountMenu token={token} id={id} username={username} pathname={pathname} recentUsers={recentUsers} />
                 </div>} />
@@ -53,16 +46,15 @@ export default function Header({ token, id, username, path: serverPath }: { toke
 
     return (
         <div data-site-header className='site-chrome fixed left-0 top-0 z-1000 w-full border-b border-ui-border bg-ui-panel text-ui-text px-3 sm:px-5 md:px-10 lg:px-16'>
-            <SharedHeader brandHref={token ? '/dashboard' : '/login'} logoSrc='/hanasand-logo-transparent.png' links={serviceLinks} className='mx-auto h-18 w-full max-w-7xl justify-between gap-2 sm:gap-5' actions={
+            <SharedHeader brandHref={token ? '/dashboard' : '/login'} logoSrc='/hanasand-logo-transparent.png' links={[]} className='mx-auto h-18 w-full max-w-7xl justify-between gap-2 sm:gap-5' actions={
                 <div className='flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2'>
-                    <PublicDesktopNavigation pricingHref={pricingHref} />
+                    <PublicDesktopNavigation />
                     {token && <OrganizationSwitcher />}
-                    <SiteSearch token={token} />
-                    <span className='[&_button]:w-10'><ThemeSwitch /></span>
-                    <Link href='/support' className='hidden h-10 min-w-20 items-center justify-center rounded-lg px-3 text-sm font-semibold text-ui-muted transition hover:bg-ui-raised hover:text-ui-text lg:inline-flex'>Support</Link>
-                    <Link href={token ? '/dashboard' : '/login'} className={`${token ? 'hidden sm:inline-flex' : 'inline-flex'} h-11 items-center gap-2 rounded-lg bg-ui-text px-3 text-sm font-semibold text-ui-canvas shadow-sm transition hover:opacity-90 sm:px-4`}>
+                    <Link href={token ? '/dashboard' : '/login'} className={`${token ? 'hidden sm:inline-flex' : 'inline-flex'} h-11 items-center gap-2 rounded-lg bg-black px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 sm:px-4`}>
                         <span className='sm:hidden'>Dashboard</span><span className='hidden sm:inline'>{token ? 'Dashboard' : 'Go to Dashboard'}</span>
                     </Link>
+                    <SiteSearch token={token} />
+                    <span className='[&_button]:w-10'><ThemeSwitch /></span>
                     <AccountMenu token={token} id={id} username={username} pathname={pathname} recentUsers={recentUsers} />
                     <PublicMobileMenu key={pathname} token={token} />
                     {mobile.enabled && <Menu />}

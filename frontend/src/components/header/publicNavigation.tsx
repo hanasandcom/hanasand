@@ -37,11 +37,10 @@ const navigationGroups = [
 
 type NavigationItem = typeof productItems[number]
 
-export function PublicDesktopNavigation({ pricingHref }: { pricingHref: string }) {
+export function PublicDesktopNavigation() {
     return (
         <nav aria-label='Main navigation' className='mr-auto hidden items-center gap-3 xl:flex'>
             {navigationGroups.map(group => <PublicDropdown key={group.label} {...group} />)}
-            <Link href={pricingHref} className='inline-flex h-10 min-w-20 items-center justify-center rounded-lg px-3 text-sm font-semibold text-ui-muted transition hover:bg-ui-raised hover:text-ui-text'>Pricing</Link>
         </nav>
     )
 }
@@ -113,7 +112,6 @@ export function PublicMobileMenu({ token }: { token: boolean }) {
                     ))}
                     {[
                         { label: 'Pricing', href: token ? '/subscription' : '/pricing' },
-                        { label: 'Support', href: '/support' },
                         { label: 'Go to Dashboard', href: token ? '/dashboard' : '/login' },
                     ].map(item => (
                         <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className='flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-ui-text transition hover:bg-ui-raised'>
