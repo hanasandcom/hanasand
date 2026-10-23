@@ -26,8 +26,8 @@ test('passkey UI exposes enrollment and uses the shared Identity login component
     const accountSources = `${accountActions}\n${passkeyManagement}\n${passkeyList}`
 
     assert.match(loginClient, /IdentityLoginForm/)
-    assert.match(loginClient, /passkeyOptionsUrl='\/api\/auth\/passkeys\/authenticate\/options'/)
-    assert.match(loginClient, /passkeyVerifyUrl='\/api\/auth\/passkeys\/authenticate\/verify'/)
+    assert.match(loginClient, /passkeyOptionsUrl=\{stageLocalAuth \? '' : '\/api\/auth\/passkeys\/authenticate\/options'\}/)
+    assert.match(loginClient, /passkeyVerifyUrl=\{stageLocalAuth \? '' : '\/api\/auth\/passkeys\/authenticate\/verify'\}/)
     assert.match(loginClient, /loginUrl='\/api\/auth\/login'/)
     assert.doesNotMatch(loginClient, /api\.hanasand\.com\/api\/auth\/login-form\.js/)
     assert.match(accountSources, /Add passkey/)
