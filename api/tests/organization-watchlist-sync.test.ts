@@ -103,3 +103,12 @@ test('canonical Identity ID grammar permits dots, colon and at-sign without deco
         }
     }
 })
+
+
+test('source create supplies database timestamps across the Identity FDW view', async () => {
+    const source = await Bun.file(new URL('../src/handlers/organizations/watchlists/create.ts', import.meta.url)).text()
+    const insert = source.match(/INSERT INTO organization_watchlist_items \(([\s\S]*?)RETURNING \*/)?.[1]
+    expect(insert).toBeDefined()
+    expect(insert).toContain('lifecycle_request_id, created_at, updated_at)')
+    expect(insert).toContain('VALUES ($1, $2, $3, $4, $5, \'active\', $6, $6, $7, $8, NOW(), NOW())')
+})

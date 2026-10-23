@@ -81,8 +81,8 @@ export async function postOrganizationWatchlist(req: FastifyRequest<{ Params: Or
             RETURNING *
         `, [existing.rows[0].id, req.params.id, input.value, input.notes, userId, input.reason ?? null, input.requestId ?? null])
         : await run(`
-        INSERT INTO organization_watchlist_items (id, organization_id, kind, value, notes, status, created_by, updated_by, lifecycle_reason, lifecycle_request_id)
-        VALUES ($1, $2, $3, $4, $5, 'active', $6, $6, $7, $8)
+        INSERT INTO organization_watchlist_items (id, organization_id, kind, value, notes, status, created_by, updated_by, lifecycle_reason, lifecycle_request_id, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, 'active', $6, $6, $7, $8, NOW(), NOW())
         RETURNING *
     `, [randomUUID(), req.params.id, input.kind, input.value, input.notes, userId, input.reason ?? null, input.requestId ?? null])
 
