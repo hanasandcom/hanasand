@@ -7,6 +7,8 @@ const previous = {
     sync: process.env.LOGS_SERVICE_SYNC_TOKEN,
     platform: process.env.PLATFORM_LOG_ORGANIZATION_ID,
     remoteOnly: process.env.LOGS_OUTBOX_REMOTE_ONLY,
+    apiHttpOnly: process.env.API_HTTP_ONLY,
+    deploymentCandidateOnly: process.env.DEPLOYMENT_CANDIDATE_ONLY,
 }
 
 const statements: Array<{ sql: string; params: unknown[] }> = []
@@ -32,7 +34,7 @@ mock.module('#db', () => ({
     withTransaction: async (work: (tx: typeof query) => unknown) => work(query),
 }))
 
-const { assertRemoteLogsConfiguration, enqueueLogsForIndependentService, refreshLogsOrganizationSnapshotBatch, shouldRunLegacyLogProcessing } = await import('../src/utils/logs/logOutbox.ts')
+const { assertRemoteLogsConfiguration, enqueueLogsForIndependentService, refreshLogsOrganizationSnapshotBatch, shouldRunLegacyLogProcessing, shouldRunLogsOutboxDelivery } = await import('../src/utils/logs/logOutbox.ts')
 const { default: recordLog, recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
 
 beforeEach(() => {
@@ -43,6 +45,8 @@ beforeEach(() => {
     process.env.LOGS_SERVICE_SYNC_TOKEN = 's'.repeat(40)
     process.env.PLATFORM_LOG_ORGANIZATION_ID = 'platform'
     delete process.env.LOGS_OUTBOX_REMOTE_ONLY
+    delete process.env.API_HTTP_ONLY
+    delete process.env.DEPLOYMENT_CANDIDATE_ONLY
 })
 
 afterAll(() => {
@@ -51,6 +55,8 @@ afterAll(() => {
         ['LOGS_SERVICE_INGEST_TOKEN', previous.ingest], ['LOGS_SERVICE_SYNC_TOKEN', previous.sync],
         ['PLATFORM_LOG_ORGANIZATION_ID', previous.platform],
         ['LOGS_OUTBOX_REMOTE_ONLY', previous.remoteOnly],
+        ['API_HTTP_ONLY', previous.apiHttpOnly],
+        ['DEPLOYMENT_CANDIDATE_ONLY', previous.deploymentCandidateOnly],
     ] as const
     for (const [key, value] of values) {
         if (value === undefined) delete process.env[key]
@@ -139,6 +145,15 @@ test('remote-only mode disables legacy processing while the outbox remains avail
     process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
     expect(shouldRunLegacyLogProcessing()).toBe(false)
     expect(process.env.LOGS_OUTBOX_ENABLED).toBe('1')
+})
+
+test('deployment candidates deliver the shared Logs outbox while HTTP-only replicas stay workerless', () => {
+    process.env.API_HTTP_ONLY = '1'
+    expect(shouldRunLogsOutboxDelivery()).toBe(false)
+    process.env.DEPLOYMENT_CANDIDATE_ONLY = '1'
+    expect(shouldRunLogsOutboxDelivery()).toBe(true)
+    process.env.LOGS_OUTBOX_ENABLED = '0'
+    expect(shouldRunLogsOutboxDelivery()).toBe(false)
 })
 
 test('remote-only mode refuses to start without its durable outbox and credentials', () => {

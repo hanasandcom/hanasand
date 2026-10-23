@@ -2,6 +2,7 @@ export {
     assertRemoteLogsConfiguration,
     logsOutboxEnabled,
     logsOutboxRemoteOnly,
+    shouldRunLogsOutboxDelivery,
     shouldRunLegacyLogProcessing,
 } from './logOutboxConfig.ts'
 export { ensureLogsOutboxSchema } from './logOutboxSchema.ts'
