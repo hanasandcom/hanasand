@@ -21,3 +21,16 @@ test('VM filters treat missing and malformed resource values as below selected m
     assert.deepEqual(filterVms(incomplete, { ...defaultVmFilters, memory: '1' }), [])
     assert.deepEqual(filterVms(incomplete, { ...defaultVmFilters, name: ' ' }), incomplete)
 })
+
+test('VM disk resource filters use latest accessible disk totals and exclude missing metrics', () => {
+    const diskTotalsMb = new Map<string, number | null>([
+        ['api-prod', 40 * 1024],
+        ['docs-preview', 20 * 1024],
+        ['old-worker', null],
+    ])
+
+    assert.deepEqual(filterVms(vms, { ...defaultVmFilters, disk: '20' }, diskTotalsMb).map(vm => vm.name), ['api-prod', 'docs-preview'])
+    assert.deepEqual(filterVms(vms, { ...defaultVmFilters, disk: '40' }, diskTotalsMb).map(vm => vm.name), ['api-prod'])
+    assert.deepEqual(filterVms(vms, { ...defaultVmFilters, disk: '20' }, new Map([['api-prod', 40 * 1024], ['docs-preview', Number.NaN]])).map(vm => vm.name), ['api-prod'])
+    assert.deepEqual(filterVms(vms, { ...defaultVmFilters, disk: '10' }).map(vm => vm.name), [])
+})

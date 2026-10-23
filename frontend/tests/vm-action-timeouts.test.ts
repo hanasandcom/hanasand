@@ -126,18 +126,20 @@ test('VM creation reports the status when an edge returns a non-JSON error', asy
 })
 
 test('browser VM creation uses the same-origin backend proxy', async () => {
-    setSessionCookie()
     setBrowserWindow()
     const originalFetch = globalThis.fetch
-    let requestUrl = ''
+    let request: { url: string, credentials?: RequestCredentials, headers: Headers } | undefined
     try {
-        globalThis.fetch = async (input) => {
-            requestUrl = String(input)
+        globalThis.fetch = async (input, init) => {
+            request = { url: String(input), credentials: init?.credentials, headers: new Headers(init?.headers) }
             return Response.json({ name: 'hei' }, { status: 201 })
         }
         const result = await postVM({ name: 'hei' })
         assert.equal(result.status, 201)
-        assert.equal(requestUrl, '/api/backend/vm')
+        assert.equal(request?.url, '/api/backend/vm')
+        assert.equal(request?.credentials, 'same-origin')
+        assert.equal(request?.headers.has('authorization'), false)
+        assert.equal(request?.headers.has('id'), false)
     } finally {
         globalThis.fetch = originalFetch
         Reflect.deleteProperty(globalThis, 'document')
@@ -146,19 +148,22 @@ test('browser VM creation uses the same-origin backend proxy', async () => {
 })
 
 test('setup suggestions use the same-origin backend proxy', async () => {
-    setSessionCookie()
     setBrowserWindow()
     const originalFetch = globalThis.fetch
-    let requestUrl = ''
+    let request: { url: string, credentials?: RequestCredentials, cache?: RequestCache, headers: Headers } | undefined
     let requestBody = ''
     try {
         globalThis.fetch = async (input, init) => {
-            requestUrl = String(input)
+            request = { url: String(input), credentials: init?.credentials, cache: init?.cache, headers: new Headers(init?.headers) }
             requestBody = String(init?.body || '')
             return Response.json({ summary: 'Node.js with PostgreSQL and ripgrep', services: ['nodejs', 'postgresql'], packages: ['ripgrep'], website: null, minecraftServerType: null })
         }
         const result = await suggestVmSetup('Node.js and PostgreSQL', 'ubuntu-26.04')
-        assert.equal(requestUrl, '/api/backend/vm/setup-plan')
+        assert.equal(request?.url, '/api/backend/vm/setup-plan')
+        assert.equal(request?.credentials, 'same-origin')
+        assert.equal(request?.cache, 'no-store')
+        assert.equal(request?.headers.has('authorization'), false)
+        assert.equal(request?.headers.has('id'), false)
         assert.deepEqual(JSON.parse(requestBody), { prompt: 'Node.js and PostgreSQL', os: 'ubuntu-26.04' })
         assert.deepEqual(result.services, ['nodejs', 'postgresql'])
         assert.deepEqual(result.aptPackages, ['ripgrep'])

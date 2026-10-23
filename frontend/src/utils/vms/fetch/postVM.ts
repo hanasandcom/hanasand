@@ -12,10 +12,10 @@ export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, resources?: { cp
 
 export default async function postVM(vm: CreateVmRequest): Promise<{ status: number, message: string, vm?: VM }> {
     try {
-        const token = getCookie('access_token')
-        const id = getCookie('id')
         const browserProxy = typeof window !== 'undefined'
-        if (!token || !id) {
+        const token = browserProxy ? null : getCookie('access_token')
+        const id = browserProxy ? null : getCookie('id')
+        if (!browserProxy && (!token || !id)) {
             return {
                 status: 401,
                 message: 'Please log in to post vms.'
@@ -26,9 +26,9 @@ export default async function postVM(vm: CreateVmRequest): Promise<{ status: num
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                id
+                ...(browserProxy ? {} : { 'Authorization': `Bearer ${token}`, id: id! }),
             },
+            ...(browserProxy ? { credentials: 'same-origin' as const } : {}),
             body: JSON.stringify({ ...vm }),
             timeoutMs: Math.max(config.abortTimeout, vmCreateTimeoutMs),
             retries: 0,
