@@ -91,7 +91,7 @@ test('backend proxy prefers the current request credentials over stale cookies',
     }
 })
 
-test('backend VM requests use the active organization instead of a client-supplied organization', async () => {
+test('backend VM list and metrics requests use the active organization instead of a client-supplied organization', async () => {
     const previousFetch = globalThis.fetch
     let forwardedHeaders: Headers | null = null
     activeOrganizationId = 'cashflow'
@@ -107,6 +107,14 @@ test('backend VM requests use the active organization instead of a client-suppli
         const response = await GET(request, { params: Promise.resolve({ path: ['vms', 'user-1'] }) })
 
         expect(response.status).toBe(200)
+        expect(forwardedHeaders?.get('x-organization-id')).toBe('cashflow')
+
+        const metricsRequest = new NextRequest('http://internal.test/api/backend/vm/metrics', {
+            headers: { 'x-organization-id': 'hanasand' },
+        })
+        const metricsResponse = await GET(metricsRequest, { params: Promise.resolve({ path: ['vm', 'metrics'] }) })
+
+        expect(metricsResponse.status).toBe(200)
         expect(forwardedHeaders?.get('x-organization-id')).toBe('cashflow')
     } finally {
         activeOrganizationId = null

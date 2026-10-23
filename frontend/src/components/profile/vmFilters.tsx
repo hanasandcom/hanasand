@@ -5,7 +5,7 @@ import { RotateCcw } from 'lucide-react'
 import { defaultVmFilters, type VmFilters } from '@/utils/vms/filterVms'
 import { createPortal } from 'react-dom'
 
-export default function VmFiltersButton({ filters, onChange, editors }: { filters: VmFilters, onChange: (filters: VmFilters) => void, editors: string[] }) {
+export default function VmFiltersButton({ filters, onChange, editors, diskState, onOpen }: { filters: VmFilters, onChange: (filters: VmFilters) => void, editors: string[], diskState: 'idle' | 'loading' | 'ready' | 'error', onOpen: () => void }) {
     const [open, setOpen] = useState(false)
     const [position, setPosition] = useState<{ top: number, right: number, mobile: boolean, maxHeight: number }>()
     const panelId = useId()
@@ -45,11 +45,12 @@ export default function VmFiltersButton({ filters, onChange, editors }: { filter
         const right = mobile ? 8 : Math.max(8, window.innerWidth - (triggerBounds?.right || window.innerWidth - 8))
         setPosition({ top, right, mobile, maxHeight: Math.max(160, viewportHeight - top - 8) })
         setOpen(true)
+        onOpen()
     }
 
     function update(key: keyof VmFilters, value: string) { onChange({ ...filters, [key]: value }) }
-    function select(label: string, key: keyof VmFilters, choices: [string, string][]) {
-        return <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>{label}<select value={filters[key]} onChange={event => update(key, event.target.value)} className='h-10 w-full rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-normal text-ui-text outline-none transition focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/15'><option value=''>Any</option>{choices.map(([value, title]) => <option value={value} key={value}>{title}</option>)}</select></label>
+    function select(label: string, key: keyof VmFilters, choices: [string, string][], disabled = false) {
+        return <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>{label}<select disabled={disabled} value={filters[key]} onChange={event => update(key, event.target.value)} className='h-10 w-full rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-normal text-ui-text outline-none transition focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/15 disabled:cursor-not-allowed disabled:opacity-60'><option value=''>Any</option>{choices.map(([value, title]) => <option value={value} key={value}>{title}</option>)}</select></label>
     }
 
     return <>
@@ -73,10 +74,14 @@ export default function VmFiltersButton({ filters, onChange, editors }: { filter
             <div className='grid grid-cols-1 gap-3 min-[380px]:grid-cols-2'>
                 {select('Minimum CPU', 'cpu', [['1', '1 core'], ['2', '2 cores'], ['4', '4 cores'], ['8', '8 cores']])}
                 {select('Minimum memory', 'memory', [['1', '1 GB'], ['2', '2 GB'], ['4', '4 GB'], ['8', '8 GB']])}
+                {select('Minimum disk', 'disk', [['10', '10 GiB'], ['20', '20 GiB'], ['40', '40 GiB'], ['80', '80 GiB']], diskState !== 'ready')}
                 {select('Editors', 'editors', [['with', 'Has editors'], ['without', 'No editors'], ...editors.map(editor => [editor, editor] as [string, string])])}
                 {select('Deletion', 'lifecycle', [['active', 'Active'], ['scheduled', 'Scheduled']])}
                 {select('Power state', 'status', [['running', 'Running'], ['stopped', 'Stopped']])}
             </div>
+            {diskState === 'loading' && <p role='status' className='text-xs text-ui-muted'>Loading disk sizes…</p>}
+            {diskState === 'error' && <p role='status' className='text-xs text-ui-muted'>Disk sizes are unavailable. Reopen Filter to try again.</p>}
+            {diskState === 'ready' && filters.disk && <p className='text-xs text-ui-muted'>VMs without disk metrics are excluded.</p>}
         </section>, document.body)}
     </>
 }

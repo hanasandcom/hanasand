@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus, X } from 'lucide-react'
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import VMRow from './vm'
 import getVMs from '@/utils/vms/fetch/getVMs'
 import { getCookie } from 'hanasand/cookies'
@@ -13,6 +13,7 @@ import { defaultVmFilters, filterVms, type VmFilters } from '@/utils/vms/filterV
 import { useVmActionFeedback, VmActionFeedback } from '@/components/vms/vmActionFeedback'
 import VmCreateForm from './vmCreateForm'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
+import getLatestVMMetrics from '@/utils/vms/fetch/metrics/getLatestVMMetrics'
 
 export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initialNow: number }) {
     const [vms, setVms] = useState<VM[]>(serverVMs || [])
@@ -22,6 +23,11 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
     const createFormId = useId()
     const [creating, setCreating] = useState(false)
     const [filters, setFilters] = useState<VmFilters>(defaultVmFilters)
+    const [diskState, setDiskState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+    const [diskTotalsMb, setDiskTotalsMb] = useState<Map<string, number | null>>(new Map())
+    const diskMetricsLoaded = useRef(false)
+    const diskMetricsLoading = useRef(false)
+    const diskMetricsGeneration = useRef(0)
     const { items, notify, dismiss } = useVmActionFeedback()
     const { organizationId, organizations, loading: organizationsLoading, unavailable: organizationsUnavailable, organizationName } = useWorkspace()
     const activeOrganization = organizations.find(organization => organization.id === organizationId)
@@ -32,7 +38,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
         : organizationsLoading
             ? 'Checking organization access…'
             : `Only an owner or admin of ${organizationName || 'this organization'} can create VMs.`
-    const visibleVms = filterVms(vms, filters)
+    const visibleVms = filterVms(vms, filters, diskTotalsMb)
     const editorOptions = Array.from(new Set(vms.flatMap(vm => vm.access_users || []))).sort((a, b) => a.localeCompare(b))
 
     const update = useCallback(async () => {
@@ -46,6 +52,41 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
             router.push('/login?path=/profile')
         }
     }, [organizationId, router])
+
+    const loadDiskMetrics = useCallback(async () => {
+        if (diskMetricsLoaded.current || diskMetricsLoading.current) return
+        const generation = diskMetricsGeneration.current
+        diskMetricsLoading.current = true
+        setDiskState('loading')
+        try {
+            const metrics = await getLatestVMMetrics()
+            if (generation !== diskMetricsGeneration.current) return
+            const totals = new Map<string, number | null>()
+            const timestamps = new Map<string, number>()
+            for (const metric of metrics) {
+                const name = metric.name.toLocaleLowerCase()
+                const timestamp = Date.parse(metric.created_at)
+                if (!Number.isFinite(timestamp) || timestamp < (timestamps.get(name) ?? -Infinity)) continue
+                timestamps.set(name, timestamp)
+                totals.set(name, metric.disk_total_mb == null ? null : Number(metric.disk_total_mb))
+            }
+            setDiskTotalsMb(totals)
+            diskMetricsLoaded.current = true
+            setDiskState('ready')
+        } catch {
+            if (generation === diskMetricsGeneration.current) setDiskState('error')
+        } finally {
+            if (generation === diskMetricsGeneration.current) diskMetricsLoading.current = false
+        }
+    }, [organizationId])
+
+    useEffect(() => {
+        diskMetricsGeneration.current++
+        diskMetricsLoaded.current = false
+        diskMetricsLoading.current = false
+        setDiskTotalsMb(new Map())
+        setDiskState('idle')
+    }, [organizationId])
 
     useEffect(() => { setVms(serverVMs || []) }, [serverVMs])
 
@@ -69,7 +110,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
                     <p className='mt-1 text-sm text-ui-muted'>{visibleVms.length === vms.length ? `${vms.length} virtual machine${vms.length === 1 ? '' : 's'}` : `${visibleVms.length} of ${vms.length} virtual machines`}</p>
                 </div>
                 <div className='flex shrink-0 items-center gap-2'>
-                    <VmFiltersButton filters={filters} onChange={setFilters} editors={editorOptions} />
+                    <VmFiltersButton filters={filters} onChange={setFilters} editors={editorOptions} diskState={diskState} onOpen={loadDiskMetrics} />
                     <button
                         type='button'
                         aria-label={showCreate ? 'Close VM creation controls' : 'Create VM'}
