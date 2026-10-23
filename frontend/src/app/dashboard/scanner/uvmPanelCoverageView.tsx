@@ -11,7 +11,7 @@ export function UvmAssetEngineCoverageView({ data }: { data: UvmDashboard }) {
         const label = coverage.state.replaceAll('_', ' ')
         if (engine === 'zap') return <div className='grid gap-1 text-xs'><span className='font-semibold capitalize'>{label}</span>
             <span className='text-ui-muted'>{coverage.freshness} · {coverage.webCoverage?.complete ? 'report complete' : 'web coverage unknown'}</span>
-            <span className='text-ui-muted'>{coverage.webCoverage?.acceptedInstances ?? 0} findings · {coverage.webCoverage?.urlsVisited ?? 'URL count unavailable'}</span>
+            <span className='text-ui-muted'>{coverage.webCoverage ? `${coverage.webCoverage.acceptedInstances} findings` : 'Findings unavailable'} · {coverage.webCoverage?.urlsVisited ?? 'URL count unavailable'}</span>
             <span className='text-ui-muted'>{coverage.lastRunAt ? formatDate(coverage.lastRunAt) : coverage.freshness === 'never' ? 'No run yet' : 'Time unknown'}</span>
         </div>
         const count = coverage.coverageKnown && coverage.completedAddresses !== null
