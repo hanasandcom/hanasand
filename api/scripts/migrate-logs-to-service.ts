@@ -26,6 +26,20 @@ function permanentError(message: string) {
     return Object.assign(new Error(message), { migrationPermanent: true })
 }
 
+// Keep this canonicalizer aligned with Logs' ingest sourcePayloadHash contract.
+function stableJson(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+    if (value && typeof value === 'object') {
+        const object = value as Record<string, unknown>
+        return `{${Object.keys(object).sort().map(key => `${JSON.stringify(key)}:${stableJson(object[key])}`).join(',')}}`
+    }
+    return JSON.stringify(value) ?? 'null'
+}
+
+export function migrationPayloadHash(event: ReturnType<typeof logMigrationEvent>) {
+    return createHash('sha256').update(stableJson(event)).digest('hex')
+}
+
 export async function ensureMigrationCursorIndex(query = queryOnce) {
     const existing = await query(`SELECT i.indisvalid, i.indisready, pg_get_indexdef(i.indexrelid) AS definition
         FROM pg_index i WHERE i.indexrelid=to_regclass($1)`, [migrationCursorIndex])
@@ -483,7 +497,10 @@ export async function moveOneBatch(url: string, token: string): Promise<Migratio
         body: JSON.stringify({ events }),
         signal: AbortSignal.timeout(10_000),
     })
-    const body = await response.json().catch(() => ({})) as { ok?: boolean, accepted?: number, error?: string, droppedSourceEventIds?: unknown }
+    const body = await response.json().catch(() => ({})) as {
+        ok?: boolean, accepted?: number, error?: string, droppedSourceEventIds?: unknown,
+        droppedEvents?: Array<{ sourceEventId?: unknown, payloadSha256?: unknown }>,
+    }
     if (response.status === 503 && body.error === 'Log organization is unavailable.') {
         throw permanentError('An event belongs to a Logs organization that is missing or inactive; its source row remains in Hanasand.')
     }
@@ -495,13 +512,27 @@ export async function moveOneBatch(url: string, token: string): Promise<Migratio
     }
 
     const submittedSourceIds = new Set(events.map(event => event.sourceEventId))
+    const expectedPayloadHashes = new Map(events.map(event => [event.sourceEventId, migrationPayloadHash(event)]))
     const reportedDrops = body.droppedSourceEventIds === undefined ? [] : body.droppedSourceEventIds
     if (!Array.isArray(reportedDrops) || !reportedDrops.every(id => typeof id === 'string' && submittedSourceIds.has(id))
         || new Set(reportedDrops).size !== reportedDrops.length) {
         throw permanentError('Logs returned invalid dropped-event identities; source rows remain in Hanasand.')
     }
+    const droppedEvents = body.droppedEvents === undefined ? [] : body.droppedEvents
+    if (!Array.isArray(droppedEvents) || droppedEvents.length !== reportedDrops.length
+        || droppedEvents.some(item => !item || typeof item.sourceEventId !== 'string'
+            || typeof item.payloadSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(item.payloadSha256)
+            || !reportedDrops.includes(item.sourceEventId)
+            || expectedPayloadHashes.get(item.sourceEventId) !== item.payloadSha256)
+        || new Set(droppedEvents.map(item => item?.sourceEventId)).size !== droppedEvents.length) {
+        throw permanentError('Logs returned missing or mismatched drop payload proofs; source rows remain in Hanasand.')
+    }
     const droppedSourceIds = new Set(reportedDrops as string[])
     const retainedEvents = events.filter(event => !droppedSourceIds.has(event.sourceEventId))
+    const expectedPayloadHashesByTargetId = new Map(retainedEvents.map(event => [
+        createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'),
+        expectedPayloadHashes.get(event.sourceEventId)!,
+    ]))
     const targetIds = retainedEvents.map(event => createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'))
     if (new Set(targetIds).size !== targetIds.length) {
         throw permanentError('The source batch contains duplicate Logs identities; its rows remain in Hanasand.')
@@ -523,7 +554,7 @@ export async function moveOneBatch(url: string, token: string): Promise<Migratio
             }
             if (!statusResponse.ok) throw permanentError(`Logs could not verify worker processing (HTTP ${statusResponse.status}); source rows remain in Hanasand.`)
             const statusBody = await statusResponse.json().catch(() => ({})) as {
-                ok?: boolean, statuses?: Array<{ id?: string, status?: string }>
+                ok?: boolean, statuses?: Array<{ id?: string, status?: string, payloadSha256?: string }>
             }
             if (statusBody.ok !== true || !Array.isArray(statusBody.statuses)
                 || statusBody.statuses.length !== retainedTargetIds.length) {
@@ -533,13 +564,19 @@ export async function moveOneBatch(url: string, token: string): Promise<Migratio
             if (retainedTargetIds.some(id => !statuses.has(id))) {
                 throw permanentError('Logs returned processing statuses for different event IDs; source rows remain in Hanasand.')
             }
+            const unfinished = [...statuses].filter(([, status]) => !['processed', 'pending'].includes(status))
+            if (unfinished.length) {
+                throw permanentError(`Logs has unverified event state (${unfinished[0][1]}); source rows remain in Hanasand.`)
+            }
+            if (statusBody.statuses.some(item => {
+                const expected = item.id ? expectedPayloadHashesByTargetId.get(item.id) : undefined
+                return !expected || item.payloadSha256 !== expected
+            })) {
+                throw permanentError('Logs returned missing or mismatched source payload hashes; source rows remain in Hanasand.')
+            }
             if ([...statuses.values()].some(status => status === 'pending')) {
                 await sleep(1000)
                 continue
-            }
-            const unfinished = [...statuses].filter(([, status]) => !['processed', 'dropped'].includes(status))
-            if (unfinished.length) {
-                throw permanentError(`Logs has unverified event state (${unfinished[0][1]}); source rows remain in Hanasand.`)
             }
             break
         }

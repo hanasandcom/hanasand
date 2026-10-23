@@ -123,7 +123,8 @@ mock.module('#db', () => ({
     },
 }))
 
-const { clearMigratedLogReceipts, clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, moveOneBatch, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
+const { clearMigratedLogReceipts, clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationPayloadHash, moveOneBatch, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
+const { logMigrationEvent } = await import('../src/utils/logs/logMigrationEvent.ts')
 
 beforeEach(() => {
     statements.length = 0
@@ -195,6 +196,7 @@ test('builds and verifies the resumable migration cursor index outside a transac
 
 test('deletes source rows only after Logs acknowledges and processes every copied event', async () => {
     let requestBody = ''
+    const payloadSha256 = migrationPayloadHash(logMigrationEvent(sourceRows[0]))
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
         if (String(input).endsWith('/api/ingest')) {
             expect(String(input)).toBe('https://logs.hanasand.com/api/ingest')
@@ -204,7 +206,7 @@ test('deletes source rows only after Logs acknowledges and processes every copie
         }
         expect(String(input)).toBe('https://logs.hanasand.com/api/migration/status')
         expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${'s'.repeat(40)}`)
-        return new Response(JSON.stringify({ ok: true, statuses: [{ id: '6a9ac283dd880765ce8d983ac72fb5710b0b8fc61542ec86170f2f2aa89fb8df', status: 'processed' }] }), { status: 200 })
+        return new Response(JSON.stringify({ ok: true, statuses: [{ id: '6a9ac283dd880765ce8d983ac72fb5710b0b8fc61542ec86170f2f2aa89fb8df', status: 'processed', payloadSha256 }] }), { status: 200 })
     }) as typeof fetch
 
     const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
@@ -222,12 +224,14 @@ test('deletes source rows only after Logs acknowledges and processes every copie
 
 test('deletes a source row only after Logs durably acknowledges its drop-rule receipt', async () => {
     let statusQueried = false
+    const payloadSha256 = migrationPayloadHash(logMigrationEvent(sourceRows[0]))
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
         if (String(input).endsWith('/api/migration/status')) statusQueried = true
         expect(String(input)).toBe('https://logs.hanasand.com/api/ingest')
         expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${'i'.repeat(40)}`)
         expect(JSON.parse(String(init?.body))).toMatchObject({ events: [{ sourceEventId: 'collector-event-1' }] })
-        return new Response(JSON.stringify({ ok: true, accepted: 1, droppedSourceEventIds: ['collector-event-1'] }), { status: 201 })
+        return new Response(JSON.stringify({ ok: true, accepted: 1, droppedSourceEventIds: ['collector-event-1'],
+            droppedEvents: [{ sourceEventId: 'collector-event-1', payloadSha256 }] }), { status: 201 })
     }) as typeof fetch
 
     const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
@@ -237,13 +241,36 @@ test('deletes a source row only after Logs durably acknowledges its drop-rule re
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
 })
 
+test('retains source rows when Logs reports a processed event with a different payload hash', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) => String(input).endsWith('/api/ingest')
+        ? new Response(JSON.stringify({ ok: true, accepted: 1 }), { status: 201 })
+        : new Response(JSON.stringify({ ok: true, statuses: [{ id: '6a9ac283dd880765ce8d983ac72fb5710b0b8fc61542ec86170f2f2aa89fb8df',
+            status: 'processed', payloadSha256: '0'.repeat(64) }] }), { status: 200 })) as typeof fetch
+
+    await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
+        .rejects.toThrow('mismatched source payload hashes')
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
+})
+
+test('retains source rows when Logs omits the payload proof for a dropped event', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, accepted: 1, droppedSourceEventIds: ['collector-event-1'] }), { status: 201 })) as typeof fetch
+
+    await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
+        .rejects.toThrow('missing or mismatched drop payload proofs')
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
+})
+
 test('rolls back a partially matched source-event delete inside its transaction', async () => {
-    selectedRowsOverride = [sourceRows[0], {
+    const secondRow = {
         ...sourceRows[0], id: 'source-row-2', normalized: { ...sourceRows[0].normalized, source_event_id: 'collector-event-2' },
-    }]
+    }
+    selectedRowsOverride = [sourceRows[0], secondRow]
     sourceDeleteRowsOverride = [{ id: 'source-row-1' }]
     globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, accepted: 2,
-        droppedSourceEventIds: ['collector-event-1', 'collector-event-2'] }), { status: 201 })) as typeof fetch
+        droppedSourceEventIds: ['collector-event-1', 'collector-event-2'], droppedEvents: [
+            { sourceEventId: 'collector-event-1', payloadSha256: migrationPayloadHash(logMigrationEvent(sourceRows[0])) },
+            { sourceEventId: 'collector-event-2', payloadSha256: migrationPayloadHash(logMigrationEvent(secondRow)) },
+        ] }), { status: 201 })) as typeof fetch
 
     await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
         .rejects.toThrow('source event batch changed before it could be removed')
