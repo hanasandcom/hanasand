@@ -229,22 +229,30 @@ import os,sys
 args=sys.argv[1:]
 path=args[1]; op=args[2:]
 if op==['rev-parse','HEAD']:
- print(('b'*40 if os.getenv('FAILURE')=='head' else 'a'*40) if path.endswith('core') else ('90feba62a71844b0f3b6ac7b097ff72c400534eb' if path.endswith('identity') else 'c3c01136bbfb1c6527fae1c97c8df62e2046a4f0'))
+ identity='90feba62a71844b0f3b6ac7b097ff72c400534eb' if os.getenv('FAILURE')=='old-identity-source' else '0c110b9127d469d98c3e75490fd395ade63c6270'
+ print(('b'*40 if os.getenv('FAILURE')=='head' else 'a'*40) if path.endswith('core') else (identity if path.endswith('identity') else 'c3c01136bbfb1c6527fae1c97c8df62e2046a4f0'))
 elif op==['status','--porcelain=v1']:
  if os.getenv('FAILURE')=='dirty': print(' M protected.ts')
 elif op[0]=='diff' and os.getenv('FAILURE')=='dependency': sys.exit(1)
 """)
-            docker.write_text("""#!/usr/bin/env python3
+            docker.write_text(r"""#!/usr/bin/env python3
 import os,sys
 args=sys.argv[1:]
 with open(os.environ['DOCKER_LOG'],'a') as out: out.write(' '.join(args)+'\n')
 if args[:2]==['image','inspect']:
  if os.getenv('FAILURE')=='missing-image': sys.exit(1)
  if args[3]=='{{.Id}}': print('sha256:'+'f'*64 if os.getenv('FAILURE')=='image-id' else args[-1])
- else: print('1b0a405e5136d368125c5666665a728032a73780' if args[-1].endswith('1'*64) else '5e712f2a3eb9fef204592018cf591f941c533f0d')
+ else:
+  revision='1b0a405e5136d368125c5666665a728032a73780' if args[-1].endswith('1'*64) else '0c110b9127d469d98c3e75490fd395ade63c6270'
+  if args[-1].endswith('2'*64):
+   if os.getenv('FAILURE')=='old-identity-5e-image': revision='5e712f2a3eb9fef204592018cf591f941c533f0d'
+   if os.getenv('FAILURE')=='old-identity-90-image': revision='90feba62a71844b0f3b6ac7b097ff72c400534eb'
+  print(revision)
 elif args[0]=='inspect': sys.exit(0 if os.getenv('FAILURE')=='collision' else 1)
 else: sys.exit(99)
 """)
+            compile(git.read_text(), str(git), 'exec')
+            compile(docker.read_text(), str(docker), 'exec')
             git.chmod(0o755); docker.chmod(0o755)
             core = root / 'core'; core.mkdir()
             environment = {**os.environ, 'PATH': str(root)+os.pathsep+os.environ['PATH'],
@@ -254,12 +262,22 @@ else: sys.exit(99)
                 'WATCHLIST_BUN_IMAGE': 'sha256:'+'3'*64, 'WATCHLIST_POSTGRES_IMAGE': 'sha256:'+'4'*64,
                 'WATCHLIST_STAGE_PREFIX': 'ti-native-proof-123456abcdef', 'WATCHLIST_STAGE_SUBNET': '10.254.244.0/28',
                 'WATCHLIST_STAGE_MODE': 'core-only', 'DOCKER_LOG': str(root/'docker.log')}
-            for failure in ('head', 'dirty', 'dependency', 'missing-image', 'image-id', 'collision'):
+            for failure in ('head', 'dirty', 'dependency', 'missing-image', 'image-id', 'collision', 'old-identity-source', 'old-identity-5e-image', 'old-identity-90-image'):
                 with self.subTest(failure=failure):
                     (root/'docker.log').write_text('')
                     result = subprocess.run(['sh', str(ROOT/'run.sh')], env={**environment, 'FAILURE': failure}, capture_output=True)
                     self.assertNotEqual(result.returncode, 0)
                     self.assertNotIn('create ', (root/'docker.log').read_text())
+                    commands = (root/'docker.log').read_text()
+                    self.assertNotIn('SyntaxError', result.stderr.decode())
+                    if failure == 'collision':
+                        self.assertIn('inspect ti-native-proof-', commands)
+                    if failure == 'old-identity-source':
+                        self.assertEqual(commands, '')
+                    elif failure in ('old-identity-5e-image', 'old-identity-90-image'):
+                        self.assertIn('image inspect -f {{index .Config.Labels "org.opencontainers.image.revision"}} sha256:'+'2'*64, commands, result.stderr.decode())
+                        self.assertNotIn('inspect ti-native-proof-', commands)
+                        self.assertNotIn('network ls', commands)
 
 
 if __name__ == '__main__':
