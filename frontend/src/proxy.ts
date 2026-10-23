@@ -6,6 +6,7 @@ import tokenIsValid from './utils/proxy/tokenIsValid'
 import organizationProtectedPaths from './utils/proxy/organizationProtectedPaths'
 import { applyRefreshedAuthCookies, authCookieOptions, authServiceUnavailable, isLocalDashboardRenderProof, loginRedirect, requestHostname, type TokenRefreshCookies } from './utils/proxy/authResponses'
 import { identityAuthUrl } from './utils/auth/identityRedirect'
+import { encodeInternalHeaderValue } from './utils/proxy/internalHeaderValue'
 
 export async function proxy(req: NextRequest) {
     if (['GET', 'HEAD'].includes(req.method)) {
@@ -49,8 +50,9 @@ export async function proxy(req: NextRequest) {
         'x-hanasand-session-validated', 'x-hanasand-session-id', 'x-hanasand-session-token',
         'x-hanasand-session-can-view-internal', 'x-hanasand-session-can-edit-internal',
         'x-hanasand-session-name', 'x-hanasand-session-avatar', 'x-hanasand-session-expires-at',
+        'x-impersonating-id', 'x-impersonating-name', 'x-auth-state',
     ]) requestHeaders.delete(header)
-    const theme = req.cookies.get('theme')?.value || 'dark'
+    const theme = req.cookies.get('theme')?.value === 'light' ? 'light' : 'dark'
     const impersonationToken = req.cookies.get('impersonation_token')?.value || ''
     const impersonatingId = req.cookies.get('impersonating_id')?.value || ''
     const impersonatingName = req.cookies.get('impersonating_name')?.value || ''
@@ -66,8 +68,8 @@ export async function proxy(req: NextRequest) {
         requestHeaders.set('x-impersonation-token', impersonationToken)
     }
     if (impersonatingId) {
-        requestHeaders.set('x-impersonating-id', impersonatingId)
-        requestHeaders.set('x-impersonating-name', impersonatingName || impersonatingId)
+        requestHeaders.set('x-impersonating-id', encodeInternalHeaderValue(impersonatingId))
+        requestHeaders.set('x-impersonating-name', encodeInternalHeaderValue(impersonatingName || impersonatingId))
     }
 
     // Page aliases are relative rewrites in next.config.js. Middleware URLs can
@@ -115,12 +117,12 @@ export async function proxy(req: NextRequest) {
             // verified session details to the server components for this same
             // request so they do not replay the proof to Identity.
             requestHeaders.set('x-hanasand-session-validated', '1')
-            requestHeaders.set('x-hanasand-session-id', id)
+            requestHeaders.set('x-hanasand-session-id', encodeInternalHeaderValue(id))
             requestHeaders.set('x-hanasand-session-token', token)
             requestHeaders.set('x-hanasand-session-can-view-internal', auth.canViewInternalPages === true ? '1' : '0')
             requestHeaders.set('x-hanasand-session-can-edit-internal', auth.canEditInternalPages === true ? '1' : '0')
-            requestHeaders.set('x-hanasand-session-name', auth.name || '')
-            requestHeaders.set('x-hanasand-session-avatar', auth.avatar || '')
+            requestHeaders.set('x-hanasand-session-name', encodeInternalHeaderValue(auth.name || ''))
+            requestHeaders.set('x-hanasand-session-avatar', encodeInternalHeaderValue(auth.avatar || ''))
             requestHeaders.set('x-hanasand-session-expires-at', auth.expires_at || '')
             response = NextResponse.next({ request: { headers: requestHeaders } })
 
@@ -173,8 +175,5 @@ export async function proxy(req: NextRequest) {
     response ??= NextResponse.next({ request: { headers: requestHeaders } })
     response.headers.set('x-theme', theme)
     response.headers.set('x-current-path', visiblePath)
-    if (requestHeaders.get('x-auth-state')) {
-        response.headers.set('x-auth-state', requestHeaders.get('x-auth-state')!)
-    }
     return response
 }

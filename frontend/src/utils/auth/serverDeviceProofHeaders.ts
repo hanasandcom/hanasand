@@ -1,5 +1,6 @@
 import 'server-only'
 import { headers } from 'next/headers'
+import { decodeInternalHeaderValue } from '@/utils/proxy/internalHeaderValue'
 
 type VerifiedServerSession = { id: string; token: string }
 
@@ -17,7 +18,7 @@ function serverSessionAssertionHeaders(id: string, token: string): Record<string
 export default async function serverDeviceProofHeaders(verifiedSession?: VerifiedServerSession): Promise<Record<string, string>> {
     if (verifiedSession) return serverSessionAssertionHeaders(verifiedSession.id, verifiedSession.token)
     const request = await headers()
-    const sessionId = request.get('x-hanasand-session-id')
+    const sessionId = decodeInternalHeaderValue(request.get('x-hanasand-session-id'))
     const sessionToken = request.get('x-hanasand-session-token')
     const serverToken = process.env.VM_API_TOKEN
     if (request.get('x-hanasand-session-validated') === '1') {

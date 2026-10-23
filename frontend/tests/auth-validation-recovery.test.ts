@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 // @ts-expect-error Bun provides this module when running focused tests.
 import { mock } from 'bun:test'
 import { NextRequest } from 'next/server'
+import { decodeInternalHeaderValue, encodeInternalHeaderValue } from '../src/utils/proxy/internalHeaderValue'
 
 let fetchResult: Response | Error = new Error('timeout')
 let sequence = 0
@@ -12,6 +13,13 @@ mock.module('@/utils/fetchWithRetry', () => ({ default: async () => {
 const { default: tokenIsValid, tokenValidationState } = await import('../src/utils/proxy/tokenIsValid')
 const { proxy } = await import('../src/proxy')
 const { default: requireApiSession } = await import('../src/utils/proxy/requireApiSession')
+
+for (const value of ['Sindre Hagen Strømdal', 'Zoë Østby', '雪だるま ☃️', '']) {
+    const encoded = encodeInternalHeaderValue(value)
+    assert.match(encoded, /^[\x20-\x7e]*$/, 'Internal header values stay ASCII')
+    assert.equal(decodeInternalHeaderValue(encoded), value, 'Internal header values round-trip as UTF-8')
+}
+assert.equal(decodeInternalHeaderValue('utf8b64._w'), undefined, 'Malformed UTF-8 header values fail closed')
 
 async function validate(result: Response | Error, token = `test-${sequence++}`) {
     fetchResult = result
@@ -68,6 +76,30 @@ fetchResult = new Response('', { status: 403 })
 const forbidden = await proxy(request('access_token=forbidden; id=user'))
 assert.equal(forbidden.status, 307)
 assert.match(forbidden.headers.get('set-cookie') || '', /session_expires_at=/)
+
+const displayName = 'Sindre Hagen Strømdal'
+const avatar = 'https://cdn.example/雪.png'
+fetchResult = Response.json({ name: displayName, avatar, expires_at: sessionExpiresAt })
+const unicodeSession = await proxy(new NextRequest('https://app.example/dashboard', {
+    headers: {
+        cookie: `access_token=unicode-session; id=user; impersonation_token=impersonation%3Atarget; impersonating_id=target; impersonating_name=${encodeURIComponent(displayName)}`,
+        'x-impersonating-name': 'untrusted incoming value',
+    },
+}))
+assert.equal(unicodeSession.status, 200)
+assert.equal(decodeInternalHeaderValue(unicodeSession.headers.get('x-middleware-request-x-hanasand-session-id')), 'user')
+assert.equal(decodeInternalHeaderValue(unicodeSession.headers.get('x-middleware-request-x-hanasand-session-name')), displayName)
+assert.equal(decodeInternalHeaderValue(unicodeSession.headers.get('x-middleware-request-x-hanasand-session-avatar')), avatar)
+assert.equal(decodeInternalHeaderValue(unicodeSession.headers.get('x-middleware-request-x-impersonating-id')), 'target')
+assert.equal(decodeInternalHeaderValue(unicodeSession.headers.get('x-middleware-request-x-impersonating-name')), displayName)
+assert.match(unicodeSession.headers.get('x-middleware-override-headers') || '', /x-hanasand-session-name/)
+
+const spoofedInternalHeader = await proxy(new NextRequest('https://app.example/about', {
+    headers: { 'x-impersonating-name': 'spoofed', 'x-impersonating-id': 'spoofed', 'x-auth-state': 'caller-controlled' },
+}))
+assert(!/x-impersonating-(?:name|id)/.test(spoofedInternalHeader.headers.get('x-middleware-override-headers') || ''),
+    'Caller-provided impersonation headers are discarded')
+assert.equal(spoofedInternalHeader.headers.get('x-auth-state'), null, 'Caller-provided auth-state is not reflected in a response header')
 
 const originalFetch = globalThis.fetch
 const originalNow = Date.now

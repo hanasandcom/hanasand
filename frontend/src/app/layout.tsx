@@ -13,6 +13,7 @@ import DetachedBoxHost from '@/components/box/detachedBoxHost'
 import RouteFrame from '@/components/layout/routeFrame'
 import MobileNavigation from '@/components/layout/mobileNavigation'
 import fetchUser from '@/utils/users/fetchUser'
+import { decodeInternalHeaderValue } from '@/utils/proxy/internalHeaderValue'
 import Script from 'next/script'
 export { default as metadata } from './metadata'
 export { viewport } from './metadata'
@@ -30,8 +31,8 @@ export default async function layout({ children }: { children: ReactNode }) {
     const username = token && id && tokenValue ? id : ''
     const initialMode = Cookies.get('dashboard_view_mode')?.value === 'compact' ? 'compact' : 'normal'
     const initialPreferences = readNavigationPreferences(Cookies.get(NAVIGATION_COOKIE)?.value, id)
-    const impersonatingId = Cookies.get('impersonating_id')?.value || Headers.get('x-impersonating-id') || ''
-    const impersonatingName = Cookies.get('impersonating_name')?.value || Headers.get('x-impersonating-name') || ''
+    const impersonatingId = Cookies.get('impersonating_id')?.value || decodeInternalHeaderValue(Headers.get('x-impersonating-id')) || ''
+    const impersonatingName = Cookies.get('impersonating_name')?.value || decodeInternalHeaderValue(Headers.get('x-impersonating-name')) || ''
     const sidebarProps = {
         initialPreferences,
         initialMode,

@@ -2,6 +2,7 @@ import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { headers as requestHeaders } from 'next/headers'
+import { decodeInternalHeaderValue } from './internalHeaderValue'
 
 export type TokenValidationResult = {
     valid: boolean
@@ -109,14 +110,14 @@ async function verifiedProxySession(id: string, token: string): Promise<TokenVal
     try {
         const headers = await requestHeaders()
         if (headers.get('x-hanasand-session-validated') !== '1'
-            || headers.get('x-hanasand-session-id') !== id
+            || decodeInternalHeaderValue(headers.get('x-hanasand-session-id')) !== id
             || headers.get('x-hanasand-session-token') !== token) return null
         return {
             valid: true,
             state: 'valid',
             token,
-            name: headers.get('x-hanasand-session-name') || undefined,
-            avatar: headers.get('x-hanasand-session-avatar') || undefined,
+            name: decodeInternalHeaderValue(headers.get('x-hanasand-session-name')) || undefined,
+            avatar: decodeInternalHeaderValue(headers.get('x-hanasand-session-avatar')) || undefined,
             expires_at: headers.get('x-hanasand-session-expires-at') || undefined,
             canViewInternalPages: headers.get('x-hanasand-session-can-view-internal') === '1',
             canEditInternalPages: headers.get('x-hanasand-session-can-edit-internal') === '1',
