@@ -168,6 +168,10 @@ if args[0]=='inspect': print('captured|'+os.environ['ACTUAL_OWNER'])
         start = source.index('if test "$WATCHLIST_STAGE_MODE" = full; then\n create "$prefix-website"')
         block = source[start:source.index('\nfi', start)+3]
         self.assertIn('--read-only', block)
+        self.assertIn('http://127.0.0.1:3000/api/organizations/stage-transport-only/watchlists', block)
+        self.assertIn("{method:'GET',signal:AbortSignal.timeout(1000)}", block)
+        self.assertIn("r.status===401&&body.error?.code==='invalid_session'", block)
+        self.assertNotIn('/api/health', block)
         self.assertIn('--security-opt no-new-privileges --memory "$memory" --cpus 1', source[source.index('create() {'):source.index('log_owned() {')])
         script = 'create() { printf "%s\\n" "$@"; }; docker() { :; }; http_ready() { :; }; '+block
         result = subprocess.run(['sh', '-eu', '-c', script], env={**os.environ,

@@ -204,7 +204,14 @@ if test "$WATCHLIST_STAGE_MODE" = full; then
  -e SOCIAL_AUTH_ORIGIN=https://hanasand.com \
  -e VM_API_TOKEN=synthetic-web-assertion "$WATCHLIST_WEBSITE_IMAGE" sh /app/entrypoint.sh
  docker start "$last_id" >/dev/null
- http_ready "$last_id" http://127.0.0.1:3000/api/health
+ # The minimal Core fixture does not expose aggregate /health. Check only
+ # Varnish/Next transport and the real unauthenticated Watchlist route denial.
+ website_ready=0
+ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  if docker exec "$last_id" bun -e "fetch('http://127.0.0.1:3000/api/organizations/stage-transport-only/watchlists',{method:'GET',signal:AbortSignal.timeout(1000)}).then(async r=>{const body=await r.json();process.exit(r.status===401&&body.error?.code==='invalid_session'?0:1)}).catch(()=>process.exit(1))" >/dev/null 2>&1; then website_ready=1; break; fi
+  sleep 1
+ done
+ if test "$website_ready" != 1; then log_owned "$last_id"; exit 1; fi
 fi
 printf 'core_source=%s runtime_source=%s identity_source=%s scraper_source=%s mode=%s\n' "$WATCHLIST_CORE_SHA" "$core_runtime" "$identity_sha" "$scraper_sha" "$WATCHLIST_STAGE_MODE"
 printf 'images api=%s identity=%s bun=%s postgres=%s website=%s\n' "$WATCHLIST_API_IMAGE" "$WATCHLIST_IDENTITY_IMAGE" "$WATCHLIST_BUN_IMAGE" "$WATCHLIST_POSTGRES_IMAGE" "${WATCHLIST_WEBSITE_IMAGE:-none}"
