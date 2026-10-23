@@ -13,6 +13,7 @@ const { WorkspaceRepositoryPanel } = await import('../src/components/ai/workspac
 const { WorkspaceCollaborationPanel } = await import('../src/components/ai/workspaceCollaborationPanel')
 const { WorkspaceDeployPanel } = await import('../src/components/ai/workspaceDeployPanel')
 const { WorkspaceReleasePanels } = await import('../src/components/ai/workspaceReleasePanels')
+const WorkspacePane = (await import('../src/components/ai/workspacePane')).default
 
 const noop = () => {}
 
@@ -36,6 +37,26 @@ test('mobile repository panel keeps its controls inside the bounded scroll regio
     expect(workspacePane).toContain('overflow-y-auto overscroll-contain')
     expect(collaborationPanel).toContain('Invite collaborator')
     expect(collaborationPanel).not.toMatch(/sticky|fixed/)
+})
+
+test('repository drawer shows only the selected section instead of stacking every panel', () => {
+    const html = renderToStaticMarkup(createElement(WorkspacePane, {
+        activeConversation: null, importedRepos: [], importInput: '', githubToken: '', importError: null, importPending: false,
+        collaborationError: null, initialShares: [], syncingRepoId: null, activeShareTree: null,
+        selectedRepoFilePath: null, selectedShareFileContent: null, selectedShareContent: null,
+        deployments: [], releases: [], deployQuota: null, availableVmTargets: [], deployPending: false,
+        collaboratorPending: false, currentUserId: null, rollbackPendingId: null,
+        onClose: noop, onAttachRepo: noop, onAttachShare: noop, onImportInputChange: noop,
+        onGitHubTokenChange: noop, onImportRepo: noop, onRefreshRepo: noop, onRevokeRepoCredential: noop,
+        onScaffoldStarter: noop, onStartDeployment: noop, onInviteCollaborator: noop, onRollbackRelease: noop,
+        onRemoveCollaborator: noop, onSelectRepoFile: noop, onSelectShareFile: noop,
+    }))
+
+    expect(html).toContain('aria-selected="true"')
+    expect(html).toContain('aria-labelledby="repository-tab-repositories"')
+    expect(html).not.toContain('Review access')
+    expect(html).not.toContain('Run launch check')
+    expect(html).not.toContain('Launch report')
 })
 
 test('empty repository panel shows both actions without a duplicate empty card', () => {
