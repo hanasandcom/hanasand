@@ -19,3 +19,15 @@ ssh -N -L 3388:127.0.0.1:3388 -L 8388:127.0.0.1:8388 -L 3390:127.0.0.1:3390 ovh
 Then visit `http://127.0.0.1:3390`, choose **Open staging**, and test at `http://127.0.0.1:3388/vms`. The stage user owns the synthetic **Cashflow Staging** organization. The API and database are available only through their loopback tunnel ports.
 
 The production VM project, database, DNS, VM gateway, host credentials, and provider routes are not mounted into this stack.
+
+## Inspur VM lifecycle rehearsal
+
+The Inspur rehearsal uses the separate restricted LXD project `hns-stage`. Before starting it, confirm `lxc project show hns-stage` still reports `restricted: "true"`, a non-empty `restricted.networks.access`, and finite `limits.instances` and `limits.virtual-machines`. The existing `hei` container is expected to remain untouched; the project quota permits one disposable VM alongside it.
+
+Run the rehearsal with the staging-only overlay:
+
+```sh
+docker compose -p vm-stage-rehearsal -f docker-compose.vm-stage.yml -f docker-compose.vm-stage.inspur.yml up -d --build vm-stage-api
+```
+
+The overlay sets `LXD_PROJECT=hns-stage` for API actions and enables the lifecycle monitor with the same explicit project. The monitor checks the project restrictions before creating anything, scopes every instance operation and cleanup request to `hns-stage`, and uses the public Ubuntu 24.04 desktop VM image. Do not run this overlay against production or remove the project restrictions/quotas.

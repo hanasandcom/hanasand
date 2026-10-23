@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import config from '#constants'
 import { requestLxdJson, type LxdRequestOptions, type LxdResponse } from './lxdTransport.ts'
 import { recordServiceCheckCase } from '../status/serviceCheckCase.ts'
 
@@ -7,10 +6,12 @@ export const VM_LIFECYCLE_MONITOR_JOB_ID = 'api-vm-lifecycle-monitor'
 export const VM_LIFECYCLE_MONITOR_CHECK = 'Disposable staging VM lifecycle'
 const MONITOR_INTERVAL_MS = 6 * 60 * 60 * 1000
 const RESOURCE_LIMITS = { cpu: '1', memory: '2GiB', disk: '10GiB' }
+const ISOLATED_STAGING_PROJECT = 'hns-stage'
 
 type LxdRequest = <T>(socketPath: string, path: string, options?: LxdRequestOptions) => Promise<LxdResponse<T>>
-type MonitorConfig = { enabled: boolean, target: string | null, socketPath: string | null, imageServer: string | null, imageAlias: string | null }
+type MonitorConfig = { enabled: boolean, target: string | null, socketPath: string | null, project: string | null, imageServer: string | null, imageAlias: string | null }
 type Instance = { name?: string, type?: string, status?: string, config?: Record<string, string> }
+type LxdProject = { name?: string, config?: Record<string, string> }
 type OperationResult = { err?: string, status_code?: number }
 
 let nextRunAt = 0
@@ -21,6 +22,7 @@ export function vmLifecycleMonitorConfig(env: NodeJS.ProcessEnv = process.env): 
         enabled: env.VM_LIFECYCLE_MONITOR_ENABLED === 'true',
         target: env.VM_LIFECYCLE_MONITOR_TARGET || null,
         socketPath: env.VM_LIFECYCLE_MONITOR_SOCKET_PATH || null,
+        project: env.VM_LIFECYCLE_MONITOR_PROJECT || null,
         imageServer: env.VM_LIFECYCLE_MONITOR_IMAGE_SERVER || null,
         imageAlias: env.VM_LIFECYCLE_MONITOR_IMAGE_ALIAS || null,
     }
@@ -90,8 +92,8 @@ export async function runVmLifecycleCheck(options: {
 function isSafeTarget(settings: MonitorConfig) {
     return settings.enabled
         && settings.target === 'isolated-staging'
+        && settings.project === ISOLATED_STAGING_PROJECT
         && Boolean(settings.socketPath && settings.imageServer && settings.imageAlias)
-        && settings.socketPath !== config.lxd_socket_path
 }
 
 export function vmLifecycleMonitorIsConfigured(env: NodeJS.ProcessEnv = process.env) {
@@ -108,8 +110,9 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
     let createSubmitted = false
     let primaryError: unknown
     try {
+        await assertRestrictedStagingProject(settings.socketPath, settings.project, request)
         createSubmitted = true
-        const created = await request(settings.socketPath, '/1.0/instances', {
+        const created = await request(settings.socketPath, scopedPath('/1.0/instances', settings.project), {
             method: 'POST',
             body: {
                 name,
@@ -121,30 +124,30 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
                 source: { type: 'image', mode: 'pull', server: settings.imageServer, protocol: 'simplestreams', alias: settings.imageAlias },
             },
         })
-        await finishOperation(request, settings.socketPath, created, 'create')
+        await finishOperation(request, settings.socketPath, settings.project, created, 'create')
 
-        const inspected = await checkedRequest<Instance>(request, settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}`)
+        const inspected = await checkedRequest<Instance>(request, settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}`, settings.project))
         if (inspected.name !== name || inspected.type !== 'virtual-machine') throw new Error('LXD returned an unexpected VM identity or type.')
 
-        const updated = await request(settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}`, {
+        const updated = await request(settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}`, settings.project), {
             method: 'PATCH', body: { config: { 'user.hanasand.lifecycle_monitor': marker } },
         })
-        await finishOperation(request, settings.socketPath, updated, 'configuration update')
-        const managed = await checkedRequest<Instance>(request, settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}`)
+        await finishOperation(request, settings.socketPath, settings.project, updated, 'configuration update')
+        const managed = await checkedRequest<Instance>(request, settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}`, settings.project))
         if (managed.config?.['user.hanasand.lifecycle_monitor'] !== marker) throw new Error('LXD did not retain the lifecycle probe configuration update.')
 
-        const started = await request(settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}/state`, {
+        const started = await request(settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}/state`, settings.project), {
             method: 'PUT', body: { action: 'start', timeout: 60, force: true },
         })
-        await finishOperation(request, settings.socketPath, started, 'start')
-        const state = await checkedRequest<{ status?: string }>(request, settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}/state`)
+        await finishOperation(request, settings.socketPath, settings.project, started, 'start')
+        const state = await checkedRequest<{ status?: string }>(request, settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}/state`, settings.project))
         if (state.status?.toLowerCase() !== 'running') throw new Error(`VM did not reach Running (reported ${state.status || 'no state'}).`)
 
-        const stopped = await request(settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}/state`, {
+        const stopped = await request(settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}/state`, settings.project), {
             method: 'PUT', body: { action: 'stop', timeout: 60, force: true },
         })
-        await finishOperation(request, settings.socketPath, stopped, 'stop')
-        const stoppedInstance = await checkedRequest<Instance>(request, settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}`)
+        await finishOperation(request, settings.socketPath, settings.project, stopped, 'stop')
+        const stoppedInstance = await checkedRequest<Instance>(request, settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}`, settings.project))
         if (stoppedInstance.status?.toLowerCase() !== 'stopped') throw new Error(`VM did not reach Stopped (reported ${stoppedInstance.status || 'no state'}).`)
     } catch (error) {
         primaryError = error
@@ -152,18 +155,18 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
 
     if (createSubmitted) {
         try {
-            const existing = await request(settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}`).catch(() => null)
+            const existing = await request(settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}`, settings.project)).catch(() => null)
             if (existing?.status_code === 200) {
                 if ((existing.metadata as Instance).status?.toLowerCase() === 'running') {
-                    const stopped = await request(settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}/state`, {
+                    const stopped = await request(settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}/state`, settings.project), {
                         method: 'PUT', body: { action: 'stop', timeout: 60, force: true },
                     })
-                    await finishOperation(request, settings.socketPath, stopped, 'cleanup stop')
+                    await finishOperation(request, settings.socketPath, settings.project, stopped, 'cleanup stop')
                 }
-                const deleted = await request(settings.socketPath, `/1.0/instances/${encodeURIComponent(name)}`, { method: 'DELETE' })
-                await finishOperation(request, settings.socketPath, deleted, 'cleanup delete')
+                const deleted = await request(settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}`, settings.project), { method: 'DELETE' })
+                await finishOperation(request, settings.socketPath, settings.project, deleted, 'cleanup delete')
             }
-            const inventory = await checkedRequest<Array<Instance>>(request, settings.socketPath, '/1.0/instances?recursion=1')
+            const inventory = await checkedRequest<Array<Instance>>(request, settings.socketPath, scopedPath('/1.0/instances?recursion=1', settings.project))
             if (inventory.some(instance => instance.name === name)) throw new Error('Disposable VM remained after deletion.')
         } catch (cleanupError) {
             const reason = cleanupError instanceof Error ? cleanupError.message : 'LXD cleanup request failed.'
@@ -174,7 +177,22 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
     if (primaryError) throw primaryError
 }
 
-async function finishOperation(request: LxdRequest, socketPath: string, response: LxdResponse<unknown>, label: string) {
+async function assertRestrictedStagingProject(socketPath: string, project: string | null, request: LxdRequest) {
+    if (project !== ISOLATED_STAGING_PROJECT) throw new Error('Lifecycle probe requires the explicitly allowlisted hns-stage LXD project.')
+    const result = await checkedRequest<LxdProject>(request, socketPath, `/1.0/projects/${encodeURIComponent(project)}`)
+    const config = result.config || {}
+    const instanceLimit = Number(config['limits.instances'])
+    const vmLimit = Number(config['limits.virtual-machines'])
+    if (result.name !== project
+        || config.restricted !== 'true'
+        || !config['restricted.networks.access']
+        || !Number.isInteger(instanceLimit) || instanceLimit < 1
+        || !Number.isInteger(vmLimit) || vmLimit < 1) {
+        throw new Error('LXD hns-stage must be restricted, network-limited, and quota-limited before lifecycle probes run.')
+    }
+}
+
+async function finishOperation(request: LxdRequest, socketPath: string, project: string | null, response: LxdResponse<unknown>, label: string) {
     if (!response.operation) {
         if (response.status_code < 200 || response.status_code >= 300) throw new Error(`LXD ${label} failed with status ${response.status_code}.`)
         return
@@ -182,10 +200,18 @@ async function finishOperation(request: LxdRequest, socketPath: string, response
     const operationPath = response.operation.includes('/1.0/operations/')
         ? response.operation
         : `/1.0/operations/${encodeURIComponent(response.operation)}`
-    const completed = await checkedRequest<OperationResult>(request, socketPath, `${operationPath}/wait?timeout=120`)
+    const completed = await checkedRequest<OperationResult>(request, socketPath, scopedPath(`${operationPath}/wait?timeout=120`, project))
     if (completed.err || (completed.status_code !== undefined && completed.status_code !== 200)) {
         throw new Error(`LXD ${label} failed${completed.err ? `: ${completed.err}` : '.'}`)
     }
+}
+
+function scopedPath(path: string, project: string | null) {
+    if (project !== ISOLATED_STAGING_PROJECT) throw new Error('Lifecycle probe requires the explicitly allowlisted hns-stage LXD project.')
+    const [pathname, query = ''] = path.split('?', 2)
+    const params = new URLSearchParams(query)
+    params.set('project', project)
+    return `${pathname}?${params.toString()}`
 }
 
 async function checkedRequest<T>(request: LxdRequest, socketPath: string, path: string, options?: LxdRequestOptions) {

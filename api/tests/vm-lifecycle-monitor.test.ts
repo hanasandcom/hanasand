@@ -1,7 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import type { LxdRequestOptions, LxdResponse } from '../src/utils/vms/lxdTransport.ts'
 
-mock.module('#constants', () => ({ default: { lxd_socket_path: '/run/lxd-prod/unix.socket' } }))
 const fakeDatabaseQuery = async (...args: unknown[]) => {
     void args
     return { rows: [] as Record<string, unknown>[] }
@@ -17,8 +16,9 @@ const safeSettings = {
     enabled: true,
     target: 'isolated-staging',
     socketPath: '/run/lxd-staging/unix.socket',
+    project: 'hns-stage',
     imageServer: 'https://images.example.test/releases',
-    imageAlias: '24.04',
+    imageAlias: 'ubuntu/24.04/desktop',
 }
 
 test('lifecycle monitor requires explicit isolated staging configuration', () => {
@@ -28,27 +28,28 @@ test('lifecycle monitor requires explicit isolated staging configuration', () =>
         VM_LIFECYCLE_MONITOR_TARGET: 'production',
         VM_LIFECYCLE_MONITOR_SOCKET_PATH: '/run/lxd-prod/unix.socket',
         VM_LIFECYCLE_MONITOR_IMAGE_SERVER: 'https://images.example.test/releases',
-        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: '24.04',
+        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: 'ubuntu/24.04/desktop',
     })).toBe(false)
     expect(vmLifecycleMonitorIsConfigured({
         VM_LIFECYCLE_MONITOR_ENABLED: 'true',
         VM_LIFECYCLE_MONITOR_TARGET: 'isolated-staging',
         VM_LIFECYCLE_MONITOR_SOCKET_PATH: '/run/lxd-prod/unix.socket',
         VM_LIFECYCLE_MONITOR_IMAGE_SERVER: 'https://images.example.test/releases',
-        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: '24.04',
+        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: 'ubuntu/24.04/desktop',
     })).toBe(false)
     expect(vmLifecycleMonitorIsConfigured({
         VM_LIFECYCLE_MONITOR_ENABLED: 'true',
         VM_LIFECYCLE_MONITOR_TARGET: 'isolated-staging',
         VM_LIFECYCLE_MONITOR_SOCKET_PATH: '/run/lxd-staging/unix.socket',
+        VM_LIFECYCLE_MONITOR_PROJECT: 'hns-stage',
         VM_LIFECYCLE_MONITOR_IMAGE_SERVER: 'https://images.example.test/releases',
-        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: '24.04',
+        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: 'ubuntu/24.04/desktop',
     })).toBe(true)
 })
 
 type Instance = { name?: string, type?: string, status?: string, config?: Record<string, string> }
 
-function fakeLxd(options: { failAt?: string, failCleanup?: boolean } = {}) {
+function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestrictedProject?: boolean } = {}) {
     const calls: { path: string, method: string, action?: string }[] = []
     let instance: Instance | null = null
     let running = false
@@ -60,37 +61,52 @@ function fakeLxd(options: { failAt?: string, failCleanup?: boolean } = {}) {
         calls.push({ path, method, ...(action ? { action } : {}) })
         if (options.failAt === path) throw new Error(`injected failure at ${path}`)
         let response: LxdResponse<unknown>
-        if (path === '/1.0/instances' && method === 'POST') {
+        const resourcePath = new URL(path, 'http://lxd').pathname
+        if (resourcePath === '/1.0/projects/hns-stage') {
+            response = {
+                status_code: 200,
+                status: 'Success',
+                metadata: {
+                    name: 'hns-stage',
+                    config: {
+                        restricted: options.unrestrictedProject ? 'false' : 'true',
+                        'restricted.networks.access': 'hanai-stage0',
+                        'limits.instances': '2',
+                        'limits.virtual-machines': '2',
+                    },
+                },
+            }
+        } else if (resourcePath === '/1.0/instances' && method === 'POST') {
             const body = requestOptions.body as { name: string, type: string, ephemeral: boolean, config: Record<string, string> }
             instance = { name: body.name, type: body.type, status: 'Stopped', config: { ...body.config } }
             response = { status_code: 202, status: 'Accepted', metadata: {}, operation: '/1.0/operations/create' }
-        } else if (path === '/1.0/instances?recursion=1') {
+        } else if (resourcePath === '/1.0/instances' && path.includes('recursion=1')) {
             response = { status_code: 200, status: 'Success', metadata: instance ? [instance] : [] }
-        } else if (path.startsWith('/1.0/operations/')) {
+        } else if (resourcePath.startsWith('/1.0/operations/')) {
             response = { status_code: 200, status: 'Success', metadata: { status_code: 200 } }
-        } else if (path.endsWith('/state') && method === 'PUT') {
+        } else if (resourcePath.endsWith('/state') && method === 'PUT') {
             running = (requestOptions.body as { action: string }).action === 'start'
             if (instance) instance.status = running ? 'Running' : 'Stopped'
             response = { status_code: 202, status: 'Accepted', metadata: {}, operation: `/1.0/operations/${running ? 'start' : 'stop'}` }
-        } else if (path.endsWith('/state')) {
+        } else if (resourcePath.endsWith('/state')) {
             if (options.failAt === 'running-state' && running) {
                 response = { status_code: 200, status: 'Success', metadata: { status: 'Starting' } }
             } else {
                 response = { status_code: 200, status: 'Success', metadata: { status: running ? 'Running' : 'Stopped' } }
             }
-        } else if (path.includes('/instances/') && method === 'PATCH') {
+        } else if (resourcePath.includes('/instances/') && method === 'PATCH') {
             patchSeen = true
             const body = requestOptions.body as { config: Record<string, string> }
             if (instance) instance.config = { ...instance.config, ...body.config }
             response = { status_code: 202, status: 'Accepted', metadata: {}, operation: '/1.0/operations/config' }
-        } else if (path.includes('/instances/') && method === 'DELETE') {
+        } else if (resourcePath.includes('/instances/') && method === 'DELETE') {
             if (options.failCleanup) response = { status_code: 500, status: 'Failure', error: 'cleanup denied', metadata: {} }
             else {
                 instance = null
                 running = false
                 response = { status_code: 202, status: 'Accepted', metadata: {}, operation: '/1.0/operations/delete' }
             }
-        } else if (path.includes('/instances/') && instance) {
+        } else if (resourcePath.includes('/instances/') && instance) {
             response = { status_code: 200, status: 'Success', metadata: instance }
         } else {
             response = { status_code: 404, status: 'Failure', error: 'not found', metadata: {} }
@@ -104,12 +120,13 @@ test('staging probe exercises the virtual machine lifecycle and removes its disp
     const lxd = fakeLxd()
     await exerciseDisposableInstance(safeSettings, lxd.request)
 
-    expect(lxd.calls.find(call => call.path === '/1.0/instances' && call.method === 'POST')).toBeDefined()
+    expect(lxd.calls.find(call => call.path.startsWith('/1.0/instances?project=hns-stage') && call.method === 'POST')).toBeDefined()
     expect(lxd.wasPatched()).toBe(true)
-    expect(lxd.calls.some(call => call.path.endsWith('/state') && call.method === 'PUT')).toBe(true)
+    expect(lxd.calls.some(call => new URL(call.path, 'http://lxd').pathname.endsWith('/state') && call.method === 'PUT')).toBe(true)
     expect(lxd.calls.filter(call => call.action).map(call => call.action)).toEqual(['start', 'stop'])
     expect(lxd.calls.some(call => call.method === 'DELETE')).toBe(true)
-    expect(lxd.calls.at(-1)).toEqual({ path: '/1.0/instances?recursion=1', method: 'GET' })
+    expect(lxd.calls.at(-1)).toEqual({ path: '/1.0/instances?recursion=1&project=hns-stage', method: 'GET' })
+    expect(lxd.calls.every(call => call.path === '/1.0/projects/hns-stage' || call.path.includes('project=hns-stage'))).toBe(true)
 })
 
 test('a failed VM state check records failure and stops then deletes the disposable VM', async () => {
@@ -124,10 +141,10 @@ test('a failed VM state check records failure and stops then deletes the disposa
 
     expect(observations).toHaveLength(1)
     expect(observations[0].status).toBe('down')
-    expect(lxd.calls.some(call => call.path.endsWith('/state') && call.method === 'PUT')).toBe(true)
+    expect(lxd.calls.some(call => new URL(call.path, 'http://lxd').pathname.endsWith('/state') && call.method === 'PUT')).toBe(true)
     expect(lxd.calls.filter(call => call.action).map(call => call.action)).toEqual(['start', 'stop'])
     expect(lxd.calls.filter(call => call.method === 'DELETE')).toHaveLength(1)
-    expect(lxd.calls.at(-1)?.path).toBe('/1.0/instances?recursion=1')
+    expect(lxd.calls.at(-1)?.path).toBe('/1.0/instances?recursion=1&project=hns-stage')
 })
 
 test('cleanup failure is reported alongside the lifecycle failure', async () => {
@@ -151,8 +168,8 @@ test('without an isolated staging target the monitor reports no data and makes n
     expect(lxd.calls).toEqual([])
 })
 
-test('production LXD socket is rejected even when probe functions are called directly', async () => {
-    const productionSettings = { ...safeSettings, socketPath: '/run/lxd-prod/unix.socket' }
+test('default LXD project is rejected even when probe functions are called directly', async () => {
+    const productionSettings = { ...safeSettings, project: 'default' }
     const lxd = fakeLxd()
     const observations: { status: string, message: string }[] = []
 
@@ -160,6 +177,7 @@ test('production LXD socket is rejected even when probe functions are called dir
         VM_LIFECYCLE_MONITOR_ENABLED: 'true',
         VM_LIFECYCLE_MONITOR_TARGET: 'isolated-staging',
         VM_LIFECYCLE_MONITOR_SOCKET_PATH: productionSettings.socketPath,
+        VM_LIFECYCLE_MONITOR_PROJECT: 'default',
         VM_LIFECYCLE_MONITOR_IMAGE_SERVER: safeSettings.imageServer,
         VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: safeSettings.imageAlias,
     })).toBe(false)
@@ -175,3 +193,39 @@ test('production LXD socket is rejected even when probe functions are called dir
     await expect(exerciseDisposableInstance(productionSettings, lxd.request)).rejects.toThrow('explicitly enabled isolated staging')
     expect(lxd.calls).toEqual([])
 })
+
+test('an hns-stage project without restrictions or quotas is rejected before any instance request', async () => {
+    const lxd = fakeLxd({ unrestrictedProject: true })
+    await expect(exerciseDisposableInstance(safeSettings, lxd.request)).rejects.toThrow('must be restricted, network-limited, and quota-limited')
+
+    expect(lxd.calls).toEqual([{ path: '/1.0/projects/hns-stage', method: 'GET' }])
+})
+
+test.each([null, 'default', 'hanasand-vm-stage-candidate', 'other-project'])(
+    'unscoped, default, or unapproved LXD project %s cannot issue lifecycle requests',
+    async project => {
+        const settings = { ...safeSettings, project }
+        const lxd = fakeLxd()
+        const observations: { status: string, message: string }[] = []
+
+        expect(vmLifecycleMonitorIsConfigured({
+            VM_LIFECYCLE_MONITOR_ENABLED: 'true',
+            VM_LIFECYCLE_MONITOR_TARGET: 'isolated-staging',
+            VM_LIFECYCLE_MONITOR_SOCKET_PATH: safeSettings.socketPath,
+            ...(project ? { VM_LIFECYCLE_MONITOR_PROJECT: project } : {}),
+            VM_LIFECYCLE_MONITOR_IMAGE_SERVER: safeSettings.imageServer,
+            VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: safeSettings.imageAlias,
+        })).toBe(false)
+        const result = await runVmLifecycleCheck({
+            settings,
+            request: lxd.request,
+            record: async (_service, _name, observation) => { observations.push(observation) },
+        })
+
+        expect(result.status).toBe('no-data')
+        expect(observations[0].status).toBe('degraded')
+        expect(lxd.calls).toEqual([])
+        await expect(exerciseDisposableInstance(settings, lxd.request)).rejects.toThrow('explicitly enabled isolated staging')
+        expect(lxd.calls).toEqual([])
+    },
+)
