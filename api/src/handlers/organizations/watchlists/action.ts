@@ -1,3 +1,4 @@
+import { savedWatchlistProjection } from '#utils/organizations/watchlistSync.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { touchOrganization } from '#utils/db/identityDataWrites.ts'
@@ -95,6 +96,7 @@ export async function postOrganizationWatchlistAction(req: FastifyRequest<{ Para
     })
 
     return res.send({
+        ...await savedWatchlistProjection(req.params.organizationId, [req.params.itemId]),
         watchlistItem: toWatchlistItem(result.rows[0] as OrganizationWatchlistRow),
         operation: organizationWatchlistOperation(organization, {
             action: input.action,

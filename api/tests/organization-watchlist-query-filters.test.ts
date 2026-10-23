@@ -101,6 +101,10 @@ test('GET watchlists uses shared lifecycle status normalization in its contract'
     const response = await app.inject('/organizations/org-1/watchlists?includeArchived=true')
     expect(response.statusCode).toBe(200)
     expect(response.json().sharedWatchlistContract).toMatchObject({
+        capabilities: {
+            authoritativeProjectionSync: true,
+            projectionReceiptSchemaVersion: 'organization.watchlist_projection_receipt.v1',
+        },
         lifecycle: {
             activeCount: 1,
             pausedCount: 1,

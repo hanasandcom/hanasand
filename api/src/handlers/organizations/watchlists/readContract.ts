@@ -43,6 +43,10 @@ export function organizationSharedWatchlistContract(organization: OrganizationRo
     const { active: activeItems, paused: pausedItems, archived: archivedItems } = watchlistProjection.itemsByStatus
     return {
         schemaVersion: 'organization.shared_watchlist_contract.v1',
+        capabilities: {
+            authoritativeProjectionSync: true,
+            projectionReceiptSchemaVersion: 'organization.watchlist_projection_receipt.v1',
+        },
         organizationId: organization.id,
         tenantId: organization.id,
         ownerOrganizationId: organization.id,

@@ -1,3 +1,4 @@
+import { savedWatchlistProjection } from '#utils/organizations/watchlistSync.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run from '#db'
@@ -106,6 +107,7 @@ export async function postOrganizationWatchlist(req: FastifyRequest<{ Params: Or
         context: { kind: input.kind, status: result.rows[0]?.status },
     })
     return res.status(201).send({
+        ...await savedWatchlistProjection(req.params.id, [String(result.rows[0].id)]),
         watchlistItem: toWatchlistItem(result.rows[0] as OrganizationWatchlistRow),
         operation: organizationWatchlistOperation(organization, {
             action: existing.rows[0] ? 'updated' : 'created',

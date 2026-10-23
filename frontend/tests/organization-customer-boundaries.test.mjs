@@ -4,19 +4,24 @@ import { organizationWorkspaceSource } from './organization-workspace-source.mjs
 import { afterAll, afterEach, mock, test } from 'bun:test'
 import { NextRequest } from 'next/server'
 
+const originalVmToken = process.env.VM_API_TOKEN
 const originalFetch = globalThis.fetch
 const originalAuthApi = process.env.FRONTEND_AUTH_API
 const originalIdentityApi = process.env.FRONTEND_IDENTITY_API
 const originalScraperApi = process.env.TI_SCRAPER_API_BASE
 const cookieValues = new Map()
 
+process.env.VM_API_TOKEN = 'synthetic-verified-server-key'
 process.env.FRONTEND_AUTH_API = 'http://auth.test/api'
 process.env.FRONTEND_IDENTITY_API = 'http://identity.test/api'
 process.env.TI_SCRAPER_API_BASE = 'http://scraper.test'
 
 mock.module('next/headers', () => ({
+    headers: async() => new Headers(),
     cookies: async() => ({ get: name => cookieValues.has(name) ? { value: cookieValues.get(name) } : undefined }),
 }))
+
+mock.module('../src/utils/proxy/tokenIsValid', () => ({ default: async() => ({ valid: true, state: 'valid' }) }))
 
 afterEach(() => {
     globalThis.fetch = originalFetch
@@ -24,6 +29,8 @@ afterEach(() => {
 })
 
 afterAll(() => {
+    if (originalVmToken === undefined) delete process.env.VM_API_TOKEN
+    else process.env.VM_API_TOKEN = originalVmToken
     if (originalAuthApi === undefined) delete process.env.FRONTEND_AUTH_API
     else process.env.FRONTEND_AUTH_API = originalAuthApi
     if (originalIdentityApi === undefined) delete process.env.FRONTEND_IDENTITY_API
@@ -97,70 +104,50 @@ test('workspace organization list reads from Identity without calling the Hanasa
     assert.equal(new Headers(upstream.init?.headers).get('id'), 'identity-user')
 })
 
-test('organization watchlist save mirrors the same scope and failed sync is explicit and retryable', async() => {
-    const scraperCalls = []
-    let mirrorState = 'failed'
+test('organization watchlist save retains core receipts and never fans out a user session', async() => {
+    const calls = []
+    let projectionState = 'pending'
     globalThis.fetch = async(input, init) => {
-        const url = String(input)
-        if (url === 'http://auth.test/api/organizations/org-review/watchlists' || url === 'http://auth.test/api/organizations/org-review/watchlists/term-1') {
-            return Response.json({ watchlistItem: { id: 'term-1', kind: 'company', value: 'Review Company', status: 'active' } }, { status: 201 })
-        }
-        if (url === 'http://scraper.test/v1/dwm/watchlists') {
-            scraperCalls.push({ headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) })
-            if (mirrorState === 'failed') throw new Error('scraper unavailable')
-            if (mirrorState === 'empty') return Response.json({ watchlist: { id: 'org_term-1' }, alertRebuild: { savedAlertCount: 0, alertIds: [] } }, { status: 201 })
-            return Response.json({ watchlist: { id: 'org_term-1' }, alertRebuild: { savedAlertCount: 1, alertIds: ['alert_org_review'] } }, { status: 201 })
-        }
-        throw new Error(`Unexpected fetch: ${url}`)
+        calls.push({ url: String(input), headers: new Headers(init?.headers) })
+        assert.ok(String(input).startsWith('http://auth.test/api/organizations/org-review/watchlists'))
+        return Response.json({
+            saved: true,
+            watchlistItem: { id: 'term-1', kind: 'company', value: 'Review Company', status: 'active' },
+            operation: { actorId: 'owner', requestId: 'request-1' },
+            dwmAlertBridge: {
+                schemaVersion: 'organization.watchlist_projection_receipt.v1',
+                organizationId: 'org-review', itemIds: ['term-1'],
+                projection: { status: projectionState, checkedAt: null, source: 'identity', watchlistIds: [], unresolvedItemIds: [] },
+                alertRebuild: { status: 'not_requested', reason: 'projection_only' },
+            },
+        }, { status: init?.method === 'POST' ? 201 : 200 })
     }
-
     const { POST } = await import('../src/app/api/organizations/[id]/watchlists/route')
     const context = { params: Promise.resolve({ id: 'org-review' }) }
-    const request = () => new NextRequest('http://frontend.test/api/organizations/org-review/watchlists', {
-        method: 'POST',
-        headers: { authorization: 'Bearer owner-session', id: 'owner' },
-        body: JSON.stringify({ kind: 'company', value: 'Review Company', requestId: 'same-request' }),
-    })
-
-    const failed = await POST(request(), context)
-    const failedPayload = await failed.json()
-    assert.equal(failed.status, 502)
-    assert.equal(failedPayload.error.code, 'dwm_watchlist_sync_failed')
-    assert.equal(failedPayload.retryable, true)
-    assert.equal(failedPayload.watchlistItem.id, 'term-1')
-
-    mirrorState = 'empty'
-    const empty = await POST(request(), context)
-    const emptyPayload = await empty.json()
-    assert.equal(empty.status, 201)
-    assert.equal(emptyPayload.error.code, 'dwm_alert_rebuild_empty')
-    assert.equal(emptyPayload.retryable, false)
-    assert.equal(emptyPayload.dwmAlertBridge.ok, false)
-
-    mirrorState = 'success'
-    const itemRoute = await import('../src/app/api/organizations/[id]/watchlists/[itemId]/route')
-    const retried = await itemRoute.PUT(new NextRequest('http://frontend.test/api/organizations/org-review/watchlists/term-1', {
-        method: 'PUT',
-        headers: { authorization: 'Bearer owner-session', id: 'owner' },
-        body: JSON.stringify({ kind: 'company', value: 'Review Company', requestId: 'retry-request' }),
-    }), { params: Promise.resolve({ id: 'org-review', itemId: 'term-1' }) })
-    const retriedPayload = await retried.json()
-    assert.equal(retried.status, 201)
-    assert.equal(retriedPayload.dwmAlertBridge.ok, true)
-    assert.equal(retriedPayload.dwmAlertBridge.watchlistId, 'org_term-1')
-    assert.equal(scraperCalls.length, 3)
-    for (const call of scraperCalls) {
-        assert.equal(call.headers.get('x-tenant-id'), 'org-review')
-        assert.equal(call.headers.get('x-organization-id'), 'org-review')
-        assert.equal(call.body.tenantId, 'org-review')
-        assert.equal(call.body.organizationId, 'org-review')
-        assert.equal(call.body.terms[0].id, 'term-1')
+    for (const outcome of ['pending', 'failed', 'unchanged']) {
+        projectionState = outcome
+        const response = await POST(new NextRequest('https://hanasand.com/api/organizations/org-review/watchlists', {
+            method: 'POST', headers: { authorization: 'Bearer owner-session', id: 'owner', dpop: `synthetic-${outcome}` },
+            body: JSON.stringify({ kind: 'company', value: 'Review Company', requestId: 'request-1' }),
+        }), context)
+        const payload = await response.json()
+        assert.equal(response.status, 201)
+        assert.equal(payload.saved, true)
+        assert.equal(payload.watchlistItem.id, 'term-1')
+        assert.equal(payload.operation.actorId, 'owner')
+        assert.equal(payload.dwmAlertBridge.projection.status, outcome)
+        assert.equal(payload.dwmAlertBridge.alertRebuild.status, 'not_requested')
+        assert.equal('savedAlertCount' in payload.dwmAlertBridge, false)
     }
-
+    assert.equal(calls.length, 3)
+    for (const call of calls) {
+        assert.equal(call.headers.get('authorization'), 'Bearer owner-session')
+        assert.equal(call.headers.get('x-hanasand-server-session-assertion'), 'synthetic-verified-server-key')
+        assert.equal(call.headers.get('dpop'), null)
+    }
     const workspace = organizationWorkspaceSource
     assert.doesNotMatch(workspace, /editDuplicate \|\| !editChanged \|\| Boolean\(busy\)/)
     assert.match(workspace, /\{editChanged \? 'Save' : 'Sync'\}/)
-    assert.match(workspace, /err\.code === 'dwm_watchlist_sync_failed'/)
     assert.match(workspace, /await loadOrganizationBundle\(selectedOrganization\.id\)/)
 })
 

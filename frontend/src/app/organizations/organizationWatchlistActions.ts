@@ -75,7 +75,7 @@ export function createOrganizationWatchlistActions(options: WatchlistOptions) {
 
     const watchlistAction = (item: WatchlistItem, action: 'pause' | 'resume' | 'archive' | 'restore') => selectedOrganization && runAction(`${action}-watchlist`, async () => {
         requireEdit()
-        await requestJson(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/${encodeURIComponent(item.id)}/actions`, {
+        const payload = await requestJson<{ dwmAlertBridge?: DwmAlertBridgeResult }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/${encodeURIComponent(item.id)}/actions`, {
             method: 'POST',
             body: JSON.stringify({
                 action,
@@ -83,24 +83,24 @@ export function createOrganizationWatchlistActions(options: WatchlistOptions) {
                 requestId: `org-ui-${Date.now()}`,
             }),
         })
-        return `${item.value} ${action}d.`
+        return watchlistMutationMessage(payload.dwmAlertBridge, `${item.value} ${action}d.`)
     }, `watchlist-${item.id}`)
 
     const deleteWatchlist = (item: WatchlistItem) => selectedOrganization && runAction('delete-watchlist', async () => {
         requireEdit()
-        await requestJson(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/${encodeURIComponent(item.id)}`, {
+        const payload = await requestJson<{ dwmAlertBridge?: DwmAlertBridgeResult }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/${encodeURIComponent(item.id)}`, {
             method: 'DELETE',
             body: JSON.stringify({
                 reason: 'Shared watchlist term retired from organization workspace.',
                 requestId: `org-ui-${Date.now()}`,
             }),
         })
-        return `${item.value} archived.`
+        return watchlistMutationMessage(payload.dwmAlertBridge, `${item.value} archived.`)
     }, `watchlist-${item.id}`)
 
     const cleanupWatchlists = () => selectedOrganization && runAction('cleanup-watchlists', async () => {
         requireManage()
-        const payload = await requestJson<{ archivedCount?: number, cleanupCount?: number, disabledCount?: number }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/cleanup`, {
+        const payload = await requestJson<{ archivedCount?: number, cleanupCount?: number, disabledCount?: number, dwmAlertBridge?: DwmAlertBridgeResult }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/cleanup`, {
             method: 'POST',
             body: JSON.stringify({
                 reason: 'Archived watchlist cleanup from organization workspace.',
@@ -108,7 +108,7 @@ export function createOrganizationWatchlistActions(options: WatchlistOptions) {
             }),
         })
         const count = payload.archivedCount ?? payload.cleanupCount ?? payload.disabledCount
-        return count === undefined ? 'Archived watchlists cleaned up.' : `${count} archived watchlist${count === 1 ? '' : 's'} cleaned up.`
+        return watchlistMutationMessage(payload.dwmAlertBridge, count === undefined ? 'Archived watchlists cleaned up.' : `${count} archived watchlist${count === 1 ? '' : 's'} cleaned up.`)
     }, 'watchlists-cleanup')
 
     const refreshOrganizationAlerts = () => selectedOrganization && runAction('refresh-events', async () => {
