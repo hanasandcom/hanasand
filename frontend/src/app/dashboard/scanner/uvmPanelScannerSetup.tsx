@@ -4,10 +4,11 @@ import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import type { UvmDashboard } from '@/utils/monitoring/types'
 import { formatDate } from './uvmPanelHelpers'
 import { UvmHelp } from './uvmPanelHelp'
+import { scannerSuiteCatalog } from './scannerSuiteCatalog'
 
 export type TenableRegion = 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp'
 
-export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey, setAccessKey, secretKey, setSecretKey, onSave, onDisconnect }: {
+export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey, setAccessKey, secretKey, setSecretKey, servicesPaused, onSave, onDisconnect }: {
     data: UvmDashboard
     busy: string
     region: TenableRegion
@@ -16,6 +17,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     setAccessKey: Dispatch<SetStateAction<string>>
     secretKey: string
     setSecretKey: Dispatch<SetStateAction<string>>
+    servicesPaused: boolean
     onSave: (event: FormEvent<HTMLFormElement>) => void
     onDisconnect: () => void
 }) {
@@ -33,13 +35,30 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
             {integration?.configured && !data.tenableScans.length && <p className='mt-3 text-sm text-ui-muted'>{data.scannerError || 'No Tenable scan templates are available.'}</p>}
         </section>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-center justify-between gap-3'><h2 className='text-lg font-semibold'>Engine coverage</h2><UvmHelp label='Engine coverage' text='Engine coverage describes what each profile checks. Automated scans find some issues, but do not establish that an application is secure or replace a penetration test.' /></div>
-            {data.engines.map(engine => <div key={engine.id} className='mt-3 rounded-md border border-ui-border bg-ui-raised p-3'>
-                <div className='flex flex-wrap items-center gap-2 text-sm'><strong>{engine.name}</strong><span className={engine.status === 'available' ? 'text-ui-success' : 'text-ui-warning'}>{engine.status}</span>{engine.version && <span className='text-xs text-ui-muted'>v{engine.version}</span>}</div>
-                {engine.reason && <p className='mt-1 text-xs text-ui-warning'>{engine.reason}</p>}
-                {engine.profiles.map(profile => <details key={profile.id} className='mt-2 text-xs'><summary className='cursor-pointer font-semibold'>{profile.name} · coverage details</summary><div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'><p><span className='font-semibold'>Checks:</span> {engine.coverage.join(' · ') || 'Not reported'}</p><p><span className='font-semibold'>Limits:</span> {engine.notCovered.join(' · ') || 'Not reported'}</p></div></details>)}
-            </div>)}
-            {!data.engines.length && <p className='mt-2 text-sm text-ui-warning'>{data.scannerError || 'No scanner engines are available.'}</p>}
+            <div className='flex items-center justify-between gap-3'><h2 className='text-lg font-semibold'>Scanner suite · {scannerSuiteCatalog.length}</h2><UvmHelp label='Scanner suite' text='Integrated engines are shown with live status. Catalog entries need a compatible adapter and license review before they can run.' /></div>
+            {servicesPaused && <p role='status' className='mt-2 text-xs text-ui-warning'>Configured services are stopped pending disk expansion. No scanner is running.</p>}
+            <div className='mt-3 grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>
+                {scannerSuiteCatalog.map(item => {
+                    const engine = ['nmap', 'tenable-vm', 'gvm', 'zap'].includes(item.integration)
+                        ? data.engines.find(candidate => candidate.id === item.integration)
+                        : undefined
+                    const status = item.integration === 'desktop-only' ? 'Desktop only'
+                        : item.integration === 'cli-review' ? 'CLI validation needed'
+                            : item.integration === 'catalog-only' ? 'Adapter setup needed'
+                            : servicesPaused && item.integration === 'nmap' ? 'Stopped · disk and license review'
+                                : servicesPaused ? 'Stopped · disk expansion'
+                                    : engine?.status || (item.integration === 'image-worker' ? 'Integrated · image worker' : 'Unavailable')
+                    const statusClass = servicesPaused && !['desktop-only', 'cli-review', 'catalog-only'].includes(item.integration)
+                        ? 'text-ui-warning'
+                        : item.integration === 'catalog-only' || item.integration === 'desktop-only' || item.integration === 'cli-review'
+                            ? 'text-ui-muted'
+                            : engine?.status === 'available' ? 'text-ui-success' : 'text-ui-warning'
+                    return <div key={item.name} className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-ui-border py-2 text-sm'>
+                        <span className='font-medium'>{item.name}<span className='ml-2 text-xs font-normal text-ui-muted'>{item.category}</span></span>
+                        <span className={`text-xs ${statusClass}`}>{status}</span>
+                    </div>
+                })}
+            </div>
         </section>
     </>
 }

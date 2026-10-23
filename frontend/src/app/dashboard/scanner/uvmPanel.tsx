@@ -11,6 +11,7 @@ import { createUvmPanelAssessmentActions } from './uvmPanelAssessmentActions'
 import { UvmPanelNavigation, type UvmPanelView } from './uvmPanelNavigation'
 import { UvmAssessmentReportView } from './uvmPanelAssessmentReport'
 import { UvmAssessmentHistory, UvmRunHistory } from './uvmPanelHistory'
+import { createUvmPanelHistoryActions } from './uvmPanelHistoryActions'
 import { UvmPanelScannerSetup, type TenableRegion } from './uvmPanelScannerSetup'
 export { filterAndSortUvmFindings } from './uvmPanelHelpers'
 export type { UvmFindingFilters } from './uvmPanelHelpers'
@@ -61,9 +62,13 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
     const [findingFilters, setFindingFilters] = useState<UvmFindingFilters>({ query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })
     const [busy, setBusy] = useState('')
     const [message, setMessage] = useState('')
-    const [view, setView] = useState<UvmPanelView>('overview')
+    const [view, setView] = useState<UvmPanelView>(servicesPaused ? 'scanners' : 'overview')
     const [selectedRun, setSelectedRun] = useState<UvmRun | null>(null)
     const [assessmentReport, setAssessmentReport] = useState<UvmAssessmentReport | null>(null)
+    const { loadOlderFindings, openAssessmentReport, openRun } = createUvmPanelHistoryActions({
+        data, getRunAction, findingHistoryAction, getAssessmentReportAction,
+        setBusy, setMessage, setSelectedRun, setAssessmentReport, setView, setData,
+    })
     const dashboardUnavailable = servicesPaused || Boolean(data.scannerError)
     const activeRuns = data.runs.filter(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status))
     const activeAssessments = data.assessments.some(assessment => ['queued', 'running', 'cancelling'].includes(assessment.status))
@@ -146,14 +151,6 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
         catch (error) { setMessage(error instanceof Error ? error.message : 'Finding could not be updated.') }
         finally { setBusy('') }
     }
-    async function loadOlderFindings(cursor: string | null) {
-        const page = await findingHistoryAction(cursor)
-        setData(current => ({ ...current,
-            findings: [...current.findings, ...page.findings.filter(finding => !current.findings.some(existing => existing.id === finding.id))],
-            findingsNextCursor: page.nextCursor,
-        }))
-        return page
-    }
     async function cancelRun(run: UvmRun) {
         setBusy(`run:${run.id}`); setMessage('')
         try { await cancelRunAction(run.id); await refresh(); setMessage(`Cancellation requested for ${run.target}.`) }
@@ -173,29 +170,10 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
         } catch (error) { setMessage(error instanceof Error ? error.message : 'The assessment could not start.') }
         finally { setBusy('') }
     }
-    async function openAssessmentReport(assessment: UvmAssessment) {
-        setBusy(`report:${assessment.id}`); setMessage('')
-        try { const result = await getAssessmentReportAction(assessment.id); setAssessmentReport(result.assessment) }
-        catch (error) { setMessage(error instanceof Error ? error.message : 'Assessment report could not be loaded.') }
-        finally { setBusy('') }
-    }
-    async function openRun(runId: string, engine: string) {
-        let run = data.runs.find(item => item.id === runId && item.engine === engine)
-        if (!run) {
-            setBusy(`run:${runId}`); setMessage('')
-            try {
-                run = await getRunAction(runId, engine)
-            } catch (error) {
-                setMessage(error instanceof Error ? error.message : 'Scanner run could not be loaded.')
-                return
-            } finally { setBusy('') }
-        }
-        setSelectedRun(run); setView('runs')
-    }
     return <div className='grid gap-4'>
         <UvmPanelNavigation view={view} setView={setView} unavailable={dashboardUnavailable} servicesPaused={servicesPaused} assessmentCount={data.assessments.length} findingCount={attentionFindingCount} />
         <fieldset disabled={dashboardUnavailable} className='m-0 grid min-w-0 gap-4 border-0 p-0'>
-            {view === 'overview' && <UvmOverview data={data} activeRunCount={activeRuns.length} openFindingCount={attentionFindingCount} criticalOrHighCount={criticalOrHighFindingCount}
+            {view === 'overview' && !dashboardUnavailable && <UvmOverview data={data} activeRunCount={activeRuns.length} openFindingCount={attentionFindingCount} criticalOrHighCount={criticalOrHighFindingCount}
                 onManageAssets={() => setView('assets')} onConfigureScanners={() => setView('scanners')} onStartAssessment={() => setView('assessments')} onViewRuns={() => setView('runs')} />}
             {view === 'assessments' && <section className='grid gap-4'><section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
                 <div className='flex items-start justify-between gap-3'><h2 className='text-lg font-semibold'>New assessment</h2><UvmHelp label='Assessment engines and scope' text='Nmap inventories the selected TCP ports. Greenbone uses Full and Fast; Tenable VM runs an enabled Nessus configuration. Scanner rechecks DNS and public IP scope at launch. Results are not a complete penetration test.' /></div>
@@ -214,7 +192,7 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
             </section>}
             {view === 'findings' && <UvmFindingsView data={data} attentionCount={attentionFindingCount} busy={busy} filters={findingFilters} setFilters={setFindingFilters} visibleFindings={visibleFindings} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} nextCursor={data.findingsNextCursor || null} loadOlder={loadOlderFindings} onUpdate={finding => void updateFinding(finding)} />}
             {view === 'assets' && <UvmAssetsView data={data} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths} onSaveZapApiDefinition={asset => void saveZapApiDefinition(asset)} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
-            {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
+            {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} servicesPaused={servicesPaused} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
             {view === 'runs' && <UvmRunHistory key={selectedRun ? `${selectedRun.engine}:${selectedRun.id}` : 'recent'} data={data} unavailable={dashboardUnavailable} selectedRun={selectedRun} busy={busy} nextCursor={data.runsNextCursor || null} loadOlder={getRunHistoryAction} onCancel={cancelRun} />}
         </fieldset>
     </div>}
