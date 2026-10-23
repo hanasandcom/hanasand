@@ -30,6 +30,7 @@ services:
       args:
         NEXT_PUBLIC_API: http://localhost:3282/api
         NEXT_PUBLIC_API_WS: ws://localhost:3282/api/ws
+        NEXT_PUBLIC_AI_API_WS: ws://127.0.0.1:8389/api
         NEXT_PUBLIC_BROWSER_API_URL: http://localhost:8285/api
         NEXT_PUBLIC_BROWSER_WS: ws://localhost:8285/api/ws/browser
         NEXT_PUBLIC_SCANNER_API_URL: http://localhost:18201/api
