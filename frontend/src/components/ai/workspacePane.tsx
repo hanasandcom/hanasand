@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { listTreePaths } from '@/components/share/workspaceTree'
 import { buildFallbackTrust } from './workbenchPaneTrust'
 import { WorkspaceRecentActivityPanel } from './workspaceRecentActivityPanel'
@@ -49,6 +50,7 @@ type WorkspacePaneProps = {
 }
 
 export default function WorkspacePane(props: WorkspacePaneProps) {
+    const [section, setSection] = useState<'repositories' | 'activity' | 'access' | 'launch'>('repositories')
     const {
         activeConversation,
         importedRepos,
@@ -97,20 +99,27 @@ export default function WorkspacePane(props: WorkspacePaneProps) {
     const trust = trustRelease?.trust || buildFallbackTrust(trustRelease)
     const launchReport = trust?.launchReport || []
     return (
-        <aside aria-label='Repository details' className='flex h-full min-h-0 w-full max-w-full min-w-0 flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg bg-ui-raised p-3 outline outline-ui-border'>
-            <div className='flex items-center justify-between gap-2 xl:hidden'>
-                <h2 className='text-sm font-semibold text-ui-text'>Repositories</h2>
+        <aside aria-label='Repository details' className='flex h-full min-h-0 w-full max-w-full min-w-0 flex-col gap-3 overflow-hidden rounded-lg bg-ui-raised p-3 outline outline-ui-border'>
+            <div className='flex shrink-0 justify-end lg:hidden'>
                 <button type='button' onClick={onClose} aria-label='Close repository details' className='grid h-8 w-8 place-items-center rounded-lg text-ui-muted hover:bg-ui-panel hover:text-ui-text'><span aria-hidden='true'>×</span></button>
             </div>
-            <WorkspaceRepositoryPanel importedRepos={importedRepos} initialShares={initialShares} activeConversation={activeConversation} activeRepoId={activeRepoId} syncingRepoId={syncingRepoId} selectedRepoFilePath={selectedRepoFilePath} activeTreePaths={activeTreePaths} selectedContent={selectedContent} recentPaths={recentPaths} lastChangedPath={lastChangedPath} importInput={importInput} githubToken={githubToken} importError={importError} importPending={importPending} onAttachRepo={onAttachRepo} onAttachShare={onAttachShare} onImportInputChange={onImportInputChange} onGitHubTokenChange={onGitHubTokenChange} onImportRepo={onImportRepo} onCreateRepository={name => onScaffoldStarter('nextjs_docker', name)} onRevokeRepoCredential={onRevokeRepoCredential} onRefreshRepo={onRefreshRepo} onSelectRepoFile={onSelectRepoFile} onSelectShareFile={onSelectShareFile} />
-            <WorkspaceRecentActivityPanel lastWorkspaceAction={lastWorkspaceAction} lastWorkspaceActionAt={lastWorkspaceActionAt} lastChangedPath={lastChangedPath} recentPaths={recentPaths} />
-            <WorkspaceCollaborationPanel activeConversation={activeConversation} currentUserId={currentUserId} collaboratorPending={collaboratorPending} collaborationError={collaborationError} onInviteCollaborator={onInviteCollaborator} onRemoveCollaborator={onRemoveCollaborator} />
-            <WorkspaceReleasePanels trustRelease={trustRelease} trust={trust} launchReport={launchReport} releases={releases} rollbackPendingId={rollbackPendingId} onRollbackRelease={onRollbackRelease} />
-            <WorkspaceDeployPanel availableVmTargets={availableVmTargets} activeRepo={activeRepo} activeConversation={activeConversation} deployQuota={deployQuota} deployPending={deployPending} deployments={deployments} onStartDeployment={onStartDeployment} />
-
-
-
-
+            <div aria-label='Repository panel sections' role='group' className='grid shrink-0 grid-cols-4 gap-1 rounded-lg bg-ui-panel p-1 outline outline-ui-border'>
+                {([
+                    ['repositories', 'Repositories'],
+                    ['activity', 'Activity'],
+                    ['access', 'Access'],
+                    ['launch', 'Launch'],
+                ] as const).map(([value, label]) => <button key={value} type='button' aria-pressed={section === value} aria-controls='repository-panel-content' onClick={() => setSection(value)} className={`min-w-0 rounded-md px-1 py-2 text-[11px] font-medium transition-colors ${section === value ? 'bg-ui-raised text-ui-text' : 'text-ui-muted hover:text-ui-text'}`}>{label}</button>)}
+            </div>
+            <div id='repository-panel-content' aria-label={`${section} panel`} className='min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1'>
+                {section === 'repositories' ? <WorkspaceRepositoryPanel importedRepos={importedRepos} initialShares={initialShares} activeConversation={activeConversation} activeRepoId={activeRepoId} syncingRepoId={syncingRepoId} selectedRepoFilePath={selectedRepoFilePath} activeTreePaths={activeTreePaths} selectedContent={selectedContent} recentPaths={recentPaths} lastChangedPath={lastChangedPath} importInput={importInput} githubToken={githubToken} importError={importError} importPending={importPending} onAttachRepo={onAttachRepo} onAttachShare={onAttachShare} onImportInputChange={onImportInputChange} onGitHubTokenChange={onGitHubTokenChange} onImportRepo={onImportRepo} onCreateRepository={name => onScaffoldStarter('nextjs_docker', name)} onRevokeRepoCredential={onRevokeRepoCredential} onRefreshRepo={onRefreshRepo} onSelectRepoFile={onSelectRepoFile} onSelectShareFile={onSelectShareFile} /> : null}
+                {section === 'activity' ? <WorkspaceRecentActivityPanel lastWorkspaceAction={lastWorkspaceAction} lastWorkspaceActionAt={lastWorkspaceActionAt} lastChangedPath={lastChangedPath} recentPaths={recentPaths} /> : null}
+                {section === 'access' ? <WorkspaceCollaborationPanel activeConversation={activeConversation} currentUserId={currentUserId} collaboratorPending={collaboratorPending} collaborationError={collaborationError} onInviteCollaborator={onInviteCollaborator} onRemoveCollaborator={onRemoveCollaborator} /> : null}
+                {section === 'launch' ? <>
+                    <WorkspaceReleasePanels trustRelease={trustRelease} trust={trust} launchReport={launchReport} releases={releases} rollbackPendingId={rollbackPendingId} onRollbackRelease={onRollbackRelease} />
+                    <WorkspaceDeployPanel availableVmTargets={availableVmTargets} activeRepo={activeRepo} activeConversation={activeConversation} deployQuota={deployQuota} deployPending={deployPending} deployments={deployments} onStartDeployment={onStartDeployment} />
+                </> : null}
+            </div>
         </aside>
     )
 }

@@ -95,6 +95,33 @@ test('overview shows compact readiness, honest coverage, and clear next actions'
     expect(html).not.toContain('Cancel scan')
 })
 
+test('unavailable Scanner API shows unknown state instead of empty-result counts', () => {
+    const html = renderToStaticMarkup(<UvmPanel initialData={{
+        assets: [], coverage: [], engines: [], runs: [], assessments: [], findings: [], tenableScans: [],
+        scannerError: 'Failed to fetch', tenableIntegration: null,
+    }}
+    refreshAction={async() => { throw new Error('Failed to fetch') }}
+    createAssetAction={noop} verifyAssetAction={noop} runScanAction={noop} scheduleAction={noop}
+    configureTenableAction={noop} disconnectTenableAction={noop} runTenableScanAction={noop}
+    updateFindingAction={noop} cancelRunAction={noop} startAssessmentAction={noop} cancelAssessmentAction={noop}
+    />)
+
+    expect(html).toContain('Scanner data is unavailable')
+    expect(html).toContain('Assessment readiness')
+    expect(html).toContain('Scanner status unavailable: Failed to fetch')
+    expect(html).toContain('Assessments (—)')
+    expect(html).toContain('Findings (—)')
+    expect(html).toContain('Active scans')
+    expect(html).toContain('Open findings')
+    expect(html).toContain('Coverage unavailable: Failed to fetch')
+    expect(html).not.toContain('0 verified assets')
+    expect(html).not.toContain('0 engines ready')
+    expect(html).not.toContain('Active scans</p><p>0')
+    expect(html).not.toContain('Open findings</p><p>0')
+    expect(html).not.toContain('No scan runs yet.')
+    expect(html).not.toContain('No findings imported')
+})
+
 test('finding filters search CVEs, assets, and scanner metadata', () => {
     const filters = { query: 'cve-2025-0001', engine: 'all', severity: 'all', status: 'all', asset: 'all' }
     expect(filterAndSortUvmFindings(data.findings, filters).map(finding => finding.id)).toEqual(['finding-1'])

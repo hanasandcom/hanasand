@@ -14,16 +14,24 @@ import {
 export default function ScannerWorkspace() {
     const [data, setData] = useState<UvmDashboard>(emptyUvmDashboard)
     const refresh = useCallback(async () => {
-        const next = await getScannerDashboard()
-        setData(next)
-        return next
+        try {
+            const next = await getScannerDashboard()
+            setData(next)
+            return next
+        } catch (error) {
+            setData(current => ({
+                ...current,
+                scannerError: error instanceof Error ? error.message : 'Scanner service is unavailable.',
+            }))
+            throw error
+        }
     }, [])
 
     useEffect(() => {
-        void getScannerDashboard().then(setData).catch(error => setData({
-            ...emptyUvmDashboard,
+        void getScannerDashboard().then(setData).catch(error => setData(current => ({
+            ...current,
             scannerError: error instanceof Error ? error.message : 'Scanner service is unavailable.',
-        }))
+        })))
     }, [])
 
     return <div className='grid gap-4'>

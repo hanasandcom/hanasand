@@ -20,7 +20,7 @@ export function ChatHeader({ conversation, isThinking, showWorkspaceDetails, wor
     return <div className='relative z-10 w-full max-w-full border-b border-ui-border/70 px-4 py-2 sm:px-7'>
         <div className='flex min-w-0 items-center justify-between gap-4'>
             <div className='flex min-w-0 items-center gap-2'>
-                <button type='button' aria-label='Chats' title='Chats' onClick={onToggleMobileChats} className='grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ui-muted transition-colors hover:bg-ui-raised hover:text-ui-text md:hidden'><PanelLeft className='h-4 w-4' /></button>
+                <button type='button' aria-label='Chats' title='Chats' onClick={onToggleMobileChats} className='grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ui-muted transition-colors hover:bg-ui-raised hover:text-ui-text lg:hidden'><PanelLeft className='h-4 w-4' /></button>
                 <div className='min-w-0'>
                     {conversation?.messages.length ? <h1 className='truncate text-sm font-medium text-ui-text'>{conversationTitle(conversation.title)}</h1> : null}
                 </div>
