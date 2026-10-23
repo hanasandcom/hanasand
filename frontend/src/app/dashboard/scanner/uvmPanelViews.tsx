@@ -5,6 +5,7 @@ import type { UvmAsset, UvmDashboard, UvmFinding } from '@/utils/monitoring/type
 import { formatDate, type UvmFindingFilters } from './uvmPanelHelpers'
 import { DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
 import { UvmHelp } from './uvmPanelHelp'
+export { UvmHelp } from './uvmPanelHelp'
 
 export type AssetViewProps = {
     data: UvmDashboard
@@ -159,7 +160,7 @@ export function UvmAssessmentStarter({ data, onManageAssets, onConfigureScanners
             <div className='flex items-center gap-2'>
                 <h2 className='text-base font-semibold'>Assessment readiness</h2>
             </div>
-            <div className='flex items-center gap-2'><UvmHelp label='Assessment scope and engines' text='Nmap inventories TCP services; Tenable VM and Greenbone check known vulnerabilities; ZAP checks the web origin. DNS scope is rechecked at launch. Nessus Pro is not connected.' /><button type='button' onClick={nextAction} disabled={statusUnavailable} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>{statusUnavailable ? 'Unavailable' : nextLabel}</button></div>
+            <div className='flex items-center gap-2'><UvmHelp label='Assessment scope and engines' text='Nmap inventories TCP services; Tenable VM and Greenbone check known vulnerabilities; ZAP checks the web origin. DNS scope is rechecked at launch. Nessus Pro is not connected; scans do not replace a penetration test.' /><button type='button' onClick={nextAction} disabled={statusUnavailable} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>{statusUnavailable ? 'Unavailable' : nextLabel}</button></div>
         </div>
         {statusUnavailable ? <p className='mt-2 text-sm text-ui-warning'>Scanner status unavailable: {data.scannerError}</p> : <p className='mt-2 text-sm text-ui-muted'>{verifiedAssets} verified asset{verifiedAssets === 1 ? '' : 's'} · {readyEngines.length} engines ready · {unavailableEngines.length} unavailable</p>}
         {!statusUnavailable && !readyEngines.length && <p className='mt-2 text-sm text-ui-warning'>Configure an engine to continue. <button type='button' onClick={onConfigureScanners} className='font-semibold underline underline-offset-2'>Scanner setup</button></p>}

@@ -76,13 +76,13 @@ test('overview shows compact readiness, honest coverage, and clear next actions'
 
     expect(html).toContain('example.com')
     expect(html).toContain('Security scanner')
-    expect(html).toContain('Nmap inventories TCP services; GVM and Tenable VM check vulnerabilities.')
+    expect(html).toContain('Nmap inventories TCP services; Tenable VM and Greenbone check known vulnerabilities; ZAP checks the web origin.')
     expect(html).toContain('About Assessment scope and engines')
-    expect(html).toContain('Scans do not validate exploitability.')
+    expect(html).toContain('scans do not replace a penetration test.')
     expect(html).toContain('1 verified asset')
     expect(html).toContain('New assessment')
     expect(html).toContain('Choose scope and scanners')
-    expect(html).toContain('Standalone Nessus Pro is not connected.')
+    expect(html).toContain('Nessus Pro is not connected;')
     expect(html).toContain('Recent activity')
     expect(html).toContain('All runs')
     expect(html).toContain('1 open TCP port · service inventory only')
@@ -108,15 +108,15 @@ test('unavailable Scanner API shows unknown state instead of empty-result counts
     />)
 
     expect(html).toContain('Scanner API offline.')
-    expect(html).not.toContain('Assessment readiness')
-    expect(html).not.toContain('Scanner status unavailable: Failed to fetch')
-    expect(html).not.toContain('Assessments (—)')
-    expect(html).not.toContain('Findings (—)')
-    expect(html).not.toContain('Active scans')
-    expect(html).not.toContain('Open findings')
-    expect(html).not.toContain('Coverage unavailable: Failed to fetch')
-    expect(html).not.toContain('Activity unavailable while Scanner is offline.')
-    expect(html).not.toContain('Schedule status unavailable while Scanner is offline.')
+    expect(html).toContain('Assessment readiness')
+    expect(html).toContain('Scanner status unavailable: Failed to fetch')
+    expect(html).toContain('Assessments (—)')
+    expect(html).toContain('Findings (—)')
+    expect(html).toContain('Active scans')
+    expect(html).toContain('Open findings')
+    expect(html).toContain('Coverage unavailable: Failed to fetch')
+    expect(html).toContain('Activity unavailable while Scanner is offline.')
+    expect(html).toContain('Schedule status unavailable while Scanner is offline.')
     expect(html).not.toContain('No scan runs yet.')
     expect(html).not.toContain('No findings imported')
 })
@@ -185,8 +185,10 @@ test('asset controls expose standard Nmap coverage and recurring Greenbone scans
         data={{ ...data, engines: [...data.engines, { id: 'gvm', name: 'Greenbone', status: 'available', version: null, reason: null, profiles: [], coverage: [], notCovered: [] }] }}
         busy='' message='' hostname='' setHostname={noopSetter} authorization={{ 'asset-1': true }} setAuthorization={noopSetter}
         intervals={{}} setIntervals={noopSetter} scheduleEngines={{}} setScheduleEngines={noopSetter} scheduleProfiles={{}} setScheduleProfiles={noopSetter}
-        assetNmapProfiles={{}} setAssetNmapProfiles={noopSetter} scheduleScanIds={{}} setScheduleScanIds={noopSetter} tenableScanIds={{}} setTenableScanIds={noopSetter}
-        onRefresh={() => undefined} onAddAsset={() => undefined} onVerify={() => undefined} onScan={() => undefined} onScanWithTenable={() => undefined} onSchedule={() => undefined}
+        assetNmapProfiles={{}} setAssetNmapProfiles={noopSetter} zapApiDefinitionPaths={{}} setZapApiDefinitionPaths={noopSetter}
+        onSaveZapApiDefinition={() => undefined} scheduleScanIds={{}} setScheduleScanIds={noopSetter} tenableScanIds={{}} setTenableScanIds={noopSetter}
+        onRefresh={() => undefined} onAddAsset={() => undefined} onVerify={() => undefined} onScan={() => undefined}
+        onScanWithTenable={() => undefined} onScanWithGvm={() => undefined} onScanWithZap={() => undefined} onSchedule={() => undefined}
     />)
     expect(html).toContain('Standard · top 1,000')
     expect(html).toContain('Greenbone vulnerability scan')
