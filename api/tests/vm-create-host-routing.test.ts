@@ -170,10 +170,10 @@ test('VM creation accepts and forwards every listed service', async () => {
     const services = ['nodejs', 'bun', 'python', 'java', 'go', 'php', 'rust', 'ruby', 'cpp', 'docker', 'postgresql', 'mysql', 'sqlite', 'redis', 'nginx', 'website', 'minecraft-java']
     const response = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
-        payload: { name: 'remote-vm', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' }, services, minecraft_eula_accepted: true, minecraft_server_type: 'NEOFORGE' },
+        payload: { name: 'remote-vm', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' }, services, minecraft_eula_accepted: true, minecraft_server_type: 'NEOFORGE', minecraft_addons: ['jei', 'modernfix'] },
     })
     expect(response.statusCode).toBe(201)
-    expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' }, services, minecraftEulaAccepted: true, minecraftServerType: 'NEOFORGE' }))
+    expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '2', memory: '4GiB', disk: '20GiB' }, services, minecraftEulaAccepted: true, minecraftServerType: 'NEOFORGE', minecraftAddons: ['jei', 'modernfix'] }))
 
     const invalid = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
@@ -185,8 +185,12 @@ test('VM creation accepts and forwards every listed service', async () => {
     expect(missingEula.statusCode).toBe(400)
     const unsupportedMinecraftType = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', services: ['minecraft-java'], minecraft_eula_accepted: true, minecraft_server_type: 'CUSTOM' } })
     expect(unsupportedMinecraftType.statusCode).toBe(400)
-    const undersizedMinecraftVm = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['minecraft-java'], minecraft_eula_accepted: true } })
-    expect(undersizedMinecraftVm.statusCode).toBe(400)
+    const unsupportedMinecraftAddon = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', services: ['minecraft-java'], minecraft_eula_accepted: true, minecraft_server_type: 'VANILLA', minecraft_addons: ['jei'] } })
+    expect(unsupportedMinecraftAddon.statusCode).toBe(400)
+    const smallVanillaVm = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'small-vanilla', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['minecraft-java'], minecraft_eula_accepted: true, minecraft_server_type: 'VANILLA' } })
+    expect(smallVanillaVm.statusCode).toBe(201)
+    const undersizedModdedVm = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'small-modded', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['minecraft-java'], minecraft_eula_accepted: true, minecraft_server_type: 'FORGE' } })
+    expect(undersizedModdedVm.statusCode).toBe(400)
 })
 
 test('AI website content is escaped before it crosses the authenticated host boundary', async () => {

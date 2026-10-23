@@ -463,13 +463,24 @@ urllib.request.urlopen = fake_urlopen
 })
 
 test('Minecraft setup resolves official server builds and starts a dedicated systemd service', () => {
-    for (const serverType of ['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'] as const) {
+    for (const serverType of ['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'PURPUR', 'FOLIA'] as const) {
         const cloudInit = vmSetupUserData('game-vm', { services: ['minecraft-java'], minecraftServerType: serverType, minecraftEulaAccepted: true })
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
         const script = config.write_files[0]?.content
         expect(script).toContain('hanasand-minecraft.service')
         expect(script).toContain('eula=true')
         expect(script).not.toContain('not available yet')
+        if (serverType === 'FORGE') expect(script).toContain('maven.minecraftforge.net')
         execFileSync('bash', ['-n'], { input: script })
     }
+    const cloudInit = vmSetupUserData('game-vm', {
+        services: ['minecraft-java'], minecraftServerType: 'FABRIC', minecraftEulaAccepted: true,
+        minecraftAddons: ['fabric-api', 'lithium'],
+    })
+    const script = (parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }).write_files[0]?.content || ''
+    expect(script).toContain('api.modrinth.com/v2/project/')
+    expect(script).toContain('cdn.modrinth.com')
+    expect(script).toContain('hashlib.sha512')
+    expect(script).toContain('/opt/minecraft/mods')
+    execFileSync('bash', ['-n'], { input: script })
 })

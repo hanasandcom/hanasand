@@ -10,10 +10,11 @@ const consoleSession = new URL('../src/components/vms/useVmConsoleSession.ts', i
 const progressHook = new URL('../src/components/vms/useVmProvisioningStatus.ts', import.meta.url)
 const filters = new URL('../src/components/profile/vmFilters.tsx', import.meta.url)
 const osPicker = new URL('../src/components/profile/vmOperatingSystemPicker.tsx', import.meta.url)
+const resourcePicker = new URL('../src/components/profile/vmResourcePicker.tsx', import.meta.url)
 const createRequest = new URL('../src/utils/vms/fetch/postVM.ts', import.meta.url)
 
 test('the VM create form offers locally bundled operating systems and installable services', async () => {
-    const [source, picker, websiteEditor] = await Promise.all([readFile(createForm, 'utf8'), readFile(osPicker, 'utf8'), readFile(new URL('../src/components/profile/vmWebsiteEditor.tsx', import.meta.url), 'utf8')])
+    const [source, picker, resourcePickerSource, websiteEditor, minecraftAddonPicker] = await Promise.all([readFile(createForm, 'utf8'), readFile(osPicker, 'utf8'), readFile(resourcePicker, 'utf8'), readFile(new URL('../src/components/profile/vmWebsiteEditor.tsx', import.meta.url), 'utf8'), readFile(new URL('../src/components/profile/vmMinecraftAddonPicker.tsx', import.meta.url), 'utf8')])
     expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-24.04-desktop', 'ubuntu-26.04', 'ubuntu-22.04'])
     expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'go', 'php', 'rust', 'ruby', 'cpp', 'docker', 'postgresql', 'mysql', 'redis', 'sqlite', 'nginx', 'website', 'minecraft-java'])
     expect(vmServiceTabs).toEqual([
@@ -23,8 +24,11 @@ test('the VM create form offers locally bundled operating systems and installabl
     ])
     expect(vmServices.find(service => service.id === 'java')?.description).toContain('selected Ubuntu release')
     expect(vmResourceOptions.map(option => `${option.cpu}:${option.memory}:${option.disk}`)).toEqual(['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'])
-    expect(vmMinecraftServerTypes.map(server => server.id)).toEqual(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'])
+    expect(vmMinecraftServerTypes.map(server => server.id)).toEqual(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'FORGE', 'PURPUR', 'FOLIA'])
     expect(picker).toContain('Operating system')
+    expect(resourcePickerSource).toContain('role=\'listbox\' aria-label=\'Resource sizes\'')
+    expect(resourcePickerSource).toContain('Choose resources')
+    expect(source).toContain('<VmResourcePicker value={resourcePlan} onChange={setResourcePlan} disabled={creating} availableOptions={availableResources} />')
     expect(source).toContain('Install services')
     expect(source).toContain('role=\'tablist\' aria-label=\'Service categories\'')
     expect(source).toContain('aria-selected={activeServiceTab === tab.id}')
@@ -33,6 +37,10 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('selectedServices')
     expect(source).toContain('resources: { cpu: resources.cpu, memory: resources.memory, disk: resources.disk }')
     expect(source).toContain('minecraft_eula_accepted: minecraftEulaAccepted')
+    expect(source).toContain('minecraft_addons: minecraftAddons')
+    expect(minecraftAddonPicker).toContain('Popular plugins')
+    expect(minecraftAddonPicker).toContain('Popular mods')
+    expect(minecraftAddonPicker).toContain('Matched to the latest Minecraft release')
     expect(source).toContain('website: selectedServices.includes(\'website\') ? websitePlan : null')
     expect(websiteEditor).toContain('aria-label=\'Website preview\'')
     expect(websiteEditor).toContain('Contact email')
@@ -55,7 +63,7 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('role=\'alert\' className=\'rounded-lg border border-ui-danger/25')
     expect(source).toContain('setProjectFiles(plan.projectFiles || [])')
     expect(source).toContain('project_files: projectFiles.length ? projectFiles : undefined')
-    expect(source).toContain('const requiresFourGiB = selectedServices.includes(\'minecraft-java\') || projectFiles.length > 0')
+    expect(source).toContain("projectFiles.length > 0 || (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(minecraftServerType))")
     expect(source).toContain('if (plan.projectFiles?.length && resourcePlan === \'small\') setResourcePlan(\'standard\')')
     expect(source).toContain('a custom app')
     expect(source).toContain('disabled={projectFiles.length > 0 && [\'nodejs\', \'website\', \'minecraft-java\'].includes(service.id)}')
@@ -106,15 +114,15 @@ test('provisioning status can fetch an accessible VM outside the selected worksp
     }
 })
 
-test('organization VM creation explains and blocks the owner/admin-only action before submission', async () => {
+test('organization VM creation enforces access without the owner/admin disclaimer', async () => {
     const [inventory, form] = await Promise.all([readFile(components, 'utf8'), readFile(createForm, 'utf8')])
     expect(inventory).toContain('[\'owner\', \'admin\'].includes(activeOrganization?.role || \'\')')
     expect(inventory).toContain('}, [organizationId, router])')
     expect(inventory).toContain('}, [update])')
     expect(inventory).toContain('const hasOrganizationContext = Boolean(organizationId || organizationName)')
     expect(inventory).toContain('!organizationsLoading && !organizationsUnavailable')
-    expect(inventory).toContain('Only an owner or admin of ${organizationName || \'this organization\'} can create VMs.')
-    expect(form).toContain('{!canCreate && <p role=\'status\'')
+    expect(inventory).not.toContain('Only an owner or admin of')
+    expect(form).toContain('{!canCreate && permissionMessage && <p role=\'status\'')
     expect(form).toContain('disabled={creating || !canCreate || unresolvedSetupPrompt}')
 })
 

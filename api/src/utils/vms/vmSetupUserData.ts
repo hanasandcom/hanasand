@@ -31,7 +31,9 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
         encoding: 'b64',
         content: Buffer.from(file.content, 'utf8').toString('base64'),
     }))
-    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages)
+    const minecraftAddons = options.minecraftAddons || []
+    if (minecraftAddons.length && !services.includes('minecraft-java')) throw new Error('Minecraft add-ons require the Minecraft Java service.')
+    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages)
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -60,11 +62,11 @@ function yamlObject(value: Record<string, unknown>) {
     return JSON.stringify(value, null, 2)
 }
 
-function createSetupScript(name: string, services: string[], minecraftType: string, websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string) {
+function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
     const minecraft = services.includes('minecraft-java')
-        ? minecraftSetup(name, minecraftType, minecraftMemoryGb)
+        ? minecraftSetup(name, minecraftType, minecraftMemoryGb, minecraftAddons)
         : ''
     const website = websiteBase64
         ? `install -d -m 0755 /var/www/html\nprintf '%s' '${websiteBase64}' | base64 -d > /var/www/html/index.html\nchown www-data:www-data /var/www/html/index.html\n`
@@ -436,24 +438,89 @@ function nextjsService(name: string) {
 }
 
 /* eslint-disable @stylistic/quotes -- generated bash keeps its shell quoting inside template literals. */
-function minecraftSetup(name: string, type: string, memoryGb: number) {
-    const safeType = ['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'].includes(type) ? type : 'PAPER'
+function minecraftSetup(name: string, type: string, memoryGb: number, addons: string[]) {
+    const safeType = ['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'PURPUR', 'FOLIA'].includes(type) ? type : 'PAPER'
     let download: string
     if (safeType === 'PAPER' || safeType === 'FOLIA') {
         const project = safeType.toLowerCase()
-        download = `project='${project}'\nuser_agent='Hanasand VM Provisioner/1.0 (https://hanasand.com)'\nversion="$(curl -fsSL --retry 3 -H "User-Agent: $user_agent" "https://fill.papermc.io/v3/projects/$project" | jq -r '.versions | to_entries[0] | .value[0]')"\nbuilds="$(curl -fsSL --retry 3 -H "User-Agent: $user_agent" "https://fill.papermc.io/v3/projects/$project/versions/$version/builds")"\nserver_url="$(printf '%s' "$builds" | jq -r 'map(select(.channel == "STABLE")) | .[0].downloads["server:default"].url // empty')"\ntest -n "$server_url"\ncurl -fsSL --retry 3 "$server_url" -o /opt/minecraft/server.jar\n`
+        download = `project='${project}'\nuser_agent='Hanasand VM Provisioner/1.0 (https://hanasand.com)'\nmc_game_version="$(curl -fsSL --retry 3 -H "User-Agent: $user_agent" "https://fill.papermc.io/v3/projects/$project" | jq -r '.versions | to_entries[0] | .value[0]')"\nversion="$mc_game_version"\nbuilds="$(curl -fsSL --retry 3 -H "User-Agent: $user_agent" "https://fill.papermc.io/v3/projects/$project/versions/$version/builds")"\nserver_url="$(printf '%s' "$builds" | jq -r 'map(select(.channel == "STABLE")) | .[0].downloads["server:default"].url // empty')"\ntest -n "$server_url"\ncurl -fsSL --retry 3 "$server_url" -o /opt/minecraft/server.jar\n`
     } else if (safeType === 'PURPUR') {
-        download = `version="$(curl -fsSL --retry 3 https://api.purpurmc.org/v2/purpur | jq -r '.versions[-1]')"\ncurl -fsSL --retry 3 "https://api.purpurmc.org/v2/purpur/$version/latest/download" -o /opt/minecraft/server.jar\n`
+        download = `mc_game_version="$(curl -fsSL --retry 3 https://api.purpurmc.org/v2/purpur | jq -r '.versions[-1]')"\nversion="$mc_game_version"\ncurl -fsSL --retry 3 "https://api.purpurmc.org/v2/purpur/$version/latest/download" -o /opt/minecraft/server.jar\n`
     } else if (safeType === 'VANILLA') {
-        download = `version_url="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release as $v | .versions[] | select(.id == $v) | .url')"\nserver_url="$(curl -fsSL --retry 3 "$version_url" | jq -r '.downloads.server.url')"\ncurl -fsSL --retry 3 "$server_url" -o /opt/minecraft/server.jar\n`
+        download = `mc_game_version="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"\nversion_url="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r --arg v "$mc_game_version" '.versions[] | select(.id == $v) | .url')"\nserver_url="$(curl -fsSL --retry 3 "$version_url" | jq -r '.downloads.server.url')"\ncurl -fsSL --retry 3 "$server_url" -o /opt/minecraft/server.jar\n`
+    } else if (safeType === 'FORGE') {
+        download = `mc_game_version="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"\ngame_version="$mc_game_version"\nforge_version="$(curl -fsSL --retry 3 https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json | jq -r --arg game "$game_version" '.promos[($game + "-recommended")] // .promos[($game + "-latest")] // empty')"\ntest -n "$forge_version"\ncurl -fsSL --retry 3 "https://maven.minecraftforge.net/net/minecraftforge/forge/$game_version-$forge_version/forge-$game_version-$forge_version-installer.jar" -o /opt/minecraft/installer.jar\n(cd /opt/minecraft && java -jar installer.jar --installServer)\nprintf '%s\\n' '-Xms1G' '-Xmx${memoryGb}G' > /opt/minecraft/user_jvm_args.txt\ntest -s /opt/minecraft/run.sh\nchmod 0755 /opt/minecraft/run.sh\n`
     } else if (safeType === 'FABRIC' || safeType === 'QUILT') {
         const domain = safeType === 'FABRIC' ? 'meta.fabricmc.net' : 'meta.quiltmc.org'
         const endpoint = safeType === 'FABRIC' ? 'v2/versions/loader' : 'v3/versions/loader'
-        download = `game_version="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"\nloader_version="$(curl -fsSL --retry 3 https://${domain}/${endpoint} | jq -r '.[0].loader.version')"\ninstaller_version="$(curl -fsSL --retry 3 https://${domain}/v${safeType === 'FABRIC' ? '2' : '3'}/versions/installer | jq -r '.[0].version')"\ncurl -fsSL --retry 3 "https://${domain}/${endpoint}/$game_version/$loader_version/$installer_version/server/jar" -o /opt/minecraft/server.jar\n`
+        download = `mc_game_version="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"\ngame_version="$mc_game_version"\nloader_version="$(curl -fsSL --retry 3 https://${domain}/${endpoint} | jq -r '.[0].loader.version')"\ninstaller_version="$(curl -fsSL --retry 3 https://${domain}/v${safeType === 'FABRIC' ? '2' : '3'}/versions/installer | jq -r '.[0].version')"\ncurl -fsSL --retry 3 "https://${domain}/${endpoint}/$game_version/$loader_version/$installer_version/server/jar" -o /opt/minecraft/server.jar\n`
     } else {
-        download = `installer="$(curl -fsSL --retry 3 https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml | sed -n 's:.*<latest>\\([^<]*\\)</latest>.*:\\1:p')"\ntest -n "$installer"\ncurl -fsSL --retry 3 "https://maven.neoforged.net/releases/net/neoforged/neoforge/$installer/neoforge-$installer-installer.jar" -o /opt/minecraft/installer.jar\n(cd /opt/minecraft && java -jar installer.jar --installServer)\nif [[ -f /opt/minecraft/run.sh ]]; then install -m 0755 /opt/minecraft/run.sh /opt/minecraft/start.sh; else exit 1; fi\n`
+        download = `mc_game_version="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"\ninstaller="$(curl -fsSL --retry 3 https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml | sed -n 's:.*<latest>\\([^<]*\\)</latest>.*:\\1:p')"\ntest -n "$installer"\ncurl -fsSL --retry 3 "https://maven.neoforged.net/releases/net/neoforged/neoforge/$installer/neoforge-$installer-installer.jar" -o /opt/minecraft/installer.jar\n(cd /opt/minecraft && java -jar installer.jar --installServer)\nif [[ -f /opt/minecraft/run.sh ]]; then install -m 0755 /opt/minecraft/run.sh /opt/minecraft/start.sh; else exit 1; fi\n`
     }
-    const startCommand = safeType === 'NEOFORGE' ? './start.sh nogui' : `java -Xms1G -Xmx${memoryGb}G -jar /opt/minecraft/server.jar --nogui`
-    return `write_state Provisioning 'Installing Minecraft ${safeType}'\ninstall -d -o '${name}' -g '${name}' /opt/minecraft\ncd /opt/minecraft\n${download}printf 'eula=true\\n' > eula.txt\nchown -R '${name}:${name}' /opt/minecraft\ncat > /etc/systemd/system/hanasand-minecraft.service <<'SERVICE'\n[Unit]\nDescription=Minecraft ${safeType} server\nAfter=network-online.target\nWants=network-online.target\n[Service]\nUser=${name}\nWorkingDirectory=/opt/minecraft\nExecStart=/bin/bash -lc '${startCommand}'\nRestart=on-failure\nRestartSec=5\n[Install]\nWantedBy=multi-user.target\nSERVICE\nsystemctl daemon-reload\nsystemctl enable --now hanasand-minecraft.service\nfor attempt in {1..120}; do\n  if ss -lntH 'sport = :25565' | grep -q LISTEN; then break; fi\n  sleep 1\ndone\nss -lntH 'sport = :25565' | grep -q LISTEN\n`
+    const startCommand = safeType === 'NEOFORGE' ? './start.sh nogui' : safeType === 'FORGE' ? './run.sh nogui' : `java -Xms1G -Xmx${memoryGb}G -jar /opt/minecraft/server.jar --nogui`
+    const addonInstall = addons.length ? minecraftAddonInstall(addons, safeType) : ''
+    return `write_state Provisioning 'Installing Minecraft ${safeType}'\ninstall -d -o '${name}' -g '${name}' /opt/minecraft\ncd /opt/minecraft\n${download}${addonInstall}printf 'eula=true\\n' > eula.txt\nchown -R '${name}:${name}' /opt/minecraft\ncat > /etc/systemd/system/hanasand-minecraft.service <<'SERVICE'\n[Unit]\nDescription=Minecraft ${safeType} server\nAfter=network-online.target\nWants=network-online.target\n[Service]\nUser=${name}\nWorkingDirectory=/opt/minecraft\nExecStart=/bin/bash -lc '${startCommand}'\nRestart=on-failure\nRestartSec=5\n[Install]\nWantedBy=multi-user.target\nSERVICE\nsystemctl daemon-reload\nsystemctl enable --now hanasand-minecraft.service\nfor attempt in {1..120}; do\n  if ss -lntH 'sport = :25565' | grep -q LISTEN; then break; fi\n  sleep 1\ndone\nss -lntH 'sport = :25565' | grep -q LISTEN\n`
+}
+
+function minecraftAddonInstall(addons: string[], type: string) {
+    const loader = ['PAPER', 'PURPUR'].includes(type) ? 'paper'
+        : type === 'FABRIC' ? 'fabric' : type === 'QUILT' ? 'quilt'
+            : type === 'FORGE' ? 'forge' : type === 'NEOFORGE' ? 'neoforge' : ''
+    if (!loader || addons.some(addon => !/^[a-z0-9-]+$/.test(addon))) throw new Error('Selected Minecraft add-ons are not supported by this server software.')
+    const folder = loader === 'paper' ? 'plugins' : 'mods'
+    const selection = JSON.stringify(addons)
+    return `set_stage 'Installing selected Minecraft ${folder}'\ninstall -d -m 0755 /opt/minecraft/${folder}\nrun_bounded 600 python3 - /opt/minecraft/${folder} '${loader}' '${selection}' "$mc_game_version" <<'PY'
+import hashlib
+import json
+import pathlib
+import re
+import sys
+import urllib.parse
+import urllib.request
+
+directory, loader, requested_json = sys.argv[1:]
+projects = {
+    'essentialsx': 'essentialsx', 'luckperms': 'luckperms', 'viaversion': 'viaversion',
+    'worldedit': 'worldedit', 'spark': 'spark', 'fabric-api': 'fabric-api',
+    'lithium': 'lithium', 'ferritecore': 'ferritecore', 'krypton': 'krypton',
+    'jei': 'jei', 'modernfix': 'modernfix',
+}
+requested = json.loads(requested_json)
+if not isinstance(requested, list) or len(requested) > 6 or any(item not in projects for item in requested):
+    raise SystemExit('Unsupported Minecraft add-on selection.')
+game_version = sys.argv[4]
+if not re.fullmatch(r'\d+(?:\.\d+){1,3}', game_version):
+    raise SystemExit('The Minecraft server returned an invalid game version.')
+headers = {'User-Agent': 'Hanasand VM Provisioner/1.0', 'Accept': 'application/json'}
+for slug in requested:
+    query = urllib.parse.urlencode({'loaders': json.dumps([loader]), 'game_versions': json.dumps([game_version])})
+    request = urllib.request.Request(f'https://api.modrinth.com/v2/project/{projects[slug]}/version?{query}', headers=headers)
+    with urllib.request.urlopen(request, timeout=30) as response:
+        versions = json.load(response)
+    version = next((item for item in versions if item.get('version_type') == 'release' and isinstance(item.get('files'), list)), None)
+    if not version:
+        raise SystemExit(f'No released {slug} build supports Minecraft {game_version} on {loader}.')
+    files = version['files']
+    file = next((item for item in files if item.get('primary') is True), files[0] if files else None)
+    if not isinstance(file, dict):
+        raise SystemExit(f'Modrinth returned no file for {slug}.')
+    url, filename = file.get('url'), file.get('filename')
+    expected = file.get('hashes', {}).get('sha512')
+    if not isinstance(url, str) or urllib.parse.urlparse(url).hostname != 'cdn.modrinth.com':
+        raise SystemExit(f'Modrinth returned an untrusted download URL for {slug}.')
+    if not isinstance(filename, str) or not re.fullmatch(r'[A-Za-z0-9_.+-]{1,160}', filename):
+        raise SystemExit(f'Modrinth returned an unsafe filename for {slug}.')
+    if not isinstance(expected, str) or not re.fullmatch(r'[a-fA-F0-9]{128}', expected):
+        raise SystemExit(f'Modrinth returned no valid SHA-512 for {slug}.')
+    download = urllib.request.Request(url, headers={'User-Agent': 'Hanasand VM Provisioner/1.0'})
+    with urllib.request.urlopen(download, timeout=60) as response:
+        if urllib.parse.urlparse(response.geturl()).hostname != 'cdn.modrinth.com':
+            raise SystemExit(f'Modrinth redirected {slug} outside its CDN.')
+        data = response.read(50_000_001)
+    if len(data) > 50_000_000 or hashlib.sha512(data).hexdigest().lower() != expected.lower():
+        raise SystemExit(f'Download verification failed for {slug}.')
+    pathlib.Path(directory, filename).write_bytes(data)
+PY
+`
 }
 /* eslint-enable @stylistic/quotes */

@@ -37,7 +37,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
         ? 'Organization access could not be checked. Reload to try again.'
         : organizationsLoading
             ? 'Checking organization access…'
-            : `Only an owner or admin of ${organizationName || 'this organization'} can create VMs.`
+            : ''
     const visibleVms = filterVms(vms, filters, diskTotalsMb)
     const editorOptions = Array.from(new Set(vms.flatMap(vm => vm.access_users || []))).sort((a, b) => a.localeCompare(b))
 
@@ -126,7 +126,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
                 </div>
             </div>
 
-            {hasOrganizationContext && !canCreateInWorkspace && <p role='status' className='-mt-2 text-xs leading-5 text-ui-muted'>{createPermissionMessage}</p>}
+            {hasOrganizationContext && !canCreateInWorkspace && createPermissionMessage && <p role='status' className='-mt-2 text-xs leading-5 text-ui-muted'>{createPermissionMessage}</p>}
 
             <VmCreateForm id={createFormId} visible={showCreate} organizationId={organizationId || null} canCreate={canCreateInWorkspace} permissionMessage={createPermissionMessage} notify={notify} onCreating={setCreating} onCreated={(vm, name) => {
                 if (vm) setVms(current => [vm, ...current.filter(item => item.name !== name)])

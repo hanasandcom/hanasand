@@ -17,6 +17,7 @@ import { isSupportedSetupService, supportedSetupServices } from '#utils/vms/supp
 import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
 import { isVmWebsitePlan, renderVmWebsite } from '#utils/vms/website.ts'
 import { normalizeNextjsProjectFiles } from '#utils/vms/nextjsProject.ts'
+import { minecraftAddonLoader, normalizeMinecraftAddons } from '#utils/vms/minecraftAddons.ts'
 
 export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     const body = req.body as {
@@ -31,6 +32,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         services?: VmProvisionOptions['services']
         minecraft_eula_accepted?: boolean
         minecraft_server_type?: VmProvisionOptions['minecraftServerType']
+        minecraft_addons?: unknown
         custom_apt_packages?: unknown
         website?: unknown
         project_files?: unknown
@@ -77,7 +79,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         if (!organization.rows[0]) return res.status(403).send({ error: 'An organization owner or admin must create VMs.' })
     }
 
-    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.custom_apt_packages, body.website, body.project_files)
+    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.minecraft_addons, body.custom_apt_packages, body.website, body.project_files)
     if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
 
     if (!canAssignOwner && !/^[a-z][a-z0-9-]{0,61}[a-z0-9]$/.test(name)) return res.status(400).send({ error: 'Use 2–63 lowercase letters, numbers or hyphens, starting with a letter.' })
@@ -221,6 +223,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                         services: provisionOptions.services,
                         ...(provisionOptions.aptPackages?.length ? { additionalUbuntuPackages: provisionOptions.aptPackages } : {}),
                         ...(provisionOptions.minecraftServerType ? { minecraftServerType: provisionOptions.minecraftServerType } : {}),
+                        ...(provisionOptions.minecraftAddons?.length ? { minecraftAddons: provisionOptions.minecraftAddons } : {}),
                         minecraftEulaAccepted: provisionOptions.minecraftEulaAccepted,
                     },
                     ...(organizationId ? { organizationId } : {}),
@@ -262,7 +265,7 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
 
 class VmProvisionQueueError extends Error {}
 
-function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, customAptPackages: unknown, website: unknown, projectFilesInput?: unknown): VmProvisionOptions | null {
+function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, minecraftAddonsInput: unknown, customAptPackages: unknown, website: unknown, projectFilesInput?: unknown): VmProvisionOptions | null {
     const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
     const resourceOptions = new Set(['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'])
@@ -274,9 +277,14 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     const selectedServices = [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)]
     if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null
     const selectedResources = (resources || { cpu: '1', memory: '2GiB', disk: '10GiB' }) as NonNullable<VmProvisionOptions['resources']>
-    if (selectedServices.includes('minecraft-java') && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
+    const selectedMinecraftType = (minecraftServerType || 'PAPER') as NonNullable<VmProvisionOptions['minecraftServerType']>
+    const selectedMinecraftAddons = normalizeMinecraftAddons(minecraftAddonsInput, selectedMinecraftType)
+    if (!selectedMinecraftAddons || (selectedMinecraftAddons.length && !selectedServices.includes('minecraft-java'))
+        || (selectedMinecraftAddons.length && !minecraftAddonLoader(selectedMinecraftType))) return null
+    if (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(selectedMinecraftType)
+        && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
     if (os === 'ubuntu-24.04-desktop' && (selectedResources.memory !== '8GiB' || selectedResources.disk !== '40GiB')) return null
-    const supportedMinecraftTypes = new Set(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'])
+    const supportedMinecraftTypes = new Set(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'PURPUR', 'FOLIA'])
     if (minecraftServerType !== undefined && (typeof minecraftServerType !== 'string' || !supportedMinecraftTypes.has(minecraftServerType))) return null
     if (minecraftServerType !== undefined && !selectedServices.includes('minecraft-java')) return null
     if (website !== undefined && website !== null && !isVmWebsitePlan(website)) return null
@@ -291,7 +299,8 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
         services: selectedServices,
         ...(selectedAptPackages.length ? { aptPackages: selectedAptPackages } : {}),
         minecraftEulaAccepted: minecraftEulaAccepted === true,
-        ...(selectedServices.includes('minecraft-java') ? { minecraftServerType: (minecraftServerType || 'PAPER') as NonNullable<VmProvisionOptions['minecraftServerType']> } : {}),
+        ...(selectedServices.includes('minecraft-java') ? { minecraftServerType: selectedMinecraftType } : {}),
+        ...(selectedMinecraftAddons.length ? { minecraftAddons: selectedMinecraftAddons } : {}),
         ...(website ? { websiteHtml: renderVmWebsite(website) } : {}),
         ...(nextjsProjectFiles ? { nextjsProjectFiles } : {}),
     }

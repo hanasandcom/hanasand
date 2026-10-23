@@ -28,7 +28,7 @@ export const vmServices = [
     { id: 'sqlite', group: 'Data', label: 'SQLite', description: 'Lightweight embedded database and command-line tools' },
     { id: 'nginx', group: 'Web', label: 'Nginx', description: 'Web server for sites and apps' },
     { id: 'website', group: 'Web', label: 'Website', description: 'A responsive site generated from your description or a ready-to-edit starter' },
-    { id: 'minecraft-java', group: 'Game servers', label: 'Minecraft Java', description: 'Paper, Vanilla, Fabric, Quilt, NeoForge, Purpur or Folia · 4 GB minimum · port 443 access' },
+    { id: 'minecraft-java', group: 'Game servers', label: 'Minecraft Java', description: 'Vanilla or modded server with Paper, Fabric, Quilt, Forge, NeoForge, Purpur or Folia' },
 ] as const
 
 export const vmServiceTabs = [
@@ -42,11 +42,35 @@ export const vmMinecraftServerTypes = [
     { id: 'FABRIC', label: 'Fabric', description: 'Lightweight mod support' },
     { id: 'QUILT', label: 'Quilt', description: 'Community mod loader compatible with many Fabric mods' },
     { id: 'NEOFORGE', label: 'NeoForge', description: 'Modded servers for modern Minecraft versions' },
+    { id: 'FORGE', label: 'Forge', description: 'A widely used mod loader with a large mod library' },
     { id: 'PURPUR', label: 'Purpur', description: 'Paper-compatible server with more configuration options' },
     { id: 'FOLIA', label: 'Folia', description: 'Region-threaded Paper server for larger worlds' },
 ] as const
 
 export type VmMinecraftServerType = typeof vmMinecraftServerTypes[number]['id']
+
+export const vmMinecraftAddons = {
+    PAPER: [
+        { id: 'essentialsx', label: 'EssentialsX', description: 'Homes, warps and useful server commands' },
+        { id: 'luckperms', label: 'LuckPerms', description: 'Groups and permissions' },
+        { id: 'viaversion', label: 'ViaVersion', description: 'Let newer Minecraft clients join' },
+        { id: 'worldedit', label: 'WorldEdit', description: 'Build and edit large areas' },
+        { id: 'spark', label: 'spark', description: 'Server performance profiler' },
+    ],
+    FABRIC: [
+        { id: 'fabric-api', label: 'Fabric API', description: 'Common library required by many Fabric mods' },
+        { id: 'lithium', label: 'Lithium', description: 'Server-side performance improvements' },
+        { id: 'ferritecore', label: 'FerriteCore', description: 'Reduce server memory use' },
+        { id: 'krypton', label: 'Krypton', description: 'Optimize Minecraft networking' },
+        { id: 'spark', label: 'spark', description: 'Server performance profiler' },
+    ],
+    FORGE: [
+        { id: 'jei', label: 'Just Enough Items', description: 'Browse recipes and items' },
+        { id: 'ferritecore', label: 'FerriteCore', description: 'Reduce server memory use' },
+        { id: 'modernfix', label: 'ModernFix', description: 'Performance and memory optimizations' },
+        { id: 'spark', label: 'spark', description: 'Server performance profiler' },
+    ],
+} as const
 
 export type VmOperatingSystem = typeof vmOperatingSystems[number]['id']
 export type VmService = typeof vmServices[number]['id']

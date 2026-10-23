@@ -8,7 +8,7 @@ import { vmCreateTimeoutMs } from '../proxyTimeout'
 import type { VmMinecraftServerType } from '../createOptions'
 import type { VmWebsitePlan } from './suggestVmSetup'
 
-export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, resources?: { cpu: string, memory: string, disk: string }, services?: string[], custom_apt_packages?: string[], minecraft_eula_accepted?: boolean, minecraft_server_type?: VmMinecraftServerType, website?: VmWebsitePlan | null, organization_id?: string | null, project_files?: Array<{ path: string, content: string }> }
+export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, resources?: { cpu: string, memory: string, disk: string }, services?: string[], custom_apt_packages?: string[], minecraft_eula_accepted?: boolean, minecraft_server_type?: VmMinecraftServerType, minecraft_addons?: string[], website?: VmWebsitePlan | null, organization_id?: string | null, project_files?: Array<{ path: string, content: string }> }
 
 export default async function postVM(vm: CreateVmRequest): Promise<{ status: number, message: string, vm?: VM }> {
     try {

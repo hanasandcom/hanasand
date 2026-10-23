@@ -6,6 +6,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceTabs, vmServices } from '@/utils/vms/createOptions'
 import type { NotifyVmAction } from '@/components/vms/vmActionFeedback'
 import VmOperatingSystemPicker from './vmOperatingSystemPicker'
+import VmResourcePicker from './vmResourcePicker'
+import VmMinecraftAddonPicker from './vmMinecraftAddonPicker'
 import VmWebsiteEditor from './vmWebsiteEditor'
 
 const starterWebsitePlan: VmWebsitePlan = {
@@ -37,6 +39,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const [customAptPackages, setCustomAptPackages] = useState<string[]>([])
     const [minecraftEulaAccepted, setMinecraftEulaAccepted] = useState(false)
     const [minecraftServerType, setMinecraftServerType] = useState<typeof vmMinecraftServerTypes[number]['id']>('PAPER')
+    const [minecraftAddons, setMinecraftAddons] = useState<string[]>([])
     const [setupPrompt, setSetupPrompt] = useState('')
     const [setupSuggestion, setSetupSuggestion] = useState('')
     const [suggestedSetupKey, setSuggestedSetupKey] = useState('')
@@ -46,7 +49,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const [creating, setCreating] = useState(false)
     const [creationError, setCreationError] = useState('')
     const requiresLargePlan = operatingSystem === 'ubuntu-24.04-desktop'
-    const requiresFourGiB = selectedServices.includes('minecraft-java') || projectFiles.length > 0
+    const requiresFourGiB = projectFiles.length > 0 || (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(minecraftServerType))
     const availableResources = vmResourceOptions.filter(option => requiresLargePlan
         ? option.id === 'large'
         : !requiresFourGiB || option.memory !== '2GiB')
@@ -65,7 +68,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         try {
             const vmName = name.trim()
             const resources = vmResourceOptions.find(option => option.id === resourcePlan) || vmResourceOptions[0]
-            const result = await postVM({ name: vmName, os: operatingSystem, resources: { cpu: resources.cpu, memory: resources.memory, disk: resources.disk }, services: selectedServices, custom_apt_packages: customAptPackages, minecraft_eula_accepted: minecraftEulaAccepted, minecraft_server_type: selectedServices.includes('minecraft-java') ? minecraftServerType : undefined, website: selectedServices.includes('website') ? websitePlan : null, project_files: projectFiles.length ? projectFiles : undefined, organization_id: organizationId || null })
+            const result = await postVM({ name: vmName, os: operatingSystem, resources: { cpu: resources.cpu, memory: resources.memory, disk: resources.disk }, services: selectedServices, custom_apt_packages: customAptPackages, minecraft_eula_accepted: minecraftEulaAccepted, minecraft_server_type: selectedServices.includes('minecraft-java') ? minecraftServerType : undefined, minecraft_addons: minecraftAddons, website: selectedServices.includes('website') ? websitePlan : null, project_files: projectFiles.length ? projectFiles : undefined, organization_id: organizationId || null })
             if (result.status !== 201) {
                 setCreationError(result.message)
                 notify(result.message, 'error', 'vm-create')
@@ -78,6 +81,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             setCustomAptPackages([])
             setMinecraftEulaAccepted(false)
             setMinecraftServerType('PAPER')
+            setMinecraftAddons([])
             setSetupPrompt('')
             setSetupSuggestion('')
             setWebsitePlan(starterWebsitePlan)
@@ -99,7 +103,8 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         try {
             const plan = await suggestVmSetup(setupPrompt, operatingSystem)
             setSelectedServices(plan.services)
-            if (plan.services.includes('minecraft-java') && resourcePlan === 'small') setResourcePlan('standard')
+            if (plan.services.includes('minecraft-java') && plan.minecraftServerType && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(plan.minecraftServerType) && resourcePlan === 'small') setResourcePlan('standard')
+            setMinecraftAddons([])
             setCustomAptPackages(plan.aptPackages)
             setSetupSuggestion(plan.summary)
             setWebsitePlan(plan.website || starterWebsitePlan)
@@ -139,7 +144,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                 if (setupPrompt.trim()) setSetupSuggestion('The operating system changed. Generate the setup again to check package compatibility.')
                 if (value === 'ubuntu-24.04-desktop') setResourcePlan('large')
             }} disabled={creating} />
-            <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>Resources<select value={resourcePlan} onChange={event => setResourcePlan(event.target.value)} disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{availableResources.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+            <VmResourcePicker value={resourcePlan} onChange={setResourcePlan} disabled={creating} availableOptions={availableResources} />
         </div>
         {operatingSystem === 'ubuntu-24.04-desktop' && <p className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-xs leading-5 text-ui-muted'>After creation, open the VM's Access panel and use its SSH details with <code className='rounded bg-ui-raised px-1 py-0.5 text-ui-text'>-N -L 3389:127.0.0.1:3389</code> added. Then open Remote Desktop at <code className='rounded bg-ui-raised px-1 py-0.5 text-ui-text'>127.0.0.1:3389</code> and sign in with your VM username and password.</p>}
         <fieldset disabled={creating} className='grid gap-2'>
@@ -177,8 +182,11 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         </fieldset>
         {selectedServices.includes('minecraft-java') && <label className='flex items-start gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm text-ui-muted'><input type='checkbox' checked={minecraftEulaAccepted} onChange={event => setMinecraftEulaAccepted(event.target.checked)} className='mt-1 accent-ui-primary' /><span>I accept the <a href='https://www.minecraft.net/eula' target='_blank' rel='noopener noreferrer' className='font-medium text-ui-primary underline underline-offset-4'>Minecraft EULA</a>.</span></label>}
         {selectedServices.includes('website') && <VmWebsiteEditor plan={websitePlan} onChange={setWebsitePlan} disabled={creating} />}
-        {selectedServices.includes('minecraft-java') && <label className='grid gap-1 text-sm text-ui-muted'>Server software<select value={minecraftServerType} onChange={event => setMinecraftServerType(event.target.value as typeof vmMinecraftServerTypes[number]['id'])} disabled={creating} className='h-10 max-w-sm rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{vmMinecraftServerTypes.map(type => <option key={type.id} value={type.id}>{type.label} · {type.description}</option>)}</select></label>}
-        {!canCreate && <p role='status' className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm leading-5 text-ui-muted'>{permissionMessage}</p>}
+        {selectedServices.includes('minecraft-java') && <>
+            <label className='grid gap-1 text-sm text-ui-muted'>Server software<select value={minecraftServerType} onChange={event => { const type = event.target.value as typeof vmMinecraftServerTypes[number]['id']; setMinecraftServerType(type); setMinecraftAddons([]); if (['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(type) && resourcePlan === 'small') setResourcePlan('standard') }} disabled={creating} className='h-10 max-w-sm rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{vmMinecraftServerTypes.map(type => <option key={type.id} value={type.id}>{type.label} · {type.description}</option>)}</select></label>
+            <VmMinecraftAddonPicker serverType={minecraftServerType} value={minecraftAddons} onChange={setMinecraftAddons} disabled={creating} />
+        </>}
+        {!canCreate && permissionMessage && <p role='status' className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm leading-5 text-ui-muted'>{permissionMessage}</p>}
         {unresolvedSetupPrompt && <p role='status' className='text-xs leading-5 text-ui-muted'>Generate a supported setup for this description, or clear it to create a blank VM.</p>}
         <button disabled={creating || !canCreate || unresolvedSetupPrompt} className='h-10 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{creating ? 'Creating VM…' : 'Create VM'}</button>
         {creationError && <p role='alert' className='rounded-lg border border-ui-danger/25 bg-ui-danger/5 px-3 py-2.5 text-sm leading-5 text-ui-danger'>{creationError}</p>}
