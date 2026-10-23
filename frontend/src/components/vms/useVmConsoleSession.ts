@@ -109,7 +109,6 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
             observer.observe(container.current)
             const input = terminal.onData(data => {
                 followOutput = true
-                terminal.scrollToBottom()
                 if (ready && socket?.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({ type: 'input', data }))
                 }

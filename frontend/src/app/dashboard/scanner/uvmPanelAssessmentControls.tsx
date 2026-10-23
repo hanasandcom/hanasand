@@ -31,7 +31,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
             : id === 'zap' ? 'same-origin web assessment'
                 : id === 'testssl' ? 'TLS configuration checks'
                     : id === 'nuclei' ? 'Pinned safe HTTP templates'
-                    : data.tenableScans.find(scan => scan.id === scanId)?.name || 'Choose configuration'
+                        : data.tenableScans.find(scan => scan.id === scanId)?.name || 'Choose configuration'
     function moveEngine(id: UvmAssessmentEngineId, offset: -1 | 1) {
         setSelectedEngines(current => {
             const ordered = current.filter(engine => selectedReadyEngines.includes(engine))

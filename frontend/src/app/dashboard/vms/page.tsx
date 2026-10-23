@@ -5,6 +5,7 @@ import getVMs from '@/utils/vms/fetch/getVMs'
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
+import { decodeInternalHeaderValue } from '@/utils/proxy/internalHeaderValue'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,7 @@ export default async function Page() {
     const headerStore = await headers()
     const id = cookieStore.get('id')?.value
     const token = cookieStore.get('access_token')?.value
-    const impersonatingId = cookieStore.get('impersonating_id')?.value || headerStore.get('x-impersonating-id') || ''
+    const impersonatingId = cookieStore.get('impersonating_id')?.value || decodeInternalHeaderValue(headerStore.get('x-impersonating-id')) || ''
     const impersonationToken = cookieStore.get('impersonation_token')?.value || headerStore.get('x-impersonation-token') || ''
 
     if (!id || !token) {
