@@ -73,6 +73,7 @@ function createSetupScript(name: string, services: string[], minecraftType: stri
     return `#!/usr/bin/env bash
 set -Eeuo pipefail
 export DEBIAN_FRONTEND=noninteractive
+export HOME=/root
 state_file='${setupStatePath}'
 install -d -m 0755 /var/lib/hanasand-vm-setup
 setup_stage='Starting setup'

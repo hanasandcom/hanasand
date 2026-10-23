@@ -36,6 +36,7 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('SHASUMS256.txt')
     expect(script).not.toContain('nodesource')
     expect(script).toContain('bun.sh/install')
+    expect(script).toContain('export HOME=/root')
     expect(script).toContain('postgresql postgresql-contrib')
     expect(script).toContain('mysql-server')
     expect(script).toContain('docker-ce docker-ce-cli containerd.io')
