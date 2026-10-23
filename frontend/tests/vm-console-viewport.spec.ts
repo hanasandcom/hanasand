@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 test('console bounds scrollback, follows output and preserves its connection in fullscreen', async ({ page }) => {
     await page.context().addCookies([
@@ -45,6 +47,56 @@ test('console bounds scrollback, follows output and preserves its connection in 
     expect(connections).toBe(1)
 })
 
+test('mobile VM access menu stays inside the viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3272'
+    await page.context().addCookies([
+        { name: 'id', value: 'dashboard-render-proof-user', url: origin },
+        { name: 'access_token', value: 'local-dashboard-render-proof-token', url: origin },
+    ])
+    await page.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
+    await page.route('**/api/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) }))
+    await page.routeWebSocket('**/vm/cashflow/console', socket => {
+        socket.onMessage(message => {
+            if (JSON.parse(String(message)).type === 'auth') socket.send(JSON.stringify({ type: 'ready', username: 'fixture' }))
+        })
+    })
+    await page.goto('/vms/cashflow/console?provisioning=1')
+    await expect(page.getByRole('status').first()).toContainText('Connected')
+
+    const accessMenuButton = page.locator('summary[aria-label="VM access actions"]')
+    await expect(accessMenuButton).toBeVisible()
+    await accessMenuButton.click()
+
+    const menu = page.locator('details:has(summary[aria-label="VM access actions"]) > div')
+    for (const viewport of [{ width: 375, height: 812 }, { width: 390, height: 844 }]) {
+        await page.setViewportSize(viewport)
+        await expect(menu.getByRole('button', { name: 'Connect locally' })).toBeVisible()
+        await expect(menu.getByRole('button', { name: 'Show sudo password' })).toBeVisible()
+        const bounds = await menu.boundingBox()
+        expect(bounds).not.toBeNull()
+        expect(bounds!.x).toBeGreaterThanOrEqual(0)
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width)
+    }
+})
+
+test('VM action feedback does not expand inventory rows or console status surfaces', async () => {
+    const deleteDialog = readFileSync(join(process.cwd(), 'src/components/vms/deleteVmDialog.tsx'), 'utf8')
+    const vmRow = readFileSync(join(process.cwd(), 'src/components/profile/vm.tsx'), 'utf8')
+    const consoleClient = readFileSync(join(process.cwd(), 'src/components/vms/consoleClient.tsx'), 'utf8')
+    const actionFeedback = readFileSync(join(process.cwd(), 'src/components/vms/vmActionFeedback.tsx'), 'utf8')
+
+    expect(vmRow).toMatch(/onFeedback\?\.\(result\.message, 'error', `vm-\$\{vm\.name\}-delete`\)/)
+    expect(vmRow).toMatch(/onFeedback\?\.\(message, 'error', `vm-\$\{vm\.name\}-delete`\)/)
+    expect(vmRow).not.toMatch(/deleteError|setDeleteError/)
+    expect(deleteDialog).not.toMatch(/\berror\s*:\s*string|role='alert'/)
+    expect(deleteDialog).toMatch(/min-w-32 .*\{busy \? 'Deleting VM…' : 'Delete VM'\}/)
+    expect(actionFeedback).toMatch(/fixed inset-x-3 top-3/)
+    expect(actionFeedback).toMatch(/role=\{item\.tone === 'error' \? 'alert' : 'status'\}/)
+    expect(consoleClient).toMatch(/role='status' title=\{session\.status\} className='h-5 min-h-5 max-w-full truncate/)
+    expect(consoleClient).toMatch(/h-10 min-h-10 shrink-0 items-center gap-2 overflow-hidden/)
+    expect(consoleClient).toMatch(/title=\{session\.provisioning\.message\} className='min-w-0 truncate'/)
+})
 
 test('restart progress keeps existing output and reconnects after a transport interruption', async ({ page }) => {
     await page.context().addCookies([

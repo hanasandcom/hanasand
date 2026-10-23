@@ -22,7 +22,6 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
     const router = useRouter()
     const [confirmingDelete, setConfirmingDelete] = useState(false)
     const [busy, setBusy] = useState(false)
-    const [deleteError, setDeleteError] = useState('')
     const deleted = Boolean(vm.deleted_at)
     const expired = Boolean(vm.delete_after && new Date(vm.delete_after).getTime() <= now)
     const instanceMissing = vm.deletion_restore?.instanceMissing === true
@@ -47,7 +46,6 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
     async function handleDelete(confirmation: string) {
         if (!vm.name || busy) return
         setBusy(true)
-        setDeleteError('')
         onFeedback?.(`Scheduling ${vm.name} for deletion…`, 'progress', `vm-${vm.name}-delete`)
         try {
             const result = await deleteVM(vm.name, confirmation)
@@ -55,13 +53,11 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                 setConfirmingDelete(false)
                 onFeedback?.(`${vm.name} is scheduled for deletion.`, 'success', `vm-${vm.name}-delete`)
             } else {
-                setDeleteError(result.message)
                 onFeedback?.(result.message, 'error', `vm-${vm.name}-delete`)
             }
             update()
         } catch {
             const message = 'Unable to schedule this VM for deletion. Check its current status and try again.'
-            setDeleteError(message)
             onFeedback?.(message, 'error', `vm-${vm.name}-delete`)
         } finally { setBusy(false) }
     }
@@ -117,7 +113,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                                     <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
                                     {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} w-full justify-start px-3 text-ui-text sm:hidden`} />}
                                     {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary sm:hidden`} />}
-                                    <button type='button' onClick={() => { setDeleteError(''); setConfirmingDelete(true) }} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
+                                    <button type='button' onClick={() => setConfirmingDelete(true)} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
                                         <Trash2 className='h-4 w-4' /> Delete VM
                                     </button>
                                 </div>
@@ -152,7 +148,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                     {!instanceMissing && <button type='button' disabled={busy || expired} onClick={() => void handleRestore()} className={`${vmActionStyle} mt-3 bg-ui-raised px-3 text-ui-text hover:bg-ui-canvas`}>{busy ? 'Restoring…' : 'Restore VM'}</button>}
                 </div>}
             </article>
-            {confirmingDelete && <DeleteVmDialog name={name} busy={busy} error={deleteError} onCancel={() => setConfirmingDelete(false)} onConfirm={confirmation => void handleDelete(confirmation)} />}
+            {confirmingDelete && <DeleteVmDialog name={name} busy={busy} onCancel={() => setConfirmingDelete(false)} onConfirm={confirmation => void handleDelete(confirmation)} />}
         </>
     )
 }
