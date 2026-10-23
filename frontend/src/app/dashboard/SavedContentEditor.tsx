@@ -33,6 +33,7 @@ export default function SavedContentEditor({ icon, label, title, editingTitle, i
             setEditing(false)
         } catch (error) {
             setError(error instanceof Error ? error.message : 'Could not save article.')
+            throw error
         }
     }
 
@@ -40,7 +41,7 @@ export default function SavedContentEditor({ icon, label, title, editingTitle, i
         <ContentEditorHeader icon={icon} label={label} title={editing ? editingTitle : title} onDelete={() => void handleDelete()} />
         <ErrorNotice compact message={error as string | null} />
         <Editor
-            {...(onSave ? { customSaveLogic: true as const, save: () => void handleSave(), onChange } : {})}
+            {...(onSave ? { customSaveLogic: true as const, save: handleSave, onChange } : {})}
             editing={editing} setEditing={setEditing}
             className='rounded-lg border border-ui-border bg-ui-raised p-2 shadow-sm shadow-ui-canvas/20' id={id} content={content}
         />

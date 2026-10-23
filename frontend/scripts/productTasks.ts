@@ -12,6 +12,8 @@ export const productTasks: TestTask[] = [
     { id: 'auth-form-fields', title: 'Login and signup field, error, and submit presentation', command: [bun, 'test', 'tests/auth-form-fields.test.tsx'] },
     { id: 'upload-media-preview', title: 'Gallery and upload image and video preview contracts', command: [bun, 'test', 'tests/upload-media-preview.test.tsx'] },
     { id: 'content-create-presentation', title: 'Article and thought create editor presentation', command: [bun, 'test', 'tests/content-create-presentation.test.tsx'] },
+    { id: 'thought-update-request', title: 'Thought update request contract', command: [bun, 'test', 'tests/put-thought.test.ts'] },
+    { id: 'saved-thought-editor', title: 'Saved thought edit, failed save retry, and successful update', command: [bun, 'x', 'playwright', 'test', 'tests/saved-thought-editor.spec.ts', '--workers=1'], requires: 'playwright' },
     { id: 'share-route-preferences', title: 'Project and share route preference data contracts', command: [bun, 'test', 'tests/share-route-preferences.test.tsx'] },
     { id: 'share-open-files-shortcut', title: 'Open share files close shortcut behavior', command: [bun, 'test', 'tests/share-open-files-shortcut.test.ts'] },
     { id: 'dashboard-three-column-loading', title: 'Findings and TI dashboard loading layouts', command: [bun, 'test', 'tests/dashboard-three-column-loading.test.tsx'] },

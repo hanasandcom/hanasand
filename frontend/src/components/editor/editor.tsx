@@ -13,7 +13,7 @@ type EditorProps = {
     content: string[]
     customSaveLogic?: true
     hideSaveButton?: true
-    save?: () => void
+    save?: () => void | Promise<unknown>
     onChange?: (value: string) => void
     className?: string
     placeholder?: string
@@ -39,11 +39,14 @@ export default function Editor({
     const [draftMarkdown, setDraftMarkdown] = useState(initialMarkdown)
     const [displayEditor, setDisplayEditor] = useState(false)
     const [hideSave, setHideSave] = useState(false)
+    const editBaseline = useRef(initialMarkdown)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const markdown = customSaveLogic
         ? initialMarkdown
         : (displayEditor || draftMarkdown !== initialMarkdown ? draftMarkdown : initialMarkdown)
-    const edited = initialMarkdown !== markdown
+    const edited = customSaveLogic
+        ? editBaseline.current !== initialMarkdown
+        : initialMarkdown !== markdown
 
     function handleMarkdownChange(event: ChangeEvent<HTMLTextAreaElement>) {
         if (customSaveLogic && onChange) {
@@ -60,9 +63,13 @@ export default function Editor({
         resizeTextareaToContent(event.target)
     }
 
-    function handleSave() {
+    async function handleSave() {
         if (customSaveLogic && save) {
-            save()
+            try {
+                await save()
+            } catch {
+                return
+            }
         } else {
             postArticle(id, markdown)
         }
@@ -73,11 +80,10 @@ export default function Editor({
 
     function handleDisplayEditor(next?: boolean | ((prev: boolean) => boolean)) {
         setDisplayEditor((prev) => {
-            if (typeof next === 'function') {
-                return next(prev)
-            }
+            const shouldDisplay = typeof next === 'function' ? next(prev) : next ?? !prev
+            if (!prev && shouldDisplay) editBaseline.current = initialMarkdown
 
-            return next ?? !prev
+            return shouldDisplay
         })
         setHideSave(false)
         if (textareaRef.current) {

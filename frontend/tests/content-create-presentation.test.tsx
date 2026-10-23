@@ -30,6 +30,7 @@ mock.module('@/utils/articles/putArticle', () => ({ putArticle: async () => unde
 mock.module('@/utils/thoughts/fetchThoughtByTitle', () => ({ default: async () => [] }))
 mock.module('@/utils/thoughts/postThought', () => ({ postThought: async () => ({ status: 201, message: 'created' }) }))
 mock.module('@/utils/thoughts/deleteThought', () => ({ default: async () => ({ status: 200, message: 'deleted' }) }))
+mock.module('@/utils/thoughts/putThought', () => ({ default: async () => ({ message: 'updated' }) }))
 mock.module('next/navigation', () => ({ useRouter: () => ({ push: () => undefined }) }))
 
 const [{ default: CreateArticle }, { default: CreateThought }] = await Promise.all([
@@ -128,5 +129,5 @@ test('saved article and thought editors keep their content, labels, and save con
     expect(thought).toContain('>Thought</h1>')
     expect(thought).toContain('data-editor-id="thought-1"')
     expect(thought).toContain('data-editor-content="A saved thought|Second line"')
-    expect(thought).toContain('data-custom-save-logic="false"')
+    expect(thought).toContain('data-custom-save-logic="true"')
 })
