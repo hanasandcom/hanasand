@@ -49,11 +49,12 @@ test('lifecycle monitor requires explicit isolated staging configuration', () =>
 
 type Instance = { name?: string, type?: string, status?: string, config?: Record<string, string> }
 
-function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestrictedProject?: boolean, wrongNetwork?: boolean } = {}) {
+function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestrictedProject?: boolean, wrongNetwork?: boolean, missingRootPool?: boolean } = {}) {
     const calls: { path: string, method: string, action?: string }[] = []
     let instance: Instance | null = null
     let running = false
     let patchSeen = false
+    let rootPoolUsed: string | undefined
     const request = async <T>(socketPath: string, path: string, requestOptions: LxdRequestOptions = {}) => {
         expect(socketPath).toBe(safeSettings.socketPath)
         const method = requestOptions.method || 'GET'
@@ -76,8 +77,18 @@ function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestricted
                     },
                 },
             }
+        } else if (resourcePath === '/1.0/profiles/default') {
+            response = {
+                status_code: 200,
+                status: 'Success',
+                metadata: {
+                    name: 'default',
+                    devices: { root: { type: 'disk', path: '/', ...(!options.missingRootPool ? { pool: 'default' } : {}) } },
+                },
+            }
         } else if (resourcePath === '/1.0/instances' && method === 'POST') {
-            const body = requestOptions.body as { name: string, type: string, ephemeral: boolean, config: Record<string, string> }
+            const body = requestOptions.body as { name: string, type: string, ephemeral: boolean, devices: { root: { pool?: string } }, config: Record<string, string> }
+            rootPoolUsed = body.devices.root.pool
             instance = { name: body.name, type: body.type, status: 'Stopped', config: { ...body.config } }
             response = { status_code: 202, status: 'Accepted', metadata: {}, operation: '/1.0/operations/create' }
         } else if (resourcePath === '/1.0/instances' && path.includes('recursion=1')) {
@@ -113,7 +124,7 @@ function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestricted
         }
         return response as LxdResponse<T>
     }
-    return { calls, request, wasPatched: () => patchSeen }
+    return { calls, request, wasPatched: () => patchSeen, rootPoolUsed: () => rootPoolUsed }
 }
 
 test('staging probe exercises the virtual machine lifecycle and removes its disposable VM', async () => {
@@ -125,8 +136,16 @@ test('staging probe exercises the virtual machine lifecycle and removes its disp
     expect(lxd.calls.some(call => new URL(call.path, 'http://lxd').pathname.endsWith('/state') && call.method === 'PUT')).toBe(true)
     expect(lxd.calls.filter(call => call.action).map(call => call.action)).toEqual(['start', 'stop'])
     expect(lxd.calls.some(call => call.method === 'DELETE')).toBe(true)
+    expect(lxd.rootPoolUsed()).toBe('default')
+    expect(lxd.calls.some(call => call.path === '/1.0/profiles/default?project=hns-stage')).toBe(true)
     expect(lxd.calls.at(-1)).toEqual({ path: '/1.0/instances?recursion=1&project=hns-stage', method: 'GET' })
     expect(lxd.calls.every(call => call.path === '/1.0/projects/hns-stage' || call.path.includes('project=hns-stage'))).toBe(true)
+})
+
+test('staging probe refuses to create a VM when its project profile has no root storage pool', async () => {
+    const lxd = fakeLxd({ missingRootPool: true })
+    await expect(exerciseDisposableInstance(safeSettings, lxd.request)).rejects.toThrow('default profile must define a root storage pool')
+    expect(lxd.calls.some(call => call.method === 'POST')).toBe(false)
 })
 
 test('a failed VM state check records failure and stops then deletes the disposable VM', async () => {

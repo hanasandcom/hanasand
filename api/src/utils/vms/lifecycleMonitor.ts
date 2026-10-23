@@ -13,6 +13,7 @@ type LxdRequest = <T>(socketPath: string, path: string, options?: LxdRequestOpti
 type MonitorConfig = { enabled: boolean, target: string | null, socketPath: string | null, project: string | null, imageServer: string | null, imageAlias: string | null }
 type Instance = { name?: string, type?: string, status?: string, config?: Record<string, string> }
 type LxdProject = { name?: string, config?: Record<string, string> }
+type LxdProfile = { name?: string, devices?: Record<string, Record<string, string>> }
 type OperationResult = { err?: string, status_code?: number }
 
 let nextRunAt = 0
@@ -111,7 +112,7 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
     let createSubmitted = false
     let primaryError: unknown
     try {
-        await assertRestrictedStagingProject(settings.socketPath, settings.project, request)
+        const rootDiskPool = await assertRestrictedStagingProject(settings.socketPath, settings.project, request)
         createSubmitted = true
         const created = await request(settings.socketPath, scopedPath('/1.0/instances', settings.project), {
             method: 'POST',
@@ -120,7 +121,7 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
                 type: 'virtual-machine',
                 ephemeral: true,
                 profiles: ['default'],
-                devices: { root: { type: 'disk', path: '/', size: RESOURCE_LIMITS.disk } },
+                devices: { root: { type: 'disk', path: '/', pool: rootDiskPool, size: RESOURCE_LIMITS.disk } },
                 config: { 'limits.cpu': RESOURCE_LIMITS.cpu, 'limits.memory': RESOURCE_LIMITS.memory },
                 source: { type: 'image', mode: 'pull', server: settings.imageServer, protocol: 'simplestreams', alias: settings.imageAlias },
             },
@@ -192,6 +193,12 @@ async function assertRestrictedStagingProject(socketPath: string, project: strin
         || !Number.isInteger(vmLimit) || vmLimit < 1) {
         throw new Error('LXD hns-stage must be restricted, network-limited, and quota-limited before lifecycle probes run.')
     }
+    const profile = await checkedRequest<LxdProfile>(request, socketPath, scopedPath('/1.0/profiles/default', project))
+    const rootDiskPool = profile.devices?.root?.pool?.trim()
+    if (profile.name !== 'default' || !rootDiskPool) {
+        throw new Error('LXD hns-stage default profile must define a root storage pool before lifecycle probes run.')
+    }
+    return rootDiskPool
 }
 
 async function finishOperation(request: LxdRequest, socketPath: string, project: string | null, response: LxdResponse<unknown>, label: string) {
