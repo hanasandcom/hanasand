@@ -7,7 +7,8 @@ export function useCollaborationActions(
     activeConversation: AIConversation | null,
     resolvedActiveConversationId: string | null,
     replaceConversation: (conversation: AIConversation) => void,
-    updateLocalConversation: (id: string, patch: Partial<AIConversation>) => void
+    updateLocalConversation: (id: string, patch: Partial<AIConversation>) => void,
+    request: typeof aiClientRequest = aiClientRequest
 ) {
     const {
         isAuthenticated, currentUserId, setCollaborationError, setCollaboratorPending,
@@ -34,7 +35,7 @@ export function useCollaborationActions(
         setCollaboratorPending(true)
         setCollaborationError(null)
         try {
-            const response = await aiClientRequest(`/ai/conversations/${activeConversation.id}/collaborators`, {
+            const response = await request(`/ai/conversations/${activeConversation.id}/collaborators`, {
                 method: 'POST',
                 body: JSON.stringify({ userId: trimmedUserId, role }),
             })
@@ -47,7 +48,7 @@ export function useCollaborationActions(
         } finally {
             setCollaboratorPending(false)
         }
-    }, [activeConversation, isAuthenticated, replaceConversation, setCollaborationError, setCollaboratorPending, setStatusNotice])
+    }, [activeConversation, isAuthenticated, replaceConversation, request, setCollaborationError, setCollaboratorPending, setStatusNotice])
 
     const removeCollaborator = useCallback(async (targetUserId: string) => {
         if (!activeConversation) {
@@ -66,7 +67,7 @@ export function useCollaborationActions(
         setCollaboratorPending(true)
         setCollaborationError(null)
         try {
-            const response = await aiClientRequest(`/ai/conversations/${activeConversation.id}/collaborators/${encodeURIComponent(trimmedUserId)}`, {
+            const response = await request(`/ai/conversations/${activeConversation.id}/collaborators/${encodeURIComponent(trimmedUserId)}`, {
                 method: 'DELETE',
             })
             const payload = await response.json().catch(() => null) as {
@@ -105,7 +106,7 @@ export function useCollaborationActions(
         }
     }, [activeConversation, currentUserId, isAuthenticated, resolvedActiveConversationId, replaceConversation,
         updateLocalConversation, setActiveConversationId, setCollaborationError, setCollaboratorPending,
-        setConversations, setStatusNotice, conversationsRef])
+        setConversations, setStatusNotice, conversationsRef, request])
 
     return { inviteCollaborator, removeCollaborator }
 }
