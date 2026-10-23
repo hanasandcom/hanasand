@@ -1,3 +1,4 @@
+import { logsProxyTimeoutMs } from '@/utils/logs/proxyTimeout'
 import { backendDeviceProofTarget } from '@/utils/auth/backendDeviceProofTarget'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import { NextRequest, NextResponse } from 'next/server'
@@ -106,6 +107,7 @@ async function handler(req: NextRequest, context: Context) {
             cache: 'no-store',
             signal: AbortSignal.timeout(Math.max(
                 BACKEND_PROXY_TIMEOUT_MS,
+                logsProxyTimeoutMs(req.method, pathSegments, BACKEND_PROXY_TIMEOUT_MS) || 0,
                 longLogSearch || rulePreview ? 120_000 : 0,
                 vmLifecycleTimeout || 0,
                 vmSetupPlanTimeout || 0,

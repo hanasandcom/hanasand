@@ -1,6 +1,11 @@
 import { bun, type TestTask } from './testTask'
 
 export const otherUnitTasks: TestTask[] = [
+    { id: 'organization-watchlist-reconcile-proxy', title: 'Explicit watchlist projection retry transport and legacy IDs', command: [bun, 'test', 'tests/organization-watchlist-reconcile-proxy.test.ts'] },
+    { id: 'organization-watchlist-cleanup', title: 'Explicit selected watchlist archive consent and receipts', command: [bun, 'test', 'tests/organization-watchlist-cleanup.test.tsx'] },
+    { id: 'customer-read-proof', title: 'Customer case and alert proof delegation', command: [bun, 'test', 'tests/customer-read-proof.test.ts'] },
+    { id: 'logs-error-summary-render', title: 'Unavailable log summary preserves recent errors', command: [bun, 'test', 'tests/logs-error-summary-render.test.tsx'] },
+    { id: 'logs-proxy-timeout', title: 'Logs cold-read timeout and count availability', command: [bun, 'test', 'tests/logs-proxy-timeout.test.ts'] },
     { id: 'mail-workspace-page', title: 'Mail workspace initial mailbox page reuse', command: [bun, 'test', 'tests/mail-workspace-page.test.ts'] },
     { id: 'ai-workbench-file-selection', title: 'AI workbench file selection metadata', command: [bun, 'test', 'tests/ai-workbench-file-selection.test.ts'] },
     { id: 'ai-chat-pane-theme', title: 'AI chat theme and accessibility rendering', command: [bun, 'test', 'tests/ai-chat-pane-theme.test.tsx'] },
@@ -38,6 +43,8 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'support-ticket-filters', title: 'Support ticket filtering', command: [bun, 'test', 'tests/support-ticket-filters.test.ts'] },
     { id: 'sandbox-embed', title: 'Sandbox embeds Browser UI in the site shell', command: [bun, 'test', 'tests/sandbox-embed.test.ts'] },
     { id: 'terminal-message-state', title: 'Terminal message lifecycle state', command: [bun, 'test', 'tests/terminal-message-state.test.ts'] },
+    { id: 'test-result-panel-render', title: 'Load test result panel presentation', command: [bun, 'test', 'tests/test-result-panel-render.test.tsx'] },
+    { id: 'test-traffic-shapes', title: 'Load test traffic shape validation', command: [bun, 'test', 'tests/test-traffic-shapes.test.ts'] },
     { id: 'test-page-panel-render', title: 'Endpoint test panel presentation', command: [bun, 'test', 'tests/test-page-panel-render.test.tsx'] },
     { id: 'test-stats-render', title: 'Service check stats search surface rendering', command: [bun, 'test', 'tests/test-stats-render.test.tsx'] },
     { id: 'thesis-markdown-link', title: 'Thesis markdown link presentation', command: [bun, 'test', 'tests/thesis-markdown-link.test.tsx'] },

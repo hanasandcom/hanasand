@@ -1,147 +1,195 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-// @ts-expect-error Bun supplies this module for focused checks.
-import { mock } from 'bun:test'
+import { expect, test } from 'bun:test'
+import { NextRequest, payload, validations, requests, reset, request, send, proxyOrganizationApiRequest, proxyOrganizationWatchlistMutation, proxyOrganizationWatchlistRead, setJar, setValidationState, setUpstreamStatus, readKinds, readPath, readRoute, rejectedReads } from './helpers/organizationWatchlistProxyFixture'
 
-let cookieValues: Record<string, string> = {}
-const requests: Array<{ url: string, init?: RequestInit }> = []
-mock.module('next/headers', () => ({
-    cookies: async () => ({ get: (name: string) => cookieValues[name] ? { value: cookieValues[name] } : undefined }),
-}))
-process.env.FRONTEND_AUTH_API = 'https://api.test/api'
-process.env.TI_SCRAPER_API_BASE = 'https://scraper.test'
-globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-    const url = input instanceof Request ? input.url : String(input)
-    requests.push({ url, init })
-    if (url.startsWith('https://api.test/')) return Response.json({ watchlistItem: { id: 'term-1', kind: 'domain', value: 'example.test', status: 'active' } }, { status: 201 })
-    if (url === 'https://scraper.test/v1/dwm/watchlists') return Response.json({
-        watchlist: { id: 'org_term-1' },
-        alertRebuild: { status: 'completed', savedAlertCount: 1, alertIds: ['alert-1'] },
-    }, { status: 201 })
-    if (url.startsWith('https://scraper.test/v1/dwm/alerts/')) return Response.json({ alert: { id: 'alert-1' } })
-    return Response.json({ error: 'unexpected request' }, { status: 500 })
-}) as typeof fetch
+test('canonical verification runs once before one trusted core hop, retaining saved partial response', async () => {
+    reset()
+    const response = await send()
+    expect(response.status).toBe(201)
+    expect(await response.json()).toEqual(payload)
+    expect(validations).toEqual([{ token: 'session', id: 'user', options: { includeInternalAccess: false, deviceProof: { proof: 'proof', method: 'POST', url: 'https://hanasand.com/api/organizations/org/watchlists' } } }])
+    expect(requests).toHaveLength(1)
+    expect(requests[0].url).toBe('https://core.invalid/api/organizations/org/watchlists')
+    const headers = new Headers(requests[0].init?.headers)
+    expect(headers.get('x-hanasand-server-session-assertion')).toBe('synthetic-assertion')
+    expect(headers.get('x-hanasand-server-session-id')).toBe('user')
+    expect(headers.get('dpop')).toBeNull()
+    expect(headers.get('x-device-proof-url')).toBeNull()
+})
+test('separate replay is rejected while a fresh proof proceeds', async () => {
+    reset()
+    expect((await send()).status).toBe(201)
+    expect((await send()).status).toBe(401)
+    expect((await send(request(undefined, 'POST', { dpop: 'fresh' }))).status).toBe(201)
+    expect(requests).toHaveLength(2)
+})
+test('foreign targets, scope, impersonation and spoofed server context fail before verification', async () => {
+    for (const headers of [{ 'x-device-proof-url': 'https://evil.invalid/api/organizations/org/watchlists' }, { 'x-device-proof-method': 'GET' }, { 'x-tenant-id': 'other' }, { 'x-organization-id': 'other' }, { 'x-impersonation-token': 'forbidden' }, { 'x-hanasand-server-session-validated': '1' }, { 'x-hanasand-session-validated': '1' }]) {
+        reset()
+        expect((await send(request(undefined, 'POST', headers))).status).toBeGreaterThanOrEqual(400)
+        expect(validations).toHaveLength(0)
+        expect(requests).toHaveLength(0)
+    }
+})
+test('ambiguous credentials and malformed/oversized or conflicting bodies are rejected', async () => {
+    reset(); setJar({ id: 'other', access_token: 'other-session' })
+    expect((await send()).status).toBe(401)
+    for (const body of ['null', '[]', '{', JSON.stringify({ tenantId: 'other' }), JSON.stringify({ notes: 'x'.repeat(17000) })]) {
+        reset()
+        expect((await send(request(undefined, 'POST', {}, body))).status).toBe(400)
+        expect(validations).toHaveLength(0)
+        expect(requests).toHaveLength(0)
+    }
+})
+test('validator outage and absent trusted-hop configuration fail closed', async () => {
+    reset(); setValidationState('unavailable')
+    expect((await send()).status).toBe(503)
+    expect(requests).toHaveLength(0)
+    reset(); delete process.env.VM_API_TOKEN
+    expect((await send()).status).toBe(503)
+    expect(validations).toHaveLength(0)
+    expect(requests).toHaveLength(0)
+})
+test('finite actions preserve existing200 and body; wrong route is rejected', async () => {
+    for (const [path, method] of [['/organizations/org/watchlists/item', 'PUT'], ['/organizations/org/watchlists/item', 'DELETE'], ['/organizations/org/watchlists/item/actions', 'POST'], ['/organizations/org/watchlists/cleanup', 'POST']] as const) {
+        reset(); setUpstreamStatus(200)
+        expect((await send(request(path, method), path, method)).status).toBe(200)
+        expect(requests).toHaveLength(1)
+        expect(requests[0].init?.body).toBe('{}')
+        expect(requests[0].init?.method).toBe(method)
+    }
+    reset()
+    expect((await send(request('/organizations/other/watchlists'))).status).toBe(400)
+    expect(validations).toHaveLength(0)
+})
+test('original core rejection passes through without scraper fanout', async () => {
+    reset(); setUpstreamStatus(409)
+    const response = await send()
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: 'quota_exhausted' })
+    expect(requests).toHaveLength(1)
+})
+test('unrelated organization proxy retains its impersonation behavior', async () => {
+    reset(); setJar({ impersonation_token: 'synthetic-impersonation' })
+    await proxyOrganizationApiRequest(new NextRequest('https://hanasand.com/api/organizations/org'), '/organizations/org')
+    expect(new Headers(requests[0].init?.headers).get('x-impersonation-token')).toBe('synthetic-impersonation')
+})
 
-const { NextRequest } = await import('next/server')
-const { proxyOrganizationWatchlistMutation } = await import('../src/app/api/organizations/organizationWatchlistMutation')
-const { proxyOrganizationApiRequest } = await import('../src/app/api/organizations/_organizationApiProxy')
+test('supported historical metadata and cleanup aliases remain intact', async () => {
+    for (const [path, body] of [['/organizations/org/watchlists', { kind: 'domain', value: 'example.test', request_id: 'legacy' }], ['/organizations/org/watchlists/cleanup', { item_ids: ['item'], request_id: 'legacy' }]] as const) {
+        reset()
+        const text = JSON.stringify(body)
+        expect((await send(request(path, 'POST', {}, text), path)).status).toBe(201)
+        expect(requests[0].init?.body).toBe(text)
+    }
+})
 
-test('forwards cookie and request authorization and user id to the DWM watchlist POST', async () => {
-    for (const [cookies, expectedToken, expectedId] of [
-        [{ access_token: 'cookie-token', id: 'cookie-user', impersonation_token: 'impersonation-secret' }, 'Bearer cookie-token', 'cookie-user'],
-        [{}, 'Bearer request-token', 'request-user'],
+test('actual Next mutation routes preserve encoded dot, colon and at-sign IDs with exact public proof target', async () => {
+    const { PUT } = await import('../src/app/api/organizations/[id]/watchlists/[itemId]/route')
+    for (const [id, itemId] of [['org.name', 'item.name'], ['org:colon', 'item:colon'], ['org@domain', 'item@domain'], ['.org', '.item']]) {
+        reset(); setUpstreamStatus(200)
+        const path = `/organizations/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(itemId)}`
+        const response = await PUT(request(path, 'PUT'), { params: Promise.resolve({ id, itemId }) })
+        expect(response.status).toBe(200)
+        expect(validations).toHaveLength(1)
+        expect(validations[0]).toEqual({ token: 'session', id: 'user', options: { includeInternalAccess: false, deviceProof: { proof: 'proof', method: 'PUT', url: `https://hanasand.com/api${path}` } } })
+        expect(requests).toHaveLength(1)
+        expect(requests[0].url).toBe(`https://core.invalid/api${path}`)
+    }
+})
+
+test('encoded separators, double encoding, dotsegments and noncanonical internal paths fail before verifier', async () => {
+    const { PUT } = await import('../src/app/api/organizations/[id]/watchlists/[itemId]/route')
+    for (const bad of ['.', '..', 'bad/item', 'bad\\item', '%2F', '%252F', 'bad\u0000item', 'bad item']) {
+        for (const [id, itemId] of [[bad, 'item'], ['org', bad]]) {
+            reset()
+            const path = `/organizations/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(itemId)}`
+            const response = await PUT(request(path, 'PUT'), { params: Promise.resolve({ id, itemId }) })
+            expect(response.status).toBe(400)
+            expect(validations).toHaveLength(0)
+            expect(requests).toHaveLength(0)
+        }
+    }
+    for (const path of ['/organizations/org%252Fother/watchlists/item', '/organizations/org/watchlists/item%2Fother', '/organizations/org/watchlists/item%5Cother', '/organizations/org/watchlists/%2E%2E', '/organizations/org/watchlists/%', '/organizations/org%2Ename/watchlists/item']) {
+        reset()
+        const response = await proxyOrganizationWatchlistMutation(request(path, 'PUT'), path, { method: 'PUT', organizationId: path.includes('org%2Ename') ? 'org.name' : 'org' })
+        expect(response.status).toBe(400)
+        expect(validations).toHaveLength(0)
+        expect(requests).toHaveLength(0)
+    }
+})
+
+test('valid encoded IDs cannot change asserted public target, organization or actual incoming path', async () => {
+    const path = '/organizations/org%3Aname/watchlists/item%40domain'
+    for (const [req, org] of [[request(path, 'PUT', { 'x-device-proof-url': 'https://hanasand.com/api/organizations/org:name/watchlists/item@domain' }), 'org:name'], [request(path, 'PUT'), 'other'], [request('/organizations/org%3Aname/watchlists/other', 'PUT'), 'org:name']] as const) {
+        reset()
+        const response = await proxyOrganizationWatchlistMutation(req, path, { method: 'PUT', organizationId: org })
+        expect(response.status).toBeGreaterThanOrEqual(400)
+        expect(validations).toHaveLength(0)
+        expect(requests).toHaveLength(0)
+    }
+})
+
+test('encoded organization works for actual create, cleanup and action routes without alternate proof targets', async () => {
+    const create = await import('../src/app/api/organizations/[id]/watchlists/route')
+    const cleanup = await import('../src/app/api/organizations/[id]/watchlists/cleanup/route')
+    const action = await import('../src/app/api/organizations/[id]/watchlists/[itemId]/actions/route')
+    const id = 'org.name:tenant@example'
+    const itemId = 'item.name:watch@example'
+    const root = `/organizations/${encodeURIComponent(id)}/watchlists`
+    for (const [path, invoke] of [
+        [root, (req: InstanceType<typeof NextRequest>) => create.POST(req, { params: Promise.resolve({ id }) })],
+        [`${root}/cleanup`, (req: InstanceType<typeof NextRequest>) => cleanup.POST(req, { params: Promise.resolve({ id }) })],
+        [`${root}/${encodeURIComponent(itemId)}/actions`, (req: InstanceType<typeof NextRequest>) => action.POST(req, { params: Promise.resolve({ id, itemId }) })],
     ] as const) {
-        cookieValues = cookies
-        requests.length = 0
-        const request = new NextRequest('https://frontend.test/api/organizations/org_acme/watchlists?source=ui', {
-            method: 'POST',
-            headers: { authorization: 'Bearer request-token', id: 'request-user', 'x-tenant-id': 'tenant-acme' },
-            body: JSON.stringify({ kind: 'domain', value: 'example.test' }),
-        })
-        const response = await proxyOrganizationWatchlistMutation(request, '/organizations/org_acme/watchlists', { method: 'POST', organizationId: 'org_acme' })
-        assert.equal(response.status, 201)
-
-        const organizationRequest = requests.find(item => item.url.startsWith('https://api.test/'))!
-        const organizationHeaders = new Headers(organizationRequest.init?.headers)
-        assert.equal(organizationHeaders.get('authorization'), expectedToken)
-        assert.equal(organizationHeaders.get('id'), expectedId)
-        assert.equal(organizationHeaders.has('x-impersonation-token'), false)
-        assert.equal(organizationHeaders.get('x-tenant-id'), 'tenant-acme')
-        assert.equal(organizationRequest.init?.body, JSON.stringify({ kind: 'domain', value: 'example.test' }))
-        assert.equal(new URL(organizationRequest.url).searchParams.get('source'), 'ui')
-
-        const dwmRequest = requests.find(item => item.url === 'https://scraper.test/v1/dwm/watchlists')!
-        const dwmHeaders = new Headers(dwmRequest.init?.headers)
-        assert.equal(dwmHeaders.get('authorization'), expectedToken)
-        assert.equal(dwmHeaders.get('id'), expectedId)
-        assert.equal(dwmHeaders.get('x-tenant-id'), 'org_acme')
-        assert.equal(dwmHeaders.get('x-organization-id'), 'org_acme')
-        assert.deepEqual(JSON.parse(String(dwmRequest.init?.body)), {
-            id: 'org_term-1', tenantId: 'org_acme', organizationId: 'org_acme',
-            name: 'Org watchlist - example.test', status: 'active',
-            terms: [{ id: 'term-1', value: 'example.test', kind: 'domain' }], reason: 'organization_watchlist_saved',
-        })
+        reset()
+        expect((await invoke(request(path))).status).toBe(201)
+        expect(validations).toHaveLength(1)
+        expect(requests).toHaveLength(1)
+    }
+    for (const path of ['/organizations/org%3aname/watchlists/item', '/organizations/org:name/watchlists/item']) {
+        reset()
+        expect((await proxyOrganizationWatchlistMutation(request(path, 'PUT'), path, { method: 'PUT', organizationId: 'org:name' })).status).toBe(400)
+        expect(validations).toHaveLength(0)
+        expect(requests).toHaveLength(0)
     }
 })
-
-test('organization proxy forwards impersonation by default when the caller does not opt out', async () => {
-    cookieValues = { impersonation_token: 'impersonation-secret' }
-    requests.length = 0
-    const request = new NextRequest('https://frontend.test/api/organizations/org_acme', { method: 'GET' })
-    await proxyOrganizationApiRequest(request, '/organizations/org_acme', { method: 'GET' })
-    const upstream = requests[0]
-    assert.equal(new Headers(upstream.init?.headers).get('x-impersonation-token'), 'impersonation-secret')
-})
-
-test('watchlist mutation keeps object-only coercion for primitive upstream JSON', async () => {
-    cookieValues = {}
-    requests.length = 0
-    process.env.TI_SCRAPER_API_BASE = 'https://scraper.test'
-    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-        requests.push({ url: input instanceof Request ? input.url : String(input), init })
-        return Response.json(null, { status: 201 })
-    }) as typeof fetch
-    const request = new NextRequest('https://frontend.test/api/organizations/org_acme/watchlists', {
-        method: 'POST', body: JSON.stringify({ kind: 'domain', value: 'example.test' }),
-    })
-    const response = await proxyOrganizationWatchlistMutation(request, '/organizations/org_acme/watchlists', { method: 'POST', organizationId: 'org_acme' })
-    const payload = await response.json() as { dwmAlertBridge?: { skipped?: boolean, reason?: string } }
-    assert.equal(payload.dwmAlertBridge?.skipped, true)
-    assert.equal(payload.dwmAlertBridge?.reason, 'missing_watchlist_item')
-    assert.equal(requests.length, 1)
-    process.env.TI_SCRAPER_API_BASE = 'https://scraper.test'
-})
-
-test('watchlist PUT and DELETE preserve method, query, tenant, and request body forwarding', async () => {
-    cookieValues = {}
-    requests.length = 0
-    process.env.TI_SCRAPER_API_BASE = ''
-    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-        requests.push({ url: input instanceof Request ? input.url : String(input), init })
-        return Response.json({ saved: true })
-    }) as typeof fetch
-    for (const method of ['PUT', 'DELETE'] as const) {
-        const body = JSON.stringify({ status: method === 'PUT' ? 'paused' : 'confirm' })
-        const request = new NextRequest(`https://frontend.test/api/organizations/org_acme/watchlists/item-1?source=${method}`, {
-            method,
-            headers: { 'x-tenant-id': 'tenant-acme' },
-            body,
-        })
-        await proxyOrganizationWatchlistMutation(request, '/organizations/org_acme/watchlists/item-1', { method, organizationId: 'org_acme' })
-        const upstream = requests.at(-1)!
-        assert.equal(new URL(upstream.url).searchParams.get('source'), method)
-        assert.equal(upstream.init?.method, method)
-        assert.equal(upstream.init?.body, body)
-        assert.equal(new Headers(upstream.init?.headers).get('x-tenant-id'), 'tenant-acme')
+test('all three actual read wrappers verify exact encoded targets once and preserve filters through one trusted hop', async () => {
+    for (const kind of readKinds) for (const id of ['org', 'org.name:tenant@example', '.org']) {
+        reset(); setUpstreamStatus(200)
+        const path = readPath(kind, id, 'item.name:watch@example')
+        const response = await readRoute(kind, request(path+'?status=active&organizationId='+encodeURIComponent(id), 'GET'), id, 'item.name:watch@example')
+        expect(response.status).toBe(200); expect(await response.json()).toEqual(payload)
+        expect(validations).toEqual([{ token: 'session', id: 'user', options: { includeInternalAccess: false, deviceProof: { proof: 'proof', method: 'GET', url: `https://hanasand.com/api${path}` } } }])
+        expect(requests).toHaveLength(1); expect(requests[0].init?.body).toBeUndefined(); expect(requests[0].init?.method).toBe('GET')
+        expect(requests[0].url).toBe(`https://core.invalid/api${path}?status=active&organizationId=${encodeURIComponent(id)}`)
+        const headers = new Headers(requests[0].init?.headers)
+        expect(headers.get('x-hanasand-server-session-id')).toBe('user'); expect(headers.get('x-hanasand-server-session-assertion')).toBe('synthetic-assertion')
+        expect(headers.get('x-organization-id')).toBe(id); expect(headers.get('x-tenant-id')).toBe(id); expect(headers.get('dpop')).toBeNull(); expect(headers.get('x-device-proof-url')).toBeNull()
     }
-    process.env.TI_SCRAPER_API_BASE = 'https://scraper.test'
 })
-
-test('passes organization proxy non-success status and JSON body through without calling DWM', async () => {
-    cookieValues = {}
-    requests.length = 0
-    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-        requests.push({ url: input instanceof Request ? input.url : String(input), init })
-        return Response.json({ error: { code: 'duplicate_watchlist_term', message: 'This term already exists.' } }, { status: 409 })
-    }) as typeof fetch
-    const request = new NextRequest('https://frontend.test/api/organizations/org_acme/watchlists', {
-        method: 'POST', body: JSON.stringify({ kind: 'domain', value: 'example.test' }),
-    })
-    const response = await proxyOrganizationWatchlistMutation(request, '/organizations/org_acme/watchlists', { method: 'POST', organizationId: 'org_acme' })
-    assert.equal(response.status, 409)
-    assert.deepEqual(await response.json(), { error: { code: 'duplicate_watchlist_term', message: 'This term already exists.' } })
-    assert.equal(requests.length, 1)
+test('read route, organization, tenant, method, target and server-context conflicts fail before verification', async () => {
+    for (const [req, path, id] of rejectedReads()) {
+        reset(); expect((await proxyOrganizationWatchlistRead(req, path, id)).status).toBeGreaterThanOrEqual(400)
+        expect(validations).toHaveLength(0); expect(requests).toHaveLength(0)
+    }
 })
-
-test('keeps the organization proxy error response and skips DWM when forwarding fails', async () => {
-    cookieValues = {}
-    requests.length = 0
-    globalThis.fetch = (async () => { throw new Error('upstream offline') }) as typeof fetch
-    const request = new NextRequest('https://frontend.test/api/organizations/org_acme/watchlists', {
-        method: 'POST', body: JSON.stringify({ kind: 'domain', value: 'example.test' }),
-    })
-    const response = await proxyOrganizationWatchlistMutation(request, '/organizations/org_acme/watchlists', { method: 'POST', organizationId: 'org_acme' })
-    assert.equal(response.status, 502)
-    assert.deepEqual(await response.json(), { error: { code: 'organization_proxy_failed', message: 'upstream offline' } })
-    assert.equal(requests.length, 0)
+test('cookie read impersonation retains the original actor and forwards only the matching cookie for Core authorization', async () => {
+    for (const kind of readKinds) for (const headers of [{}, { 'x-impersonation-token': 'impersonation:target' }] as Array<Record<string, string>>) {
+        reset(); setJar({ id: 'user', access_token: 'session', impersonation_token: 'impersonation:target' }); setUpstreamStatus(200)
+        expect((await readRoute(kind, request(readPath(kind), 'GET', headers))).status).toBe(200)
+        expect(validations[0]).toMatchObject({ id: 'user', impersonationToken: 'impersonation:target' })
+        const upstream = new Headers(requests[0].init?.headers)
+        expect(upstream.get('id')).toBe('user'); expect(upstream.get('x-hanasand-server-session-id')).toBe('user'); expect(upstream.get('x-impersonation-token')).toBe('impersonation:target')
+    }
+    for (const cookie of ['', 'impersonation:target']) {
+        reset(); setJar({ impersonation_token: cookie })
+        expect((await readRoute('list', request(readPath('list'), 'GET', { 'x-impersonation-token': 'impersonation:other' }))).status).toBe(401)
+        expect(validations).toHaveLength(0); expect(requests).toHaveLength(0)
+    }
+})
+test('read replay, validator outage and absent trusted-hop configuration fail closed without a second Core request', async () => {
+    reset(); expect((await readRoute('list')).status).toBe(201); expect((await readRoute('list')).status).toBe(401); expect(requests).toHaveLength(1)
+    expect((await readRoute('list', request(readPath('list'), 'GET', { dpop: 'fresh' }))).status).toBe(201); expect(requests).toHaveLength(2)
+    reset(); setValidationState('unavailable'); expect((await readRoute('item')).status).toBe(503); expect(requests).toHaveLength(0)
+    reset(); delete process.env.VM_API_TOKEN; expect((await readRoute('alert-terms')).status).toBe(503); expect(validations).toHaveLength(0); expect(requests).toHaveLength(0)
 })

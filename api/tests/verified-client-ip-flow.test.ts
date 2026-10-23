@@ -141,9 +141,9 @@ test('uses the verified client IP for rate actor, load-test quota and recorded t
         ])
         expect(loadTestInsertCalls).toHaveLength(1)
         expect(loadTestQuotaQueries).toHaveLength(2)
-        expect(loadTestQuotaQueries[0].sql).toContain("status <> 'failed'")
+        expect(loadTestQuotaQueries[0].sql).toContain('status <> \'failed\'')
         expect(loadTestQuotaQueries[0].sql).toContain('COALESCE(exit_code, 0) = 0')
-        expect(loadTestQuotaQueries[1].sql).toContain("status <> 'failed'")
+        expect(loadTestQuotaQueries[1].sql).toContain('status <> \'failed\'')
         expect(loadTestQuotaQueries[1].sql).toContain('COALESCE(exit_code, 0) = 0')
         const loadTestColumns = loadTestInsertCalls[0].sql.match(/INSERT INTO load_tests \(([^)]+)\)/)?.[1]
             .split(',').map(column => column.trim())

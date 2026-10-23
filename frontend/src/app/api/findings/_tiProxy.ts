@@ -1,3 +1,4 @@
+import { customerReadProof } from './customerReadProof'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
@@ -16,7 +17,15 @@ type ProxyOptions = {
 }
 
 export async function proxyTiRequest(request: NextRequest, path: string, options: ProxyOptions = {}) {
-    const session = await requireApiSession(request)
+    const delegatedCustomerRead = request.method === 'GET'
+        && (!options.method || options.method === 'GET')
+        && (path === '/v1/cases' && request.nextUrl.pathname === '/api/cases' && request.nextUrl.searchParams.get('collection') === 'intelligence'
+            || path === '/v1/dwm/alerts' && request.nextUrl.pathname === '/api/findings/alerts')
+    const proof = delegatedCustomerRead ? customerReadProof(request) : undefined
+    if (proof && 'response' in proof) return proof.response
+    const session = proof && !('response' in proof)
+        ? { identity: { id: proof.id, token: proof.token } }
+        : await requireApiSession(request)
     if ('response' in session) return session.response
 
     const base = tiScraperApiBase()
@@ -39,7 +48,7 @@ export async function proxyTiRequest(request: NextRequest, path: string, options
         if (scope.error) {
             return NextResponse.json({ error: { code: 'invalid_scope', message: scope.error } }, { status: 400 })
         }
-        if (scope.organizationId) {
+        if (scope.organizationId && !delegatedCustomerRead) {
             const scopeError = await verifyDwmOrganizationScope(scope.organizationId, token, id, impersonationToken)
             if (scopeError) return scopeError
         }
@@ -55,6 +64,7 @@ export async function proxyTiRequest(request: NextRequest, path: string, options
             method,
             cache: 'no-store',
             headers: {
+                ...(proof && !('response' in proof) ? proof.headers : {}),
                 'content-type': 'application/json',
                 'x-tenant-id': scope.tenantId,
                 ...(scope.organizationId ? { 'x-organization-id': scope.organizationId } : {}),

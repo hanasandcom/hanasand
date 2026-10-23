@@ -65,3 +65,16 @@ test('authenticated privacy action proxy forwards the real request and result', 
     assert.equal(upstream.init?.body, body)
     assert.equal(new Headers(upstream.init?.headers).get('authorization'), 'Bearer session-token')
 })
+
+
+test('unavailable immutable log count is explicit and does not become a false zero', () => {
+    const html = renderToStaticMarkup(createElement(PrivacyLifecyclePanel, {
+        organization: { id: 'org_count', name: 'Count organization', slug: 'count' },
+        privacy: { protection: { immutable_log_events: null, immutable_log_events_available: false } },
+        retentionDays: 30, canManage: false, busy: '',
+        onRun: () => undefined, onExport: () => undefined, onDelete: () => undefined,
+    }))
+    assert.match(html, /data-org-privacy-count-unavailable/)
+    assert.match(html, /immutable log count is temporarily unavailable/)
+    assert.doesNotMatch(html, /0 immutable (?:log|event)/i)
+})

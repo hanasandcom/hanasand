@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { cachedLogQuery } from '#utils/logs/cache.ts'
 import { requireLogAccess } from './access.ts'
-import { loadErrorSummary, emptyErrorSummary } from './errorSummary.ts'
+import { loadErrorSummary } from './errorSummary.ts'
 import {
     authStatusCode,
     expectedHttpProbePredicate,
@@ -121,7 +121,8 @@ async function queryErrorEvents(query: ErrorQuery) {
 
     return {
         generated_at: new Date().toISOString(),
-        summary: summary.rows[0] || emptyErrorSummary(),
+        ...summary,
+        warnings: summary.summary_warning ? [summary.summary_warning] : [],
         errors,
     }
 }

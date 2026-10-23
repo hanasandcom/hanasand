@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server'
-import { proxyOrganizationApiRequest } from '@/app/api/organizations/_organizationApiProxy'
+import { proxyOrganizationWatchlistRead } from '@/app/api/organizations/organizationWatchlistSession'
 import { proxyOrganizationWatchlistMutation } from '@/app/api/organizations/_organizationWatchlistDwmBridge'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string, itemId: string }> }) {
     const { id, itemId } = await context.params
-    return proxyOrganizationApiRequest(request, `/organizations/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(itemId)}`, { method: 'GET' })
+    return proxyOrganizationWatchlistRead(request, `/organizations/${encodeURIComponent(id)}/watchlists/${encodeURIComponent(itemId)}`, id)
 }
 
 export async function PUT(request: NextRequest, context: { params: Promise<{ id: string, itemId: string }> }) {

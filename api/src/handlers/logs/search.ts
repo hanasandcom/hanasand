@@ -7,6 +7,7 @@ import { logMessageSearchPredicate } from '#utils/logs/searchText.ts'
 import { searchLogPage } from '#utils/logs/searchPage.ts'
 import { foldLogCounts } from '#utils/logs/dimensions.ts'
 import { queryLogCountGroups } from '#utils/logs/counts.ts'
+import { readSkippedLogCount } from '#utils/logs/skippedCount.ts'
 
 export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
     if (!(await requireLogAccess(req, res))) return
@@ -49,7 +50,7 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
                 }
                 return { rows: result.rows, next_cursor: 'next_cursor' in result ? result.next_cursor : undefined, ...(totalEvents === undefined ? {} : { total_events: totalEvents }), processing: null, counts: [], services: [] }
             }
-            const status = await query('SELECT name, updated_at, last_error, last_id, recent_id, history_end_id, (SELECT COUNT(*)::int FROM events WHERE ingestion_id = \'logs\' AND processing_status = \'skipped\') AS skipped_events FROM log_processing_cursors ORDER BY name')
+            const status = await query('SELECT name, updated_at, last_error, last_id, recent_id, history_end_id FROM log_processing_cursors ORDER BY name')
             const progress = (await query('SELECT payload, last_error FROM log_catchup_progress WHERE id = TRUE')).rows[0]
             const catchup = typeof progress?.payload?.remaining === 'number' ? { ...progress.payload, last_error: progress.last_error } : null
             const pendingCommands = await readPendingProcessLogs(query)
@@ -62,12 +63,13 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
             }
             const stalled = status.rows.find(row => row.last_error)
             return { rows: result.rows, next_cursor: 'next_cursor' in result ? result.next_cursor : undefined,
-                processing: { updated_at: new Date().toISOString(), skipped_events: Number(status.rows[0]?.skipped_events || 0),
+                processing: { updated_at: new Date().toISOString(),
                     catchup, pending_commands: pendingCommands,
                     last_error: stalled ? `${stalled.name}: ${stalled.last_error}` : countersLastError ? `Log counters: ${countersLastError}` : null,
                     sources: status.rows }, ...counts }
         })
-        return res.send({ ...result, projection: compiled.projection, summarize: compiled.summarize, limit: pageLimit, hours, generated_at: new Date().toISOString() })
+        const skipped = result.processing ? await readSkippedLogCount() : undefined
+        return res.send({ ...result, ...(skipped ? { processing: { ...result.processing, ...skipped }, ...(skipped.skipped_events_warning ? { warnings: [skipped.skipped_events_warning] } : {}) } : {}), projection: compiled.projection, summarize: compiled.summarize, limit: pageLimit, hours, generated_at: new Date().toISOString() })
     } catch (error) {
         if ((error as { code?: string }).code === 'LOG_SEARCH_BUSY') {
             return res.header('Retry-After', '1').status(503).send({ error: (error as Error).message })

@@ -44,6 +44,17 @@ export type ScopedCase = {
 }
 
 export type DwmAlertBridgeResult = {
+    schemaVersion?: 'organization.watchlist_projection_receipt.v1'
+    projection?: {
+        status: 'synchronized' | 'unchanged' | 'pending' | 'failed'
+        checkedAt: string | null
+        source: 'identity'
+        watchlistIds: string[]
+        unresolvedItemIds: string[]
+        reason?: string
+        error?: { code: string, message: string }
+    }
+    alertRebuild?: { status: 'not_requested', reason: 'projection_only' }
     ok?: boolean
     skipped?: boolean
     reason?: string

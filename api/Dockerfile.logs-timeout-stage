@@ -1,0 +1,12 @@
+# Private synthetic PostgreSQL tests only; production uses api/Dockerfile.
+FROM oven/bun:1.3.13-alpine
+ARG HANASAND_RELEASE_COMMIT
+LABEL org.opencontainers.image.revision=$HANASAND_RELEASE_COMMIT
+WORKDIR /app
+COPY api/package.json api/bun.lock api/bunfig.toml ./
+RUN bun install --frozen-lockfile
+# Preserve private clone permissions without recursive dependency copy-ups.
+COPY --chown=bun:bun api/ ./
+USER bun
+RUN test -r /app/tests/log-skipped-count-postgres.test.ts && test -r /app/package.json
+CMD ["bun", "test", "/app/tests/log-skipped-count-postgres.test.ts"]

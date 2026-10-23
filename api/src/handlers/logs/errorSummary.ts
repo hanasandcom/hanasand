@@ -1,17 +1,50 @@
-import { withTransaction } from '#db'
-import { cachedLogQuery } from '#utils/logs/cache.ts'
-import {
-    authStatusCode,
-    expectedHttpProbePredicate,
-    expectedTrafficProbePredicate,
-} from './errorPredicates.ts'
+import { isTransientDatabaseError, withTransaction } from '#db'
+import type { queryOnce } from '#db'
+import { authStatusCode, expectedHttpProbePredicate, expectedTrafficProbePredicate } from './errorPredicates.ts'
 
-export function loadErrorSummary(includeExpected: boolean) {
-    return cachedLogQuery(`error-summary:${includeExpected}`, 60_000, () => withTransaction(async query => {
-        // Full-history counters refresh off the request path after startup.
-        // Keep this budget local: ordinary API queries still fail promptly.
-        await query('SET LOCAL statement_timeout = \'30s\'')
-        return query(`
+export type ErrorSummarySnapshot = {
+    summary: Record<string, unknown> | null
+    summary_available: boolean
+    summary_checked_at: string
+    summary_warning?: string
+}
+
+// Historical distributions are supplemental. Cancel their own SQL transaction
+// without discarding recent errors or leaving work running after a timeout.
+export function createErrorSummaryReader(transaction = withTransaction, now = Date.now) {
+    const entries = new Map<boolean, { snapshot?: ErrorSummarySnapshot; pending?: Promise<ErrorSummarySnapshot> }>()
+    return function read(includeExpected: boolean): Promise<ErrorSummarySnapshot> {
+        const entry = entries.get(includeExpected) || {}
+        entries.set(includeExpected, entry)
+        const snapshot = entry.snapshot
+        if (snapshot && now() - Date.parse(snapshot.summary_checked_at) < (snapshot.summary_available ? 60_000 : 30_000)) return Promise.resolve(snapshot)
+        if (!entry.pending) entry.pending = (async () => {
+            let summary: Record<string, unknown> | null
+            try {
+                summary = await transaction(async query => {
+                    await query('SET TRANSACTION READ ONLY')
+                    await query('SET LOCAL statement_timeout = \'750ms\'; SET LOCAL lock_timeout = \'100ms\'; SET LOCAL max_parallel_workers_per_gather = 0')
+                    const row = await queryErrorSummary(query, includeExpected)
+                    if (!row || !Number.isSafeInteger(row.total) || row.total < 0) throw new Error('Invalid historical error summary response.')
+                    return row
+                })
+            } catch (error) {
+                const code = (error as { code?: string }).code
+                if (code !== '57014' && code !== '55P03' && code !== 'DB_QUEUE_FULL' && !isTransientDatabaseError(error)) throw error
+                summary = null
+            }
+            entry.snapshot = { summary, summary_available: summary !== null, summary_checked_at: new Date(now()).toISOString(),
+                ...(summary === null ? { summary_warning: 'Historical error totals are temporarily unavailable. Recent error records are still available.' } : {}) }
+            return entry.snapshot
+        })().finally(() => { entry.pending = undefined })
+        return entry.pending
+    }
+}
+
+export const loadErrorSummary = createErrorSummaryReader()
+
+async function queryErrorSummary(query: typeof queryOnce, includeExpected: boolean) {
+    return (await query(`
             WITH raw_events AS NOT MATERIALIZED (
                 SELECT normalized->'metadata'->>'surface' AS surface, NULLIF(normalized->'metadata'->>'status_code', '')::int AS status_code, normalized->'metadata'->>'error_code' AS error_code, normalized->'metadata'->>'path' AS path, event_timestamp AS created_at
                 FROM events
@@ -60,13 +93,5 @@ export function loadErrorSummary(includeExpected: boolean) {
             SELECT stats.total, stats.last_hour, stats.last_24h, stats.server_errors, stats.client_errors,
                 status_counts.rows AS status_counts, surface_counts.rows AS surface_counts, code_counts.rows AS code_counts
             FROM stats, status_counts, surface_counts, code_counts
-        `, [includeExpected])
-    }))
-}
-
-export function emptyErrorSummary() {
-    return {
-        total: 0, last_hour: 0, last_24h: 0, server_errors: 0, client_errors: 0,
-        status_counts: [], surface_counts: [], code_counts: [],
-    }
+        `, [includeExpected])).rows[0]
 }

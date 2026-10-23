@@ -7,6 +7,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 const testPage = readSource('src/app/test/page.tsx')
 const testClient = readSource('src/app/test/pageClient.tsx')
+const trafficShapes = readSource('src/utils/test/trafficShapes.ts')
+const postTestClient = readSource('src/utils/test/postTest.ts')
 const endpointCheckPanel = readSource('src/app/test/EndpointCheckPanel.tsx')
 const loadTestingPage = readSource('src/app/dashboard/load-testing/page.tsx')
 const loadTestingClient = readSource('src/app/dashboard/load-testing/pageClient.tsx')
@@ -21,9 +23,20 @@ assertIncludes(endpointCheckPanel, 'Try your endpoint with some traffic and see 
 assertExcludes(endpointCheckPanel, 'owned HTTP endpoint', 'public service check page must avoid ownership-focused technical copy')
 assertIncludes(testPage, 'lg:grid-cols-[0.9fr_1.1fr] lg:items-center', 'public service check layout must match the compact two-column split')
 assertIncludes(endpointCheckPanel, 'Start test', 'public service check launcher must be one focused panel')
-assertIncludes(endpointCheckPanel, 'scenarios.map((scenario)', 'public service check page must present each available traffic shape')
+assert.match(testClient, /import\s+\{[^}]*\bscenarioPresets\b[^}]*\}\s+from '@\/utils\/test\/trafficShapes'/, 'public service check page must import the shared traffic presets')
+assertIncludes(trafficShapes, 'export const scenarioPresets = [', 'traffic shape module must export the shared presets')
+for (const preset of ['baseline', 'ramp', 'spike', 'custom']) {
+    assertIncludes(trafficShapes, `id: '${preset}'`, `shared traffic shapes must include the ${preset} preset`)
+}
+assertIncludes(testClient, 'scenarios={scenarioPresets}', 'public service check page must supply shared presets to the scenario picker')
+assertIncludes(testClient, 'onScenarioChange={setScenarioId}', 'public service check page must retain the selected scenario')
+assertIncludes(endpointCheckPanel, 'scenarios.map((scenario) => (', 'scenario picker must render every shared preset')
 assertIncludes(endpointCheckPanel, '{scenario.label}', 'public service check page must show the traffic shape names')
-assertIncludes(testClient, 'postTest({ url, timeout: selectedScenario.timeout, stages: selectedScenario.stages })', 'public service check launcher must send scenario timeout and stages to the job API')
+assertIncludes(endpointCheckPanel, 'onScenarioChange(scenario.id)', 'scenario picker must select the clicked preset')
+assertIncludes(testClient, 'scenarioPresets.find((scenario) => scenario.id === scenarioId)', 'launcher must resolve the selected shared preset')
+assertIncludes(testClient, 'selectedPreset.id === \'custom\' ? toK6Stages(customStages) : selectedPreset.stages', 'launcher must preserve custom and preset traffic stages')
+assertJobPayload(testClient, 'url', 'selectedScenario', 'public service check launcher')
+assertIncludes(postTestClient, 'body: JSON.stringify({ url, timeout, stages })', 'job API request must preserve the selected endpoint, timeout and stages')
 assertIncludes(endpointCheckPanel, 'Recent checks', 'public service check page must keep shared result history in the main panel')
 assertIncludes(endpointCheckPanel, 'My checks', 'public service check page must keep personal history as a small action')
 assertExcludes(testClient, 'RecentScans title=', 'public service check page must not restore stacked history cards')
@@ -44,7 +57,7 @@ assertIncludes(loadTestingClient, 'loadTestStatusCounts(allScans)', 'dashboard c
 assertIncludes(loadTestingClient, 'failedCount={failedCount}', 'dashboard command center must pass the derived failure count into its launch snapshot')
 assertIncludes(loadTestingLaunch, 'failedCount={props.failedCount}', 'dashboard command center must forward the failure count into its visible snapshot')
 assertIncludes(loadTestingSnapshot, 'label=\'Failures\' value={failedCount ? String(failedCount) : \'Clear\'}', 'dashboard command center must expose the failure count or clear state to operators')
-assertIncludes(loadTestingClient, 'postTest({ url: targetUrl, timeout: scenario.timeout, stages: scenario.stages })', 'dashboard command center must send scenario timeout and stages to the job API')
+assertJobPayload(loadTestingClient, 'url: targetUrl', 'scenario', 'dashboard command center')
 assertIncludes(loadTestingLaunch, 'p95/p99 evidence', 'dashboard command center must surface latency evidence, not a vague launch promise')
 assertIncludes(loadTestingSnapshot, 'logs + share link', 'dashboard command center must surface artifact evidence')
 assertExcludes(loadTestingClient, 'Next: run more jobs', 'dashboard command center must not ship next-action placeholder copy')
@@ -80,6 +93,14 @@ function assertIncludes(source, needle, message) {
 
 function assertExcludes(source, needle, message) {
     assert.equal(source.includes(needle), false, `${message}: found ${JSON.stringify(needle)}`)
+}
+
+function assertJobPayload(source, endpoint, scenario, message) {
+    const payload = source.match(/postTest\(\{([^}]*)\}\)/)?.[1]
+    const fields = payload?.split(',').map(field => field.trim()) || []
+    for (const field of [endpoint, `timeout: ${scenario}.timeout`, `stages: ${scenario}.stages`]) {
+        assert.ok(fields.includes(field), `${message} must send ${field} to the job API`)
+    }
 }
 
 function assertOrder(source, first, second, message) {

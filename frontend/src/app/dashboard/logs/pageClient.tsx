@@ -160,7 +160,8 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
             {processingError && <p role='alert' className='text-sm text-ui-text'>Event processing is delayed: {processingError}</p>}
             {view === 'dashboard' && analyticsOpen && <ThroughputMetrics initialMetrics={initialMetrics} />}
             {view === 'dashboard' && <LogCatchupProgress progress={data?.processing?.catchup} now={data?.generated_at || new Date().toISOString()} stalled={!!processingError} />}
-            {!!data?.processing?.skipped_events && <p role='status' className='text-sm text-ui-warning'>{formatLogCount(data.processing.skipped_events)} events remain excluded from detection.</p>}
+            {data?.processing?.skipped_events_available === false && <p role='status' className='text-sm text-ui-warning'>{data.processing.skipped_events_warning || 'The historical excluded event count is temporarily unavailable.'}{data.processing.skipped_events_checked_at ? ` Checked ${new Date(data.processing.skipped_events_checked_at).toLocaleString()}.` : ''}</p>}
+            {typeof data?.processing?.skipped_events === 'number' && data.processing.skipped_events >= 0 && <p role='status' className='text-sm text-ui-warning'>{formatLogCount(data.processing.skipped_events)} events remain excluded from detection.{data.processing.skipped_events_checked_at ? ` Checked ${new Date(data.processing.skipped_events_checked_at).toLocaleString()}.` : ''}</p>}
             {view !== 'realtime' && data && !data.processing && !busy && <p role='status' className='text-sm text-ui-warning'>Waiting for the log processor to check in.</p>}
             {view === 'dashboard' ? <>
                 <section className='grid grid-cols-2 gap-2.5 min-[380px]:gap-3 md:grid-cols-3 xl:grid-cols-5' aria-label='Events by severity' data-logs-metrics>
@@ -169,7 +170,7 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
                         const fallback24h = hours === '24' ? data?.counts.find(item => item.severity === value)?.count : undefined
                         return <LogMetricCard key={value} label={value} href={`/logs/search?${params}`} hrefLabel={`View 24-hour ${value} logs`} count24h={mostActiveSummary?.last_24h.severities[value] ?? fallback24h} countTotal={mostActiveSummary?.total.severities[value]} />
                     })}
-                    <LogMetricCard label='Errors' href='/logs/errors' hrefLabel='View error details' count24h={errorsLoaded ? errors.summary.last_24h : undefined} countTotal={errorsLoaded ? errors.summary.total : undefined} />
+                    <LogMetricCard label='Errors' href='/logs/errors' hrefLabel='View error details' count24h={errorsLoaded && errors.summary_available !== false ? errors.summary?.last_24h : undefined} countTotal={errorsLoaded && errors.summary_available !== false ? errors.summary?.total : undefined} />
                 </section>
                 <MostActiveServicesPanel summary={mostActiveSummary} fallbackRecent={data?.services} loaded={mostActiveLoaded} />
             </> : <LogResultsPanel

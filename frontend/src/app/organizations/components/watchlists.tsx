@@ -1,3 +1,4 @@
+import { WatchlistCleanup, watchlistCleanupSelectionKey } from './watchlistCleanup'
 import { WatchlistItemRow } from './watchlistItemRow'
 import type { WatchlistItem, AlertTerm, WatchlistKind, WatchlistSuggestion } from '../types/watchlists'
 import type { OrganizationMember, OrganizationSummary } from '../types/organization'
@@ -11,10 +12,10 @@ import { OrganizationFilterStrip } from './filterStrip'
 import { OrganizationCountBadges } from './organizationCountBadges'
 import { watchlistTemplates, watchlistKinds } from '../constants/options'
 import { useState } from 'react'
-import { Archive, BellRing, RefreshCw } from 'lucide-react'
+import { BellRing, RefreshCw } from 'lucide-react'
 import { filterRowsByQueryAndStatus } from '../model/filterRows'
 
-export function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanup, busy, draft, setDraft, suggestions, editing, setEditing, onCreate, onSave, onAction, onDelete, organization, alerts, deliveries, onCleanup, onRefreshAlerts, onRequestFreshCollection, onRefreshCollectionStatus, collectionRequest, rowMessages, draftDuplicate, selectedSubject, onSelectSubject }: { watchlists: WatchlistItem[], activeTerms: AlertTerm[], members: OrganizationMember[], canManage: boolean, canCleanup: boolean, busy: string, draft: { kind: WatchlistKind, value: string, notes: string }, setDraft: (next: { kind: WatchlistKind, value: string, notes: string }) => void, suggestions: WatchlistSuggestion[], editing: Record<string, { kind: WatchlistKind, value: string, notes: string }>, setEditing: (next: Record<string, { kind: WatchlistKind, value: string, notes: string }> | ((current: Record<string, { kind: WatchlistKind, value: string, notes: string }>) => Record<string, { kind: WatchlistKind, value: string, notes: string }>)) => void, onCreate: () => void, onSave: (item: WatchlistItem) => void, onAction: (item: WatchlistItem, action: 'pause' | 'resume' | 'archive' | 'restore') => void, onDelete: (item: WatchlistItem) => void, organization: OrganizationSummary, alerts: ScopedAlert[], deliveries: DeliveryRow[], onCleanup: () => void, onRefreshAlerts: () => void, onRequestFreshCollection: () => void, onRefreshCollectionStatus: () => void, collectionRequest: CollectionRequest | null, rowMessages: Record<string, RowMessage>, draftDuplicate: boolean, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void }) {
+export function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanup, busy, draft, setDraft, suggestions, editing, setEditing, onCreate, onSave, onAction, onDelete, organization, alerts, deliveries, onCleanup, onRefreshAlerts, onRequestFreshCollection, onRefreshCollectionStatus, collectionRequest, rowMessages, draftDuplicate, selectedSubject, onSelectSubject }: { watchlists: WatchlistItem[], activeTerms: AlertTerm[], members: OrganizationMember[], canManage: boolean, canCleanup: boolean, busy: string, draft: { kind: WatchlistKind, value: string, notes: string }, setDraft: (next: { kind: WatchlistKind, value: string, notes: string }) => void, suggestions: WatchlistSuggestion[], editing: Record<string, { kind: WatchlistKind, value: string, notes: string }>, setEditing: (next: Record<string, { kind: WatchlistKind, value: string, notes: string }> | ((current: Record<string, { kind: WatchlistKind, value: string, notes: string }>) => Record<string, { kind: WatchlistKind, value: string, notes: string }>)) => void, onCreate: () => void, onSave: (item: WatchlistItem) => void, onAction: (item: WatchlistItem, action: 'pause' | 'resume' | 'archive' | 'restore') => void, onDelete: (item: WatchlistItem) => void, organization: OrganizationSummary, alerts: ScopedAlert[], deliveries: DeliveryRow[], onCleanup: (itemIds: string[]) => void, onRefreshAlerts: () => void, onRequestFreshCollection: () => void, onRefreshCollectionStatus: () => void, collectionRequest: CollectionRequest | null, rowMessages: Record<string, RowMessage>, draftDuplicate: boolean, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void }) {
     const [watchlistQuery, setWatchlistQuery] = useState('')
     const [watchlistStatusFilter, setWatchlistStatusFilter] = useState('all')
     const { active: activeCount, paused: pausedCount, archived: archivedCount } = watchlistStatusCounts(watchlists)
@@ -35,12 +36,9 @@ export function WatchlistPanel({ watchlists, activeTerms, members, canManage, ca
                         <RefreshCw className='h-4 w-4' />
                         Refresh events
                     </button>
-                    <button type='button' className={secondaryButtonClass} disabled={!canCleanup || archivedCount === 0 || Boolean(busy)} onClick={onCleanup}>
-                        <Archive className='h-4 w-4' />
-                        Cleanup archived
-                    </button>
                 </div>
             </div>
+            {canCleanup && <WatchlistCleanup key={watchlistCleanupSelectionKey(organization.id, watchlists)} organizationId={organization.id} items={watchlists} disabled={Boolean(busy)} onCleanup={onCleanup} />}
             {watchlists.length > 0 && (
                 <OrganizationCountBadges counts={[{ label: 'Active', count: activeCount }, { label: 'Paused', count: pausedCount }, { label: 'Archived', count: archivedCount }]} className='mt-3 flex flex-wrap gap-2' marker='data-org-watchlist-status-counts' />
             )}

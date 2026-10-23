@@ -23,6 +23,12 @@ async function safeJson(response: Response): Promise<unknown> {
 
 export function watchlistMutationMessage(bridge: DwmAlertBridgeResult | undefined, fallback: string) {
     if (!bridge) return fallback
+    if (bridge.schemaVersion === 'organization.watchlist_projection_receipt.v1') {
+        const status = bridge.projection?.status
+        if (bridge.projection?.reason === 'no_changed_items') return `${fallback} No watchlist changes needed synchronization. Events were not rebuilt.`
+        if (status === 'synchronized' || status === 'unchanged') return `${fallback} Monitoring synchronized. Events were not rebuilt.`
+        return { message: `${fallback} Monitoring synchronization ${status === 'pending' ? 'is pending' : 'did not complete'}. Events were not rebuilt.`, warning: true }
+    }
     if (bridge.skipped) return { message: `${fallback} Event sync skipped: ${humanizeBridgeReason(bridge.reason)}.`, warning: true }
     if (bridge.savedAlertCount && bridge.savedAlertCount > 0) {
         const firstAlert = bridge.firstAlert

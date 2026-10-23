@@ -1,3 +1,4 @@
+import { savedWatchlistProjection } from '#utils/organizations/watchlistSync.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { touchOrganization } from '#utils/db/identityDataWrites.ts'
@@ -71,6 +72,7 @@ export async function postOrganizationWatchlistCleanup(req: FastifyRequest<{ Par
     })
 
     return res.send({
+        ...await savedWatchlistProjection(req.params.id, archivedItems.map(item => item.id)),
         cleanup: {
             schemaVersion: 'organization.watchlist_cleanup.v1',
             organizationId: req.params.id,

@@ -17,23 +17,25 @@ export default function ErrorsPanel({
     onToggle: (id: string | number) => void
     onCopy: (event: ErrorEvent) => void
 }) {
-    const topCodes = events.summary.code_counts.slice(0, 8)
-    const topSurfaces = events.summary.surface_counts.slice(0, 8)
+    const summary = events.summary_available === false ? null : events.summary
+    const topCodes = summary?.code_counts.slice(0, 8) || []
+    const topSurfaces = summary?.surface_counts.slice(0, 8) || []
 
     return (
         <section className='grid select-text gap-4'>
+            {!summary && <p role='status' className='text-sm text-ui-warning' data-logs-summary-unavailable>{events.summary_warning || 'Historical error totals are not available yet.'}{events.summary_checked_at ? ` Checked ${new Date(events.summary_checked_at).toLocaleString()}.` : ''}</p>}
             <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
-                <SummaryCard icon={<Bug className='h-4 w-4' />} label='Errors' value={events.summary.total} note='API, auth, and website' />
-                <SummaryCard icon={<Activity className='h-4 w-4' />} label='Last hour' value={events.summary.last_hour} note='Fresh incidents' />
-                <SummaryCard icon={<AlertTriangle className='h-4 w-4' />} label='Server errors' value={events.summary.server_errors} note='HTTP 5xx' />
-                <SummaryCard icon={<ShieldAlert className='h-4 w-4' />} label='Client errors' value={events.summary.client_errors} note='HTTP 4xx' />
+                <SummaryCard icon={<Bug className='h-4 w-4' />} label='Errors' value={summary?.total ?? null} note='API, auth, and website' />
+                <SummaryCard icon={<Activity className='h-4 w-4' />} label='Last hour' value={summary?.last_hour ?? null} note='Fresh incidents' />
+                <SummaryCard icon={<AlertTriangle className='h-4 w-4' />} label='Server errors' value={summary?.server_errors ?? null} note='HTTP 5xx' />
+                <SummaryCard icon={<ShieldAlert className='h-4 w-4' />} label='Client errors' value={summary?.client_errors ?? null} note='HTTP 4xx' />
             </div>
 
             <section className='grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.34fr)]'>
                 <div className={`${dashboardPanelClass} min-w-0 overflow-hidden`} data-logs-error-table>
                     <div className='border-b border-ui-border px-4 py-3'>
                         <h2 className='text-base font-semibold text-ui-text'>Recent errors</h2>
-                        <p className='mt-1 text-xs leading-5 text-ui-muted'>Showing {events.errors.length} recent rows from {events.summary.total} errors. Select an error code for context.</p>
+                        <p className='mt-1 text-xs leading-5 text-ui-muted'>Showing {events.errors.length} recent rows{summary ? ` from ${summary.total} errors` : ''}. Select an error code for context.</p>
                     </div>
                     <div className='divide-y divide-ui-border'>
                         {events.errors.map((event) => {
@@ -65,21 +67,21 @@ export default function ErrorsPanel({
                     </div>
                     {!events.errors.length && (
                         <div className='grid min-h-48 place-content-center border-t border-ui-border px-5 text-center text-sm text-ui-muted'>
-                            No tracked errors in the current window.
+                            {events.generated_at ? 'No tracked errors in the current window.' : 'Recent error records have not loaded yet.'}
                         </div>
                     )}
                 </div>
 
                 <section className='grid min-w-0 content-start gap-4'>
-                    <BreakdownCard title='Top codes' rows={topCodes.map(row => ({ label: row.error_code || 'uncategorized', count: row.count }))} />
-                    <BreakdownCard title='Top surfaces' rows={topSurfaces.map(row => ({ label: row.surface || 'api', count: row.count }))} />
+                    <BreakdownCard available={!!summary} title='Top codes' rows={topCodes.map(row => ({ label: row.error_code || 'uncategorized', count: row.count }))} />
+                    <BreakdownCard available={!!summary} title='Top surfaces' rows={topSurfaces.map(row => ({ label: row.surface || 'api', count: row.count }))} />
                 </section>
             </section>
         </section>
     )
 }
 
-function BreakdownCard({ title, rows }: { title: string, rows: Array<{ label: string, count: number }> }) {
+function BreakdownCard({ title, rows, available }: { title: string, available: boolean, rows: Array<{ label: string, count: number }> }) {
     return (
         <div className={`${dashboardPanelClass} min-w-0 p-4`}>
             <h3 className='text-base font-semibold text-ui-text'>{title}</h3>
@@ -90,20 +92,20 @@ function BreakdownCard({ title, rows }: { title: string, rows: Array<{ label: st
                         <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-0.5 text-xs font-semibold text-ui-muted'>{row.count}</span>
                     </div>
                 ))}
-                {!rows.length && <p className='rounded-md border border-dashed border-ui-border p-3 text-sm text-ui-muted'>No errors in this window.</p>}
+                {!rows.length && <p className='rounded-md border border-dashed border-ui-border p-3 text-sm text-ui-muted'>{available ? 'No errors in this window.' : 'Historical summary unavailable.'}</p>}
             </div>
         </div>
     )
 }
 
-function SummaryCard({ icon, label, value, note }: { icon: ReactNode, label: string, value: number, note: string }) {
+function SummaryCard({ icon, label, value, note }: { icon: ReactNode, label: string, value: number | null, note: string }) {
     return (
         <article className={`${dashboardPanelClass} p-3 sm:p-4`} data-logs-metric-card>
             <div className='flex items-center justify-between gap-3 text-ui-muted'>
                 <span className='text-xs font-medium'>{label}</span>
                 <span className='grid h-8 w-8 place-items-center rounded-md border border-ui-border bg-ui-raised text-ui-muted'>{icon}</span>
             </div>
-            <p className='mt-2 text-xl font-semibold text-ui-text'>{countFormatter.format(value)}</p>
+            <p className='mt-2 text-xl font-semibold text-ui-text'>{value === null ? 'Unavailable' : countFormatter.format(value)}</p>
             <p className='mt-1 text-xs font-medium text-ui-muted'>{note}</p>
         </article>
     )
