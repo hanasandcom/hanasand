@@ -7,6 +7,7 @@ export const VM_LIFECYCLE_MONITOR_CHECK = 'Disposable staging VM lifecycle'
 const MONITOR_INTERVAL_MS = 6 * 60 * 60 * 1000
 const RESOURCE_LIMITS = { cpu: '1', memory: '2GiB', disk: '10GiB' }
 const ISOLATED_STAGING_PROJECT = 'hns-stage'
+const VM_CREATE_OPERATION_TIMEOUT_SECONDS = 600
 const ISOLATED_STAGING_NETWORK = 'hanai-stage0'
 
 type LxdRequest = <T>(socketPath: string, path: string, options?: LxdRequestOptions) => Promise<LxdResponse<T>>
@@ -110,6 +111,7 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
     const name = `hanasand-vm-monitor-${randomUUID().slice(0, 12)}`
     const marker = `hanasand-vm-lifecycle-${randomUUID()}`
     let createSubmitted = false
+    let createResponse: LxdResponse<unknown> | null = null
     let primaryError: unknown
     try {
         const rootDiskPool = await assertRestrictedStagingProject(settings.socketPath, settings.project, request)
@@ -126,7 +128,8 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
                 source: { type: 'image', mode: 'pull', server: settings.imageServer, protocol: 'simplestreams', alias: settings.imageAlias },
             },
         })
-        await finishOperation(request, settings.socketPath, settings.project, created, 'create')
+        createResponse = created
+        await finishOperation(request, settings.socketPath, settings.project, created, 'create', VM_CREATE_OPERATION_TIMEOUT_SECONDS)
 
         const inspected = await checkedRequest<Instance>(request, settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}`, settings.project))
         if (inspected.name !== name || inspected.type !== 'virtual-machine') throw new Error('LXD returned an unexpected VM identity or type.')
@@ -157,6 +160,12 @@ export async function exerciseDisposableInstance(settings: MonitorConfig, reques
 
     if (createSubmitted) {
         try {
+            // If a slow image unpack outlived the create wait, let that scoped operation
+            // settle before inspecting or deleting its instance. LXD rejects deletion
+            // while an instance is busy with its create operation.
+            if (createResponse?.operation) {
+                await finishOperation(request, settings.socketPath, settings.project, createResponse, 'cleanup create', VM_CREATE_OPERATION_TIMEOUT_SECONDS).catch(() => {})
+            }
             const existing = await request(settings.socketPath, scopedPath(`/1.0/instances/${encodeURIComponent(name)}`, settings.project)).catch(() => null)
             if (existing?.status_code === 200) {
                 if ((existing.metadata as Instance).status?.toLowerCase() === 'running') {
@@ -201,7 +210,7 @@ async function assertRestrictedStagingProject(socketPath: string, project: strin
     return rootDiskPool
 }
 
-async function finishOperation(request: LxdRequest, socketPath: string, project: string | null, response: LxdResponse<unknown>, label: string) {
+async function finishOperation(request: LxdRequest, socketPath: string, project: string | null, response: LxdResponse<unknown>, label: string, timeoutSeconds = 120) {
     if (!response.operation) {
         if (response.status_code < 200 || response.status_code >= 300) throw new Error(`LXD ${label} failed with status ${response.status_code}.`)
         return
@@ -209,7 +218,7 @@ async function finishOperation(request: LxdRequest, socketPath: string, project:
     const operationPath = response.operation.includes('/1.0/operations/')
         ? response.operation
         : `/1.0/operations/${encodeURIComponent(response.operation)}`
-    const completed = await checkedRequest<OperationResult>(request, socketPath, scopedPath(`${operationPath}/wait?timeout=120`, project))
+    const completed = await checkedRequest<OperationResult>(request, socketPath, scopedPath(`${operationPath}/wait?timeout=${timeoutSeconds}`, project), { timeout: (timeoutSeconds + 10) * 1000 })
     if (completed.err || (completed.status_code !== undefined && completed.status_code !== 200)) {
         throw new Error(`LXD ${label} failed${completed.err ? `: ${completed.err}` : '.'}`)
     }

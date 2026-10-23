@@ -50,7 +50,7 @@ test('lifecycle monitor requires explicit isolated staging configuration', () =>
 type Instance = { name?: string, type?: string, status?: string, config?: Record<string, string> }
 
 function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestrictedProject?: boolean, wrongNetwork?: boolean, missingRootPool?: boolean } = {}) {
-    const calls: { path: string, method: string, action?: string }[] = []
+    const calls: { path: string, method: string, action?: string, timeout?: number }[] = []
     let instance: Instance | null = null
     let running = false
     let patchSeen = false
@@ -59,7 +59,7 @@ function fakeLxd(options: { failAt?: string, failCleanup?: boolean, unrestricted
         expect(socketPath).toBe(safeSettings.socketPath)
         const method = requestOptions.method || 'GET'
         const action = (requestOptions.body as { action?: string } | undefined)?.action
-        calls.push({ path, method, ...(action ? { action } : {}) })
+        calls.push({ path, method, ...(action ? { action } : {}), ...(requestOptions.timeout ? { timeout: requestOptions.timeout } : {}) })
         if (options.failAt === path) throw new Error(`injected failure at ${path}`)
         let response: LxdResponse<unknown>
         const resourcePath = new URL(path, 'http://lxd').pathname
@@ -138,6 +138,7 @@ test('staging probe exercises the virtual machine lifecycle and removes its disp
     expect(lxd.calls.some(call => call.method === 'DELETE')).toBe(true)
     expect(lxd.rootPoolUsed()).toBe('default')
     expect(lxd.calls.some(call => call.path === '/1.0/profiles/default?project=hns-stage')).toBe(true)
+    expect(lxd.calls.find(call => call.path.includes('/operations/create/wait?timeout=600'))).toMatchObject({ timeout: 610000 })
     expect(lxd.calls.at(-1)).toEqual({ path: '/1.0/instances?recursion=1&project=hns-stage', method: 'GET' })
     expect(lxd.calls.every(call => call.path === '/1.0/projects/hns-stage' || call.path.includes('project=hns-stage'))).toBe(true)
 })
