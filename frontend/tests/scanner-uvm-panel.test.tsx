@@ -155,7 +155,7 @@ test('first-run guide points to asset verification and scanner setup when neithe
 
     expect(html).toContain('0 verified assets')
     expect(html).toContain('Add and verify an asset')
-    expect(html).toContain('0 engines ready · 0 unavailable')
+    expect(html).toContain('0 verified assets · 0 engines ready')
     expect(html).toContain('Scanner setup')
 
     const configureHtml = renderToStaticMarkup(<UvmAssessmentStarter
