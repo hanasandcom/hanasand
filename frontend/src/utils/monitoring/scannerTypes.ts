@@ -58,6 +58,13 @@ export type UvmAssetEngineCoverage = {
     } | null
 }
 export type UvmEngine = { id: string, name: string, status: 'available' | 'unavailable', version: string | null, reason: string | null, profiles: Array<{ id: string, name: string, safe: boolean }>, coverage: string[], notCovered: string[] }
+export type UvmScannerCatalogEntry = {
+    id: string
+    name: string
+    category: 'Discovery' | 'Vulnerability' | 'Web' | 'Cloud and code'
+    integration: 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'image-worker' | 'catalog-only' | 'desktop-only' | 'cli-review'
+    setup: 'configured' | 'adapter-needed' | 'license-and-adapter-needed' | 'desktop-only' | 'cli-review-needed'
+}
 export type UvmPort = { port: number, protocol: string, state: string, service: string | null, product: string | null, version: string | null, extraInfo: string | null }
 export type UvmHost = { address: string, status: string, timedOut: boolean, ports: UvmPort[] }
 export type UvmTenableFinding = { findingId: string, provider: 'tenable-vm', pluginId: string, cveIds: string[], title: string, severity: string, cvssScore: number | null, description: string | null, solution: string | null, evidence: string | null, assetAddress: string, firstSeen: string | null, lastSeen: string | null, status: string, observed: boolean, port: number | null, protocol: string | null }
@@ -72,4 +79,4 @@ export type UvmRunHistoryPage = { runs: UvmRun[], nextCursor: string | null }
 export type UvmAssessment = { id: string, requestId: string, status: 'queued' | 'running' | 'cancelling' | 'succeeded' | 'partial' | 'failed' | 'cancelled', source: 'manual' | 'scheduled', createdAt: string, startedAt: string | null, finishedAt: string | null, jobs: Array<{ id: string, assetId: string, asset: string, engine: 'nmap' | 'tenable-vm' | 'gvm' | 'zap', profile: string, stageIndex: number, stage: string, runId: string | null, status: string, error: string | null, attemptCount: number, nextAttemptAt: string | null, createdAt: string, startedAt: string | null, finishedAt: string | null }> }
 export type UvmAssessmentHistoryPage = { assessments: UvmAssessment[], nextCursor: string | null }
 export type UvmAssessmentReport = Omit<UvmAssessment, 'jobs'> & { jobs: Array<UvmAssessment['jobs'][number] & { run: UvmRun | null, reportError?: string }> }
-export type UvmDashboard = { assets: UvmAsset[], coverage?: UvmAssetEngineCoverage[], engines: UvmEngine[], runs: UvmRun[], runsNextCursor?: string | null, assessments: UvmAssessment[], assessmentsNextCursor?: string | null, scannerError: string | null, tenableIntegration: UvmTenableIntegration | null, tenableScans: UvmTenableScan[], findings: UvmFinding[], findingsNextCursor?: string | null, findingSummary?: { total: number, actionable: number, criticalOrHigh: number } }
+export type UvmDashboard = { assets: UvmAsset[], coverage?: UvmAssetEngineCoverage[], engines: UvmEngine[], scannerCatalog?: UvmScannerCatalogEntry[], runs: UvmRun[], runsNextCursor?: string | null, assessments: UvmAssessment[], assessmentsNextCursor?: string | null, scannerError: string | null, tenableIntegration: UvmTenableIntegration | null, tenableScans: UvmTenableScan[], findings: UvmFinding[], findingsNextCursor?: string | null, findingSummary?: { total: number, actionable: number, criticalOrHigh: number } }

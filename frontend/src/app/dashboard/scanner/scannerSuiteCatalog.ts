@@ -1,9 +1,6 @@
-export type ScannerCatalogEntry = {
-    name: string
-    category: 'Discovery' | 'Vulnerability' | 'Web' | 'Cloud and code'
-    integration: 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'image-worker' | 'catalog-only' | 'desktop-only' | 'cli-review'
-    setup: 'configured' | 'adapter-needed' | 'license-and-adapter-needed' | 'desktop-only' | 'cli-review-needed'
-}
+import type { UvmScannerCatalogEntry } from '@/utils/monitoring/types'
+
+export type ScannerCatalogEntry = Omit<UvmScannerCatalogEntry, 'id'> & { id?: string }
 
 // A visible catalog is independent of live worker status so a stopped API does not hide the suite.
 export const scannerSuiteCatalog: ScannerCatalogEntry[] = [

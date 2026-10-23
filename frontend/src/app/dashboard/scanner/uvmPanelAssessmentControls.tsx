@@ -19,6 +19,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
     servicesPaused: boolean
     onSetup: () => void
 }) {
+    const productCatalog = data.scannerCatalog?.length ? data.scannerCatalog : scannerSuiteCatalog
     const selectedReadyEngines = selectedEngines.filter(id => {
         const engine = data.engines.find(item => item.id === id)
         return !servicesPaused && engine?.status === 'available' && (id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
@@ -42,9 +43,9 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
         })
     }
     return <fieldset className='grid gap-2'>
-        <legend className='text-sm font-semibold'>Engines · {scannerSuiteCatalog.length} products</legend>
+        <legend className='text-sm font-semibold'>Engines · {productCatalog.length} products</legend>
         <div className='flex justify-end'><UvmHelp label='Assessment engines' text='Nmap inventories selected TCP ports. Greenbone uses Full and Fast. Nessus configurations run through Tenable VM. OWASP ZAP assesses the web origin.' /></div>
-        <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{scannerSuiteCatalog.map(item => {
+        <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{productCatalog.map(item => {
             const engineId: UvmAssessmentEngineId | null = item.integration === 'nmap' || item.integration === 'gvm' || item.integration === 'tenable-vm' || item.integration === 'zap'
                 ? item.integration
                 : null
@@ -60,7 +61,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
                                 : servicesPaused ? item.integration === 'tenable-vm' && !tenableReady ? 'Credentials + disk required' : 'Stopped · pending disk'
                                     : engine?.status === 'available' && !tenableReady ? 'Connect Tenable and enable a scan configuration'
                                         : engine?.status || 'Unavailable'
-            return <label key={item.name} className={`grid gap-1 rounded-md border border-ui-border p-3 text-sm ${ready ? 'cursor-pointer' : 'opacity-75'}`}>
+            return <label key={item.id || item.name} className={`grid gap-1 rounded-md border border-ui-border p-3 text-sm ${ready ? 'cursor-pointer' : 'opacity-75'}`}>
                 <span className='flex items-start gap-2'><input type='checkbox' checked={selected} disabled={!ready || !engineId} onChange={event => {
                     if (!engineId) return
                     setSelectedEngines(current => event.target.checked ? [...current, engineId] : current.filter(id => id !== engineId))
