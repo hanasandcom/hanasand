@@ -548,18 +548,21 @@ export async function moveOneBatch(url: string, token: string): Promise<Migratio
     const ids = sourceRows.map(row => String(row.id))
     const expectedRows = sourceRows.map(row => ({ id: String(row.id), organization_id: row.organization_id,
         event_timestamp: String(row.event_timestamp), normalized: row.normalized }))
-    const deleted = await withTransaction(async query => {
+    await withTransaction(async query => {
         await query('SET LOCAL lock_timeout = \'1s\'')
         await query('SET LOCAL statement_timeout = \'20s\'')
-        return query(`DELETE FROM events AS source USING jsonb_to_recordset($1::jsonb) AS expected(
+        const result = await query(`DELETE FROM events AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                 id text, organization_id text, event_timestamp timestamptz, normalized jsonb)
             WHERE source.id=expected.id AND source.ingestion_id='logs'
               AND source.organization_id=expected.organization_id
               AND source.event_timestamp=expected.event_timestamp
               AND source.normalized=expected.normalized
             RETURNING source.id`, [JSON.stringify(expectedRows)])
+        if (result.rows.length !== ids.length) {
+            throw new Error('The source event batch changed before it could be removed; no changed rows were deleted.')
+        }
+        return result
     })
-    if (deleted.rows.length !== ids.length) throw new Error('The source event batch changed before it could be removed; no changed rows were deleted.')
     return { moved: ids.length, remaining: true, retry: false }
 }
 

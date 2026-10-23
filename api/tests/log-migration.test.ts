@@ -19,6 +19,9 @@ let sourceAnalyzeReceipts: Array<Record<string, unknown>> = []
 let sourceArchiveRows: Array<Record<string, unknown>> = []
 let sourceThroughputSamples: Array<Record<string, unknown>> = []
 let sourceTuningSnapshots: Array<Record<string, unknown>> = []
+let selectedRowsOverride: Array<Record<string, unknown>> | null = null
+let sourceDeleteRowsOverride: Array<Record<string, unknown>> | null = null
+let transactionErrors = 0
 let findingScanReads = 0
 let sourceLogsRemain = false
 let sourceOtherEventsRemain = false
@@ -43,7 +46,7 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (sql.includes('FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace')) {
         return { rows: [{ relname: 'log_analyze_receipts' }, { relname: 'log_dimensions' }] }
     }
-    if (sql.includes('FROM events WHERE ingestion_id = \'logs\'')) return { rows: sourceRows }
+    if (sql.includes('FROM events WHERE ingestion_id = \'logs\'')) return { rows: selectedRowsOverride ?? sourceRows }
     if (sql.includes('FROM findings WHERE event_ids')) return { rows: sourceFindings }
     if (sql.includes('FROM events WHERE id=ANY')) return { rows: referencedRows }
     if (sql.includes('FROM log_model_probe_receipts WHERE nonce >')) return { rows: sourceModelReceipts.filter(row => String(row.nonce) > String(params[0])).slice(0, Number(params[1])) }
@@ -107,14 +110,17 @@ const query = async (sql: string, params: unknown[] = []) => {
         sourceTuningSnapshots = sourceTuningSnapshots.filter(row => !ids.has(String(row.organization_id)))
         return { rows: deleted }
     }
-    if (sql.startsWith('DELETE FROM events')) return { rows: sourceRows.map(row => ({ id: row.id })) }
+    if (sql.startsWith('DELETE FROM events')) return { rows: sourceDeleteRowsOverride ?? sourceRows.map(row => ({ id: row.id })) }
     if (sql.startsWith('DELETE FROM findings')) return { rows: sourceFindings.map(row => ({ id: row.id })) }
     return { rows: [] }
 }
 
 mock.module('#db', () => ({
     queryOnce: async () => ({ rows: [] }),
-    withTransaction: async (work: (tx: typeof query) => unknown) => work(query),
+    withTransaction: async (work: (tx: typeof query) => unknown) => {
+        try { return await work(query) }
+        catch (error) { transactionErrors++; throw error }
+    },
 }))
 
 const { clearMigratedLogReceipts, clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, moveOneBatch, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
@@ -130,6 +136,9 @@ beforeEach(() => {
     sourceArchiveRows = []
     sourceThroughputSamples = []
     sourceTuningSnapshots = []
+    selectedRowsOverride = null
+    sourceDeleteRowsOverride = null
+    transactionErrors = 0
     findingScanReads = 0
     sourceLogsRemain = false
     sourceOtherEventsRemain = false
@@ -226,6 +235,20 @@ test('deletes a source row only after Logs durably acknowledges its drop-rule re
     expect(result).toEqual({ moved: 1, remaining: true, retry: false })
     expect(statusQueried).toBe(false)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
+})
+
+test('rolls back a partially matched source-event delete inside its transaction', async () => {
+    selectedRowsOverride = [sourceRows[0], {
+        ...sourceRows[0], id: 'source-row-2', normalized: { ...sourceRows[0].normalized, source_event_id: 'collector-event-2' },
+    }]
+    sourceDeleteRowsOverride = [{ id: 'source-row-1' }]
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, accepted: 2,
+        droppedSourceEventIds: ['collector-event-1', 'collector-event-2'] }), { status: 201 })) as typeof fetch
+
+    await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
+        .rejects.toThrow('source event batch changed before it could be removed')
+
+    expect(transactionErrors).toBe(1)
 })
 
 test('retains source rows if Logs reports a dropped event outside the acknowledged batch', async () => {
