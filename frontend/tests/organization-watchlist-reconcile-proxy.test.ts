@@ -30,7 +30,8 @@ test('static cleanup/reconcile commands preserve existing same-ID item GET/PUT/D
     for (const [name, route] of [['cleanup', cleanup], ['reconcile', reconcile]] as const) {
         const path = `/organizations/org/watchlists/${name}`
         reset(); setUpstreamStatus(200)
-        expect((await route.GET(new NextRequest(`https://localhost:3000/api${path}`), { params: Promise.resolve({ id: 'org' }) })).status).toBe(200)
+        expect((await route.GET(request(path, 'GET'), { params: Promise.resolve({ id: 'org' }) })).status).toBe(200)
+        expect(validations).toHaveLength(1)
         expect(requests[0].url).toBe(`https://core.invalid/api${path}`)
         expect(requests[0].init?.method).toBe('GET')
         for (const [method, invoke] of [['PUT', route.PUT], ['DELETE', route.DELETE]] as const) {
