@@ -82,7 +82,7 @@ export type GetVulnerabilities = {
 export type {
     NmapScanProfile, UvmAsset, UvmAssetEngineCoverage, UvmAssessment, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard,
     UvmEngine, UvmEngineSelection, UvmFinding, UvmGvmFinding, UvmHost, UvmPort, UvmRun,
-    UvmTenableFinding, UvmTenableIntegration, UvmTenableScan, UvmScannerCatalogEntry, UvmZapFinding, UvmRunHistoryPage, UvmFindingHistoryPage,
+    UvmNucleiFinding, UvmTenableFinding, UvmTenableIntegration, UvmTenableScan, UvmScannerCatalogEntry, UvmTestsslObservation, UvmZapFinding, UvmRunHistoryPage, UvmFindingHistoryPage,
 } from './scannerTypes'
 
 export type TrafficMetric = {

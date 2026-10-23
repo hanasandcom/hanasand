@@ -37,7 +37,7 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
     const { data, busy, authorization } = props
     const engineOptions: Array<{ id: UvmEngineSelection['engine'], label: string }> = [
         { id: 'nmap', label: 'Nmap inventory' }, { id: 'tenable-vm', label: 'Nessus via Tenable VM' },
-        { id: 'gvm', label: 'Greenbone' }, { id: 'zap', label: 'OWASP ZAP' },
+        { id: 'gvm', label: 'Greenbone' }, { id: 'zap', label: 'OWASP ZAP' }, { id: 'testssl', label: 'testssl.sh TLS checks' }, { id: 'nuclei', label: 'Nuclei safe HTTP checks' },
     ]
     function toggleEngine(engine: UvmEngineSelection['engine'], checked: boolean) {
         props.setSchedulePlans(current => {

@@ -2,7 +2,7 @@ import type { UvmAssetEngineCoverage, UvmDashboard } from '@/utils/monitoring/ty
 import { formatDate } from './uvmPanelHelpers'
 
 export function UvmAssetEngineCoverageView({ data }: { data: UvmDashboard }) {
-    const engines: UvmAssetEngineCoverage['engine'][] = ['nmap', 'tenable-vm', 'gvm', 'zap']
+    const engines: UvmAssetEngineCoverage['engine'][] = ['nmap', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei']
     const rows = data.coverage || []
     const byAssetEngine = new Map(rows.map(row => [`${row.assetId}:${row.engine}`, row]))
     const cell = (assetId: string, engine: UvmAssetEngineCoverage['engine']) => {
@@ -35,8 +35,8 @@ export function UvmAssetEngineCoverageView({ data }: { data: UvmDashboard }) {
         {data.scannerError ? <p className='mt-3 text-sm text-ui-warning'>Coverage unavailable: {data.scannerError}</p>
             : !data.assets.length ? <p className='mt-3 text-sm text-ui-muted'>No assets registered.</p>
                 : !data.coverage ? <p className='mt-3 text-sm text-ui-warning'>Coverage is unavailable from this Scanner API version.</p>
-                    : <div className='mt-3 overflow-x-auto'><table className='w-full min-w-[760px] border-collapse text-left'>
-                        <thead><tr className='border-b border-ui-border text-xs text-ui-muted'><th className='py-2 pr-3 font-medium'>Asset</th><th className='px-3 py-2 font-medium'>Nmap</th><th className='px-3 py-2 font-medium'>Tenable VM</th><th className='px-3 py-2 font-medium'>Greenbone</th><th className='px-3 py-2 font-medium'>ZAP</th></tr></thead>
+                    : <div className='mt-3 overflow-x-auto'><table className='w-full min-w-[900px] border-collapse text-left'>
+                        <thead><tr className='border-b border-ui-border text-xs text-ui-muted'><th className='py-2 pr-3 font-medium'>Asset</th><th className='px-3 py-2 font-medium'>Nmap</th><th className='px-3 py-2 font-medium'>Tenable VM</th><th className='px-3 py-2 font-medium'>Greenbone</th><th className='px-3 py-2 font-medium'>ZAP</th><th className='px-3 py-2 font-medium'>testssl.sh</th><th className='px-3 py-2 font-medium'>Nuclei</th></tr></thead>
                         <tbody>{data.assets.map(asset => <tr key={asset.id} className='border-b border-ui-border last:border-0'><th scope='row' className='py-3 pr-3 text-sm font-medium'>{asset.hostname}</th>{engines.map(engine => <td key={engine} className='px-3 py-3 align-top'>{cell(asset.id, engine)}</td>)}</tr>)}</tbody>
                     </table></div>}
     </section>

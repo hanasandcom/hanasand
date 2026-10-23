@@ -14,9 +14,10 @@ test('paused Scanner lists at least 20 products and labels setup state', () => {
 
     expect(scannerSuiteCatalog.length).toBeGreaterThanOrEqual(20)
     expect(new Set(scannerSuiteCatalog.map(item => item.name)).size).toBe(scannerSuiteCatalog.length)
-    expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(6)
+    expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(8)
     expect(html).toContain(`Scanner suite · ${scannerSuiteCatalog.length}`)
     expect(html).toContain('Nmap')
+    expect(html).toContain('testssl.sh')
     expect(html).toContain('Angry IP Scanner')
     expect(html).toContain('Advanced IP Scanner')
     expect(html).toContain('Stopped · pending disk')

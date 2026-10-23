@@ -75,6 +75,8 @@ export default function ScannerWorkspace() {
             runTenableScanAction={client.runTenable}
             runGvmScanAction={client.runGvm}
             runZapScanAction={client.runZap}
+            runTestsslAction={client.runTestssl}
+            runNucleiAction={client.runNuclei}
             updateFindingAction={client.updateFinding}
             cancelRunAction={client.cancelRun}
             startAssessmentAction={client.startAssessment}

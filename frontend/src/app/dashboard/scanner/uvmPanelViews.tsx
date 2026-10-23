@@ -11,6 +11,7 @@ export { UvmAssessmentStarter } from './uvmPanelAssessmentStarter'
 
 export type AssetViewProps = {
     data: UvmDashboard
+    servicesPaused?: boolean
     busy: string
     message: string
     hostname: string
@@ -39,6 +40,8 @@ export type AssetViewProps = {
     onScanWithTenable: (asset: UvmAsset) => void
     onScanWithGvm: (asset: UvmAsset) => void
     onScanWithZap: (asset: UvmAsset) => void
+    onScanWithTestssl: (asset: UvmAsset) => void
+    onScanWithNuclei: (asset: UvmAsset) => void
     onSchedule: (asset: UvmAsset, enabled: boolean) => void
 }
 
@@ -71,7 +74,7 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
     const scheduleScanId = props.scheduleScanIds[asset.id] || schedulePlan.find(choice => choice.engine === 'tenable-vm')?.scanId || data.tenableScans.find(scan => scan.enabled)?.id || ''
     const tenableReady = data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.id === scheduleScanId && scan.enabled)
     const canScan = asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'nmap' && engine.status === 'available')
-    const canSchedule = schedulePlan.length > 0 && schedulePlan.every(choice => choice.engine === 'nmap'
+    const canSchedule = props.servicesPaused !== true && schedulePlan.length > 0 && schedulePlan.every(choice => choice.engine === 'nmap'
         ? canScan
         : choice.engine === 'tenable-vm'
             ? asset.verificationStatus === 'verified' && tenableReady
@@ -103,6 +106,8 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
             {data.tenableIntegration?.configured && data.tenableScans.length > 0 && <TenableScanControl asset={asset} props={props} />}
             {data.engines.some(engine => engine.id === 'gvm' && engine.status === 'available') && <button type='button' onClick={() => props.onScanWithGvm(asset)} disabled={busy === `${asset.id}:gvm` || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `${asset.id}:gvm` ? 'Queueing…' : 'Run Greenbone scan'}</button>}
             {data.engines.some(engine => engine.id === 'zap' && engine.status === 'available') && <button type='button' onClick={() => props.onScanWithZap(asset)} disabled={busy === `${asset.id}:zap` || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `${asset.id}:zap` ? 'Queueing…' : 'Run ZAP web scan'}</button>}
+            {data.engines.some(engine => engine.id === 'testssl') && <button type='button' onClick={() => props.onScanWithTestssl(asset)} disabled={props.servicesPaused || busy === `${asset.id}:testssl` || data.engines.find(engine => engine.id === 'testssl')?.status !== 'available' || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{props.servicesPaused ? 'TestSSL · stopped pending disk' : busy === `${asset.id}:testssl` ? 'Queueing…' : 'Run TestSSL checks'}</button>}
+            {data.engines.some(engine => engine.id === 'nuclei') && <button type='button' onClick={() => props.onScanWithNuclei(asset)} disabled={props.servicesPaused || busy === `${asset.id}:nuclei` || data.engines.find(engine => engine.id === 'nuclei')?.status !== 'available' || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{props.servicesPaused ? 'Nuclei · stopped pending disk' : busy === `${asset.id}:nuclei` ? 'Queueing…' : 'Run Nuclei safe checks'}</button>}
             <ScheduleControl asset={asset} props={props} canSchedule={canSchedule} schedulePlan={schedulePlan} scheduleScanId={scheduleScanId} />
         </div>
     </article>

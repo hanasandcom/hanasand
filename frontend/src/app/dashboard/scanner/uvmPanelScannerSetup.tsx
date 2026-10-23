@@ -4,7 +4,7 @@ import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import type { UvmDashboard } from '@/utils/monitoring/types'
 import { formatDate } from './uvmPanelHelpers'
 import { UvmHelp } from './uvmPanelHelp'
-import { scannerSuiteCatalog } from './scannerSuiteCatalog'
+import { getScannerSuiteCatalog } from './scannerSuiteCatalog'
 
 export type TenableRegion = 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp'
 
@@ -22,7 +22,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     onDisconnect: () => void
 }) {
     const integration = data.tenableIntegration
-    const productCatalog = data.scannerCatalog?.length ? data.scannerCatalog : scannerSuiteCatalog
+    const productCatalog = getScannerSuiteCatalog(data.scannerCatalog)
     return <>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
             <div className='flex flex-wrap items-start justify-between gap-3'><div className='flex items-center gap-2'><h2 className='text-lg font-semibold'>Nessus via Tenable VM</h2><UvmHelp label='Tenable VM connection' text='This connects a Tenable cloud account and launches its enabled Nessus scan configurations. Standalone Nessus Pro hosts are not connected.' /></div><span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${integration?.configured ? 'bg-ui-success/15 text-ui-success' : 'bg-ui-warning/15 text-ui-warning'}`}>{integration?.configured ? `Connected · ${integration.region}` : 'Not configured'}</span></div>
@@ -40,7 +40,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
             {servicesPaused && <p role='status' className='mt-2 text-xs text-ui-warning'>Configured services are stopped pending disk expansion. No scanner is running.</p>}
             <div className='mt-3 grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>
                 {productCatalog.map(item => {
-                    const engine = ['nmap', 'tenable-vm', 'gvm', 'zap'].includes(item.integration)
+                    const engine = ['nmap', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei'].includes(item.integration)
                         ? data.engines.find(candidate => candidate.id === item.integration)
                         : undefined
                     const status = item.setup === 'desktop-only' ? 'Desktop app'

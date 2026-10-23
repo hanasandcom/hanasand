@@ -3,7 +3,7 @@
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
 import type { NmapScanProfile, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmFindingHistoryPage, UvmRunHistoryPage } from '@/utils/monitoring/types'
 
-type UvmEngineId = 'nmap' | 'tenable-vm' | 'gvm' | 'zap'
+type UvmEngineId = 'nmap' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei'
 
 const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.hanasand.com/api').replace(/\/$/, '')
 
@@ -32,6 +32,8 @@ export function createScannerClient(organizationId: string) {
         runTenable: (assetId: string, scanId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/tenable-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), scanId, authorized } }),
         runGvm: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>('/v1/uvm/integrations/gvm/runs', { method: 'POST', body: { requestId: crypto.randomUUID(), organizationId, assetId, authorized } }),
         runZap: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runTestssl: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/testssl-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runNuclei: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/nuclei-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
         updateFinding: (findingId: string, input: { status: UvmDashboard['findings'][number]['status'], note: string }) => request(`/v1/uvm/findings/${encodeURIComponent(findingId)}`, { method: 'PUT', body: input }),
         cancelRun: (runId: string) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST', body: {} }),
         startAssessment: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: UvmEngineId, scanId?: string, profile?: NmapScanProfile }>, authorized: boolean }) => request<{ assessment: UvmDashboard['assessments'][number] }>('/v1/uvm/assessments', { method: 'POST', body: input }),

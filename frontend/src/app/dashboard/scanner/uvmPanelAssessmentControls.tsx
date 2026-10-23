@@ -3,9 +3,9 @@
 import type { Dispatch, SetStateAction } from 'react'
 import type { NmapScanProfile, UvmDashboard } from '@/utils/monitoring/types'
 import { UvmHelp } from './uvmPanelHelp'
-import { scannerSuiteCatalog } from './scannerSuiteCatalog'
+import { getScannerSuiteCatalog } from './scannerSuiteCatalog'
 
-export type UvmAssessmentEngineId = 'nmap' | 'gvm' | 'tenable-vm' | 'zap'
+export type UvmAssessmentEngineId = 'nmap' | 'gvm' | 'tenable-vm' | 'zap' | 'testssl' | 'nuclei'
 type NmapProfile = NmapScanProfile
 
 export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedEngines, scanId, setScanId, nmapProfile, setNmapProfile, servicesPaused, onSetup }: {
@@ -19,17 +19,19 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
     servicesPaused: boolean
     onSetup: () => void
 }) {
-    const productCatalog = data.scannerCatalog?.length ? data.scannerCatalog : scannerSuiteCatalog
+    const productCatalog = getScannerSuiteCatalog(data.scannerCatalog)
     const selectedReadyEngines = selectedEngines.filter(id => {
         const engine = data.engines.find(item => item.id === id)
         return !servicesPaused && engine?.status === 'available' && (id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
     })
-    const engineLabel = (id: UvmAssessmentEngineId) => id === 'nmap' ? 'Nmap' : id === 'gvm' ? 'Greenbone' : id === 'zap' ? 'OWASP ZAP' : 'Nessus via Tenable VM'
+    const engineLabel = (id: UvmAssessmentEngineId) => id === 'nmap' ? 'Nmap' : id === 'gvm' ? 'Greenbone' : id === 'zap' ? 'OWASP ZAP' : id === 'testssl' ? 'testssl.sh' : id === 'nuclei' ? 'Nuclei' : 'Nessus via Tenable VM'
     const engineProfile = (id: UvmAssessmentEngineId) => id === 'nmap'
         ? nmapProfile === 'tcp-all' ? 'all TCP ports' : nmapProfile === 'tcp-top-100' ? 'top 100 TCP ports' : nmapProfile === 'tcp-top-1000-safe-vuln' ? 'top 1,000 TCP ports + NSE checks' : 'top 1,000 TCP ports'
         : id === 'gvm' ? 'Full and Fast'
             : id === 'zap' ? 'same-origin web assessment'
-                : data.tenableScans.find(scan => scan.id === scanId)?.name || 'Choose configuration'
+                : id === 'testssl' ? 'TLS configuration checks'
+                    : id === 'nuclei' ? 'Pinned safe HTTP templates'
+                    : data.tenableScans.find(scan => scan.id === scanId)?.name || 'Choose configuration'
     function moveEngine(id: UvmAssessmentEngineId, offset: -1 | 1) {
         setSelectedEngines(current => {
             const ordered = current.filter(engine => selectedReadyEngines.includes(engine))
@@ -43,10 +45,10 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
         })
     }
     return <fieldset className='grid gap-2'>
-        <legend className='text-sm font-semibold'>Engines · {productCatalog.length} products</legend>
-        <div className='flex justify-end'><UvmHelp label='Assessment engines' text='Nmap inventories selected TCP ports and can optionally run bounded NSE checks. Greenbone uses Full and Fast. Nessus configurations run through Tenable VM. OWASP ZAP assesses the web origin.' /></div>
+        <legend className='text-sm font-semibold'>Scanner products · {productCatalog.length}</legend>
+        <div className='flex justify-end'><UvmHelp label='Assessment engines' text='Nmap inventories selected TCP ports and can optionally run bounded NSE checks. Greenbone uses Full and Fast. Nessus configurations run through Tenable VM. OWASP ZAP assesses the web origin. testssl.sh checks TLS configuration. Nuclei currently checks pinned security headers on the root URL.' /></div>
         <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{productCatalog.map(item => {
-            const engineId: UvmAssessmentEngineId | null = item.integration === 'nmap' || item.integration === 'gvm' || item.integration === 'tenable-vm' || item.integration === 'zap'
+            const engineId: UvmAssessmentEngineId | null = item.integration === 'nmap' || item.integration === 'gvm' || item.integration === 'tenable-vm' || item.integration === 'zap' || item.integration === 'testssl' || item.integration === 'nuclei'
                 ? item.integration
                 : null
             const engine = engineId ? data.engines.find(candidate => candidate.id === engineId) : undefined

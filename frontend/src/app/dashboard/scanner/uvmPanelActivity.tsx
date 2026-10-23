@@ -9,6 +9,13 @@ function runResult(run: UvmRun) {
         const coverage = total === undefined ? '' : `Address coverage ${run.coverage?.completedAddresses}/${total} · `
         return `${coverage}${ports}${run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : ' · service inventory only'}`
     }
+    if (run.engine === 'testssl') {
+        const flagged = run.observations?.filter(observation => observation.disposition === 'finding').length || 0
+        const completed = run.completedAddresses?.length ?? run.coverage?.completedAddresses
+        const requested = run.coverage?.requestedAddresses ?? run.attemptedAddresses?.length
+        const addressCoverage = completed === undefined || requested === undefined ? 'TLS address coverage unknown' : `${completed}/${requested} TLS addresses complete`
+        return `${addressCoverage} · ${flagged} flagged TLS checks · ${run.observations?.length || 0} total observations`
+    }
     if (run.findings) return `${run.findings.length} findings reported`
     if (run.coverage) {
         const total = run.coverage.requestedAddresses ?? run.coverage.attemptedAddresses

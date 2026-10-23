@@ -1,5 +1,6 @@
 import type { UvmAssessmentReport } from '@/utils/monitoring/types'
 import { formatDate } from './uvmPanelHelpers'
+import { TestsslObservationList } from './uvmTestsslObservations'
 
 const outcomeClass: Record<string, string> = {
     succeeded: 'text-ui-success', partial: 'text-ui-warning', failed: 'text-ui-warning',
@@ -8,7 +9,7 @@ const outcomeClass: Record<string, string> = {
 
 export function UvmAssessmentReportView({ assessment, onClose }: { assessment: UvmAssessmentReport, onClose: () => void }) {
     const completed = assessment.jobs.filter(job => job.status === 'succeeded').length
-    const observations = assessment.jobs.reduce((total, job) => total + (job.run?.findings?.length || 0), 0)
+    const observations = assessment.jobs.reduce((total, job) => total + (job.run?.findings?.length || 0) + (job.run?.observations?.length || 0), 0)
     return <section aria-label='Assessment report' className='rounded-lg border border-ui-border bg-ui-panel p-4'>
         <div className='flex flex-wrap items-start justify-between gap-3'>
             <div>
@@ -38,6 +39,10 @@ export function UvmAssessmentReportView({ assessment, onClose }: { assessment: U
                             {host.ports.some(port => port.scriptResults?.length) && <div className='mt-2 grid gap-1 text-xs'><p className='font-semibold'>Nmap NSE script evidence · heuristic only</p>{host.ports.flatMap(port => (port.scriptResults || []).map((script, index) => <details key={`${port.protocol}:${port.port}:${script.id}:${index}`}><summary className='cursor-pointer'>{port.protocol}/{port.port} · {script.id}</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word text-ui-muted'>{script.output}{script.truncated ? '\n… output truncated' : ''}</pre></details>))}</div>}
                         </details>)}</div>
                     </>}
+                    {job.engine === 'testssl' && <>
+                        <p className='mt-2 text-xs text-ui-muted'>testssl.sh TLS configuration checks · {job.run.observations?.length || 0} observations · {job.run.completedAddresses?.length ?? job.run.coverage?.completedAddresses ?? 'unknown'} addresses completed</p>
+                        <TestsslObservationList observations={job.run.observations} />
+                    </>}
                     {!job.run.coverage && <p className='mt-3 text-xs text-ui-warning'>Coverage was not reported for this run.</p>}
                     {job.run.coverage && <div className='mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ui-muted'>
                         {job.run.coverage.requestedAddresses !== undefined && <span>Addresses {job.run.coverage.completedAddresses ?? 0}/{job.run.coverage.requestedAddresses} complete</span>}
@@ -57,8 +62,8 @@ export function UvmAssessmentReportView({ assessment, onClose }: { assessment: U
                         {job.run.findings?.map(finding => <article key={finding.findingId} className='border-t border-ui-border pt-2'>
                             <p className='text-sm font-medium'>{finding.title}<span className='ml-2 text-xs text-ui-muted'>{finding.severity}</span>{finding.provider !== 'zap' && finding.cvssScore !== null && <span className='ml-2 text-xs text-ui-muted'>CVSS {finding.cvssScore}</span>}</p>
                             <p className='mt-1 wrap-break-word text-xs text-ui-muted'>
-                                {finding.provider === 'tenable-vm' ? `Plugin ${finding.pluginId}` : finding.provider === 'gvm' ? `NVT ${finding.nvtOid || 'unknown'}` : `ZAP ${finding.alertRef}`}
-                                {' · '}{finding.provider === 'zap' ? `${finding.method || 'HTTP'} · ${finding.instanceUrl}` : `${finding.assetAddress}${finding.port ? ` · ${finding.protocol || 'tcp'}/${finding.port}` : ''}`}
+                                {finding.provider === 'tenable-vm' ? `Plugin ${finding.pluginId}` : finding.provider === 'gvm' ? `NVT ${finding.nvtOid || 'unknown'}` : finding.provider === 'nuclei' ? `Template ${finding.templateId}` : `ZAP ${finding.alertRef}`}
+                                {' · '}{finding.provider === 'zap' ? `${finding.method || 'HTTP'} · ${finding.instanceUrl}` : finding.provider === 'nuclei' ? `${finding.assetAddress} · ${finding.matchedAt}` : `${finding.assetAddress}${finding.port ? ` · ${finding.protocol || 'tcp'}/${finding.port}` : ''}`}
                                 {finding.provider === 'zap' && finding.parameter ? ` · parameter ${finding.parameter}` : ''}
                                 {finding.provider === 'zap' ? ` · confidence ${finding.confidence}` : finding.provider === 'gvm' && finding.qualityOfDetection ? ` · ${finding.qualityOfDetection}` : ''}
                                 {finding.provider !== 'zap' && finding.cveIds.length ? ` · ${finding.cveIds.join(', ')}` : ''}
@@ -70,7 +75,7 @@ export function UvmAssessmentReportView({ assessment, onClose }: { assessment: U
                                 {finding.evidence && <p className='mt-2 whitespace-pre-wrap wrap-break-word text-ui-muted'><strong>Evidence:</strong> {finding.evidence}</p>}
                             </details>}
                         </article>)}
-                        {job.engine !== 'nmap' && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
+                        {!['nmap', 'testssl'].includes(job.engine) && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
                     </div>
                 </>}
             </article>)}

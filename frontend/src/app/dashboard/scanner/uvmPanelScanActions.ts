@@ -1,6 +1,7 @@
 import type { NmapScanProfile, UvmAsset, UvmDashboard, UvmRun } from '@/utils/monitoring/types'
 
 export function createUvmPanelScanActions(input: {
+    servicesPaused: boolean
     authorization: Record<string, boolean>
     assetNmapProfiles: Record<string, NmapScanProfile>
     tenableScanIds: Record<string, string>
@@ -12,6 +13,8 @@ export function createUvmPanelScanActions(input: {
     runTenable: (assetId: string, scanId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runGvm: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runZap: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runTestssl: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runNuclei: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
 }) {
     async function run(asset: UvmAsset, engine: string, queuedMessage: string, action: () => Promise<unknown>) {
         input.setBusy(`${asset.id}${engine ? `:${engine}` : ''}`)
@@ -37,5 +40,9 @@ export function createUvmPanelScanActions(input: {
         },
         scanWithGvm: (asset: UvmAsset) => run(asset, 'gvm', 'Greenbone', () => input.runGvm(asset.id, input.authorization[asset.id] === true)),
         scanWithZap: (asset: UvmAsset) => run(asset, 'zap', 'ZAP', () => input.runZap(asset.id, input.authorization[asset.id] === true)),
+        scanWithTestssl: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'testssl', 'TestSSL TLS configuration', () => input.runTestssl(asset.id, input.authorization[asset.id] === true)),
+        scanWithNuclei: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'nuclei', 'Nuclei safe HTTP checks', () => input.runNuclei(asset.id, input.authorization[asset.id] === true)),
     }
 }
