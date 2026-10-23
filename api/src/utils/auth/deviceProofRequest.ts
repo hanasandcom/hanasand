@@ -6,7 +6,43 @@ function headerValue(value: string | string[] | undefined) {
     return Array.isArray(value) ? value[0] : value
 }
 
+// Scope this correction to the existing server-registered Watchlist handlers.
+const watchlistProofRoutes = new Set([
+    'GET /api/organizations/:id/watchlists',
+    'GET /api/organizations/:organizationId/watchlists/:itemId',
+    'GET /api/organizations/:id/watchlists/alert-terms',
+    'POST /api/organizations/:id/watchlists',
+    'POST /api/organizations/:id/watchlists/cleanup',
+    'POST /api/organizations/:id/watchlists/reconcile',
+    'PUT /api/organizations/:organizationId/watchlists/:itemId',
+    'POST /api/organizations/:organizationId/watchlists/:itemId/actions',
+    'DELETE /api/organizations/:organizationId/watchlists/:itemId',
+])
+
+function watchlistProofUrl(req: FastifyRequest) {
+    const configured = process.env.NEXT_PUBLIC_API
+    const target = new URL(configured === undefined ? 'https://api.hanasand.com' : configured)
+    if (target.protocol !== 'https:' || target.username || target.password || target.search || target.hash
+        || configured?.includes('?') || configured?.includes('#')) {
+        throw new Error('Invalid configured Watchlist proof origin.')
+    }
+    const pathname = (req.raw?.url || req.url).split('?')[0]
+    const invalidCharacter = [...pathname].some(character => character.charCodeAt(0) <= 32
+        || character.charCodeAt(0) === 127 || character === '\\' || character === '#')
+    if (!pathname.startsWith('/') || pathname.startsWith('//') || invalidCharacter) {
+        throw new Error('Invalid Watchlist request target.')
+    }
+    return `${target.origin}${pathname}`
+}
+
 export function deviceProofFromRequest(req: FastifyRequest) {
+    if (watchlistProofRoutes.has(`${req.method} ${req.routeOptions?.url}`)) {
+        return {
+            proof: headerValue(req.headers.dpop),
+            method: req.method,
+            url: watchlistProofUrl(req),
+        }
+    }
     const forwardedHost = headerValue(req.headers['x-forwarded-host']) || headerValue(req.headers.host) || ''
     const protocol = headerValue(req.headers['x-forwarded-proto']) || req.protocol || 'https'
     return {
