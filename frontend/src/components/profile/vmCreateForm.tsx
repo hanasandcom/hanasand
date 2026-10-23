@@ -7,8 +7,11 @@ import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServic
 import type { NotifyVmAction } from '@/components/vms/vmActionFeedback'
 import VmOperatingSystemPicker from './vmOperatingSystemPicker'
 import VmResourcePicker from './vmResourcePicker'
+import VmCustomResourceFields from './vmCustomResourceFields'
 import VmMinecraftAddonPicker from './vmMinecraftAddonPicker'
+import VmMinecraftServerPicker from './vmMinecraftServerPicker'
 import VmWebsiteEditor from './vmWebsiteEditor'
+import { getVmResourceAllocation, getVmResourceError } from '@/utils/vms/resourceAllocation'
 
 const starterWebsitePlan: VmWebsitePlan = {
     title: 'Make this space yours.',
@@ -34,6 +37,8 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const [name, setName] = useState('')
     const [operatingSystem, setOperatingSystem] = useState<string>(vmOperatingSystems[0].id)
     const [resourcePlan, setResourcePlan] = useState<string>(vmResourceOptions[0].id)
+    const [customCpu, setCustomCpu] = useState('2')
+    const [customMemory, setCustomMemory] = useState('4')
     const [selectedServices, setSelectedServices] = useState<string[]>([])
     const [activeServiceTab, setActiveServiceTab] = useState<(typeof vmServiceTabs)[number]['id']>('development')
     const [customAptPackages, setCustomAptPackages] = useState<string[]>([])
@@ -49,9 +54,12 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const [creationError, setCreationError] = useState('')
     const requiresLargePlan = operatingSystem === 'ubuntu-24.04-desktop'
     const requiresFourGiB = projectFiles.length > 0 || (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(minecraftServerType))
-    const availableResources = vmResourceOptions.filter(option => requiresLargePlan
+    const availableResources = vmResourceOptions.filter(option => option.id === 'custom' || (requiresLargePlan
         ? option.id === 'large'
-        : !requiresFourGiB || option.memory !== '2GiB')
+        : !requiresFourGiB || option.memory !== '2GiB'))
+    const minimumMemory = requiresLargePlan ? 8 : requiresFourGiB ? 4 : 1
+    const currentResources = getVmResourceAllocation(resourcePlan, customCpu, customMemory)
+    const resourceError = getVmResourceError(resourcePlan, customCpu, customMemory, minimumMemory)
     const currentSetupKey = `${operatingSystem}\n${setupPrompt.trim()}`
     const unresolvedSetupPrompt = setupPrompt.trim().length >= 5 && suggestedSetupKey !== currentSetupKey
         && selectedServices.length === 0 && customAptPackages.length === 0
@@ -61,13 +69,16 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     async function create(event: React.FormEvent) {
         event.preventDefault()
         setCreationError('')
+        if (resourceError) {
+            setCreationError(resourceError)
+            return
+        }
         setCreating(true)
         onCreating(true)
         notify('Creating virtual machine…', 'progress', 'vm-create')
         try {
             const vmName = name.trim()
-            const resources = vmResourceOptions.find(option => option.id === resourcePlan) || vmResourceOptions[0]
-            const result = await postVM({ name: vmName, os: operatingSystem, resources: { cpu: resources.cpu, memory: resources.memory, disk: resources.disk }, services: selectedServices, custom_apt_packages: customAptPackages, minecraft_eula_accepted: selectedServices.includes('minecraft-java'), minecraft_server_type: selectedServices.includes('minecraft-java') ? minecraftServerType : undefined, minecraft_addons: minecraftAddons, website: selectedServices.includes('website') ? websitePlan : null, project_files: projectFiles.length ? projectFiles : undefined, organization_id: organizationId || null })
+            const result = await postVM({ name: vmName, os: operatingSystem, resources: currentResources, services: selectedServices, custom_apt_packages: customAptPackages, minecraft_eula_accepted: selectedServices.includes('minecraft-java'), minecraft_server_type: selectedServices.includes('minecraft-java') ? minecraftServerType : undefined, minecraft_addons: minecraftAddons, website: selectedServices.includes('website') ? websitePlan : null, project_files: projectFiles.length ? projectFiles : undefined, organization_id: organizationId || null })
             if (result.status !== 201) {
                 setCreationError(result.message)
                 notify(result.message, 'error', 'vm-create')
@@ -139,10 +150,11 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                 setCustomAptPackages([])
                 setSuggestedSetupKey('')
                 if (setupPrompt.trim()) setSetupSuggestion('The operating system changed. Generate the setup again to check package compatibility.')
-                if (value === 'ubuntu-24.04-desktop') setResourcePlan('large')
+                if (value === 'ubuntu-24.04-desktop' && resourcePlan !== 'custom') setResourcePlan('large')
             }} disabled={creating} />
             <VmResourcePicker value={resourcePlan} onChange={setResourcePlan} disabled={creating} availableOptions={availableResources} />
         </div>
+        {resourcePlan === 'custom' && <VmCustomResourceFields cpu={customCpu} memory={customMemory} minimumMemory={minimumMemory} disabled={creating} onCpuChange={setCustomCpu} onMemoryChange={setCustomMemory} />}
         {operatingSystem === 'ubuntu-24.04-desktop' && <p className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-xs leading-5 text-ui-muted'>After creation, open the VM's Access panel and use its SSH details with <code className='rounded bg-ui-raised px-1 py-0.5 text-ui-text'>-N -L 3389:127.0.0.1:3389</code> added. Then open Remote Desktop at <code className='rounded bg-ui-raised px-1 py-0.5 text-ui-text'>127.0.0.1:3389</code> and sign in with your VM username and password.</p>}
         <fieldset disabled={creating} className='grid gap-2'>
             <legend className='mb-1 text-sm font-medium text-ui-text'>Install services</legend>
@@ -178,12 +190,11 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         </fieldset>
         {selectedServices.includes('website') && <VmWebsiteEditor plan={websitePlan} onChange={setWebsitePlan} disabled={creating} />}
         {selectedServices.includes('minecraft-java') && <>
-            <label className='grid gap-1 text-sm text-ui-muted'>Server software<select value={minecraftServerType} onChange={event => { const type = event.target.value as typeof vmMinecraftServerTypes[number]['id']; setMinecraftServerType(type); setMinecraftAddons([]); if (['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(type) && resourcePlan === 'small') setResourcePlan('standard') }} disabled={creating} className='h-10 max-w-sm rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{vmMinecraftServerTypes.map(type => <option key={type.id} value={type.id}>{type.label} · {type.description}</option>)}</select></label>
+            <VmMinecraftServerPicker value={minecraftServerType} onChange={type => { setMinecraftServerType(type); setMinecraftAddons([]); if (['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(type) && resourcePlan === 'small') setResourcePlan('standard') }} disabled={creating} />
             <VmMinecraftAddonPicker serverType={minecraftServerType} value={minecraftAddons} onChange={setMinecraftAddons} disabled={creating} />
         </>}
         {!canCreate && permissionMessage && <p role='status' className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm leading-5 text-ui-muted'>{permissionMessage}</p>}
         {unresolvedSetupPrompt && <p role='status' className='text-xs leading-5 text-ui-muted'>Generate a supported setup for this description, or clear it to create a blank VM.</p>}
         <button disabled={creating || !canCreate || unresolvedSetupPrompt} className='h-10 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{creating ? 'Creating VM…' : 'Create VM'}</button>
         {creationError && <p role='alert' className='rounded-lg border border-ui-danger/25 bg-ui-danger/5 px-3 py-2.5 text-sm leading-5 text-ui-danger'>{creationError}</p>}
-    </form>
-}
+    </form>}

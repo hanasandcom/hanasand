@@ -9,6 +9,7 @@ export const vmResourceOptions = [
     { id: 'small', label: 'Small · 1 vCPU · 2 GB · 10 GB disk', cpu: '1', memory: '2GiB', disk: '10GiB' },
     { id: 'standard', label: 'Standard · 2 vCPU · 4 GB · 20 GB disk', cpu: '2', memory: '4GiB', disk: '20GiB' },
     { id: 'large', label: 'Large · 4 vCPU · 8 GB · 40 GB disk', cpu: '4', memory: '8GiB', disk: '40GiB' },
+    { id: 'custom', label: 'Custom allocation', cpu: '2', memory: '4GiB', disk: '40GiB' },
 ] as const
 
 export const vmServices = [
