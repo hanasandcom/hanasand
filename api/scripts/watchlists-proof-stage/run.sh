@@ -197,7 +197,7 @@ http_ready "$last_id" http://127.0.0.1:8082/ready
 if test "$WATCHLIST_STAGE_MODE" = full; then
  create "$prefix-website" --network "$network_id" --read-only \
  --tmpfs /tmp:rw,size=32m \
- --tmpfs /var/lib/varnish:rw,size=128m \
+ --tmpfs /var/lib/varnish:rw,exec,size=128m \
  --tmpfs /run:rw,size=16m \
  -e FRONTEND_INTERNAL_API="http://$prefix-core:8082/api" \
  -e FRONTEND_IDENTITY_API="http://$prefix-identity:8081/api" \

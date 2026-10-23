@@ -177,7 +177,8 @@ if args[0]=='inspect': print('captured|'+os.environ['ACTUAL_OWNER'])
         argv = result.stdout.splitlines()
         self.assertEqual(argv[-3:], ['sha256:'+'5'*64, 'sh', '/app/entrypoint.sh'])
         self.assertEqual([value for value in argv if value.startswith('/tmp:') or value.startswith('/run:') or value.startswith('/var/lib/varnish:')],
-            ['/tmp:rw,size=32m', '/var/lib/varnish:rw,size=128m', '/run:rw,size=16m'])
+            ['/tmp:rw,size=32m', '/var/lib/varnish:rw,exec,size=128m', '/run:rw,size=16m'])
+        self.assertEqual([value for value in argv if ',exec,' in value], ['/var/lib/varnish:rw,exec,size=128m'])
         self.assertNotIn('chmod', argv)
         self.assertNotIn('--publish', argv)
 
