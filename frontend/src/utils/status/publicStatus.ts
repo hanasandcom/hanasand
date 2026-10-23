@@ -30,8 +30,9 @@ export function toPublicServiceStatus(status: ServiceStatus, nowMs = Date.now())
     const evidenceTimes = requiredPublicChecks.map(required => Date.parse(allChecks.get(checkKey(required))?.checked_at || ''))
     const lastVerifiedAt = evidenceTimes.every(Number.isFinite) ? new Date(Math.min(...evidenceTimes)).toISOString() : status.last_verified_at
     return {
-        overall: publicOverall(status.checks.filter(check => isCurrentPublicCheck(check, nowMs)), status.monitoring),
-        monitoring: status.monitoring === 'live' ? 'live' : 'unavailable',
+        overall: publicOverall(status.checks.filter(check => isCurrentPublicCheck(check, nowMs)), status.monitoring, status.overall),
+        monitoring: status.monitoring === 'live' || status.monitoring === undefined
+            && requiredPublicChecks.every(required => currentChecks.has(checkKey(required))) ? 'live' : 'unavailable',
         last_verified_at: lastVerifiedAt,
         history_available: status.history_available,
         history_generated_at: status.history_generated_at,
@@ -62,12 +63,13 @@ function checkKey(value: { service: string, check_name: string }) {
     return `${value.service}\n${value.check_name}`
 }
 
-function publicOverall(sourceChecks: ServiceCheck[], monitoring?: ServiceStatus['monitoring']): ServiceStatus['overall'] {
+function publicOverall(sourceChecks: ServiceCheck[], monitoring: ServiceStatus['monitoring'] | undefined, reported: ServiceStatus['overall']): ServiceStatus['overall'] {
     const statusFor = (names: string[]) => sourceChecks.find(check => names.some(name => check.check_name.toLowerCase() === name.toLowerCase()))?.status
     const anchors = [statusFor(['API', 'API health']), statusFor(['Website', 'Public website']), statusFor(['Authentication', 'Identity'])]
     if (anchors.every(status => status === 'down')) return 'down'
     if (sourceChecks.some(check => check.status === 'down' || check.status === 'degraded')) return 'degraded'
-    if (!sourceChecks.length || monitoring !== 'live' && monitoring !== undefined) return 'unknown'
+    if (!sourceChecks.length) return reported === 'up' || reported === 'degraded' || reported === 'down' ? reported : 'unknown'
+    if (monitoring !== 'live' && monitoring !== undefined) return 'unknown'
     return 'up'
 }
 

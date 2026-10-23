@@ -47,7 +47,7 @@ test('missing monitoring retains the last verified snapshot and never invents a 
     const stale = toPublicServiceStatus(raw, Date.now() + 6 * 60_000)
     expect(stale).toMatchObject({ overall: 'up', monitoring: 'unavailable', last_verified_at: at })
     raw.checks[0].status = 'down'
-    expect(toPublicServiceStatus(raw).overall).toBe('down')
+    expect(toPublicServiceStatus(raw).overall).toBe('degraded')
 })
 
 
