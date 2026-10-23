@@ -30,12 +30,8 @@ export function toPublicServiceStatus(status: ServiceStatus, nowMs = Date.now())
     const evidenceTimes = requiredPublicChecks.map(required => Date.parse(allChecks.get(checkKey(required))?.checked_at || ''))
     const lastVerifiedAt = evidenceTimes.every(Number.isFinite) ? new Date(Math.min(...evidenceTimes)).toISOString() : status.last_verified_at
     return {
-        overall: checks.some((check) => check.status === 'down')
-            ? 'down'
-            : checks.some((check) => check.status === 'degraded')
-                ? 'degraded'
-                : checks.some(check => check.status === 'unknown') ? 'unknown' : 'up',
-        monitoring: currentChecks.size >= requiredPublicChecks.length && requiredPublicChecks.every(required => currentChecks.has(checkKey(required))) ? 'live' : 'unavailable',
+        overall: publicOverall(status.checks.filter(check => isCurrentPublicCheck(check, nowMs)), status.monitoring),
+        monitoring: status.monitoring === 'live' ? 'live' : 'unavailable',
         last_verified_at: lastVerifiedAt,
         history_available: status.history_available,
         history_generated_at: status.history_generated_at,
@@ -64,6 +60,15 @@ export function toPublicServiceStatus(status: ServiceStatus, nowMs = Date.now())
 
 function checkKey(value: { service: string, check_name: string }) {
     return `${value.service}\n${value.check_name}`
+}
+
+function publicOverall(sourceChecks: ServiceCheck[], monitoring?: ServiceStatus['monitoring']): ServiceStatus['overall'] {
+    const statusFor = (names: string[]) => sourceChecks.find(check => names.some(name => check.check_name.toLowerCase() === name.toLowerCase()))?.status
+    const anchors = [statusFor(['API', 'API health']), statusFor(['Website', 'Public website']), statusFor(['Authentication', 'Identity'])]
+    if (anchors.every(status => status === 'down')) return 'down'
+    if (sourceChecks.some(check => check.status === 'down' || check.status === 'degraded')) return 'degraded'
+    if (!sourceChecks.length || monitoring !== 'live' && monitoring !== undefined) return 'unknown'
+    return anchors.every(status => status === 'up') ? 'up' : 'degraded'
 }
 
 function missingPublicCheck(required: typeof requiredPublicChecks[number]): ServiceCheck {
@@ -112,12 +117,12 @@ export function retainVerifiedStatus(next: ServiceStatus, previous?: ServiceStat
         return last && Date.parse(last.checked_at) > Date.parse(check.checked_at) ? last : check
     })
     const retained = checks.length ? checks : previous.checks
-    const overall = retained.some(check => check.status === 'down') ? 'down' : retained.some(check => check.status === 'degraded') ? 'degraded' : retained.some(check => check.status === 'unknown') ? 'unknown' : 'up'
+    const overall = next.monitoring === 'live' || next.monitoring === undefined ? next.overall : previous.overall
     return { ...next, overall, checks: retained,
         history: next.history.length ? next.history : previous.history,
         incidents: next.incidents.length ? next.incidents : previous.incidents,
         last_verified_at: retained.every(check => Number.isFinite(Date.parse(check.checked_at))) ? new Date(Math.min(...retained.map(check => Date.parse(check.checked_at)))).toISOString() : previous.last_verified_at,
-        monitoring: isVerifiedStatus(next) ? 'live' : 'unavailable' }
+        monitoring: next.monitoring === 'unavailable' ? 'unavailable' : 'live' }
 }
 
 

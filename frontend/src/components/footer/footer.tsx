@@ -62,7 +62,7 @@ export default function Footer() {
                     return
                 }
                 const status = await response.json() as ServiceStatus
-                if (mounted && status.checks.some(check => check.checked_at && check.status !== 'unknown')) setPublicStatus(status.overall)
+                if (mounted && (status.monitoring === 'live' || status.checks.some(check => check.checked_at && check.status !== 'unknown'))) setPublicStatus(status.overall)
             } catch { /* Keep the last received service status during a refresh failure. */ }
         }
 
@@ -139,7 +139,7 @@ function footerStatusCopy(status: ServiceStatus['overall'] | 'unknown') {
         return { label: 'All services running', dotClass: 'bg-ui-success' }
     }
     if (status === 'down') {
-        return { label: 'Service interruption', dotClass: 'bg-ui-raised' }
+        return { label: 'Service interruption', dotClass: 'bg-ui-danger' }
     }
     if (status === 'degraded') {
         return { label: 'Status degraded', dotClass: 'bg-ui-warning' }
