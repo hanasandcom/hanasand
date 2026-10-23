@@ -75,6 +75,7 @@ Use Bun 1.3.11, Node.js 22 and Docker Compose. Install dependencies in the compo
 
 The root `.env` is private and is not committed. Obtain a development configuration from the operator; never copy production credentials into tests. The API requires `DB_HOST`, `DB_PASSWORD` and `VM_API_TOKEN`. Also configure `DB`, `DB_USER` and `DB_PORT` for the development database. Match the frontend API URLs to that environment; several defaults point at production.
 
+The API reads article Markdown from the public [Articles repository](https://github.com/hanasandcom/articles) over HTTPS. Dashboard article changes publish to both GitHub and Forgejo. Production must provide `ARTICLES_GITHUB_USERNAME`, `ARTICLES_GITHUB_TOKEN`, `ARTICLES_FORGEJO_USERNAME` and `ARTICLES_FORGEJO_TOKEN` through its protected deployment environment. Restrict the GitHub token to the `hanasandcom/articles` repository with Contents write access, and the Forgejo token to that repository with repository write access. Do not put tokens in Git remote URLs or repository configuration.
 
 Run in separate terminals:
 

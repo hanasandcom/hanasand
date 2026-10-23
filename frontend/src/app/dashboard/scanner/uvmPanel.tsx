@@ -13,20 +13,20 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
     createAssetAction: (input: { hostname: string }) => Promise<{ asset: UvmAsset }>
     verifyAssetAction: (assetId: string) => Promise<{ asset: UvmAsset }>
     runScanAction: (assetId: string, authorized: boolean, profile: 'tcp-top-100' | 'tcp-top-1000') => Promise<{ run: UvmRun }>
-    scheduleAction: (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engine: 'nmap' | 'tenable-vm' | 'gvm', scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }) => Promise<{ asset: UvmAsset }>
+    scheduleAction: (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engine: 'nmap' | 'tenable-vm' | 'gvm' | 'zap', scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }) => Promise<{ asset: UvmAsset }>
     configureTenableAction: (input: { region: 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp', accessKey: string, secretKey: string }) => Promise<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>
     disconnectTenableAction: () => Promise<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>
     runTenableScanAction: (assetId: string, scanId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     updateFindingAction: (findingId: string, input: { status: UvmFinding['status'], note: string }) => Promise<unknown>
     cancelRunAction: (runId: string) => Promise<{ run: UvmRun }>
-    startAssessmentAction: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: 'nmap' | 'gvm' | 'tenable-vm', scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }>, authorized: boolean }) => Promise<{ assessment: UvmAssessment }>
+    startAssessmentAction: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: 'nmap' | 'gvm' | 'tenable-vm' | 'zap', scanId?: string, profile?: 'tcp-top-100' | 'tcp-top-1000' }>, authorized: boolean }) => Promise<{ assessment: UvmAssessment }>
     cancelAssessmentAction: (assessmentId: string) => Promise<{ assessment: UvmAssessment }>
 }) {
     const [data, setData] = useState(initialData)
     const [hostname, setHostname] = useState('')
     const [authorization, setAuthorization] = useState<Record<string, boolean>>({})
     const [intervals, setIntervals] = useState<Record<string, string>>({})
-    const [scheduleEngines, setScheduleEngines] = useState<Record<string, 'nmap' | 'tenable-vm' | 'gvm'>>({})
+    const [scheduleEngines, setScheduleEngines] = useState<Record<string, 'nmap' | 'tenable-vm' | 'gvm' | 'zap'>>({})
     const [scheduleProfiles, setScheduleProfiles] = useState<Record<string, 'tcp-top-100' | 'tcp-top-1000'>>({})
     const [scheduleScanIds, setScheduleScanIds] = useState<Record<string, string>>({})
     const [tenableRegion, setTenableRegion] = useState<'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp'>('us')
