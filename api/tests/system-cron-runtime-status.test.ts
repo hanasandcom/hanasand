@@ -23,6 +23,17 @@ mock.module('../src/utils/vms/lifecycleMonitor.ts', () => ({
     VM_LIFECYCLE_MONITOR_JOB_ID: 'api-vm-lifecycle-monitor',
     vmLifecycleMonitorIsConfigured: () => false,
 }))
+mock.module('../src/utils/vulnerabilities/scanner.ts', () => ({
+    VULNERABILITY_SCAN_CADENCE_SECONDS: 3600,
+    VULNERABILITY_SCAN_JOB_ID: 'api-vulnerability-scanner',
+    getVulnerabilityReport: async() => ({ scanStatus: {
+        enabled: true, paused: false, isRunning: false, schedule: 'Every hour', cadenceSeconds: 3600,
+        nextRunAt: null, startedAt: null, finishedAt: null, lastSuccessAt: null, lastError: null,
+        staleReason: null, blocker: null, blockerAction: null, failureCount: 0, targetCount: 0, logs: [],
+    } }),
+    setVulnerabilityScannerPaused: async() => {},
+    startTrackedVulnerabilityScan: async() => {},
+}))
 mock.module('../src/utils/db/backups.ts', () => ({
     DATABASE_BACKUP_JOB_ID: 'api-database-backup',
     collectDatabaseBackupServices: async() => [{
