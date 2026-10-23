@@ -1,7 +1,7 @@
 import type { UvmDashboard } from '@/utils/monitoring/types'
 import { SummaryCard } from './uvmPanelHelpers'
 import { UvmAssetEngineCoverageView } from './uvmPanelCoverageView'
-import { UvmAssessmentStarter } from './uvmPanelViews'
+import { UvmAssessmentStarter } from './uvmPanelAssessmentStarter'
 import { UvmActivityAndSchedules } from './uvmPanelActivity'
 
 export function UvmOverview({ data, activeRunCount, openFindingCount, criticalOrHighCount, onManageAssets, onConfigureScanners, onStartAssessment, onViewRuns }: {
