@@ -19,7 +19,10 @@ export default async function getInternalVmStatus(req: FastifyRequest, res: Fast
         if (vm.primary_host?.toLowerCase() !== host) return res.status(409).send({ error: 'VM is assigned to another host.' })
         const provisionState = getLocalProvisionState(name)
         if (provisionState) return res.send(provisionState)
-        return res.send(await localVmStatus(name))
+        // This endpoint is the source queried by localVmStatus during worker setup.
+        // Disable that probe in the fallback to avoid a request loop when no queued
+        // state remains in memory.
+        return res.send(await localVmStatus(name, { allowHostWorkerProbe: false }))
     } catch (error) {
         req.log.warn({ err: error, vmName: name }, 'Unable to read VM state from its assigned host.')
         return res.status(503).send({ error: 'VM host is not responding.' })
