@@ -37,7 +37,6 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const [selectedServices, setSelectedServices] = useState<string[]>([])
     const [activeServiceTab, setActiveServiceTab] = useState<(typeof vmServiceTabs)[number]['id']>('development')
     const [customAptPackages, setCustomAptPackages] = useState<string[]>([])
-    const [minecraftEulaAccepted, setMinecraftEulaAccepted] = useState(false)
     const [minecraftServerType, setMinecraftServerType] = useState<typeof vmMinecraftServerTypes[number]['id']>('PAPER')
     const [minecraftAddons, setMinecraftAddons] = useState<string[]>([])
     const [setupPrompt, setSetupPrompt] = useState('')
@@ -68,7 +67,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         try {
             const vmName = name.trim()
             const resources = vmResourceOptions.find(option => option.id === resourcePlan) || vmResourceOptions[0]
-            const result = await postVM({ name: vmName, os: operatingSystem, resources: { cpu: resources.cpu, memory: resources.memory, disk: resources.disk }, services: selectedServices, custom_apt_packages: customAptPackages, minecraft_eula_accepted: minecraftEulaAccepted, minecraft_server_type: selectedServices.includes('minecraft-java') ? minecraftServerType : undefined, minecraft_addons: minecraftAddons, website: selectedServices.includes('website') ? websitePlan : null, project_files: projectFiles.length ? projectFiles : undefined, organization_id: organizationId || null })
+            const result = await postVM({ name: vmName, os: operatingSystem, resources: { cpu: resources.cpu, memory: resources.memory, disk: resources.disk }, services: selectedServices, custom_apt_packages: customAptPackages, minecraft_eula_accepted: selectedServices.includes('minecraft-java'), minecraft_server_type: selectedServices.includes('minecraft-java') ? minecraftServerType : undefined, minecraft_addons: minecraftAddons, website: selectedServices.includes('website') ? websitePlan : null, project_files: projectFiles.length ? projectFiles : undefined, organization_id: organizationId || null })
             if (result.status !== 201) {
                 setCreationError(result.message)
                 notify(result.message, 'error', 'vm-create')
@@ -79,7 +78,6 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             setCreationError('')
             setSelectedServices([])
             setCustomAptPackages([])
-            setMinecraftEulaAccepted(false)
             setMinecraftServerType('PAPER')
             setMinecraftAddons([])
             setSetupPrompt('')
@@ -122,7 +120,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         <div className='grid gap-2 rounded-lg border border-ui-border bg-ui-panel p-3'>
             <label htmlFor={promptId} className='text-sm font-medium text-ui-text'>Describe what you want to build</label>
             <div className='flex flex-wrap items-center gap-2'>
-                <input id={promptId} value={setupPrompt} onChange={event => { setSetupPrompt(event.target.value); setSelectedServices([]); setMinecraftEulaAccepted(false); setWebsitePlan(starterWebsitePlan); setProjectFiles([]); setCustomAptPackages([]); setSetupSuggestion(''); setSuggestedSetupKey('') }} maxLength={1200} placeholder='A portfolio, a custom app, or Node.js with PostgreSQL' disabled={creating || suggestingSetup} className='h-10 min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text placeholder:text-ui-muted' />
+                <input id={promptId} value={setupPrompt} onChange={event => { setSetupPrompt(event.target.value); setSelectedServices([]); setWebsitePlan(starterWebsitePlan); setProjectFiles([]); setCustomAptPackages([]); setSetupSuggestion(''); setSuggestedSetupKey('') }} maxLength={1200} placeholder='A portfolio, a custom app, or Node.js with PostgreSQL' disabled={creating || suggestingSetup} className='h-10 min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text placeholder:text-ui-muted' />
                 <button type='button' onClick={suggestSetup} disabled={creating || suggestingSetup || setupPrompt.trim().length < 5} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-medium text-ui-text hover:bg-ui-panel disabled:opacity-50'>{suggestingSetup ? 'Creating…' : 'Generate setup'}</button>
             </div>
             {setupSuggestion && <p role='status' className='text-sm text-ui-muted'>{setupSuggestion}</p>}
@@ -134,7 +132,6 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                 setOperatingSystem(value)
                 if (setupPrompt.trim()) {
                     setSelectedServices([])
-                    setMinecraftEulaAccepted(false)
                     setMinecraftServerType('PAPER')
                     setWebsitePlan(starterWebsitePlan)
                     setProjectFiles([])
@@ -172,7 +169,6 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                             <input type='checkbox' checked={selectedServices.includes(service.id)} disabled={projectFiles.length > 0 && ['nodejs', 'website', 'minecraft-java'].includes(service.id)} onChange={event => {
                                 setSelectedServices(current => event.target.checked ? [...current, service.id] : current.filter(id => id !== service.id))
                                 if (service.id === 'minecraft-java' && event.target.checked && resourcePlan === 'small') setResourcePlan('standard')
-                                if (service.id === 'minecraft-java' && !event.target.checked) setMinecraftEulaAccepted(false)
                             }} className='mt-1 accent-ui-primary' />
                             <span className='grid'><span className='text-sm font-medium text-ui-text'>{service.label}</span><span className='text-xs text-ui-muted'>{service.description}</span></span>
                         </label>)}
@@ -180,7 +176,6 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                 </section>)}
             </section>
         </fieldset>
-        {selectedServices.includes('minecraft-java') && <label className='flex items-start gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm text-ui-muted'><input type='checkbox' checked={minecraftEulaAccepted} onChange={event => setMinecraftEulaAccepted(event.target.checked)} className='mt-1 accent-ui-primary' /><span>I accept the <a href='https://www.minecraft.net/eula' target='_blank' rel='noopener noreferrer' className='font-medium text-ui-primary underline underline-offset-4'>Minecraft EULA</a>.</span></label>}
         {selectedServices.includes('website') && <VmWebsiteEditor plan={websitePlan} onChange={setWebsitePlan} disabled={creating} />}
         {selectedServices.includes('minecraft-java') && <>
             <label className='grid gap-1 text-sm text-ui-muted'>Server software<select value={minecraftServerType} onChange={event => { const type = event.target.value as typeof vmMinecraftServerTypes[number]['id']; setMinecraftServerType(type); setMinecraftAddons([]); if (['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(type) && resourcePlan === 'small') setResourcePlan('standard') }} disabled={creating} className='h-10 max-w-sm rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{vmMinecraftServerTypes.map(type => <option key={type.id} value={type.id}>{type.label} · {type.description}</option>)}</select></label>
