@@ -45,6 +45,39 @@ test('console bounds scrollback, follows output and preserves its connection in 
     expect(connections).toBe(1)
 })
 
+test('mobile VM access menu keeps SSH and sudo actions inside the viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3272'
+    await page.context().addCookies([
+        { name: 'id', value: 'dashboard-render-proof-user', url: origin },
+        { name: 'access_token', value: 'local-dashboard-render-proof-token', url: origin },
+    ])
+    await page.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
+    await page.route('**/api/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) }))
+    await page.routeWebSocket('**/vm/cashflow/console', socket => {
+        socket.onMessage(message => {
+            if (JSON.parse(String(message)).type === 'auth') socket.send(JSON.stringify({ type: 'ready', username: 'fixture' }))
+        })
+    })
+    await page.goto('/vms/cashflow/console?provisioning=1')
+    await expect(page.getByRole('status').first()).toContainText('Connected')
+
+    const accessMenuButton = page.locator('summary[aria-label="VM access actions"]')
+    await expect(accessMenuButton).toBeVisible()
+    await accessMenuButton.click()
+
+    const menu = page.locator('details:has(summary[aria-label="VM access actions"]) > div')
+    for (const viewport of [{ width: 375, height: 812 }, { width: 390, height: 844 }]) {
+        await page.setViewportSize(viewport)
+        await expect(menu.getByRole('button', { name: 'Connect locally' })).toBeVisible()
+        await expect(menu.getByRole('button', { name: 'Show sudo password' })).toBeVisible()
+        const bounds = await menu.boundingBox()
+        expect(bounds).not.toBeNull()
+        expect(bounds!.x).toBeGreaterThanOrEqual(0)
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width)
+    }
+})
+
 
 test('restart progress keeps existing output and reconnects after a transport interruption', async ({ page }) => {
     await page.context().addCookies([

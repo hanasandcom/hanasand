@@ -41,7 +41,7 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
                         <summary aria-label='VM access actions' title='VM access actions' className='flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg border border-ui-border bg-ui-panel text-ui-text [&::-webkit-details-marker]:hidden'>
                             <Menu aria-hidden='true' className='h-4 w-4' />
                         </summary>
-                        <div className='absolute right-0 top-11 z-20 grid min-w-52 gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
+                        <div className='absolute left-0 right-auto top-11 z-20 grid min-w-52 max-w-[calc(100vw-2rem)] gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
                             <VMConnectLocally vmName={name} className='flex h-9 w-full items-center justify-start gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-text hover:bg-ui-raised' />
                             <VMSudoPassword vmName={name} compact triggerClassName='flex h-9 w-full items-center justify-start gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-primary hover:bg-ui-raised' />
                         </div>
