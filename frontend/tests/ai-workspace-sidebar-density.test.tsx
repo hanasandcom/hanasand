@@ -16,13 +16,14 @@ const { WorkspaceReleasePanels } = await import('../src/components/ai/workspaceR
 
 const noop = () => {}
 
-test('mobile repository drawer fits its content and caps long sections to the viewport', async () => {
+test('mobile repository drawer constrains its height and scrolls the selected section', async () => {
     const pageClient = await readFile(new URL('../src/app/ai/pageClient.tsx', import.meta.url), 'utf8')
     const workspacePane = await readFile(new URL('../src/components/ai/workspacePane.tsx', import.meta.url), 'utf8')
 
-    expect(pageClient).toContain('absolute right-0 top-0 z-40 h-fit max-h-[calc(100dvh-5rem)]')
+    expect(pageClient).toContain('absolute right-0 top-0 z-40 h-full max-h-[calc(100dvh-5rem)] min-h-0')
     expect(pageClient).toContain('lg:h-full lg:max-h-none')
-    expect(workspacePane).toContain('h-fit max-h-full min-h-0')
+    expect(workspacePane).toContain('h-full max-h-full min-h-0')
+    expect(workspacePane).toContain('className=\'min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1\'')
     expect(workspacePane).toContain('lg:h-full lg:max-h-none')
 })
 
