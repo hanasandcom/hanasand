@@ -5,15 +5,12 @@ import type { CdnRefreshLog } from './analyzeCdnRefresh.ts'
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
 import { customRetentionAction, loadLogRetentionRules } from './customRetention.ts'
 import { normalizeLogEvent } from './logEvent.ts'
+import { loadPlatformDropRule } from './platformDropRule.ts'
 
 export async function analyzeCdnDelivery(log: CdnRefreshLog, query?: typeof run): Promise<boolean> {
     if (!verifyCdnDeliveryEnvelope(log)) return false
     if (!query) return withTransaction(tx => analyzeCdnDelivery(log, tx))
-    const result = await query(`SELECT r.organization_id,r.version,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
-        WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
-          AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, cdnDeliveryRuleId])
-    const rule = result.rows[0]
+    const rule = await loadPlatformDropRule(cdnDeliveryRuleId, query)
     if (!rule) return false
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false

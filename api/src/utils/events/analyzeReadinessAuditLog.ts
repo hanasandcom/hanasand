@@ -4,16 +4,13 @@ import type run from '#db'
 import { normalizeLogEvent } from './logEvent.ts'
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
 import { readinessAuditRuleId, completeReadinessChains, readinessTimingAllowed } from './analyzeReadinessAudit.ts'
+import { loadPlatformDropRule } from './platformDropRule.ts'
 
 // Called inside the ingestion transaction. Partial chains are always retained.
 export async function analyzeReadinessAuditBatch<T extends CollectorLog>(entries: T[], query: typeof run): Promise<T[]> {
     const chains = completeReadinessChains(entries)
     if (!chains.length) return entries
-    const result = await query(`SELECT r.organization_id,r.version,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
-        WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
-          AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, readinessAuditRuleId])
-    const rule = result.rows[0]
+    const rule = await loadPlatformDropRule(readinessAuditRuleId, query)
     if (!rule) return entries
     const { loadConfiguredRules } = await import('../../handlers/events/ruleStorage.ts')
     const { eventWouldBeProtectedFromDrop } = await import('../../handlers/events/findingEngine.ts')

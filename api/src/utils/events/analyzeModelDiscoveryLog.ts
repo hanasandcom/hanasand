@@ -5,15 +5,12 @@ import { modelDiscoveryRuleId, modelHealthRuleId, eligibleModelDiscovery, verify
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
 import { normalizeLogEvent } from './logEvent.ts'
 import { customRetentionAction, loadLogRetentionRules } from './customRetention.ts'
+import { loadPlatformDropRule } from './platformDropRule.ts'
 
 export async function analyzeModelDiscovery(log: ModelProbeLog, query?: typeof run): Promise<boolean> {
     if (!verifyModelDiscoveryEvidence(log)) return false
     if (!query) return withTransaction(tx => analyzeModelDiscovery(log, tx))
-    const result = await query(`SELECT r.organization_id,r.version,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
-        WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
-          AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, modelDiscoveryRuleId])
-    const rule = result.rows[0]
+    const rule = await loadPlatformDropRule(modelDiscoveryRuleId, query)
     if (!rule || !eligibleModelDiscovery(log, rule.definition?.parameters)) return false
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false
@@ -36,10 +33,7 @@ export async function analyzeModelDiscovery(log: ModelProbeLog, query?: typeof r
 export async function analyzeModelHealthCheck(log: ModelProbeLog, query?: typeof run): Promise<boolean> {
     if (!isLocalModelHealthCheck(log)) return false
     if (!query) return withTransaction(tx => analyzeModelHealthCheck(log, tx))
-    const rule = (await query(`SELECT r.organization_id,r.version,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
-        WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
-          AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, modelHealthRuleId])).rows[0]
+    const rule = await loadPlatformDropRule(modelHealthRuleId, query)
     if (!rule || !Array.isArray(rule.definition?.conditions)) return false
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false

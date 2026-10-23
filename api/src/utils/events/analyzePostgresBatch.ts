@@ -3,17 +3,14 @@ import { createHash } from 'node:crypto'
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
 import { normalizeLogEvent } from './logEvent.ts'
 import { completedPostgresSessions, postgresReceipt, postgresRuleId, postgresSessionEvidence, validPostgresParameters, postgresTimingAllowed, type PostgresLog } from './analyzePostgres.ts'
+import { loadPlatformDropRule } from './platformDropRule.ts'
 
 // The authenticated collector's outer transaction commits the canonical evidence,
 // retry receipts, rate state and remaining raw logs together. Never call standalone.
 export async function analyzePostgresBatch<T extends PostgresLog>(entries: T[], query: typeof run, options: { historicalReplay?: boolean } = {}): Promise<T[]> {
     const sessions = completedPostgresSessions(entries)
     if (!sessions.length) return entries
-    const result = await query(`SELECT r.organization_id,r.version,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
-        WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand')) AND r.rule_id=$2
-        AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, postgresRuleId])
-    const rule = result.rows[0]
+    const rule = await loadPlatformDropRule(postgresRuleId, query)
     if (!rule || !validPostgresParameters(rule.definition?.parameters)) return entries
     const parameters = rule.definition.parameters
     const { loadConfiguredRules } = await import('../../handlers/events/ruleStorage.ts')
