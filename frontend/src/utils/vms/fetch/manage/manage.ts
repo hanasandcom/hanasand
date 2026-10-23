@@ -10,20 +10,22 @@ export default async function manageVM(id: string, action: 'start' | 'stop' | 'r
             return { ok: false, message: 'This virtual machine is missing its instance name.' }
         }
 
-        const token = getCookie('access_token')
-        const userId = getCookie('id')
-        if (!token || !userId) {
+        const browserProxy = typeof window !== 'undefined'
+        const token = browserProxy ? null : getCookie('access_token')
+        const userId = browserProxy ? null : getCookie('id')
+        if (!browserProxy && (!token || !userId)) {
             return { ok: false, message: 'Please log in to manage VMs.' }
         }
 
-        const browserProxy = typeof window !== 'undefined'
         const apiBase = browserProxy ? '/api/backend' : config.url.api
         const response = await fetchWithRetry(`${apiBase}/vm/${encodeURIComponent(id)}/${action}`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                id: userId,
-            },
+            ...(browserProxy ? { credentials: 'same-origin' as const } : {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    id: userId!,
+                },
+            }),
             cache: 'no-store',
             // The API waits for the host command (which can take up to two minutes).
             // Replaying a timed-out POST could execute the VM action twice.

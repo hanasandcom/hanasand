@@ -42,18 +42,14 @@ test('VM actions encode instance names and preserve plain-text API failures', as
     }
 })
 
-test('browser VM actions use the same-origin authenticated backend proxy', async () => {
-    Object.defineProperty(globalThis, 'document', {
-        configurable: true,
-        value: { cookie: 'access_token=browser-token; id=browser-user' },
-    })
+test('browser VM actions use the same-origin cookie-authenticated backend proxy when cookies are not script-readable', async () => {
     Object.defineProperty(globalThis, 'window', {
         configurable: true,
         value: {},
     })
 
     const originalFetch = globalThis.fetch
-    let request: { url: string, authorization: string, id: string } | undefined
+    let request: { url: string, authorization: string, id: string, credentials: RequestCredentials | undefined } | undefined
     try {
         globalThis.fetch = async (input, init) => {
             const headers = new Headers(init?.headers)
@@ -61,18 +57,19 @@ test('browser VM actions use the same-origin authenticated backend proxy', async
                 url: String(input),
                 authorization: headers.get('authorization') || '',
                 id: headers.get('id') || '',
+                credentials: init?.credentials,
             }
             return Response.json({ message: 'VM started' })
         }
 
         assert.deepEqual(await manageVM('browser vm', 'start'), { ok: true, message: 'VM started' })
         assert.equal(request?.url, '/api/backend/vm/browser%20vm/start')
-        assert.equal(request?.authorization, 'Bearer browser-token')
-        assert.equal(request?.id, 'browser-user')
+        assert.equal(request?.authorization, '')
+        assert.equal(request?.id, '')
+        assert.equal(request?.credentials, 'same-origin')
     } finally {
         globalThis.fetch = originalFetch
         Reflect.deleteProperty(globalThis, 'window')
-        Reflect.deleteProperty(globalThis, 'document')
     }
 })
 
