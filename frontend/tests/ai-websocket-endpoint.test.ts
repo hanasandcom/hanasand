@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { readFile } from 'node:fs/promises'
 
 function configuredClientWebsocket(aiWebsocket?: string) {
     const script = 'globalThis.window = { location: { hostname: "hanasand.com", protocol: "https:" } }; const {default: config} = await import("./src/config.ts"); console.log(config.url.api_client_wss)'
@@ -18,4 +19,10 @@ function configuredClientWebsocket(aiWebsocket?: string) {
 test('AI client WebSocket can use its own endpoint while REST stays on the app API', () => {
     expect(configuredClientWebsocket('ws://127.0.0.1:8389/api')).toBe('ws://127.0.0.1:8389/api')
     expect(configuredClientWebsocket()).toBe('wss://app.example.test/api')
+})
+
+test('Docker build forwards the AI WebSocket endpoint into the Next.js build', async () => {
+    const dockerfile = await readFile(new URL('../Dockerfile', import.meta.url), 'utf8')
+    expect(dockerfile).toContain('ARG NEXT_PUBLIC_AI_API_WS=')
+    expect(dockerfile).toContain('ENV NEXT_PUBLIC_AI_API_WS=$NEXT_PUBLIC_AI_API_WS')
 })
