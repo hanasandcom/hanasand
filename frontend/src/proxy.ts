@@ -5,8 +5,18 @@ import pathIsAllowedWhileUnauthorized from './utils/proxy/pathIsAllowedWhileUnau
 import tokenIsValid from './utils/proxy/tokenIsValid'
 import organizationProtectedPaths from './utils/proxy/organizationProtectedPaths'
 import { applyRefreshedAuthCookies, authCookieOptions, authServiceUnavailable, isLocalDashboardRenderProof, loginRedirect, requestHostname, type TokenRefreshCookies } from './utils/proxy/authResponses'
+import { identityAuthUrl } from './utils/auth/identityRedirect'
 
 export async function proxy(req: NextRequest) {
+    if (['GET', 'HEAD'].includes(req.method)) {
+        const pathname = req.nextUrl.pathname
+        if (pathname === '/login' || pathname === '/signup' || pathname === '/register') {
+            const page = pathname === '/login' && req.nextUrl.searchParams.get('mode') !== 'signup'
+                ? 'login'
+                : 'signup'
+            return NextResponse.redirect(identityAuthUrl(page, req.nextUrl.searchParams.get('path')), 307)
+        }
+    }
     if (/^\/sandbox\/login\/?$/.test(req.nextUrl.pathname)) {
         return new NextResponse('Not Found', {
             status: 404,
