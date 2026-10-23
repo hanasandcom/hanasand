@@ -3,7 +3,7 @@ import { formatDate } from './uvmPanelHelpers'
 
 function runResult(run: UvmRun) {
     if (run.engine === 'nmap') {
-        const openPorts = run.hosts.reduce((sum, host) => sum + host.ports.filter(port => port.state === 'open').length, 0)
+        const openPorts = (run.hosts || []).reduce((sum, host) => sum + host.ports.filter(port => port.state === 'open').length, 0)
         const ports = `${openPorts} open TCP port${openPorts === 1 ? '' : 's'}`
         const total = run.coverage?.requestedAddresses ?? run.coverage?.attemptedAddresses
         const coverage = total === undefined ? '' : `Address coverage ${run.coverage?.completedAddresses}/${total} · `

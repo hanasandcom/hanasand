@@ -16,8 +16,8 @@ export type AssetViewProps = {
     setAuthorization: Dispatch<SetStateAction<Record<string, boolean>>>
     intervals: Record<string, string>
     setIntervals: Dispatch<SetStateAction<Record<string, string>>>
-    scheduleEngines: Record<string, 'nmap' | 'tenable-vm' | 'gvm'>
-    setScheduleEngines: Dispatch<SetStateAction<Record<string, 'nmap' | 'tenable-vm' | 'gvm'>>>
+    scheduleEngines: Record<string, 'nmap' | 'tenable-vm' | 'gvm' | 'zap'>
+    setScheduleEngines: Dispatch<SetStateAction<Record<string, 'nmap' | 'tenable-vm' | 'gvm' | 'zap'>>>
     scheduleProfiles: Record<string, 'tcp-top-100' | 'tcp-top-1000'>
     setScheduleProfiles: Dispatch<SetStateAction<Record<string, 'tcp-top-100' | 'tcp-top-1000'>>>
     assetNmapProfiles: Record<string, 'tcp-top-100' | 'tcp-top-1000'>
@@ -67,7 +67,7 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
         ? canScan
         : scheduleEngine === 'tenable-vm'
             ? asset.verificationStatus === 'verified' && tenableReady
-            : asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'gvm' && engine.status === 'available')
+            : asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === scheduleEngine && engine.status === 'available')
     const authorized = authorization[asset.id] === true
 
     return <article className='rounded-lg border border-ui-border bg-ui-panel p-4'>

@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import type { UvmDashboard } from '@/utils/monitoring/types'
 
-export type UvmAssessmentEngineId = 'nmap' | 'gvm' | 'tenable-vm'
+export type UvmAssessmentEngineId = 'nmap' | 'gvm' | 'tenable-vm' | 'zap'
 type NmapProfile = 'tcp-top-100' | 'tcp-top-1000'
 
 export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedEngines, scanId, setScanId, nmapProfile, setNmapProfile, onSetup }: {
@@ -22,7 +22,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
             const tenableReady = engine.id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled))
             const ready = engine.status === 'available' && tenableReady
             const selected = ready && selectedEngines.includes(engine.id as UvmAssessmentEngineId)
-            const label = engine.id === 'nmap' ? 'Nmap · service inventory' : engine.id === 'gvm' ? 'Greenbone · Full and Fast vulnerability scan' : 'Nessus via Tenable VM'
+            const label = engine.id === 'nmap' ? 'Nmap · service inventory' : engine.id === 'gvm' ? 'Greenbone · Full and Fast vulnerability scan' : engine.id === 'zap' ? 'OWASP ZAP · web assessment' : 'Nessus via Tenable VM'
             const reason = engine.id === 'tenable-vm' && !tenableReady ? 'Connect Tenable VM and enable a network scan configuration.' : engine.reason || 'Engine is unavailable.'
             return <label key={engine.id} className={`grid gap-1 rounded-md border border-ui-border p-3 text-sm ${ready ? 'cursor-pointer' : 'opacity-75'}`}>
                 <span className='flex items-start gap-2'><input type='checkbox' checked={selected} disabled={!ready} onChange={event => setSelectedEngines(current => event.target.checked ? [...current, engine.id as UvmAssessmentEngineId] : current.filter(id => id !== engine.id))} className='mt-1 accent-ui-primary' /><span className='font-semibold'>{label}<small className={`block font-normal ${ready ? 'text-ui-success' : 'text-ui-warning'}`}>{ready ? engine.status : reason}</small></span></span>

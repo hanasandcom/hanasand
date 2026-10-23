@@ -54,8 +54,8 @@ const noop = async() => ({}) as never
 test('scanner page states which services are stopped pending disk expansion', () => {
     const html = renderToStaticMarkup(<ScannerPauseNotice />)
 
-    expect(html).toContain('Scanner API, Nmap worker, and database are stopped')
-    expect(html).toContain('Greenbone is staged but not started')
+    expect(html).toContain('Scanner services are stopped pending disk expansion')
+    expect(html).toContain('API, database, Nmap worker, Greenbone, and ZAP runner/proxy')
 })
 
 test('overview shows compact readiness, honest coverage, and clear next actions', () => {
