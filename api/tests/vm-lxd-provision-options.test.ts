@@ -73,6 +73,22 @@ test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Do
     expect(body.config['cloud-init.user-data']).toContain('apt_packages+=( \'ripgrep\' )')
 })
 
+test.serial('LXD applies a valid custom CPU and memory allocation to the instance limits', async () => {
+    await provisionLocalLxdInstance('custom-vm', {
+        os: 'ubuntu-24.04',
+        resources: { cpu: '10', memory: '64GiB', disk: '40GiB' },
+        services: [],
+    })
+
+    const body = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as {
+        config: Record<string, string>
+        devices: Record<string, { size: string }>
+    }
+    expect(body.config['limits.cpu']).toBe('10')
+    expect(body.config['limits.memory']).toBe('64GiB')
+    expect(body.devices.root.size).toBe('40GiB')
+})
+
 test.serial('empty AI package lists keep the existing setup hash stable', async () => {
     const options = { os: 'ubuntu-24.04' as const, resources: { cpu: '2' as const, memory: '4GiB' as const, disk: '20GiB' as const }, services: ['nodejs' as const, 'postgresql' as const] }
     const legacyHash = createHash('sha256').update(JSON.stringify({ ...options, services: [...options.services].sort() })).digest('hex')

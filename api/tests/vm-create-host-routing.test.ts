@@ -245,14 +245,36 @@ test('Minecraft setup leaves public port selection to the VM hostname and guest 
     expect(calls[0]?.body).toContain('"minecraftServerType":"PAPER"')
 })
 
-test('VM creation rejects unsupported resource limits and forwards an allowed size', async () => {
-    const invalid = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', resources: { cpu: '96', memory: '1TiB' } } })
-    expect(invalid.statusCode).toBe(400)
-    expect(calls).toHaveLength(0)
+test('VM creation forwards each preset and the maximum custom allocation', async () => {
+    const allocations = [
+        { cpu: '1', memory: '2GiB', disk: '10GiB' },
+        { cpu: '2', memory: '4GiB', disk: '20GiB' },
+        { cpu: '4', memory: '8GiB', disk: '40GiB' },
+        { cpu: '1', memory: '1GiB', disk: '40GiB' },
+        { cpu: '2', memory: '4GiB', disk: '40GiB' },
+        { cpu: '3', memory: '16GiB', disk: '40GiB' },
+        { cpu: '10', memory: '64GiB', disk: '40GiB' },
+    ]
+    for (const [index, resources] of allocations.entries()) {
+        const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: `resource-${index}`, resources } })
+        expect(response.statusCode).toBe(201)
+        expect(calls.find(call => call.path.endsWith(`/resource-${index}/provision`))?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04', resources, services: [], minecraftEulaAccepted: false }))
+    }
+})
 
-    const accepted = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', resources: { cpu: '4', memory: '8GiB', disk: '40GiB' } } })
-    expect(accepted.statusCode).toBe(201)
-    expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '4', memory: '8GiB', disk: '40GiB' }, services: [], minecraftEulaAccepted: false }))
+test('VM creation rejects resource allocations outside the supported CPU, memory, and disk bounds', async () => {
+    for (const resources of [
+        { cpu: '0', memory: '2GiB', disk: '40GiB' },
+        { cpu: '11', memory: '4GiB', disk: '40GiB' },
+        { cpu: '2', memory: '0GiB', disk: '40GiB' },
+        { cpu: '2', memory: '65GiB', disk: '40GiB' },
+        { cpu: '2', memory: '4GiB', disk: '41GiB' },
+        { cpu: '2.5', memory: '4GiB', disk: '40GiB' },
+    ]) {
+        const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'invalid-resource', resources } })
+        expect(response.statusCode).toBe(400)
+        expect(calls).toHaveLength(0)
+    }
 })
 
 test('VM creation returns while the accepted host provision job is still running', async () => {

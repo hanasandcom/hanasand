@@ -268,9 +268,7 @@ class VmProvisionQueueError extends Error {}
 function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, minecraftAddonsInput: unknown, customAptPackages: unknown, website: unknown, projectFilesInput?: unknown): VmProvisionOptions | null {
     const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
-    const resourceOptions = new Set(['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'])
-    if (resources !== undefined && (!resources || typeof resources !== 'object' || !('cpu' in resources) || !('memory' in resources)
-        || !('disk' in resources) || typeof resources.cpu !== 'string' || typeof resources.memory !== 'string' || typeof resources.disk !== 'string' || !resourceOptions.has(`${resources.cpu}:${resources.memory}:${resources.disk}`))) return null
+    if (resources !== undefined && !isSupportedResourceAllocation(resources)) return null
     if (services !== undefined && (!Array.isArray(services) || services.length > supportedSetupServices.length || services.some(service => !isSupportedSetupService(service)))) return null
     const selectedAptPackages = normalizeUbuntuAptPackages(customAptPackages)
     if (!selectedAptPackages) return null
@@ -281,9 +279,11 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     const selectedMinecraftAddons = normalizeMinecraftAddons(minecraftAddonsInput, selectedMinecraftType)
     if (!selectedMinecraftAddons || (selectedMinecraftAddons.length && !selectedServices.includes('minecraft-java'))
         || (selectedMinecraftAddons.length && !minecraftAddonLoader(selectedMinecraftType))) return null
+    const memoryGiB = Number.parseInt(selectedResources.memory, 10)
+    const diskGiB = Number.parseInt(selectedResources.disk, 10)
     if (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(selectedMinecraftType)
-        && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
-    if (os === 'ubuntu-24.04-desktop' && (selectedResources.memory !== '8GiB' || selectedResources.disk !== '40GiB')) return null
+        && (memoryGiB < 4 || diskGiB < 20)) return null
+    if (os === 'ubuntu-24.04-desktop' && (memoryGiB < 8 || diskGiB < 40)) return null
     const supportedMinecraftTypes = new Set(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'PURPUR', 'FOLIA'])
     if (minecraftServerType !== undefined && (typeof minecraftServerType !== 'string' || !supportedMinecraftTypes.has(minecraftServerType))) return null
     if (minecraftServerType !== undefined && !selectedServices.includes('minecraft-java')) return null
@@ -291,7 +291,7 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     if (website && !selectedServices.includes('website')) return null
     const nextjsProjectFiles = projectFilesInput === undefined ? undefined : normalizeNextjsProjectFiles(projectFilesInput)
     if (projectFilesInput !== undefined && (!nextjsProjectFiles || !selectedServices.includes('nodejs'))) return null
-    if (nextjsProjectFiles?.length && (selectedResources.memory === '2GiB' || selectedResources.disk === '10GiB')) return null
+    if (nextjsProjectFiles?.length && (memoryGiB < 4 || diskGiB < 20)) return null
     const selectedOs = (os || 'ubuntu-24.04') as VmProvisionOptions['os']
     return {
         os: selectedOs,
@@ -304,6 +304,17 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
         ...(website ? { websiteHtml: renderVmWebsite(website) } : {}),
         ...(nextjsProjectFiles ? { nextjsProjectFiles } : {}),
     }
+}
+
+function isSupportedResourceAllocation(value: unknown): value is NonNullable<VmProvisionOptions['resources']> {
+    if (!value || typeof value !== 'object') return false
+    const resources = value as Record<string, unknown>
+    if (typeof resources.cpu !== 'string' || typeof resources.memory !== 'string' || typeof resources.disk !== 'string') return false
+    const key = `${resources.cpu}:${resources.memory}:${resources.disk}`
+    if (['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'].includes(key)) return true
+    return /^(?:[1-9]|10)$/.test(resources.cpu)
+        && /^(?:[1-9]|[1-5][0-9]|6[0-4])GiB$/.test(resources.memory)
+        && resources.disk === '40GiB'
 }
 
 async function recordVmProvisioningError(vmName: string, error: unknown, phase: string) {
