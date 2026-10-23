@@ -17,7 +17,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
                             <div className='max-w-2xl'>
                                 <h1 className='mt-3 text-4xl font-semibold tracking-tight md:text-6xl'>Something went wrong.</h1>
                                 <p className='mt-4 text-base leading-7 text-ui-primary dark:text-ui-muted md:text-lg'>
-                                    This page hit an unexpected problem. Try again, or use one of the links below to continue working in Hanasand.
+                                    This page hit an unexpected problem. Try again, or use one of the links below to continue working on Hanasand.
                                 </p>
                                 <div className='mt-7 flex flex-wrap gap-3'>
                                     <button type='button' onClick={reset} className='inline-flex h-11 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90'>
