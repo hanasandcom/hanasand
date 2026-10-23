@@ -2,7 +2,20 @@ import { Panel, Empty, PreviewLink, TrustItem, WorkspaceStatusBadge } from './wo
 import { Archive, Download, FileText, History, LifeBuoy, RefreshCcw, ShieldCheck } from 'lucide-react'
 import { supportBundleHref } from './workbenchPaneTrust'
 
-export function WorkspaceReleasePanels({ trustRelease, trust, launchReport, releases, rollbackPendingId, onRollbackRelease }: { trustRelease: AIRelease | null, trust: AIReleaseTrust | null, launchReport: string[], releases: AIRelease[], rollbackPendingId: string | null, onRollbackRelease: (releaseId: string) => void | Promise<void> }) {
+type WorkspaceReleasePanelsProps = { trustRelease: AIRelease | null, trust: AIReleaseTrust | null, launchReport: string[], releases: AIRelease[], rollbackPendingId: string | null, onRollbackRelease: (releaseId: string) => void | Promise<void> }
+
+export function WorkspaceReleasePanels(props: WorkspaceReleasePanelsProps) {
+    if (!props.releases.length) return null
+
+    return <details className='rounded-lg bg-ui-panel p-3 outline outline-ui-border'>
+        <summary className='cursor-pointer text-sm font-medium text-ui-text'>Launch history and recovery ({props.releases.length})</summary>
+        <div className='mt-3 space-y-3'>
+            <WorkspaceReleasePanelsContent {...props} />
+        </div>
+    </details>
+}
+
+function WorkspaceReleasePanelsContent({ trustRelease, trust, launchReport, releases, rollbackPendingId, onRollbackRelease }: WorkspaceReleasePanelsProps) {
     return (<>
         <Panel
             icon={<ShieldCheck className='h-4 w-4' />}

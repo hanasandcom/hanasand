@@ -38,9 +38,6 @@ export function WorkspaceCollaborationPanel({ activeConversation, currentUserId,
                     >
                         {collaboratorPending ? 'Inviting...' : 'Invite collaborator'}
                     </button>
-                    <div className='text-xs text-ui-muted'>
-                        Collaborator seats remaining: {activeConversation.collaboration.remainingSeats} of {activeConversation.collaboration.seatLimit}.
-                    </div>
                 </>
             ) : null}
             {activeConversation?.collaboration?.collaborators?.length ? (
