@@ -1,4 +1,4 @@
-import { Panel, Empty, PreviewLink, ChecklistItem, WorkspacePrimaryAction, WorkspaceStatusBadge } from './workbenchPaneDisplay'
+import { Panel, PreviewLink, ChecklistItem, WorkspacePrimaryAction, WorkspaceStatusBadge } from './workbenchPaneDisplay'
 import { useEffect, useState } from 'react'
 import { ServerCog, ShieldCheck } from 'lucide-react'
 import { buildDeployProfile, detectEnvPlaceholders } from './workbenchPaneDeployProfile'
@@ -25,7 +25,7 @@ export function WorkspaceDeployPanel({ availableVmTargets, activeRepo, activeCon
         <Panel
             icon={<ServerCog className='h-4 w-4' />}
             title='Launch check'
-            subtitle='One-click preview path with recorded release details.'
+            subtitle='Choose a target and run a check.'
         >
             <div className='grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2'>
                 {(['staging', 'production'] as AIDeploymentEnvironment[]).map((environment) => (
@@ -39,81 +39,64 @@ export function WorkspaceDeployPanel({ availableVmTargets, activeRepo, activeCon
                     </button>
                 ))}
             </div>
-            <div className='min-w-0 overflow-hidden rounded-lg bg-ui-raised px-3 py-3 text-xs text-ui-muted outline outline-ui-border'>
-                <div className='flex min-w-0 items-center gap-2 text-ui-text'>
-                    <ShieldCheck className='h-3.5 w-3.5 text-ui-primary' />
-                    <span className='min-w-0 wrap-break-word font-semibold'>{deployProfile.title}</span>
-                </div>
-                <div className='mt-2 grid min-w-0 gap-1 wrap-break-word'>
-                    <div>Domain: {deployProfile.domain}</div>
-                    <div>SSL: {deployProfile.ssl}</div>
-                    <div>Logs: {deployProfile.logs}</div>
-                    <div>Rollback: {deployProfile.rollback}</div>
-                </div>
-            </div>
-            {availableVmTargets.length ? (
-                <div className='flex flex-wrap gap-2'>
-                    {availableVmTargets.slice(0, 8).map((target) => (
-                        <button
-                            key={target.id}
-                            type='button'
-                            onClick={() => setDeployVmName(target.name)}
-                            className={`rounded-full px-2.5 py-1 text-[11px] outline ${deployVmName === target.name ? 'bg-ui-primary/12 text-ui-primary outline-ui-primary/18' : 'bg-ui-raised text-ui-muted outline-ui-border hover:text-ui-text'}`}
-                        >
-                            {target.name}
-                        </button>
-                    ))}
-                </div>
-            ) : null}
             <div className='grid grid-cols-[minmax(0,1fr)_5rem] gap-2'>
                 <input value={deployVmName} onChange={(event) => setDeployVmName(event.target.value)} placeholder='Launch target' className='min-w-0 rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
                 <input value={deployPort} onChange={(event) => setDeployPort(event.target.value)} placeholder='3000' inputMode='numeric' className='min-w-0 rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
             </div>
-            <input value={deployHealthPath} onChange={(event) => setDeployHealthPath(event.target.value)} placeholder='/health or /' className='rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
-            <div className='rounded-lg bg-ui-raised px-3 py-3 outline outline-ui-border'>
-                <div className='mb-2 text-[10px] uppercase tracking-[0.18em] text-ui-muted'>Launch checklist</div>
-                <div className='grid gap-1.5'>
-                    {deployProfile.checklist.map((item) => (
-                        <ChecklistItem key={item.label} label={item.label} state={item.state} />
-                    ))}
-                </div>
-            </div>
-            <div className='rounded-lg bg-ui-raised px-3 py-3 outline outline-ui-border'>
-                <div className='mb-2 text-[10px] uppercase tracking-[0.18em] text-ui-muted'>Env placeholders</div>
-                {envPlaceholders.length ? (
-                    <div className='flex flex-wrap gap-1.5'>
-                        {envPlaceholders.slice(0, 10).map((name) => (
-                            <span key={name} className='rounded-full bg-ui-primary/10 px-2 py-1 text-[10px] text-ui-muted outline outline-ui-primary/20'>
-                                {name}=required
-                            </span>
+            <details className='rounded-lg bg-ui-raised px-3 py-2 text-xs text-ui-muted outline outline-ui-border'>
+                <summary className='cursor-pointer font-medium text-ui-text'>More launch options and checks</summary>
+                <div className='mt-3 grid gap-3'>
+                    <div className='min-w-0 overflow-hidden rounded-lg bg-ui-panel px-3 py-3 outline outline-ui-border'>
+                        <div className='flex min-w-0 items-center gap-2 text-ui-text'>
+                            <ShieldCheck className='h-3.5 w-3.5 text-ui-primary' />
+                            <span className='min-w-0 wrap-break-word font-semibold'>{deployProfile.title}</span>
+                        </div>
+                        <div className='mt-2 grid min-w-0 gap-1 wrap-break-word'>
+                            <div>Domain: {deployProfile.domain}</div>
+                            <div>SSL: {deployProfile.ssl}</div>
+                            <div>Logs: {deployProfile.logs}</div>
+                            <div>Rollback: {deployProfile.rollback}</div>
+                        </div>
+                    </div>
+                    {availableVmTargets.length ? <div className='flex flex-wrap gap-2'>
+                        {availableVmTargets.slice(0, 8).map((target) => (
+                            <button key={target.id} type='button' onClick={() => setDeployVmName(target.name)} className={`rounded-full px-2.5 py-1 text-[11px] outline ${deployVmName === target.name ? 'bg-ui-primary/12 text-ui-primary outline-ui-primary/18' : 'bg-ui-panel text-ui-muted outline-ui-border hover:text-ui-text'}`}>
+                                {target.name}
+                            </button>
                         ))}
-                        {envPlaceholders.length > 10 ? <span className='text-[10px] text-ui-muted'>+{envPlaceholders.length - 10} more</span> : null}
+                    </div> : null}
+                    <label className='grid gap-1'>
+                        <span>Health check path</span>
+                        <input value={deployHealthPath} onChange={(event) => setDeployHealthPath(event.target.value)} placeholder='/health or /' className='min-w-0 rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
+                    </label>
+                    <div className='rounded-lg bg-ui-panel px-3 py-3 outline outline-ui-border'>
+                        <div className='mb-2 text-[10px] uppercase tracking-[0.18em] text-ui-muted'>Launch checklist</div>
+                        <div className='grid gap-1.5'>
+                            {deployProfile.checklist.map((item) => <ChecklistItem key={item.label} label={item.label} state={item.state} />)}
+                        </div>
                     </div>
-                ) : (
-                    <div className='text-xs text-ui-muted'>No required env vars detected from imported files. Secrets are never echoed here.</div>
-                )}
-            </div>
-            {activeRepo ? (
-                <div className='text-xs text-ui-muted'>
-                    Suggested for {activeRepo.stackType.replaceAll('_', ' ')}: {activeRepo.stackType === 'nextjs_docker' ? '3000 and /' : '3001 and /ready'}.
+                    <div className='rounded-lg bg-ui-panel px-3 py-3 outline outline-ui-border'>
+                        <div className='mb-2 text-[10px] uppercase tracking-[0.18em] text-ui-muted'>Environment variables</div>
+                        {envPlaceholders.length ? <div className='flex flex-wrap gap-1.5'>
+                            {envPlaceholders.slice(0, 10).map((name) => <span key={name} className='rounded-full bg-ui-primary/10 px-2 py-1 text-[10px] text-ui-muted outline outline-ui-primary/20'>{name}=required</span>)}
+                            {envPlaceholders.length > 10 ? <span className='text-[10px] text-ui-muted'>+{envPlaceholders.length - 10} more</span> : null}
+                        </div> : <div>No required environment variables detected.</div>}
+                    </div>
+                    {activeRepo ? <div>Suggested for {activeRepo.stackType.replaceAll('_', ' ')}: {activeRepo.stackType === 'nextjs_docker' ? 'port 3000, path /' : 'port 3001, path /ready'}.</div> : null}
+                    <label className='grid gap-1'>
+                        <span>Preview access</span>
+                        <select value={deployAccessPolicy} onChange={(event) => setDeployAccessPolicy(event.target.value as AIDeploymentAccessPolicy)} className='rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border'>
+                            <option value='owner_only'>Owner only preview</option>
+                            <option value='collaborators'>Collaborators</option>
+                            <option value='public_preview'>Public preview</option>
+                        </select>
+                    </label>
+                    {deployQuota ? <div className='rounded-lg bg-ui-panel px-3 py-2 outline outline-ui-border'>
+                        <div>Checks: {deployQuota.used}/{deployQuota.limit} in {deployQuota.windowMinutes} min. {deployQuota.remaining} left.</div>
+                        <div className='mt-1'>Active previews: {deployQuota.activeRunning}/{deployQuota.maxRunning}. {deployQuota.runningRemaining} slots left.{deployQuota.sharedAcrossCollaborators ? ' Shared quota.' : ''}</div>
+                    </div> : null}
                 </div>
-            ) : null}
-            <select value={deployAccessPolicy} onChange={(event) => setDeployAccessPolicy(event.target.value as AIDeploymentAccessPolicy)} className='rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border'>
-                <option value='owner_only'>Owner only preview</option>
-                <option value='collaborators'>Collaborators</option>
-                <option value='public_preview'>Public preview</option>
-            </select>
-            {deployQuota ? (
-                <div className='rounded-lg bg-ui-raised px-3 py-2 text-xs text-ui-muted outline outline-ui-border'>
-                    <div>
-                        Checks: {deployQuota.used}/{deployQuota.limit} in {deployQuota.windowMinutes} min. {deployQuota.remaining} left.
-                    </div>
-                    <div className='mt-1'>
-                        Active previews: {deployQuota.activeRunning}/{deployQuota.maxRunning}. {deployQuota.runningRemaining} slots left.
-                        {deployQuota.sharedAcrossCollaborators ? ' Shared quota.' : ''}
-                    </div>
-                </div>
-            ) : null}
+            </details>
             <WorkspacePrimaryAction
                 onClick={() => onStartDeployment({ vmName: deployVmName, port: deployPort, healthPath: deployHealthPath, accessPolicy: deployAccessPolicy, environment: deployEnvironment })}
                 disabled={deployPending}
@@ -152,7 +135,7 @@ export function WorkspaceDeployPanel({ availableVmTargets, activeRepo, activeCon
                         </div>
                     ))}
                 </div>
-            ) : <Empty text='No launch attempts recorded for this conversation yet.' />}
+            ) : null}
         </Panel>
 
     </>)
