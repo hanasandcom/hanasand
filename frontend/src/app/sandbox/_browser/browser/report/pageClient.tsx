@@ -1,0 +1,168 @@
+'use client'
+
+import SiteNetworkDetails from '../SiteNetworkDetails'
+import Link from 'next/link'
+import BrowserDebug from '../BrowserDebug'
+import BrowserHistory from '../BrowserHistory'
+import { virusTotalVendorLabel } from '../browserProviderData'
+import { hasSuspiciousFindings, reportMarkdown } from './presentation'
+import { useEffect, useMemo, useState } from 'react'
+import { browserApiBase } from '../browserSetup'
+import type { BrowserReport } from './reportTypes'
+import { reportUrlTimeline, reportResourceUrls, reportIndicators, reportThreatAssociations, scriptIndicatorList } from './reportData'
+import { NetworkTable, ReportExport, ReportList, ReportPanel, ReportStatistics } from './ReportComponents'
+
+export default function BrowserReportPageClient({ runId = '', token = '', resultId, clientId, onRerun, initialRun = '' }: { initialRun?: string; runId?: string; token?: string; resultId?: string; clientId?: string; onRerun?: (target: string, quick?: boolean) => void }) {
+    const [report, setReport] = useState<BrowserReport | null>(null)
+    const [error, setError] = useState('')
+    const [selectedRun, setSelectedRun] = useState(initialRun)
+    const endpoint = useMemo(() => resultId
+        ? clientId ? `${browserApiBase}/browser/results/${encodeURIComponent(resultId)}?clientId=${encodeURIComponent(clientId)}${selectedRun ? `&run=${encodeURIComponent(selectedRun)}` : ''}` : ''
+        : runId ? `${browserApiBase}/browser/runs/${encodeURIComponent(runId)}/report?token=${encodeURIComponent(token || runId)}` : '', [runId, token, resultId, clientId, selectedRun])
+
+    useEffect(() => {
+        if (!endpoint) {
+            if (resultId) return
+            setError('Missing report token.')
+            return
+        }
+        const controller = new AbortController()
+        setError('')
+        setReport(null)
+        fetch(endpoint, { cache: 'no-store', credentials: 'include', signal: controller.signal })
+            .then(async response => {
+                if (!response.ok) throw new Error('Report not found.')
+                return await response.json() as BrowserReport
+            })
+            .then(setReport)
+            .catch(error => { if (error.name !== 'AbortError') setError(error instanceof Error ? error.message : 'Failed to load report.') })
+        return () => controller.abort()
+    }, [endpoint, resultId])
+
+    if (error) {
+        return <main className='min-h-app-viewport bg-ui-canvas p-6 text-ui-text'><div className='mx-auto max-w-3xl rounded-lg border border-ui-border bg-ui-panel p-6'>{error}</div></main>
+    }
+
+    if (!report) {
+        return <main className='min-h-app-viewport bg-ui-canvas p-6 text-ui-muted'><div className='mx-auto max-w-3xl rounded-lg border border-ui-border bg-ui-panel p-6'>Loading browser report...</div></main>
+    }
+
+    const analystReport = report.analystReport || {}
+    const summary = report.analystSummary || {}
+    const suspicious = hasSuspiciousFindings(report)
+    const actions = suspicious ? analystReport.recommendedActions || [] : []
+    const threatContext = reportThreatAssociations(report)
+    const networkRequests = [...(report.captures || []).filter(capture => capture.kind !== 'tool').flatMap(capture => capture.networkSummary?.recentRequests || []), ...(analystReport.networkEvidence?.recentRequests || [])]
+    const markdown = reportMarkdown(analystReport.markdown || `# Browser report\n\n${report.target || ''}\n\n${summary.narrative || ''}\n\n## Network\n${networkRequests.map(request => [request.method, request.status, request.url].filter(Boolean).join(' ')).join('\n')}`, suspicious)
+
+    return (
+        <main className='min-h-full bg-ui-canvas px-4 py-6 text-ui-text'>
+            <section className='mx-auto grid max-w-6xl gap-4'>
+                <header className='rounded-lg border border-ui-border bg-ui-panel p-4'>
+                    <div className='flex flex-wrap items-center justify-between gap-3'>
+                        <Link href='/sandbox' className='rounded-md border border-ui-border px-3 py-2 text-sm font-semibold text-ui-text hover:border-ui-primary'>Back to sandbox</Link>
+                        <div className='flex flex-wrap items-center gap-2'>
+                            <ReportStatistics metrics={{ ...report.status?.metrics, event: report.status?.metrics?.event || report.status?.run, capacity: report.status?.capacity }} />
+                            {onRerun && report.target ? <div className='flex flex-wrap gap-2'>{clientId ? <BrowserHistory clientId={clientId} /> : null}<button type='button' onClick={() => onRerun(report.target!, true)} className='ui-button ui-button-secondary px-3 py-2 text-sm'>Quick run</button><button type='button' onClick={() => onRerun(report.target!)} className='ui-button ui-button-secondary px-3 py-2 text-sm'>Run again</button></div> : null}
+                            <ReportExport report={report} markdown={markdown} />
+                        </div>
+                    </div>
+                    {report.runs && report.runs.length > 1 ? <label className='mt-3 flex flex-wrap items-center gap-2 text-sm'>Run<select aria-label='Saved run' className='rounded-md border border-ui-border bg-ui-canvas p-2' value={report.runId} onChange={event => setSelectedRun(event.target.value)}>{report.runs.map(run => <option key={run.id} value={run.id}>{new Date(run.startedAt).toLocaleString()} · {run.status}</option>)}</select></label> : null}
+                    <div className='mt-2 flex flex-wrap items-center gap-2'><h1 className='break-all text-2xl font-semibold'>{report.target || 'Saved browser run'}</h1><SiteNetworkDetails site={report.siteNetwork} /></div>
+                    <p className='mt-2 break-all font-mono text-xs text-ui-muted'>Final URL: {report.finalUrl || report.target || 'unknown'}</p>
+                    <div className='mt-3 flex flex-wrap gap-2 text-xs'>
+                        <span className='rounded border border-ui-border bg-ui-raised px-2 py-1'>{/^Review required/i.test(analystReport.verdict || '') ? suspicious ? 'Suspicious activity observed' : 'No signs of suspicious activity.' : analystReport.verdict || 'Verdict unavailable'}</span>
+                        {report.status?.run ? <span className='rounded border border-ui-border bg-ui-raised px-2 py-1'>Run {report.status.run}</span> : null}
+                        {report.status?.connection ? <span className='rounded border border-ui-border bg-ui-raised px-2 py-1'>Connection {report.status.connection}</span> : null}
+                        {report.exportedAt ? <span className='rounded border border-ui-border bg-ui-raised px-2 py-1'>Exported {report.exportedAt}</span> : null}
+                    </div>
+                </header>
+
+                <section className='grid min-w-0 gap-4'>
+                    <div className='grid gap-4'>
+                        <ReportPanel title='Summary'>
+                            <p className='text-sm leading-6 text-ui-muted'>{summary.narrative || 'No analyst summary was saved with this report.'}</p>
+                        </ReportPanel>
+                        <ReportPanel title='URL timeline'>
+                            <ReportList items={reportUrlTimeline(report).map(item => [
+                                item.capturedAt || '',
+                                item.reason || 'capture',
+                                item.url || '',
+                                item.title || '',
+                            ].filter(Boolean).join(' · '))} empty='No URL timeline saved.' />
+                        </ReportPanel>
+                        <ReportPanel title='Providers'>
+                            <div className='grid gap-2'>
+                                {(analystReport.providerReports || []).filter(provider => !/webcrack/i.test(provider.tool || '') || provider.deobfuscatedCode || provider.status === 'Provider error').map(provider => provider.deobfuscatedCode ? (
+                                    <div key={`${provider.tool}-${provider.url}`}><h2 className='mb-2 text-sm font-semibold'>{provider.tool}</h2><pre className='max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-md border border-ui-border bg-ui-canvas p-3 font-mono text-xs'>{provider.deobfuscatedCode}</pre></div>
+                                ) : (
+                                    <div key={`${provider.tool}-${provider.url}`} className='rounded-md border border-ui-border bg-ui-raised p-3 text-sm'>
+                                        <p className='font-semibold'>{provider.tool || 'Provider'} · {provider.status || 'unknown'}</p>
+                                        <p className='mt-1 text-xs text-ui-muted'>{provider.verdict || 'No parsed verdict'}{provider.vendorFlagged !== undefined ? ` · ${virusTotalVendorLabel(provider)} vendors` : ''}{provider.alertCount !== undefined ? ` · ${provider.alertCount} alerts` : ''}{provider.screenshotCaptured ? ' · screenshot captured' : ''}</p>
+                                        {provider.url ? <p className='mt-1 truncate font-mono text-xs text-ui-muted'>{provider.url}</p> : null}
+                                        {provider.error ? <p className='mt-2 text-xs text-ui-text'>{provider.error}</p> : null}
+                                        {provider.communityComments?.length ? <div className='mt-2 grid gap-1'>{provider.communityComments.map((comment, index) => <blockquote key={`${index}-${comment}`} className='rounded-md border border-ui-border bg-ui-canvas px-2 py-1.5 text-xs leading-5'>{comment}</blockquote>)}</div> : null}
+                                        {!provider.communityComments?.length && provider.communitySummary ? <p className='mt-2 text-xs leading-5 text-ui-muted'>Provider summary: {provider.communitySummary}</p> : null}
+                                        {provider.threatAssociations?.length ? <p className='mt-2 text-xs text-ui-warning'>{provider.threatAssociations.slice(0, 4).map(item => [item.name, item.confidence ? `${item.confidence} confidence` : '', item.source].filter(Boolean).join(' · ')).join('\n')}</p> : null}
+                                        {provider.signals?.length ? <pre className='mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded-md border border-ui-border bg-ui-canvas p-2 font-mono text-xs text-ui-text'>{provider.signals.slice(0, 12).join('\n')}</pre> : null}
+                                    </div>
+                                ))}
+                            </div>
+                        </ReportPanel>
+                        <ReportPanel title='Screenshots'>
+                            <div className='grid gap-3 sm:grid-cols-2'>
+                                {(report.captures || []).filter(capture => capture.image).map(capture => (
+                                    <article key={`${capture.kind}-${capture.capturedAt}-${capture.url}`} className='grid gap-2 rounded-md border border-ui-border bg-ui-raised p-3'>
+                                        <div className='min-w-0'>
+                                            <p className='text-sm font-semibold'>{capture.reason === 'domcontentloaded' ? 'Screenshot' : capture.label || capture.kind || 'Screenshot'}</p>
+                                            <p className='truncate font-mono text-xs text-ui-muted'>{capture.url || capture.title || ''}</p>
+                                        </div>
+                                        {capture.image ? <img src={capture.image} alt={`${capture.label || 'Browser'} screenshot`} className='max-h-64 w-full rounded border border-ui-border object-contain' /> : null}
+                                        {capture.frameQuality ? <p className={`text-xs font-semibold ${capture.frameQuality.looksBlank ? 'text-ui-text' : 'text-ui-success'}`}>{capture.frameQuality.looksBlank ? 'Blank-looking frame' : 'Rendered frame'} · {capture.frameQuality.visibleTextLength || 0} chars · {capture.frameQuality.elementCount || 0} elements</p> : null}
+                                        {capture.evidence?.textExcerpt ? <details><summary className='cursor-pointer text-xs'>Page text</summary><pre className='mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs'>{capture.evidence.textExcerpt}</pre></details> : null}
+                                        {capture.evidence?.sourceCode ? <details><summary className='cursor-pointer text-xs'>Source code</summary><pre className='mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs'>{capture.evidence.sourceCode}</pre></details> : null}
+                                        <p className='text-xs text-ui-muted'>{capture.capturedAt || ''}{capture.reason ? ` · ${capture.reason}` : ''}</p>
+                                    </article>
+                                ))}
+                            </div>
+                            {!(report.captures || []).some(capture => capture.image) ? <p className='text-sm text-ui-muted'>No screenshots saved.</p> : null}
+                        </ReportPanel>
+                        <ReportPanel title='Network evidence'>
+                            <NetworkTable requests={networkRequests} urls={reportResourceUrls(report)} complete={typeof analystReport.networkEvidence?.requests === 'number' && analystReport.networkEvidence.requests <= new Set(networkRequests.map(request => request.url)).size} />
+                        </ReportPanel>
+                        <ReportPanel title='Console logs'>
+                            <pre className='max-h-96 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-ui-muted'>{report.consoleEvents?.join('\n') || 'No console output saved from the inspected page.'}</pre>
+                        </ReportPanel>
+
+                        <ReportPanel title='Script artifacts'>
+                            <ReportList items={(analystReport.scriptArtifacts || []).map(script => [
+                                script.assessment || 'script',
+                                script.scriptId || script.source || 'sample',
+                                script.sha256 ? `sha256 ${script.sha256}` : '',
+                                script.summary || '',
+                                ...scriptIndicatorList(script).slice(0, 6),
+                            ].filter(Boolean).join(' · '))} empty='No script artifacts saved.' />
+                        </ReportPanel>
+
+                        {actions.length ? <ReportPanel title='Actions'>
+                            <ReportList items={actions} empty='' />
+                        </ReportPanel> : null}
+                        {threatContext.length ? <ReportPanel title='Threat context'>
+                            <ReportList items={threatContext.map(item => [
+                                item.name || 'Threat association',
+                                item.category || 'context',
+                                item.confidence ? `${item.confidence} confidence` : '',
+                                item.source ? item.source.replace(/_/g, ' ') : '',
+                                item.evidence || '',
+                            ].filter(Boolean).join(' · '))} empty='' />
+                        </ReportPanel> : null}
+                        {reportIndicators(report).length > 0 ? <ReportPanel title='Indicators'>
+                            <pre className='max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-md border border-ui-border bg-ui-canvas p-3 text-xs text-ui-text'>{reportIndicators(report).join('\n')}</pre>
+                        </ReportPanel> : null}
+                    </div>
+                </section>
+                <BrowserDebug className='mt-4' indicatorCount={reportIndicators(report).length} logs={report.consoleEvents} />
+            </section>
+        </main>
+    )
+}
