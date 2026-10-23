@@ -22,4 +22,21 @@ test('result page has short headings and collapsible mobile panels', () => {
     expect(results).toContain('aria-label="Collapse results"')
     expect(results).toContain('aria-label="Collapse run output"')
     expect(results).not.toContain('Test results')
+    expect(results).not.toContain('Metrics, charts, logs, and evidence from the selected run.')
+    expect(results).not.toContain('This run did not include time-series samples.')
+})
+
+test('completed result renders recorded time-series charts', () => {
+    const completed = { ...run, status: 'done', summary: {
+        requests: 12,
+        duration: { p95: 42 },
+        failureRate: 0,
+        rps: [{ time: '0s', value: 2.4 }],
+        latency: [{ time: '0s', p50: 30, p95: 42 }],
+        errors: [{ time: '0s', count: 0 }],
+    } } as Test
+    const results = renderToStaticMarkup(<TestContent test={completed} showLogs showErrors={false} />)
+    expect(results).toContain('Requests per second')
+    expect(results).toContain('Latency')
+    expect(results).not.toContain('No chart data')
 })

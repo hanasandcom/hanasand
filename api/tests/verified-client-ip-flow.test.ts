@@ -212,3 +212,10 @@ test('API accepts baseline, ramp, and spike stages without rewriting them', () =
     ]
     for (const stages of shapes) expect(normalizeStages(stages)).toEqual(stages)
 })
+
+test('API accepts smooth custom traffic stages through 2,000 users', () => {
+    const stages = Array.from({ length: 64 }, (_, index) => ({ duration: '1250ms', target: index === 63 ? 2_000 : index * 30 }))
+    expect(normalizeStages(stages)).toEqual(stages)
+    expect(normalizeStages([{ duration: '700s', target: 1 }])).not.toEqual([{ duration: '700s', target: 1 }])
+    expect(normalizeStages([{ duration: '1s', target: 2_001 }])).not.toEqual([{ duration: '1s', target: 2_001 }])
+})

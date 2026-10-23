@@ -112,11 +112,19 @@ export function normalizeStages(value: unknown) {
     if (!Array.isArray(value)) return defaultStages
     const stages = value
         .map((stage) => ({
-            duration: typeof stage?.duration === 'string' && /^\d+[smh]$/.test(stage.duration.trim()) ? stage.duration.trim() : '',
+            duration: typeof stage?.duration === 'string' && /^(?:\d+ms|\d+[smh])$/.test(stage.duration.trim()) ? stage.duration.trim() : '',
             target: Number(stage?.target),
         }))
-        .filter((stage) => stage.duration && Number.isInteger(stage.target) && stage.target >= 0 && stage.target <= 100)
-    return stages.length ? stages.slice(0, 8) : defaultStages
+        .filter((stage) => stage.duration && Number.isInteger(stage.target) && stage.target >= 0 && stage.target <= 2_000)
+        .slice(0, 64)
+    const totalDurationMs = stages.reduce((total, stage) => total + stageDurationMs(stage.duration), 0)
+    return stages.length && totalDurationMs <= 600_000 ? stages : defaultStages
+}
+
+function stageDurationMs(duration: string) {
+    const [, amount, unit] = duration.match(/^(\d+)(ms|s|m|h)$/) ?? []
+    const multiplier = unit === 'ms' ? 1 : unit === 's' ? 1_000 : unit === 'm' ? 60_000 : 3_600_000
+    return Number(amount) * multiplier
 }
 
 async function getLoadTestQuota(req: FastifyRequest, ownerId: string | undefined) {

@@ -3,6 +3,7 @@ import { spawn } from 'child_process'
 import broadcast from '#utils/ws/broadcast.ts'
 import { testClients } from '#ws'
 import readK6Summary from './readK6Summary.ts'
+import { LoadTestTimeSeriesCollector } from './loadTestTimeSeries.ts'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
@@ -99,6 +100,7 @@ export default async function followTest(id: string, rerun?: boolean) {
     )
     const runId = runResult.rows[0]?.id
     const summaryPath = path.join(tmpdir(), `hanasand-k6-${id}-${runId || Date.now()}.json`)
+    const timeSeries = new LoadTestTimeSeriesCollector(start.getTime())
 
     await run(
         `UPDATE load_tests
@@ -119,6 +121,7 @@ export default async function followTest(id: string, rerun?: boolean) {
     const k6 = spawn('k6', [
         'run',
         '--summary-export', summaryPath,
+        '--out', 'json=-',
         '--env', `URL=${test.url}`,
         '--env', `TIMEOUT=${timeoutSeconds(test.timeout)}`,
         '--env', `STAGES=${JSON.stringify(normalizeStages(stages))}`,
@@ -129,7 +132,8 @@ export default async function followTest(id: string, rerun?: boolean) {
 
     await new Promise<void>((resolve) => {
         k6.stdout.on('data', async (data) => {
-            const message = data.toString()
+            const message = timeSeries.push(data.toString())
+            if (!message.trim()) return
             broadcast({ data: { type: 'log', message }, id, clients: testClients })
             await run('UPDATE load_tests SET logs = array_append(logs, $1) WHERE id = $2', [message, id])
         })
@@ -151,7 +155,7 @@ export default async function followTest(id: string, rerun?: boolean) {
         k6.on('close', async (code) => {
             const finished = new Date()
             const durationMs = finished.getTime() - start.getTime()
-            const summary = await readK6Summary(summaryPath)
+            const summary = { ...await readK6Summary(summaryPath), ...timeSeries.finish().metrics }
             const status = code === 0 ? 'done' : 'failed'
             await run(
                 `UPDATE load_tests 
