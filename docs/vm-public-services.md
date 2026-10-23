@@ -1,22 +1,22 @@
-# VM-owned public services
+# VM public services
 
-Each VM has a public hostname based on its VM name: `<vm-name>.hanasand.com`. Configure servers, certificates, reverse proxies and guest ports inside that VM. Hanasand's gateway stores only the VM hostname and its private VM address; it does not store per-service guest ports or connect a VM to another VM's service network.
+VM owners and editors can publish up to 1,000 named services per VM from its **Public services** panel. Each service gets a unique address in the form `<name>.hanasand.com`; clients connect through public TCP port `443`. The gateway refreshes service routes from the API every five seconds. Names that match a VM, a reserved Hanasand hostname or a legacy numeric VM alias cannot be used.
 
-The shared gateway accepts public traffic on HTTP port 80 and TCP port 443. A numeric hostname prefix selects the guest port:
+## Supported services
 
-- `http://8080-test3.hanasand.com/` forwards HTTP to port `8080` in VM `test3`.
-- `test3.hanasand.com:443` sends Minecraft Java to guest port `25565` by default.
-- `25566-test3.hanasand.com:443` sends Minecraft Java to guest port `25566`.
-- `8443-test3.hanasand.com:443` passes TLS through to guest port `8443`; the VM must provide its own matching certificate and TLS service.
+- **Website (HTTP)** terminates HTTPS at the Hanasand gateway and proxies the request to the selected HTTP port in the VM. The VM can serve plain HTTP on its private guest port.
+- **TLS over TCP** uses TLS SNI to route the encrypted connection to the selected guest port. The VM must serve TLS with a certificate matching the public hostname.
+- **Minecraft Java** uses the hostname from the Java handshake and routes to the selected guest port. Players use the generated hostname with `:443`.
+- **SSH** already uses the shared gateway. Copy the `ssh -p 443 …` command from the VM's Access panel.
 
-For HTTP on the standard guest port `80`, use `http://test3.hanasand.com/`. For TLS on the standard guest port `443`, use `https://test3.hanasand.com/`. The guest receives the original hostname, so any name-based service selection can also be configured inside the VM.
+For example, a Minecraft service called `survival` on guest port 25565 is `survival.hanasand.com:443`. A website service called `site` is available at `https://site.hanasand.com` and can proxy to guest port 3000.
 
-The gateway recognizes Minecraft Java's handshake hostname, TLS SNI and HTTP Host. Arbitrary plain TCP and UDP do not include a hostname and cannot be selected by subdomain through the shared gateway. Custom guest ports are encoded in the hostname alias; public TCP port `443` remains the shared entry for Minecraft and TLS.
+Subdomains cannot identify arbitrary plain TCP or UDP traffic by themselves. Existing numeric aliases such as `25566-test3.hanasand.com:443` remain supported for legacy routes. This feature does not create UDP routes, including for Minecraft Bedrock. Use the TLS type only for clients that send SNI, and use Minecraft Java for the Java handshake protocol.
 
 ## Gateway route feed
 
-The gateway polls `GET /api/vms/internal/public-ports` every five seconds with the private `VM_PORT_ROUTE_TOKEN`. The response contains one record per eligible VM with `hostname`, `vmName` and `vmIp`. It does not expose service names or guest ports. Route targets are held in OpenResty's shared memory; the gateway does not write VM routes into mc-router's watched JSON file. That file remains for the fixed first-party Minecraft seed mappings only.
+The Hanasand API and OpenResty gateway must have the same private `VM_PORT_ROUTE_TOKEN`. The token-protected `GET /api/vms/internal/public-ports` response includes the existing VM identity routes and typed service routes. Each service route contains its name, hostname, type, VM private IP and guest port. Browser-facing VM APIs require normal VM access checks; route data is available only to the gateway token.
 
-The Minecraft router's local route API is bound to the host loopback port `25567`; OpenResty registers an alias only after extracting a valid VM hostname and port from the Minecraft handshake. The gateway removes stale dynamic aliases when their VM route disappears. The API port is not published on a public interface.
+OpenResty validates the service name, hostname, route type, private IPv4 address and guest port before updating shared route maps. TLS and Minecraft use separate typed lookups. HTTP routes pass through the wildcard HTTPS listener and proxy to the VM's selected HTTP port. Minecraft routes are registered through mc-router's loopback-only route API on port 25567; the route file remains for fixed first-party routes. A failed or invalid refresh leaves the last accepted map in place.
 
-The shared gateway can reach VM private addresses on the Inspur LXD network. The guest does not need a route token, Docker network access, the LXD socket or access to OpenResty management endpoints.
+VM routes are advertised only for VMs on the configured gateway host with a valid private IPv4 address. The gateway can reach those addresses on the Inspur LXD network. The guest does not need a route token, Docker network access, the LXD socket or access to gateway management endpoints. Deleting a service removes its route on a successful refresh.
