@@ -55,7 +55,7 @@ test('scanner page states which services are stopped pending disk expansion', ()
     const html = renderToStaticMarkup(<ScannerPauseNotice />)
 
     expect(html).toContain('Scanner services are stopped pending disk expansion')
-    expect(html).toContain('API, database, Nmap worker, Greenbone, and ZAP runner/proxy')
+    expect(html).toContain('API, database, Nmap worker, Greenbone, ZAP runner/proxy, testssl.sh, and Nuclei workers')
     expect(html).toContain('Image worker is also stopped.')
 })
 
