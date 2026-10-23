@@ -7,6 +7,7 @@ import { formatDate, type UvmFindingFilters } from './uvmPanelHelpers'
 import { DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
 import { UvmHelp } from './uvmPanelHelp'
 export { UvmHelp } from './uvmPanelHelp'
+export { UvmAssessmentStarter } from './uvmPanelAssessmentStarter'
 
 export type AssetViewProps = {
     data: UvmDashboard
