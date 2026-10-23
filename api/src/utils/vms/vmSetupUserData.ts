@@ -256,8 +256,115 @@ if printf '%s' "$services" | grep -q '"minecraft-java"'; then
   java_arch="$(uname -m)"
   case "$java_arch" in x86_64) java_arch=x64 ;; aarch64) java_arch=aarch64 ;; *) write_state Error 'Java is not supported on this host architecture.'; exit 1 ;; esac
   install -d -m 0755 "/opt/hanasand/java$java_version"
-  curl -fsSL --retry 3 --retry-delay 2 "https://api.adoptium.net/v3/binary/latest/$java_version/ga/linux/$java_arch/$java_image_type/hotspot/normal/eclipse" -o "/tmp/hanasand-java$java_version.tar.gz"
-  tar -xzf "/tmp/hanasand-java$java_version.tar.gz" -C "/opt/hanasand/java$java_version" --strip-components=1
+  run_bounded 1800 python3 - "$java_version" "$java_arch" "$java_image_type" <<'PY'
+import hashlib
+import http.client
+import json
+import os
+import pathlib
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+java_version, architecture, image_type = sys.argv[1:]
+asset_query = urllib.parse.urlencode({
+    "architecture": architecture,
+    "image_type": image_type,
+    "os": "linux",
+    "vendor": "eclipse",
+})
+metadata_url = f"https://api.adoptium.net/v3/assets/latest/{java_version}/hotspot?{asset_query}"
+request = urllib.request.Request(metadata_url, headers={"User-Agent": "Hanasand VM Provisioner/1.0"})
+with urllib.request.urlopen(request, timeout=30) as response:
+    assets = json.load(response)
+if not isinstance(assets, list) or not assets:
+    raise SystemExit("Adoptium returned no matching Java archive.")
+package = assets[0].get("binary", {}).get("package", {})
+download_url = package.get("link")
+expected_size = package.get("size")
+if not isinstance(download_url, str) or not download_url.startswith("https://"):
+    raise SystemExit("Adoptium returned an invalid Java archive URL.")
+if not isinstance(expected_size, int) or expected_size < 1 or expected_size > 1_000_000_000:
+    raise SystemExit("Adoptium returned an invalid Java archive size.")
+checksum_url = package.get("checksum_link") or f"{download_url}.sha256.txt"
+if not isinstance(checksum_url, str) or not checksum_url.startswith("https://"):
+    raise SystemExit("Adoptium returned an invalid checksum URL.")
+checksum_request = urllib.request.Request(checksum_url, headers={"User-Agent": "Hanasand VM Provisioner/1.0"})
+with urllib.request.urlopen(checksum_request, timeout=30) as response:
+    checksum_text = response.read(4097).decode("ascii", errors="strict")
+if len(checksum_text) > 4096:
+    raise SystemExit("The Java archive checksum response is too large.")
+match = re.match(r"^\\s*([0-9a-fA-F]{64})(?:\\s|$)", checksum_text)
+if not match:
+    raise SystemExit("Adoptium returned an invalid Java archive checksum.")
+expected_checksum = match.group(1).lower()
+archive = pathlib.Path(f"/tmp/hanasand-java{java_version}.tar.gz")
+partial = archive.with_suffix(archive.suffix + ".part")
+manifest = archive.with_suffix(archive.suffix + ".part.json")
+manifest_data = json.dumps({"url": download_url, "checksum": expected_checksum, "size": expected_size}, sort_keys=True)
+if manifest.exists() and manifest.read_text() != manifest_data:
+    partial.unlink(missing_ok=True)
+if partial.exists() and partial.stat().st_size > expected_size:
+    partial.unlink()
+manifest.write_text(manifest_data)
+
+last_error = None
+for attempt in range(1, 6):
+    offset = partial.stat().st_size if partial.exists() else 0
+    if offset == expected_size:
+        break
+    headers = {"User-Agent": "Hanasand VM Provisioner/1.0"}
+    if offset:
+        headers["Range"] = f"bytes={offset}-"
+    try:
+        request = urllib.request.Request(download_url, headers=headers)
+        with urllib.request.urlopen(request, timeout=60) as response:
+            if offset and response.status == 206:
+                content_range = response.headers.get("Content-Range", "")
+                if not content_range.startswith(f"bytes {offset}-"):
+                    raise RuntimeError("The Java archive server returned an invalid resume range.")
+                mode = "ab"
+            elif response.status == 200:
+                offset = 0
+                mode = "wb"
+            else:
+                raise RuntimeError(f"The Java archive server returned HTTP {response.status}.")
+            with partial.open(mode) as output:
+                while chunk := response.read1(1024 * 1024):
+                    output.write(chunk)
+                output.flush()
+                os.fsync(output.fileno())
+        if partial.stat().st_size == expected_size:
+            break
+        last_error = RuntimeError(f"Incomplete Java archive: {partial.stat().st_size} of {expected_size} bytes.")
+    except (OSError, http.client.HTTPException, urllib.error.URLError, RuntimeError) as error:
+        last_error = error
+    if attempt < 5:
+        time.sleep(attempt * 2)
+
+if not partial.exists() or partial.stat().st_size != expected_size:
+    raise SystemExit(f"Java archive download failed after resumable retries: {last_error}")
+digest = hashlib.sha256()
+with partial.open("rb") as source:
+    while chunk := source.read(1024 * 1024):
+        digest.update(chunk)
+if digest.hexdigest() != expected_checksum:
+    partial.unlink(missing_ok=True)
+    manifest.unlink(missing_ok=True)
+    raise SystemExit("The downloaded Java archive failed its checksum check.")
+partial.replace(archive)
+manifest.unlink(missing_ok=True)
+PY
+  java_extract_dir="/opt/hanasand/java$java_version.tmp"
+  rm -rf "$java_extract_dir"
+  install -d -m 0755 "$java_extract_dir"
+  tar -xzf "/tmp/hanasand-java$java_version.tar.gz" -C "$java_extract_dir" --strip-components=1
+  test -x "$java_extract_dir/bin/java"
+  rm -rf "/opt/hanasand/java$java_version"
+  mv "$java_extract_dir" "/opt/hanasand/java$java_version"
   ln -sfn "/opt/hanasand/java$java_version/bin/java" /usr/local/bin/java
   ln -sfn "/opt/hanasand/java$java_version/bin/javac" /usr/local/bin/javac
 fi

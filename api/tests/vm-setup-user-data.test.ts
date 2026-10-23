@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -376,10 +376,89 @@ test('Java uses the distribution JDK and Minecraft downloads a Java 25 runtime',
         } else {
             expect(script).toContain('java_version=25')
             expect(script).toContain('java_image_type=jre')
-            expect(script).toContain('v3/binary/latest/$java_version/ga/linux/$java_arch/$java_image_type/hotspot/normal/eclipse')
+            expect(script).toContain('v3/assets/latest/{java_version}/hotspot?{asset_query}')
+            expect(script).toContain('Range')
+            expect(script).toContain('Content-Range')
+            expect(script).toContain('checksum_link')
+            expect(script).toContain('The downloaded Java archive failed its checksum check.')
+            expect(script).toContain('run_bounded 1800 python3')
             expect(script).toContain('set_stage "Installing Java $java_version"')
         }
         execFileSync('bash', ['-n'], { input: script })
+    }
+})
+
+test.serial('Java archive download resumes a partial transfer and verifies its checksum before extraction', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-java-download-'))
+    const archive = join(directory, 'java.tar.gz')
+    const payload = Buffer.from('bounded fixture for the Java archive downloader')
+    const digest = await Bun.CryptoHasher.hash('sha256', payload, 'hex')
+
+    try {
+        const cloudInit = vmSetupUserData('runtime-vm', { services: ['minecraft-java'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const setupScript = config.write_files[0]?.content || ''
+        const marker = 'run_bounded 1800 python3 - "$java_version" "$java_arch" "$java_image_type" <<\'PY\'\n'
+        const start = setupScript.indexOf(marker)
+        const end = setupScript.indexOf('\nPY\n  java_extract_dir=', start)
+        expect(start).toBeGreaterThanOrEqual(0)
+        expect(end).toBeGreaterThan(start)
+        const fakeTransport = `
+import base64
+import io
+
+fixture = base64.b64decode(${JSON.stringify(payload.toString('base64'))})
+fixture_checksum = ${JSON.stringify(digest)}
+download_requests = 0
+observed_range = ""
+
+class FakeResponse(io.BytesIO):
+    def __init__(self, body, status=200, headers=None):
+        super().__init__(body)
+        self.status = status
+        self.headers = headers or {}
+    def __enter__(self): return self
+    def __exit__(self, *args): self.close()
+    def read1(self, size=-1): return self.read(size)
+
+def fake_urlopen(request, timeout=0):
+    global download_requests, observed_range
+    url = request.full_url if hasattr(request, "full_url") else request
+    if "/assets/latest/" in url:
+        link = "https://downloads.example/java.tar.gz"
+        metadata = [{"binary": {"package": {"link": link, "checksum_link": link + ".sha256.txt", "size": len(fixture)}}}]
+        return FakeResponse(json.dumps(metadata).encode())
+    if url.endswith(".sha256.txt"):
+        return FakeResponse((fixture_checksum + "  java.tar.gz\\n").encode())
+    download_requests += 1
+    headers = request.headers if hasattr(request, "headers") else {}
+    observed_range = headers.get("Range", "")
+    if not observed_range:
+        split = len(fixture) // 2
+        return FakeResponse(fixture[:split])
+    offset = int(observed_range.removeprefix("bytes=").removesuffix("-"))
+    return FakeResponse(fixture[offset:], status=206, headers={"Content-Range": f"bytes {offset}-{len(fixture) - 1}/{len(fixture)}"})
+
+urllib.request.urlopen = fake_urlopen
+`
+        const downloader = setupScript.slice(start + marker.length, end)
+            .replace('import urllib.request', `import urllib.request${fakeTransport}`)
+            .replace('pathlib.Path(f"/tmp/hanasand-java{java_version}.tar.gz")', `pathlib.Path(${JSON.stringify(archive)})`)
+            + '\nprint(f"DOWNLOAD_REQUESTS={download_requests};RANGE={observed_range}")\n'
+        const result = await new Promise<{ status: number | null, stdout: string, stderr: string }>((resolve, reject) => {
+            const child = spawn('python3', ['-c', downloader, '25', 'x64', 'jre'])
+            let stdout = '', stderr = ''
+            child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk })
+            child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk })
+            child.on('error', reject)
+            child.on('close', status => resolve({ status, stdout, stderr }))
+        })
+        if (result.status !== 0) throw new Error(result.stderr || result.stdout || `Python exited ${result.status}`)
+        expect(result.stderr).toBe('')
+        expect(result.stdout).toMatch(/DOWNLOAD_REQUESTS=2;RANGE=bytes=\d+-/)
+        expect(readFileSync(archive)).toEqual(payload)
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
     }
 })
 
