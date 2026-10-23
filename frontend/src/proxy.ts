@@ -5,13 +5,21 @@ import pathIsAllowedWhileUnauthorized from './utils/proxy/pathIsAllowedWhileUnau
 import tokenIsValid from './utils/proxy/tokenIsValid'
 import organizationProtectedPaths from './utils/proxy/organizationProtectedPaths'
 import { applyRefreshedAuthCookies, authCookieOptions, authServiceUnavailable, isLocalDashboardRenderProof, loginRedirect, requestHostname, type TokenRefreshCookies } from './utils/proxy/authResponses'
-import { identityAuthUrl } from './utils/auth/identityRedirect'
+import { identityAuthUrl, isStagingLocalAuthUiEnabled } from './utils/auth/identityRedirect'
 import { encodeInternalHeaderValue } from './utils/proxy/internalHeaderValue'
 
 export async function proxy(req: NextRequest) {
     if (['GET', 'HEAD'].includes(req.method)) {
         const pathname = req.nextUrl.pathname
+        if (isStagingLocalAuthUiEnabled() && (pathname === '/signup' || pathname === '/register'
+            || (pathname === '/login' && req.nextUrl.searchParams.get('mode') === 'signup'))) {
+            const url = req.nextUrl.clone()
+            url.pathname = '/login'
+            url.searchParams.delete('mode')
+            return NextResponse.redirect(url, 307)
+        }
         if (pathname === '/login' || pathname === '/signup' || pathname === '/register') {
+            if (pathname === '/login' && isStagingLocalAuthUiEnabled()) return NextResponse.next()
             const page = pathname === '/login' && req.nextUrl.searchParams.get('mode') !== 'signup'
                 ? 'login'
                 : 'signup'
