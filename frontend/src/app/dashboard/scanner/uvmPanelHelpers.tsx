@@ -53,7 +53,10 @@ export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRu
             <div className='grid gap-1 text-xs text-ui-muted sm:grid-cols-2'>
                 {run.engineVersion !== null && run.engineVersion !== undefined && <p>Engine version: {run.engineVersion || 'pending'}</p>}
                 {run.engine === 'zap' ? <>
-                    <p>Web origin: {run.coverage?.origin || run.targetOrigin || 'pending'}</p><p>Web alerts: {run.coverage?.acceptedInstances ?? 'pending'}</p><p>URLs discovered: {run.coverage?.urlsDiscovered ?? 'not reported'}</p><p>Report complete: {run.coverage?.complete ? 'yes' : run.status === 'running' || run.status === 'queued' ? 'pending' : 'no'}</p>
+                    <p>Web origin: {run.coverage?.origin || run.targetOrigin || 'pending'}</p><p>Web alerts: {run.coverage?.acceptedInstances ?? 'pending'}</p>
+                    <p>Traditional URLs: {run.coverage?.urlsDiscovered ?? 'not reported'} · {run.coverage?.traditionalSpiderComplete === undefined ? 'completion unknown' : run.coverage.traditionalSpiderComplete ? 'complete' : 'incomplete'}</p>
+                    <p>Browser routes: {run.coverage?.clientUrlsDiscovered ?? 'not reported'} · {run.coverage?.clientSpiderComplete === undefined ? 'completion unknown' : run.coverage.clientSpiderComplete ? 'complete' : 'incomplete'}</p>
+                    <p>Report complete: {run.coverage?.complete ? 'yes' : run.status === 'running' || run.status === 'queued' ? 'pending' : 'no'}</p>
                 </> : <>
                     <p>Host results: {run.engine === 'nmap' && run.coverage?.known === false ? 'historical invocation coverage unavailable' : run.coverage ? `${run.coverage.completedAddresses ?? 'unknown'}/${run.coverage.attemptedAddresses ?? 'unknown'} attempted addresses` : ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status) ? 'pending' : 'not reported'}</p>
                     {run.coverage?.requestedAddresses !== undefined && <p>Requested targets: {run.coverage.requestedAddresses}</p>}

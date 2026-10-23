@@ -39,7 +39,15 @@ test('web coverage distinguishes unavailable findings from measured zero and pos
         const html = renderToStaticMarkup(<UvmAssetEngineCoverageView data={{ ...data, coverage: [row] }} />)
         expect(html).toContain(label)
         expect(html).toContain('URL count unavailable')
+        expect(html).toContain('browser URL count unavailable')
         if (!row.webCoverage) expect(html).not.toContain('0 findings')
         else expect(html).not.toContain('Findings unavailable')
     }
+
+    const withBrowserCoverage = renderToStaticMarkup(<UvmAssetEngineCoverageView data={{
+        ...data,
+        coverage: [{ ...coverage, webCoverage: { ...measured(3), urlsDiscovered: 12, clientUrlsDiscovered: 18 } }],
+    }} />)
+    expect(withBrowserCoverage).toContain('12 traditional')
+    expect(withBrowserCoverage).toContain('18 browser routes')
 })
