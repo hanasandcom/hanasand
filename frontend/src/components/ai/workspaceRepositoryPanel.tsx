@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { FolderGit2, RefreshCcw } from 'lucide-react'
+import { RefreshCcw } from 'lucide-react'
 import ErrorNotice from '@/components/error/errorNotice'
-import { Panel, Stat, WorkspacePrimaryAction, WorkspaceResourceCard, formatActivityTime } from './workbenchPaneDisplay'
+import { Stat, WorkspacePrimaryAction, WorkspaceResourceCard, formatActivityTime } from './workbenchPaneDisplay'
 import { WorkspaceFileButton } from './workspaceFileButton'
 
 export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeConversation, activeRepoId, syncingRepoId, selectedRepoFilePath, activeTreePaths, selectedContent, recentPaths, lastChangedPath, importInput, githubToken, importError, importPending, onAttachRepo, onAttachShare, onImportInputChange, onGitHubTokenChange, onImportRepo, onCreateRepository, onRevokeRepoCredential, onRefreshRepo, onSelectRepoFile, onSelectShareFile }: {
@@ -36,7 +36,11 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
     const standaloneFiles = initialShares.filter(file => !repoShareIds.has(file.id))
     const availableCount = importedRepos.length + standaloneFiles.length
 
-    return <Panel icon={<FolderGit2 className='h-4 w-4' />} title='Repositories' subtitle={`${availableCount} available`}>
+    return <section aria-label='Repository actions' className='min-w-0 space-y-3'>
+        <div className='flex items-center justify-between gap-2'>
+            <h3 className='text-sm font-medium text-ui-text'>Add a repository</h3>
+            <span className='shrink-0 text-xs text-ui-muted'>{availableCount} available</span>
+        </div>
         <div className='grid min-w-0 grid-cols-2 gap-2'>
             <button type='button' aria-pressed={action === 'attach'} onClick={() => setAction('attach')} className={`rounded-lg px-2 py-2 text-xs font-semibold outline transition-colors ${action === 'attach' ? 'bg-ui-primary/12 text-ui-primary outline-ui-primary/20' : 'bg-ui-raised text-ui-muted outline-ui-border hover:text-ui-text'}`}>Attach repository</button>
             <button type='button' aria-pressed={action === 'create'} onClick={() => setAction('create')} className={`rounded-lg px-2 py-2 text-xs font-semibold outline transition-colors ${action === 'create' ? 'bg-ui-primary/12 text-ui-primary outline-ui-primary/20' : 'bg-ui-raised text-ui-muted outline-ui-border hover:text-ui-text'}`}>Create repository</button>
@@ -92,5 +96,5 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
         </div> : null}
 
         {selectedContent ? <div className='min-w-0 border-t border-ui-border/70 pt-3'><div className='mb-2 text-xs font-medium text-ui-text'>{selectedRepoFilePath || 'Selected file'}</div><pre className='max-h-72 max-w-full overflow-auto whitespace-pre-wrap wrap-break-word rounded-lg bg-ui-raised p-3 text-xs leading-5 text-ui-text'>{selectedContent.slice(0, 12000)}</pre></div> : null}
-    </Panel>
+    </section>
 }

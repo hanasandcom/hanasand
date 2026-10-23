@@ -54,6 +54,8 @@ test('repository drawer shows only the selected section instead of stacking ever
 
     expect(html).toContain('aria-selected="true"')
     expect(html).toContain('aria-labelledby="repository-tab-repositories"')
+    expect(html).toContain('Add a repository')
+    expect(html).not.toContain('REPOSITORIES')
     expect(html).not.toContain('Review access')
     expect(html).not.toContain('Run launch check')
     expect(html).not.toContain('Launch report')
