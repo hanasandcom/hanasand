@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { identityAuthUrl } from '../src/utils/auth/identityRedirect'
+import { identityAuthUrl, isStagingLocalAuthUiEnabled } from '../src/utils/auth/identityRedirect'
 
 describe('Identity redirects', () => {
+    test('local login UI is enabled only by the exact staging opt-in', () => {
+        expect(isStagingLocalAuthUiEnabled('1')).toBe(true)
+        expect(isStagingLocalAuthUiEnabled(undefined)).toBe(false)
+        expect(isStagingLocalAuthUiEnabled('0')).toBe(false)
+        expect(isStagingLocalAuthUiEnabled('true')).toBe(false)
+    })
+
     test('login and signup return to the requested Hanasand path', () => {
         const appDestination = 'https://hanasand.com/dashboard?tab=files#recent'
         expect(identityAuthUrl('login', '/dashboard?tab=files#recent'))

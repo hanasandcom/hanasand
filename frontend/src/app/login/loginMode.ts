@@ -8,6 +8,7 @@ export type LoginPageProps = {
     initialMode?: 'login' | 'signup'
     serverError?: string
     initialUsername?: string
+    stageLocalAuth?: boolean
 }
 
 export const authInputClass = 'h-10 rounded-lg border border-ui-border bg-ui-panel px-3.5 text-sm font-medium text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/15'

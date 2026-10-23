@@ -24,6 +24,7 @@ export default function LoginPage({
     initialMode = 'login',
     serverError,
     initialUsername,
+    stageLocalAuth = false,
 }: LoginPageProps) {
     const router = useRouter()
     const pathname = usePathname()
@@ -34,7 +35,7 @@ export default function LoginPage({
     const { condition: internal } = useClearStateAfter({ initialState: serverInternal })
     const { condition: expired } = useClearStateAfter({ initialState: serverExpired, timeout: 8000 })
     const redirectPath = safeRedirectPath(path)
-    const ssoHref = `/api/auth/sso/start?redirectPath=${encodeURIComponent(redirectPath)}`
+    const ssoHref = stageLocalAuth ? '' : `/api/auth/sso/start?redirectPath=${encodeURIComponent(redirectPath)}`
 
     function changeMode(nextMode: LoginMode) {
         setError(null)
@@ -88,6 +89,7 @@ export default function LoginPage({
                             hydrated={hydrated}
                             socialError={socialError}
                             ssoHref={ssoHref}
+                            stageLocalAuth={stageLocalAuth}
                             onChangeMode={changeMode}
                         />
                     ) : null}

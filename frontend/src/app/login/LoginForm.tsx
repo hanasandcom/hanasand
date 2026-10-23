@@ -7,17 +7,18 @@ type Props = {
     hydrated: boolean
     socialError?: string
     ssoHref: string
+    stageLocalAuth?: boolean
     onChangeMode(mode: 'signup' | 'request-reset'): void
 }
 
-export default function LoginForm({ redirectPath, initialUsername, hydrated, socialError, ssoHref, onChangeMode }: Props) {
+export default function LoginForm({ redirectPath, initialUsername, hydrated, socialError, ssoHref, stageLocalAuth = false, onChangeMode }: Props) {
     return (
         <div className='grid gap-5' onSubmitCapture={event => { if (!hydrated) event.preventDefault() }} onClickCapture={event => { if (!hydrated) event.preventDefault() }}>
             {socialError ? <p role='alert' className='text-sm text-ui-text'>{socialError}</p> : null}
             <IdentityLoginForm
                 loginUrl='/api/auth/login'
-                passkeyOptionsUrl='/api/auth/passkeys/authenticate/options'
-                passkeyVerifyUrl='/api/auth/passkeys/authenticate/verify'
+                passkeyOptionsUrl={stageLocalAuth ? '' : '/api/auth/passkeys/authenticate/options'}
+                passkeyVerifyUrl={stageLocalAuth ? '' : '/api/auth/passkeys/authenticate/verify'}
                 ssoHref={ssoHref}
                 redirectPath={redirectPath}
                 identifierLabel='Email or username'
@@ -25,7 +26,7 @@ export default function LoginForm({ redirectPath, initialUsername, hydrated, soc
                 identifierValue={initialUsername || ''}
                 submitLabel='Sign in'
             />
-            <div className='flex flex-wrap items-center gap-2 border-t border-ui-border/70 pt-4'>
+            {!stageLocalAuth ? <div className='flex flex-wrap items-center gap-2 border-t border-ui-border/70 pt-4'>
                 <button type='button' disabled={!hydrated} onClick={() => onChangeMode('signup')} className={authGhostButtonClass}>Sign up</button>
                 <button
                     type='button'
@@ -35,7 +36,7 @@ export default function LoginForm({ redirectPath, initialUsername, hydrated, soc
                 >
                     Reset password
                 </button>
-            </div>
+            </div> : null}
         </div>
     )
 }
