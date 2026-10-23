@@ -36,8 +36,9 @@ export async function localVmStatus(name: string, statusOptions: { allowHostWork
         if (persistedSetupState?.status.toLowerCase() === 'provisioning' && statusOptions.allowHostWorkerProbe !== false) {
             const workerState = await hostWorkerSetupStatus(name)
             if (workerState?.status.toLowerCase() === 'error') {
-                await updateLocalLxdConfig(name, { [provisioningConfigKey]: JSON.stringify(workerState) }).catch(() => {})
-                return workerState
+                const terminalState = { ...workerState, status: 'Error' }
+                await updateLocalLxdConfig(name, { [provisioningConfigKey]: JSON.stringify(terminalState) }).catch(() => {})
+                return terminalState
             }
         }
         return body.metadata

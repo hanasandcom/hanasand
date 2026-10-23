@@ -215,7 +215,7 @@ test('stopped VM status surfaces a host-worker setup failure and persists it', a
         'user.hanasand.setup_plan': 'setup-hash',
         'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Installing nodejs…' }),
     }
-    hostWorkerStatus = { status: 'Error', status_reason: 'Node.js installation failed.' }
+    hostWorkerStatus = { status: 'error', status_reason: 'Node.js installation failed.' }
     globalThis.fetch = (async () => Response.json({ metadata: { status: 'Stopped' } })) as typeof fetch
 
     expect(await localVmStatus('stopped-worker-failed-setup-vm')).toEqual({ status: 'Error', status_reason: 'Node.js installation failed.' })
