@@ -62,7 +62,7 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
     const [busy, setBusy] = useState('')
     const [message, setMessage] = useState('')
     const [view, setView] = useState<UvmPanelView>('overview')
-    const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+    const [selectedRun, setSelectedRun] = useState<UvmRun | null>(null)
     const [assessmentReport, setAssessmentReport] = useState<UvmAssessmentReport | null>(null)
     const dashboardUnavailable = servicesPaused || Boolean(data.scannerError)
     const activeRuns = data.runs.filter(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status))
@@ -185,13 +185,12 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
             setBusy(`run:${runId}`); setMessage('')
             try {
                 run = await getRunAction(runId, engine)
-                setData(current => ({ ...current, runs: [run!, ...current.runs.filter(item => !(item.id === runId && item.engine === engine))] }))
             } catch (error) {
                 setMessage(error instanceof Error ? error.message : 'Scanner run could not be loaded.')
                 return
             } finally { setBusy('') }
         }
-        setSelectedRunId(runId); setView('runs')
+        setSelectedRun(run); setView('runs')
     }
     return <div className='grid gap-4'>
         <UvmPanelNavigation view={view} setView={setView} unavailable={dashboardUnavailable} servicesPaused={servicesPaused} assessmentCount={data.assessments.length} findingCount={attentionFindingCount} />
@@ -216,6 +215,6 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
             {view === 'findings' && <UvmFindingsView data={data} attentionCount={attentionFindingCount} busy={busy} filters={findingFilters} setFilters={setFindingFilters} visibleFindings={visibleFindings} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} nextCursor={data.findingsNextCursor || null} loadOlder={loadOlderFindings} onUpdate={finding => void updateFinding(finding)} />}
             {view === 'assets' && <UvmAssetsView data={data} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths} onSaveZapApiDefinition={asset => void saveZapApiDefinition(asset)} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
             {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
-            {view === 'runs' && <UvmRunHistory key={selectedRunId || 'recent'} data={data} unavailable={dashboardUnavailable} selectedRunId={selectedRunId} busy={busy} nextCursor={data.runsNextCursor || null} loadOlder={getRunHistoryAction} onCancel={cancelRun} />}
+            {view === 'runs' && <UvmRunHistory key={selectedRun ? `${selectedRun.engine}:${selectedRun.id}` : 'recent'} data={data} unavailable={dashboardUnavailable} selectedRun={selectedRun} busy={busy} nextCursor={data.runsNextCursor || null} loadOlder={getRunHistoryAction} onCancel={cancelRun} />}
         </fieldset>
     </div>}

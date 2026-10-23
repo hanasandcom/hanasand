@@ -98,10 +98,10 @@ export function UvmAssessmentHistory({ assessments, unavailable, busy, nextCurso
     </section>
 }
 
-export function UvmRunHistory({ data, unavailable, selectedRunId, busy, nextCursor, loadOlder, onCancel }: {
+export function UvmRunHistory({ data, unavailable, selectedRun, busy, nextCursor, loadOlder, onCancel }: {
     data: UvmDashboard
     unavailable: boolean
-    selectedRunId: string | null
+    selectedRun: UvmRun | null
     busy: string
     nextCursor: string | null
     loadOlder: (cursor: string | null) => Promise<UvmRunHistoryPage>
@@ -117,13 +117,23 @@ export function UvmRunHistory({ data, unavailable, selectedRunId, busy, nextCurs
     const [loadError, setLoadError] = useState('')
     useEffect(() => { if (!olderRuns.length) setCursor(nextCursor) }, [nextCursor, olderRuns.length])
     const needle = query.trim().toLowerCase()
-    const allRuns = [...data.runs, ...olderRuns.filter(run => !data.runs.some(current => current.id === run.id && current.engine === run.engine))]
+    const runByEngineAndId = new Map<string, UvmRun>()
+    for (const run of [...data.runs, ...olderRuns, ...(selectedRun ? [selectedRun] : [])]) {
+        const key = `${run.engine}:${run.id}`
+        if (!runByEngineAndId.has(key)) runByEngineAndId.set(key, run)
+    }
+    const allRuns = [...runByEngineAndId.values()].sort((left, right) =>
+        Date.parse(right.createdAt) - Date.parse(left.createdAt) || right.engine.localeCompare(left.engine) || right.id.localeCompare(left.id))
     const filtered = allRuns.filter(run => {
         if (engine !== 'all' && run.engine !== engine) return false
         if (status !== 'all' && run.status !== status) return false
         return !needle || [run.target, run.engine, run.profile, run.status, run.source || '', run.id].join(' ').toLowerCase().includes(needle)
     })
     const pageCount = Math.max(1, Math.ceil(filtered.length / runPageSize))
+    const selectedRunIndex = selectedRun ? filtered.findIndex(run => run.id === selectedRun.id && run.engine === selectedRun.engine) : -1
+    useEffect(() => {
+        if (selectedRunIndex >= 0) setPage(Math.floor(selectedRunIndex / runPageSize))
+    }, [selectedRunIndex])
     const currentPage = Math.min(page, pageCount - 1)
     const pageItems = filtered.slice(currentPage * runPageSize, (currentPage + 1) * runPageSize)
 
@@ -139,7 +149,7 @@ export function UvmRunHistory({ data, unavailable, selectedRunId, busy, nextCurs
             <label className='grid gap-1 text-xs text-ui-muted'>Status<select value={status} onChange={event => updateStatus(event.target.value)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text'><option value='all'>All statuses</option>{['queued', 'launching', 'running', 'exporting', 'succeeded', 'partial', 'failed', 'cancelling', 'cancelled'].map(value => <option key={value} value={value}>{value}</option>)}</select></label>
         </div>
         <div className='mt-3 grid gap-3'>
-            {pageItems.map((run, index) => <RunCard key={`${run.engine}:${run.id}`} run={run} defaultOpen={run.id === selectedRunId || (selectedRunId === null && currentPage === 0 && index === 0)} cancelBusy={busy === `run:${run.id}`} onCancel={() => onCancel(run)} />)}
+            {pageItems.map((run, index) => <RunCard key={`${run.engine}:${run.id}`} run={run} defaultOpen={(selectedRun !== null && run.id === selectedRun.id && run.engine === selectedRun.engine) || (selectedRun === null && currentPage === 0 && index === 0)} cancelBusy={busy === `run:${run.id}`} onCancel={() => onCancel(run)} />)}
             {!filtered.length && <p className='text-sm text-ui-muted'>{unavailable ? 'Scanner data is unavailable.' : allRuns.length ? 'No runs match these filters.' : 'No scanner runs yet.'}</p>}
         </div>
         <PageControls page={currentPage} pageCount={pageCount} onChange={setPage} />
