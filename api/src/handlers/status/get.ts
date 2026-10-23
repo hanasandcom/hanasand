@@ -85,7 +85,7 @@ async function statusPayload(summary: boolean) {
     return withCanonicalMonitorFallback(summary ? withPublicChecks(current) : withHistory(current))
 }
 
-async function withCanonicalMonitorFallback<T extends { checks?: MonitorRow[], monitoring?: string }>(payload: T) {
+async function withCanonicalMonitorFallback<T extends { checks?: MonitorRow[], monitoring?: string, generated_at?: string }>(payload: T) {
     if (payload.checks?.length) return payload
     const feedUrl = process.env.PUBLIC_STATUS_FEED_URL || 'https://status.hanasand.com/api/status'
     try {
