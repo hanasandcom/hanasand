@@ -30,7 +30,7 @@ ENV NEXT_PUBLIC_API_WS=$NEXT_PUBLIC_API_WS
 ENV NEXT_PUBLIC_BROWSER_API_URL=$NEXT_PUBLIC_BROWSER_API_URL
 ENV NEXT_PUBLIC_BROWSER_WS=$NEXT_PUBLIC_BROWSER_WS
 ENV NEXT_PUBLIC_SCANNER_API_URL=$NEXT_PUBLIC_SCANNER_API_URL
-ENV HANASAND_REPO_ROOT=/repository
+ENV HANASAND_REPO_ROOT=/workspace
 ENV ARTICLES_SOURCE_REPO_PATH=/articles-source
 ENV NEXT_PUBLIC_HANASAND_RELEASE_COMMIT=$HANASAND_RELEASE_COMMIT
 
@@ -43,8 +43,7 @@ COPY frontend ./
 COPY api /workspace/api
 COPY docker-compose.yml /workspace/docker-compose.yml
 COPY docker-compose.api.yml /workspace/docker-compose.api.yml
-COPY . /repository
-RUN bun scripts/code-inventory.mjs /repository /workspace/frontend/code-inventory.json
+RUN bun scripts/code-inventory.mjs /workspace /workspace/frontend/code-inventory.json
 RUN bun run test
 RUN bun run lint
 RUN bun run build

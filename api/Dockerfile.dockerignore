@@ -1,5 +1,6 @@
 *
 !.git/
+.git/*
 !.git/HEAD
 !docker-compose.yml
 !docker-compose.api.yml
