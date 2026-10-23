@@ -31,6 +31,7 @@ for (const preset of ['baseline', 'ramp', 'spike', 'custom']) {
 assertIncludes(testClient, 'scenarios={scenarioPresets}', 'public service check page must supply shared presets to the scenario picker')
 assertIncludes(testClient, 'onScenarioChange={setScenarioId}', 'public service check page must retain the selected scenario')
 assertIncludes(endpointCheckPanel, 'scenarios.map((scenario) => (', 'scenario picker must render every shared preset')
+assertIncludes(endpointCheckPanel, '{scenario.label}', 'public service check page must show the traffic shape names')
 assertIncludes(endpointCheckPanel, 'onScenarioChange(scenario.id)', 'scenario picker must select the clicked preset')
 assertIncludes(testClient, 'scenarioPresets.find((scenario) => scenario.id === scenarioId)', 'launcher must resolve the selected shared preset')
 assertIncludes(testClient, 'selectedPreset.id === \'custom\' ? toK6Stages(customStages) : selectedPreset.stages', 'launcher must preserve custom and preset traffic stages')

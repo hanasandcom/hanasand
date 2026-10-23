@@ -145,7 +145,8 @@ if (( \${#apt_packages[@]} > 0 )); then
   set_stage 'Installing selected packages'
   run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
   apt_progress_file="$(mktemp /run/hanasand-apt-progress.XXXXXX)"
-  run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
+  # Database packages can take several minutes to unpack and configure on small LXD guests.
+  run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
   apt_install_pid=$!
   last_apt_progress=''
   update_apt_progress() {

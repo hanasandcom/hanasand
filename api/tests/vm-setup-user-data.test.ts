@@ -184,7 +184,7 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     expect(script).toContain('node --version; npm --version')
     expect(script).toContain('wait_for_ready PostgreSQL pg_isready')
     expect(script.match(/run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq/g)).toHaveLength(1)
-    expect(script.match(/run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
+    expect(script.match(/run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
     expect(script).not.toContain('nodesource.com/setup_24.x')
     execFileSync('bash', ['-n'], { input: script })
 })
@@ -352,7 +352,7 @@ test('a stalled package install hits its deadline and reports a visible setup er
             .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${directory}/status'`)
             .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
             .replace('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq', 'run_bounded 1 sleep 0')
-            .replace('run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "${apt_packages[@]}" 3>"$apt_progress_file" &', 'run_bounded 1 sleep 3 &')
+            .replace('run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "${apt_packages[@]}" 3>"$apt_progress_file" &', 'run_bounded 1 sleep 3 &')
 
         const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8' })
         expect(result.status).not.toBe(0)
