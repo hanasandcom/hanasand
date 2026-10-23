@@ -125,6 +125,28 @@ test('compiled website and native Core: real FDW save, direct audit and explicit
         }
         eq(await countProofs(), beforeProof + 3)
         eq((await call(retryPath, { itemIds: [itemId, 'foreign'] })).status, 404)
+        const beforeReads = await countProofs()
+        for (const direct of [false, true]) for (const path of [root, `${root}/${encodeURIComponent(itemId)}`, `${root}/alert-terms`]) {
+            const beforeRead = await countProofs()
+            const readProof = proof(token, path, direct, { method: 'GET' })
+            const headers: Record<string, string> = { DPoP: readProof, 'x-device-proof-method': 'GET', 'x-device-proof-url': `https://${direct ? 'api.' : ''}hanasand.com${path}`,
+                ...(direct ? { authorization: `Bearer ${token}`, id: 'synthetic-customer', 'x-organization-id': org, 'x-tenant-id': org }
+                    : { cookie: `id=synthetic-customer; access_token=${token}` }) }
+            const response = await fetch(`${direct ? core : website}${path}`, { headers, signal: AbortSignal.timeout(10000) })
+            eq(response.status, 200)
+            const body = await response.json() as Record<string, any>
+            eq(body.organization.id, org)
+            const items = path === root ? body.watchlistItems : path.endsWith('/alert-terms') ? body.alertTermsExport.activeTerms : [body.watchlistItem]
+            eq(items.map((item: Record<string, unknown>) => [item.watchlistItemId, item.organizationId, item.value || item.term]), [[itemId, org, 'synthetic-watchlist.example']])
+            eq(await countProofs(), beforeRead + 1)
+            if (!direct) {
+                eq((await fetch(`${website}${path}`, { headers, signal: AbortSignal.timeout(10000) })).status, 401)
+                eq(await countProofs(), beforeRead + 1)
+            }
+        }
+        eq(await countProofs(), beforeReads + 6)
+        eq(JSON.stringify(await sourceRows()), sourceSnapshot)
+        eq(JSON.stringify((await source.query('SELECT updated_at FROM organizations WHERE id=$1', [org])).rows), orgSnapshot)
         const recordSnapshot = JSON.stringify((await projection.query('SELECT * FROM threat_intel.workflow_records ORDER BY id')).rows)
         await source.query(`CREATE FUNCTION stage_reject_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.request_id='stage-audit-fail' THEN RAISE EXCEPTION 'synthetic audit failure'; END IF; RETURN NEW; END $$;
             CREATE TRIGGER stage_reject_audit BEFORE INSERT ON system_events FOR EACH ROW EXECUTE FUNCTION stage_reject_audit()`)

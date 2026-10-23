@@ -8,7 +8,8 @@ if (!/^ti-native-proof-[a-f0-9]{12}$/.test(prefix)
     || process.env.IDENTITY_DB_NAME !== 'ti_native_proof_test' || process.env.DB_USER !== 'synthetic'
     || process.env.API_HTTP_ONLY !== '1') throw Error('Requires isolated three-database Core proof stage')
 const { default: rateLimit } = await import('../../src/plugins/rateLimit.ts')
-const { getOrganizationWatchlists } = await import('../../src/handlers/organizations/watchlists/read.ts')
+const { getOrganizationWatchlists, getOrganizationWatchlist } = await import('../../src/handlers/organizations/watchlists/read.ts')
+const { getOrganizationWatchlistAlertTerms } = await import('../../src/handlers/organizations/watchlists/alertTerms.ts')
 const { postOrganizationWatchlist } = await import('../../src/handlers/organizations/watchlists/create.ts')
 const { putOrganizationWatchlist } = await import('../../src/handlers/organizations/watchlists/update.ts')
 const { postOrganizationWatchlistAction } = await import('../../src/handlers/organizations/watchlists/action.ts')
@@ -18,6 +19,8 @@ const { postOrganizationWatchlistReconcile } = await import('../../src/handlers/
 const app = Fastify({ logger: true, trustProxy: ['127.0.0.1', '::1'] })
 await app.register(rateLimit)
 await app.register(async api => {
+    api.get('/organizations/:id/watchlists/alert-terms', getOrganizationWatchlistAlertTerms)
+    api.get('/organizations/:organizationId/watchlists/:itemId', getOrganizationWatchlist)
     api.get('/organizations/:id/watchlists', getOrganizationWatchlists)
     api.post('/organizations/:id/watchlists', postOrganizationWatchlist)
     api.put('/organizations/:organizationId/watchlists/:itemId', putOrganizationWatchlist)
