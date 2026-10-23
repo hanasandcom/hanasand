@@ -80,7 +80,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
     return (
         <>
             <article className='grid gap-3 rounded-lg border border-ui-border bg-ui-raised p-4 transition-colors hover:bg-ui-panel sm:gap-4'>
-                <div className='grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start'>
+                <div className='grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start'>
                     <div className='min-w-0'>
                         <div className='flex min-w-0 flex-wrap items-center gap-2'>
                             <h3 className='min-w-0 wrap-break-word text-base font-semibold text-ui-text'>{name}</h3>
@@ -94,25 +94,36 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                         </div>
                         {statusNote && <p className='mt-1 text-xs leading-5 text-ui-muted'>{statusNote}</p>}
                     </div>
-                    <div className='flex w-full max-w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end'>
+                    <div className='flex w-full max-w-full flex-wrap items-center gap-2 xl:w-auto xl:flex-nowrap xl:justify-end'>
                         {!deleted && <>
-                            <RestartButtons vm={vm} onFeedback={onFeedback} showLabels />
-                            <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} w-auto px-2.5 text-ui-primary`}>
+                            <div className='hidden xl:block'><RestartButtons vm={vm} onFeedback={onFeedback} showLabels /></div>
+                            <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} max-xl:!hidden w-auto px-2.5 text-ui-primary xl:!inline-flex`}>
                                 <TerminalSquare className='h-4 w-4' /> <span>Console</span>
                             </Link>
-                            <button type='button' onClick={openDetails} className={`${vmActionStyle} px-3 text-ui-primary`} data-vm-primary-action>
+                            <button type='button' onClick={openDetails} className={`${vmActionStyle} max-xl:!hidden px-3 text-ui-primary xl:!inline-flex`} data-vm-primary-action>
                                 Open details <ArrowRight className='h-4 w-4' />
                             </button>
-                            {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} max-sm:hidden px-3 text-ui-text`} />}
-                            {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} max-sm:hidden px-3 text-ui-primary`} />}
-                            <details className='relative w-full sm:w-auto' data-vm-actions data-vm-danger-actions>
-                                <summary aria-label={`More actions for ${name}`} title='More actions' className={`${vmActionStyle} ml-auto w-9 cursor-pointer list-none text-ui-muted [&::-webkit-details-marker]:hidden sm:ml-0`}>
+                            {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} max-xl:!hidden px-3 text-ui-text xl:!inline-flex`} />}
+                            {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} max-xl:!hidden px-3 text-ui-primary xl:!inline-flex`} />}
+                            <details className='relative ml-auto w-auto xl:ml-0' data-vm-actions data-vm-danger-actions>
+                                <summary aria-label={`More actions for ${name}`} title='More actions' className={`${vmActionStyle} w-9 cursor-pointer list-none text-ui-muted [&::-webkit-details-marker]:hidden`}>
                                     <Menu className='h-4 w-4' />
                                 </summary>
-                                <div className='absolute right-0 top-11 z-20 grid min-w-56 gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
+                                <div className='absolute right-0 top-11 z-20 grid w-[min(20rem,calc(100vw-2rem))] gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
+                                    <div className='grid gap-2 xl:hidden'>
+                                        {!deleted && <>
+                                            <RestartButtons vm={vm} onFeedback={onFeedback} showLabels />
+                                            <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`}>
+                                                <TerminalSquare className='h-4 w-4' /> <span>Console</span>
+                                            </Link>
+                                            <button type='button' onClick={openDetails} className={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`} data-vm-primary-action>
+                                                Open details <ArrowRight className='h-4 w-4' />
+                                            </button>
+                                            {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} w-full justify-start px-3 text-ui-text`} />}
+                                            {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`} />}
+                                        </>}
+                                    </div>
                                     <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
-                                    {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} w-full justify-start px-3 text-ui-text sm:hidden`} />}
-                                    {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary sm:hidden`} />}
                                     <button type='button' onClick={() => setConfirmingDelete(true)} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
                                         <Trash2 className='h-4 w-4' /> Delete VM
                                     </button>

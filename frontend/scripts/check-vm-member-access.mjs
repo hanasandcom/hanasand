@@ -16,7 +16,7 @@ const api = Bun.serve({
         if (pathname === '/api/vms/dashboard-render-proof-empty-user') return Response.json([])
         if (pathname === '/api/vms/dashboard-render-proof-stalled-user') return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[]')) } }), { headers: { 'content-type': 'application/json' } })
         if (pathname === '/api/vms/dashboard-render-proof-stalled-error-user') return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[]')) } }), { status: 404, headers: { 'content-type': 'application/json' } })
-        if (pathname.startsWith('/api/vms/')) return Response.json([{ name: 'my-machine', owner: 'dashboard-render-proof-user', status: 'running', access_users: [] }])
+        if (pathname.startsWith('/api/vms/')) return Response.json([{ name: 'my-machine', owner: 'dashboard-render-proof-user', status: 'running', access_users: [], can_assign_organization: true }])
         if (pathname === '/status') {
             writeFileSync(`${scratch}/state.json`, JSON.stringify({ updatedAt: new Date().toISOString(), compute: { memoryTotalBytes: 123 }, sites: { inspur: { compute: { diskFreeBytes: 456 } } } }))
             return Response.json({ mode: 'normal', readOnly: false, services: [], compute: { memory: 123 }, sites: { inspur: { compute: { memory: 123 } } }, replicaEligibility: { memory: 123 } })
@@ -41,7 +41,9 @@ try {
         await Bun.sleep(500)
     }
     if (!ready) throw new Error(`VM fixture server did not start; see ${scratch}`)
-    const check = Bun.spawn(['./node_modules/.bin/playwright', 'test', 'tests/vm-member-access.spec.ts', '--workers=1', '--reporter=line'], { cwd: frontend, env, stdout: 'inherit', stderr: 'inherit' })
+    const args = ['./node_modules/.bin/playwright', 'test', 'tests/vm-member-access.spec.ts', '--workers=1', '--reporter=line']
+    if (process.env.VM_MEMBER_ACCESS_GREP) args.push('--grep', process.env.VM_MEMBER_ACCESS_GREP)
+    const check = Bun.spawn(args, { cwd: frontend, env, stdout: 'inherit', stderr: 'inherit' })
     process.exitCode = await check.exited
 } finally {
     dev.kill()
