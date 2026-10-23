@@ -11,5 +11,5 @@ services:
       VM_LIFECYCLE_MONITOR_TARGET: isolated-staging
       VM_LIFECYCLE_MONITOR_SOCKET_PATH: /var/snap/lxd/common/lxd/unix.socket
       VM_LIFECYCLE_MONITOR_PROJECT: hns-stage
-      VM_LIFECYCLE_MONITOR_IMAGE_SERVER: https://images.linuxcontainers.org
+      VM_LIFECYCLE_MONITOR_IMAGE_SERVER: https://images.lxd.canonical.com
       VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: ubuntu/24.04/desktop
