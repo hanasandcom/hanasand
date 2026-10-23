@@ -63,7 +63,7 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('role=\'alert\' className=\'rounded-lg border border-ui-danger/25')
     expect(source).toContain('setProjectFiles(plan.projectFiles || [])')
     expect(source).toContain('project_files: projectFiles.length ? projectFiles : undefined')
-    expect(source).toContain("projectFiles.length > 0 || (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(minecraftServerType))")
+    expect(source).toContain('projectFiles.length > 0 || (selectedServices.includes(\'minecraft-java\') && [\'FABRIC\', \'QUILT\', \'FORGE\', \'NEOFORGE\', \'FOLIA\'].includes(minecraftServerType))')
     expect(source).toContain('if (plan.projectFiles?.length && resourcePlan === \'small\') setResourcePlan(\'standard\')')
     expect(source).toContain('a custom app')
     expect(source).toContain('disabled={projectFiles.length > 0 && [\'nodejs\', \'website\', \'minecraft-java\'].includes(service.id)}')
