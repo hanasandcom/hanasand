@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises'
 const sources = {
     inventory: new URL('../src/components/profile/vm.tsx', import.meta.url),
     terminal: new URL('../src/components/vms/consoleClient.tsx', import.meta.url),
+    accessPanel: new URL('../src/components/vms/vmAccess.tsx', import.meta.url),
+    accessActions: new URL('../src/components/vms/vmAccessActions.tsx', import.meta.url),
     connectButton: new URL('../src/components/vms/vmConnectLocally.tsx', import.meta.url),
     sharedDialog: new URL('../src/components/vms/vmSudoPassword.tsx', import.meta.url),
     supportPage: new URL('../src/app/support/page.tsx', import.meta.url),
@@ -11,18 +13,21 @@ const sources = {
     supportConversation: new URL('../src/components/support/supportConversation.tsx', import.meta.url),
 }
 
-test('VM inventory and terminal expose the audited sudo-password reveal flow', async () => {
-    const [inventory, terminal, dialog] = await Promise.all([
-        readFile(sources.inventory, 'utf8'), readFile(sources.terminal, 'utf8'), readFile(sources.sharedDialog, 'utf8'),
+test('VM inventory, detail, and terminal expose the audited sudo-password reveal flow', async () => {
+    const [inventory, terminal, accessPanel, accessActions, dialog] = await Promise.all([
+        readFile(sources.inventory, 'utf8'), readFile(sources.terminal, 'utf8'), readFile(sources.accessPanel, 'utf8'),
+        readFile(sources.accessActions, 'utf8'), readFile(sources.sharedDialog, 'utf8'),
     ])
 
     expect(inventory).toContain('<VMSudoPassword vmName={vm.name} compact triggerClassName=')
     expect(inventory).toContain('data-vm-actions')
-    expect(terminal).toContain('<VMSudoPassword vmName={name} compact triggerClassName=')
+    expect(terminal).toContain('<VMAccessActions vmName={name} />')
+    expect(accessPanel).toContain('<VMAccessActions vmName={vmName} />')
     expect(inventory).toContain('<VMConnectLocally vmName={vm.name}')
-    expect(terminal).toContain('<VMConnectLocally vmName={name}')
     expect(inventory).toContain('sm:hidden')
-    expect(terminal).toContain('<Menu aria-hidden')
+    expect(accessActions).toContain('<VMConnectLocally vmName={vmName}')
+    expect(accessActions).toContain('<VMSudoPassword vmName={vmName} compact')
+    expect(accessActions).toContain('<Menu aria-hidden')
     expect(dialog).toContain('/sudo-password')
     expect(dialog).toContain('currentPassword: password')
     expect(dialog).toContain('cache: \'no-store\'')

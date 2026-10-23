@@ -1,6 +1,6 @@
 import { VmPanel } from './vmPanel'
 import { VmReconnectNotice } from './vmReconnectNotice'
-import VMSudoPassword from './vmSudoPassword'
+import VMAccessActions from './vmAccessActions'
 import { VMConnectInstructions } from './vmConnectInstructions'
 
 type VMAccessProps = {
@@ -33,7 +33,13 @@ export default function VMAccess({ vmName, connection, error }: VMAccessProps) {
                     message={error || 'Reloading SSH user, host, and certificate information automatically…'}
                 />
             )}
-            <VMSudoPassword vmName={vmName} />
+            <div className='grid gap-3 border-t border-ui-border pt-3'>
+                <div>
+                    <h3 className='text-sm font-semibold text-ui-text'>VM sudo password</h3>
+                    <p className='mt-1 text-xs leading-5 text-ui-muted'>Reauthenticate to view it. Each successful view is recorded and emailed to the VM owner.</p>
+                </div>
+                <VMAccessActions vmName={vmName} />
+            </div>
         </VmPanel>
     )
 }

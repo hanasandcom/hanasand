@@ -7,6 +7,7 @@ import VMMetrics from '../src/components/vms/vmMetrics'
 import VMNetwork from '../src/components/vms/vmNetwork'
 import VMOverview from '../src/components/vms/vmOverview'
 import VMAccess from '../src/components/vms/vmAccess'
+import VmConsole from '../src/components/vms/consoleClient'
 import manageVM from '../src/utils/vms/fetch/manage/manage'
 import { latestVMMetrics } from '../src/utils/vms/metricPresentation'
 
@@ -77,7 +78,7 @@ test('VM detail cards share their shell and preserve titles and placeholders', (
     const vm = { name: 'test', status: 'stopped' } as VM
     const html = renderToStaticMarkup(<>
         <VMOverview vm={vm} details={null} />
-        <VMAccess connection={null} />
+        <VMAccess vmName='test' connection={null} />
         <VMHardware vm={vm} />
         <VMNetwork details={null} />
         <VMDetails vm={vm} details={null} />
@@ -97,7 +98,15 @@ test('VM detail cards share their shell and preserve titles and placeholders', (
     ]) assert(html.includes(copy))
     assert.equal((html.match(/border-ui-primary bg-ui-panel text-ui-text px-3 py-2 mt-3/g) || []).length, 3)
 
-    const accessError = renderToStaticMarkup(<VMAccess connection={null} error='You do not have permission to view access details.' />)
+    const access = renderToStaticMarkup(<VMAccess vmName='test' connection={null} />)
+    assert.match(access, /aria-label="VM access actions"/)
+    assert.match(access, /Connect locally/)
+    assert.match(access, /Show sudo password/)
+    assert.match(access, /hidden items-center gap-2 lg:flex/)
+    assert.match(access, /relative lg:hidden/)
+    assert.match(access, /Each successful view is recorded and emailed to the VM owner\./)
+
+    const accessError = renderToStaticMarkup(<VMAccess vmName='test' connection={null} error='You do not have permission to view access details.' />)
     assert(accessError.includes('Access details unavailable'))
     assert(accessError.includes('You do not have permission to view access details.'))
     assert(!html.includes('missing'))
@@ -119,6 +128,13 @@ test('VM metric selection uses the newest timestamp without mutating input', () 
     assert.equal(latestVMMetrics(metrics)?.disk_total_mb, 4096)
     assert.deepEqual(metrics, originalOrder)
     assert.equal(latestVMMetrics([]), null)
+})
+
+test('console overview link keeps an accessible label without visible text', () => {
+    const html = renderToStaticMarkup(<VmConsole name='test' />)
+    assert.match(html, /<a[^>]+aria-label="Back to overview"[^>]+title="Back to overview"[^>]*>/)
+    assert.match(html, /<a[^>]+aria-label="Back to overview"[^>]*><svg[^>]+aria-hidden="true"/)
+    assert.doesNotMatch(html, /<a[^>]+Back to overview<\/a>/)
 })
 
 test('VM hardware preserves its placeholder when the latest metric has no disk capacity', () => {

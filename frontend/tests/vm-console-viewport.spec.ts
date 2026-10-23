@@ -63,20 +63,25 @@ test('mobile VM access menu stays inside the viewport', async ({ page }) => {
     })
     await page.goto('/vms/cashflow/console?provisioning=1')
     await expect(page.getByRole('status').first()).toContainText('Connected')
+    const overviewLink = page.getByRole('link', { name: 'Back to overview' })
+    await expect(overviewLink).toBeVisible()
+    await expect(overviewLink).not.toHaveText('Back to overview')
 
     const accessMenuButton = page.locator('summary[aria-label="VM access actions"]')
     await expect(accessMenuButton).toBeVisible()
     await accessMenuButton.click()
 
     const menu = page.locator('details:has(summary[aria-label="VM access actions"]) > div')
-    for (const viewport of [{ width: 375, height: 812 }, { width: 390, height: 844 }]) {
+    for (const viewport of [{ width: 375, height: 812 }, { width: 390, height: 844 }, { width: 768, height: 1024 }]) {
         await page.setViewportSize(viewport)
+        await expect(accessMenuButton).toBeVisible()
         await expect(menu.getByRole('button', { name: 'Connect locally' })).toBeVisible()
         await expect(menu.getByRole('button', { name: 'Show sudo password' })).toBeVisible()
         const bounds = await menu.boundingBox()
         expect(bounds).not.toBeNull()
         expect(bounds!.x).toBeGreaterThanOrEqual(0)
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width)
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width)
     }
 })
 
