@@ -80,9 +80,9 @@ export type GetVulnerabilities = {
     legacyImportComplete?: boolean
 }
 export type {
-    NmapScanProfile, UvmAsset, UvmAssetEngineCoverage, UvmAssessment, UvmAssessmentReport, UvmDashboard,
+    NmapScanProfile, UvmAsset, UvmAssetEngineCoverage, UvmAssessment, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard,
     UvmEngine, UvmEngineSelection, UvmFinding, UvmGvmFinding, UvmHost, UvmPort, UvmRun,
-    UvmTenableFinding, UvmTenableIntegration, UvmTenableScan, UvmZapFinding,
+    UvmTenableFinding, UvmTenableIntegration, UvmTenableScan, UvmZapFinding, UvmRunHistoryPage,
 } from './scannerTypes'
 
 export type TrafficMetric = {

@@ -57,6 +57,8 @@ export default function ScannerWorkspace() {
             initialData={data}
             servicesPaused={SCANNER_SERVICES_PAUSED}
             refreshAction={refresh}
+            getRunHistoryAction={client.getRunHistory}
+            assessmentHistoryAction={client.getAssessmentHistory}
             createAssetAction={client.createAsset}
             verifyAssetAction={client.verifyAsset}
             saveZapApiDefinitionAction={client.saveZapApiDefinition}

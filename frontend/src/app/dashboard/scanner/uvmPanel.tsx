@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import type { NmapScanProfile, UvmAsset, UvmAssessment, UvmAssessmentReport, UvmDashboard, UvmEngineSelection, UvmFinding, UvmRun } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAsset, UvmAssessment, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineSelection, UvmFinding, UvmRun, UvmRunHistoryPage } from '@/utils/monitoring/types'
 import { filterAndSortUvmFindings, isNmapScanProfile, type UvmFindingFilters } from './uvmPanelHelpers'
 import { UvmAssetsView, UvmFindingsView } from './uvmPanelViews'
 import { UvmHelp } from './uvmPanelHelp'
@@ -14,10 +14,12 @@ import { UvmAssessmentHistory, UvmRunHistory } from './uvmPanelHistory'
 import { UvmPanelScannerSetup, type TenableRegion } from './uvmPanelScannerSetup'
 export { filterAndSortUvmFindings } from './uvmPanelHelpers'
 export type { UvmFindingFilters } from './uvmPanelHelpers'
-export default function UvmPanel({ initialData, servicesPaused = false, refreshAction, createAssetAction, verifyAssetAction, saveZapApiDefinitionAction, runScanAction, scheduleAction, configureTenableAction, disconnectTenableAction, runTenableScanAction, runGvmScanAction, runZapScanAction, updateFindingAction, cancelRunAction, startAssessmentAction, cancelAssessmentAction, getAssessmentReportAction }: {
+export default function UvmPanel({ initialData, servicesPaused = false, refreshAction, getRunHistoryAction, assessmentHistoryAction, createAssetAction, verifyAssetAction, saveZapApiDefinitionAction, runScanAction, scheduleAction, configureTenableAction, disconnectTenableAction, runTenableScanAction, runGvmScanAction, runZapScanAction, updateFindingAction, cancelRunAction, startAssessmentAction, cancelAssessmentAction, getAssessmentReportAction }: {
     initialData: UvmDashboard
     servicesPaused?: boolean
     refreshAction: () => Promise<UvmDashboard>
+    getRunHistoryAction: (cursor: string | null) => Promise<UvmRunHistoryPage>
+    assessmentHistoryAction: (cursor: string | null) => Promise<UvmAssessmentHistoryPage>
     createAssetAction: (input: { hostname: string }) => Promise<{ asset: UvmAsset }>
     verifyAssetAction: (assetId: string) => Promise<{ asset: UvmAsset }>
     saveZapApiDefinitionAction: (assetId: string, path: string | null) => Promise<{ asset: UvmAsset }>
@@ -180,7 +182,7 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
                     <button type='submit' disabled={busy === 'assessment' || !assessmentAssetIds.length || !selectableAssessmentEngines.length || !assessmentAssetIds.every(id => authorization[id] === true) || (selectableAssessmentEngines.includes('tenable-vm') && !assessmentScanId)} className='w-fit rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{busy === 'assessment' ? 'Starting…' : `Start assessment · ${assessmentAssetIds.length} assets × ${selectableAssessmentEngines.length} engines`}</button>
                 </form>
             </section>
-            <UvmAssessmentHistory assessments={data.assessments} runs={data.runs} unavailable={dashboardUnavailable} busy={busy}
+            <UvmAssessmentHistory assessments={data.assessments} runs={data.runs} unavailable={dashboardUnavailable} busy={busy} nextCursor={data.assessmentsNextCursor || null} loadOlder={assessmentHistoryAction}
                 onOpenReport={assessment => void openAssessmentReport(assessment)} onCancel={assessment => void cancelAssessment(assessment)}
                 onViewRun={runId => { setSelectedRunId(runId); setView('runs') }} />
             {assessmentReport && <UvmAssessmentReportView assessment={assessmentReport} onClose={() => setAssessmentReport(null)} />}
@@ -188,6 +190,6 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
             {view === 'findings' && <UvmFindingsView data={data} attentionCount={attentionFindings.length} busy={busy} filters={findingFilters} setFilters={setFindingFilters} visibleFindings={visibleFindings} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} onUpdate={finding => void updateFinding(finding)} />}
             {view === 'assets' && <UvmAssetsView data={data} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths} onSaveZapApiDefinition={asset => void saveZapApiDefinition(asset)} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
             {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
-            {view === 'runs' && <UvmRunHistory key={selectedRunId || 'recent'} data={data} unavailable={dashboardUnavailable} selectedRunId={selectedRunId} busy={busy} onCancel={cancelRun} />}
+            {view === 'runs' && <UvmRunHistory key={selectedRunId || 'recent'} data={data} unavailable={dashboardUnavailable} selectedRunId={selectedRunId} busy={busy} nextCursor={data.runsNextCursor || null} loadOlder={getRunHistoryAction} onCancel={cancelRun} />}
         </fieldset>
     </div>}
