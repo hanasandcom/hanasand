@@ -103,6 +103,14 @@ export async function clearMovedLogState(transaction = withTransaction) {
         if (receiptsRemaining.rows[0]?.present) {
             throw new Error('Cannot clear Hanasand Logs state while migration receipts remain.')
         }
+        for (const relation of runtimeStateRelations) {
+            const exists = await query('SELECT to_regclass($1) AS relation', [`public.${relation}`])
+            if (!exists.rows[0]?.relation) continue
+            const state = await query(`SELECT EXISTS(SELECT 1 FROM public.${relation}) AS present`)
+            if (state.rows[0]?.present) {
+                throw new Error(`Cannot clear Hanasand Logs state while ${relation} rows remain.`)
+            }
+        }
         const eventsRemain = await query('SELECT EXISTS(SELECT 1 FROM events) AS present')
         const findingsRemain = await query('SELECT EXISTS(SELECT 1 FROM findings) AS present')
         const tables = await query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -367,7 +375,12 @@ export async function migrateLinkageArchive(url: string, syncToken: string) {
     }
 }
 
-async function sendMigrationState(url: string, syncToken: string, kind: 'throughput_samples' | 'tuning_snapshots', rows: Array<Record<string, unknown>>) {
+type MigrationStateKind = 'throughput_samples' | 'tuning_snapshots' | 'log_access_counts' | 'log_mongo_ping_counts'
+    | 'log_proxy_counts' | 'log_postgres_session_state' | 'log_access_windows' | 'log_access_rule_windows'
+    | 'log_ingest_access_ip_minutes' | 'log_ingest_access_minute_batches' | 'log_ingest_access_state'
+    | 'log_routine_group_state' | 'log_ingestion_canonical' | 'log_ingestion_copies'
+
+async function sendMigrationState(url: string, syncToken: string, kind: MigrationStateKind, rows: Array<Record<string, unknown>>) {
     let retryDelay = 1000
     while (true) {
         const response = await fetch(`${url}/api/migration/state`, {
@@ -387,6 +400,170 @@ async function sendMigrationState(url: string, syncToken: string, kind: 'through
         }
         return
     }
+}
+
+type RuntimeStateTransfer = {
+    kind: Exclude<MigrationStateKind, 'throughput_samples' | 'tuning_snapshots'>
+    table: string
+    selectSql: string
+    deleteSql: string
+    cursorColumn?: string
+}
+
+const runtimeStateTransfers: RuntimeStateTransfer[] = [
+    {
+        kind: 'log_access_counts', table: 'log_access_counts',
+        selectSql: `SELECT organization_id,ip::text AS ip,day::text AS day,amount::text AS amount
+            FROM log_access_counts ORDER BY organization_id,ip,day LIMIT $1`,
+        deleteSql: `DELETE FROM log_access_counts AS source USING jsonb_to_recordset($1::jsonb) expected(
+            organization_id text,ip inet,day date,amount bigint)
+            WHERE source.organization_id=expected.organization_id AND source.ip=expected.ip AND source.day=expected.day
+              AND source.amount=expected.amount RETURNING source.organization_id`,
+    },
+    {
+        kind: 'log_mongo_ping_counts', table: 'log_mongo_ping_counts',
+        selectSql: `SELECT organization_id,host,service,client_ip::text AS client_ip,database_name,day::text AS day,
+                amount::text AS amount,last_seen::text AS last_seen
+            FROM log_mongo_ping_counts ORDER BY organization_id,host,service,client_ip,database_name,day LIMIT $1`,
+        deleteSql: `DELETE FROM log_mongo_ping_counts AS source USING jsonb_to_recordset($1::jsonb) expected(
+            organization_id text,host text,service text,client_ip inet,database_name text,day date,amount bigint,last_seen timestamptz)
+            WHERE source.organization_id=expected.organization_id AND source.host=expected.host AND source.service=expected.service
+              AND source.client_ip=expected.client_ip AND source.database_name=expected.database_name AND source.day=expected.day
+              AND source.amount=expected.amount AND source.last_seen=expected.last_seen RETURNING source.organization_id`,
+    },
+    {
+        kind: 'log_proxy_counts', table: 'log_proxy_counts',
+        selectSql: `SELECT organization_id,day::text AS day,amount::text AS amount
+            FROM log_proxy_counts ORDER BY organization_id,day LIMIT $1`,
+        deleteSql: `DELETE FROM log_proxy_counts AS source USING jsonb_to_recordset($1::jsonb) expected(
+            organization_id text,day date,amount bigint)
+            WHERE source.organization_id=expected.organization_id AND source.day=expected.day AND source.amount=expected.amount
+            RETURNING source.organization_id`,
+    },
+    {
+        kind: 'log_postgres_session_state', table: 'log_postgres_session_state',
+        selectSql: `SELECT organization_id,recent,dropped_records::text AS dropped_records,retained_sessions::text AS retained_sessions
+            FROM log_postgres_session_state ORDER BY organization_id LIMIT $1`,
+        deleteSql: `DELETE FROM log_postgres_session_state AS source USING jsonb_to_recordset($1::jsonb) expected(
+            organization_id text,recent jsonb,dropped_records bigint,retained_sessions bigint)
+            WHERE source.organization_id=expected.organization_id AND source.recent=expected.recent
+              AND source.dropped_records=expected.dropped_records AND source.retained_sessions=expected.retained_sessions
+            RETURNING source.organization_id`,
+    },
+    {
+        kind: 'log_access_windows', table: 'log_access_windows',
+        selectSql: `SELECT organization_id,ip::text AS ip,recent,alerted_at::text AS alerted_at
+            FROM log_access_windows ORDER BY organization_id,ip LIMIT $1`,
+        deleteSql: `DELETE FROM log_access_windows AS source USING jsonb_to_recordset($1::jsonb) expected(
+            organization_id text,ip inet,recent double precision[],alerted_at timestamptz)
+            WHERE source.organization_id=expected.organization_id AND source.ip=expected.ip AND source.recent=expected.recent
+              AND source.alerted_at IS NOT DISTINCT FROM expected.alerted_at RETURNING source.organization_id`,
+    },
+    {
+        kind: 'log_access_rule_windows', table: 'log_access_rule_windows',
+        selectSql: `SELECT organization_id,rule_id,ip::text AS ip,recent,alerted_at::text AS alerted_at
+            FROM log_access_rule_windows ORDER BY organization_id,rule_id,ip LIMIT $1`,
+        deleteSql: `DELETE FROM log_access_rule_windows AS source USING jsonb_to_recordset($1::jsonb) expected(
+            organization_id text,rule_id text,ip inet,recent double precision[],alerted_at timestamptz)
+            WHERE source.organization_id=expected.organization_id AND source.rule_id=expected.rule_id AND source.ip=expected.ip
+              AND source.recent=expected.recent AND source.alerted_at IS NOT DISTINCT FROM expected.alerted_at
+            RETURNING source.organization_id`,
+    },
+    {
+        kind: 'log_ingest_access_ip_minutes', table: 'log_ingest_access_ip_minutes',
+        selectSql: `SELECT organization_id,bucket::text AS bucket,ip::text AS ip,hits::text AS hits
+            FROM log_ingest_access_ip_minutes ORDER BY organization_id,bucket,ip LIMIT $1`,
+        deleteSql: `DELETE FROM log_ingest_access_ip_minutes AS source USING jsonb_to_recordset($1::jsonb) expected(
+            organization_id text,bucket timestamptz,ip inet,hits bigint)
+            WHERE source.organization_id=expected.organization_id AND source.bucket=expected.bucket
+              AND source.ip=expected.ip AND source.hits=expected.hits RETURNING source.organization_id`,
+    },
+    {
+        kind: 'log_ingest_access_minute_batches', table: 'log_ingest_access_minute_batches',
+        selectSql: `SELECT batch_id::text AS batch_id,organization_id,bucket::text AS bucket,ip::text AS ip,hits::text AS hits
+            FROM log_ingest_access_minute_batches ORDER BY batch_id,organization_id,bucket,ip LIMIT $1`,
+        deleteSql: `DELETE FROM log_ingest_access_minute_batches AS source USING jsonb_to_recordset($1::jsonb) expected(
+            batch_id uuid,organization_id text,bucket timestamptz,ip inet,hits bigint)
+            WHERE source.batch_id=expected.batch_id AND source.organization_id=expected.organization_id
+              AND source.bucket=expected.bucket AND source.ip=expected.ip AND source.hits=expected.hits
+            RETURNING source.batch_id`,
+    },
+    {
+        kind: 'log_ingest_access_state', table: 'log_ingest_access_state',
+        selectSql: `SELECT organization_id,bucket::text AS bucket,hits::text AS hits,alerted
+            FROM log_ingest_access_state ORDER BY organization_id LIMIT $1`,
+        deleteSql: `DELETE FROM log_ingest_access_state AS source USING jsonb_to_recordset($1::jsonb) expected(
+            organization_id text,bucket timestamptz,hits bigint,alerted boolean)
+            WHERE source.organization_id=expected.organization_id AND source.bucket=expected.bucket
+              AND source.hits=expected.hits AND source.alerted=expected.alerted RETURNING source.organization_id`,
+    },
+    {
+        kind: 'log_routine_group_state', table: 'log_routine_group_state',
+        selectSql: `SELECT organization_id,rule_id,scope,recent FROM log_routine_group_state
+            ORDER BY organization_id,rule_id,scope LIMIT $1`,
+        deleteSql: `DELETE FROM log_routine_group_state AS source USING jsonb_to_recordset($1::jsonb) expected(
+            organization_id text,rule_id text,scope text,recent jsonb)
+            WHERE source.organization_id=expected.organization_id AND source.rule_id=expected.rule_id
+              AND source.scope=expected.scope AND source.recent=expected.recent RETURNING source.organization_id`,
+    },
+    {
+        kind: 'log_ingestion_canonical', table: 'log_ingestion_canonical', cursorColumn: 'key',
+        selectSql: `SELECT key,organization_id,source_event_id,canonical_event_id,original,created_at::text AS created_at
+            FROM log_ingestion_canonical WHERE key>$1 ORDER BY key LIMIT $2`,
+        deleteSql: `DELETE FROM log_ingestion_canonical AS source USING jsonb_to_recordset($1::jsonb) expected(
+            key text,organization_id text,source_event_id text,canonical_event_id text,original jsonb,created_at timestamptz)
+            WHERE source.key=expected.key AND source.organization_id=expected.organization_id
+              AND source.source_event_id=expected.source_event_id
+              AND source.canonical_event_id IS NOT DISTINCT FROM expected.canonical_event_id
+              AND source.original IS NOT DISTINCT FROM expected.original AND source.created_at=expected.created_at
+            RETURNING source.key`,
+    },
+    {
+        kind: 'log_ingestion_copies', table: 'log_ingestion_copies',
+        selectSql: 'SELECT key,canonical_key,envelope,created_at::text AS created_at FROM log_ingestion_copies ORDER BY key LIMIT $1',
+        deleteSql: `DELETE FROM log_ingestion_copies AS source USING jsonb_to_recordset($1::jsonb) expected(
+            key text,canonical_key text,envelope jsonb,created_at timestamptz)
+            WHERE source.key=expected.key AND source.canonical_key=expected.canonical_key
+              AND source.envelope=expected.envelope AND source.created_at=expected.created_at RETURNING source.key`,
+    },
+]
+
+const runtimeStateRelations = ['log_throughput_samples', 'log_tuning_snapshots', ...runtimeStateTransfers.map(transfer => transfer.table)]
+
+async function migrateRuntimeStateTable(url: string, syncToken: string, transfer: RuntimeStateTransfer, deleteSource = true) {
+    const relation = await withTransaction(query => query('SELECT to_regclass($1) AS relation', [`public.${transfer.table}`]))
+    if (!relation.rows[0]?.relation) return 0
+    let cursor = ''
+    let migrated = 0
+    while (true) {
+        const selected = await withTransaction(async query => {
+            await query('SET LOCAL statement_timeout = \'20s\'')
+            return query(transfer.selectSql, transfer.cursorColumn ? [cursor, 200] : [200])
+        })
+        if (!selected.rows.length) break
+        const rows: Array<Record<string, unknown>> = []
+        for (const row of selected.rows) {
+            if (Buffer.byteLength(JSON.stringify({ kind: transfer.kind, rows: [...rows, row] })) > maxPayloadBytes) break
+            rows.push(row)
+        }
+        if (!rows.length) throw permanentError(`A ${transfer.kind} row exceeds the Logs migration payload limit; it remains in Hanasand.`)
+        await sendMigrationState(url, syncToken, transfer.kind, rows)
+        if (deleteSource) {
+            await withTransaction(async query => {
+                await query('SET LOCAL lock_timeout = \'1s\'')
+                await query('SET LOCAL statement_timeout = \'20s\'')
+                const deleted = await query(transfer.deleteSql, [JSON.stringify(rows)])
+                if (deleted.rows.length !== rows.length) {
+                    throw new Error(`A ${transfer.kind} row changed during migration; its delete transaction was rolled back.`)
+                }
+            })
+        } else {
+            if (!transfer.cursorColumn) throw new Error(`A cursor is required when retaining source ${transfer.kind} rows.`)
+            cursor = String(rows[rows.length - 1]![transfer.cursorColumn])
+        }
+        migrated += rows.length
+    }
+    return migrated
 }
 
 export async function migrateLogRuntimeState(url: string, syncToken: string) {
@@ -453,7 +630,23 @@ export async function migrateLogRuntimeState(url: string, syncToken: string) {
         organizationCursor = String(rows[rows.length - 1]!.organization_id)
         migratedSnapshots += rows.length
     }
-    return { throughputSamples: migratedSamples, tuningSnapshots: migratedSnapshots }
+
+    const additionalState: Record<string, number> = {}
+    const canonicalTransfer = runtimeStateTransfers.find(transfer => transfer.kind === 'log_ingestion_canonical')!
+    const stagedCanonicalRows = await migrateRuntimeStateTable(url, syncToken, canonicalTransfer, false)
+    for (const transfer of runtimeStateTransfers) {
+        if (transfer.kind === 'log_ingestion_canonical' || transfer.kind === 'log_ingestion_copies') continue
+        const count = await migrateRuntimeStateTable(url, syncToken, transfer)
+        if (count) additionalState[transfer.kind] = count
+    }
+    const copiesTransfer = runtimeStateTransfers.find(transfer => transfer.kind === 'log_ingestion_copies')!
+    const copiedIngestionRows = await migrateRuntimeStateTable(url, syncToken, copiesTransfer)
+    if (copiedIngestionRows) additionalState.log_ingestion_copies = copiedIngestionRows
+    const deletedCanonicalRows = await migrateRuntimeStateTable(url, syncToken, canonicalTransfer)
+    if (deletedCanonicalRows) additionalState.log_ingestion_canonical = deletedCanonicalRows
+    else if (stagedCanonicalRows) throw new Error('Logs ingestion canonical rows disappeared before their source copy could be removed.')
+
+    return { throughputSamples: migratedSamples, tuningSnapshots: migratedSnapshots, additionalState }
 }
 
 export async function serviceReady(url: string) {

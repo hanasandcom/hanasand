@@ -19,6 +19,10 @@ let sourceAnalyzeReceipts: Array<Record<string, unknown>> = []
 let sourceArchiveRows: Array<Record<string, unknown>> = []
 let sourceThroughputSamples: Array<Record<string, unknown>> = []
 let sourceTuningSnapshots: Array<Record<string, unknown>> = []
+let sourceAccessCounts: Array<Record<string, unknown>> = []
+let sourceIngestionCanonical: Array<Record<string, unknown>> = []
+let sourceIngestionCopies: Array<Record<string, unknown>> = []
+let sourceRuntimeState: Record<string, Array<Record<string, unknown>>> = {}
 let selectedRowsOverride: Array<Record<string, unknown>> | null = null
 let sourceDeleteRowsOverride: Array<Record<string, unknown>> | null = null
 let transactionErrors = 0
@@ -38,6 +42,7 @@ const query = async (sql: string, params: unknown[] = []) => {
         return { rows: findingScanReads === 1 ? [{ id: 'source-row-1' }] : [] }
     }
     if (sql.includes('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\')')) return { rows: [{ present: sourceLogsRemain }] }
+    if (sql === 'SELECT EXISTS(SELECT 1 FROM public.log_access_counts) AS present') return { rows: [{ present: sourceAccessCounts.length > 0 }] }
     if (sql === 'SELECT EXISTS(SELECT 1 FROM events) AS present') return { rows: [{ present: sourceOtherEventsRemain }] }
     if (sql === 'SELECT EXISTS(SELECT 1 FROM findings) AS present') return { rows: [{ present: sourceFindingsRemain }] }
     if (sql.includes('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts)')) {
@@ -55,6 +60,12 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (sql.includes('FROM log_analyze_receipts WHERE key >')) return { rows: sourceAnalyzeReceipts.filter(row => String(row.key) > String(params[0])).slice(0, Number(params[1])) }
     if (sql.includes('FROM log_throughput_samples WHERE sampled_at::text>$1')) return { rows: sourceThroughputSamples.filter(row => String(row.sampled_at) > String(params[0])).slice(0, 500) }
     if (sql.includes('FROM log_tuning_snapshots WHERE organization_id>$1')) return { rows: sourceTuningSnapshots.filter(row => String(row.organization_id) > String(params[0])).slice(0, 200) }
+    if (sql.includes('FROM log_access_counts ORDER BY organization_id,ip,day')) return { rows: sourceAccessCounts.slice(0, Number(params[0])) }
+    if (sql.includes('FROM log_ingestion_canonical WHERE key>$1')) return { rows: sourceIngestionCanonical.filter(row => String(row.key) > String(params[0])).slice(0, Number(params[1])) }
+    if (sql.includes('FROM log_ingestion_copies ORDER BY key')) return { rows: sourceIngestionCopies.slice(0, Number(params[0])) }
+    for (const [table, rows] of Object.entries(sourceRuntimeState)) {
+        if (sql.startsWith('SELECT') && sql.includes(`FROM ${table}`)) return { rows: rows.slice(0, Number(params.at(-1))) }
+    }
     if (sql.includes('to_regclass($1)')) return { rows: [{ relation: 'log_analyze_event_linkage_archive' }] }
     if (sql.includes('FROM log_analyze_event_linkage_archive') && sql.includes('WHERE (organization_id,event_id)>')) {
         const [organization, event] = params.map(String)
@@ -110,6 +121,35 @@ const query = async (sql: string, params: unknown[] = []) => {
         sourceTuningSnapshots = sourceTuningSnapshots.filter(row => !ids.has(String(row.organization_id)))
         return { rows: deleted }
     }
+    if (sql.startsWith('DELETE FROM log_access_counts')) {
+        const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
+        const ids = new Set(rows.map(row => JSON.stringify([row.organization_id, row.ip, row.day])))
+        const deleted = sourceAccessCounts.filter(row => ids.has(JSON.stringify([row.organization_id, row.ip, row.day])))
+        sourceAccessCounts = sourceAccessCounts.filter(row => !ids.has(JSON.stringify([row.organization_id, row.ip, row.day])))
+        return { rows: deleted }
+    }
+    if (sql.startsWith('DELETE FROM log_ingestion_copies')) {
+        const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
+        const ids = new Set(rows.map(row => String(row.key)))
+        const deleted = sourceIngestionCopies.filter(row => ids.has(String(row.key)))
+        sourceIngestionCopies = sourceIngestionCopies.filter(row => !ids.has(String(row.key)))
+        return { rows: deleted }
+    }
+    if (sql.startsWith('DELETE FROM log_ingestion_canonical')) {
+        const rows = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
+        const ids = new Set(rows.map(row => String(row.key)))
+        const deleted = sourceIngestionCanonical.filter(row => ids.has(String(row.key)))
+        sourceIngestionCanonical = sourceIngestionCanonical.filter(row => !ids.has(String(row.key)))
+        return { rows: deleted }
+    }
+    for (const [table, rows] of Object.entries(sourceRuntimeState)) {
+        if (sql.startsWith(`DELETE FROM ${table} AS source`)) {
+            const batch = JSON.parse(String(params[0])) as Array<Record<string, unknown>>
+            const deleted = rows.slice(0, batch.length)
+            sourceRuntimeState[table] = rows.slice(batch.length)
+            return { rows: deleted }
+        }
+    }
     if (sql.startsWith('DELETE FROM events')) return { rows: sourceDeleteRowsOverride ?? sourceRows.map(row => ({ id: row.id })) }
     if (sql.startsWith('DELETE FROM findings')) return { rows: sourceFindings.map(row => ({ id: row.id })) }
     return { rows: [] }
@@ -137,6 +177,10 @@ beforeEach(() => {
     sourceArchiveRows = []
     sourceThroughputSamples = []
     sourceTuningSnapshots = []
+    sourceAccessCounts = []
+    sourceIngestionCanonical = []
+    sourceIngestionCopies = []
+    sourceRuntimeState = {}
     selectedRowsOverride = null
     sourceDeleteRowsOverride = null
     transactionErrors = 0
@@ -436,8 +480,10 @@ test('transfers throughput history and tuning snapshots before deleting source r
         historical_eps: 0.2, npps: 1.1, remaining: '3' }
     const snapshot = { organization_id: 'tenant-a', logs: [{ key: 'ingest', value: 3 }], generated_at: null,
         refresh_requested_at: '2026-10-20T10:00:00.123456Z' }
+    const accessCount = { organization_id: 'tenant-a', ip: '192.0.2.1', day: '2026-10-20', amount: '7' }
     sourceThroughputSamples = [sample]
     sourceTuningSnapshots = [snapshot]
+    sourceAccessCounts = [accessCount]
     const sent: Array<{ kind: string, rows: Array<Record<string, unknown>> }> = []
     globalThis.fetch = (async (input, init) => {
         expect(String(input)).toBe('https://logs.hanasand.com/api/migration/state')
@@ -446,12 +492,72 @@ test('transfers throughput history and tuning snapshots before deleting source r
     }) as typeof fetch
 
     expect(await migrateLogRuntimeState('https://logs.hanasand.com', 's'.repeat(40)))
-        .toEqual({ throughputSamples: 1, tuningSnapshots: 1 })
-    expect(sent).toEqual([{ kind: 'throughput_samples', rows: [sample] }, { kind: 'tuning_snapshots', rows: [snapshot] }])
+        .toEqual({ throughputSamples: 1, tuningSnapshots: 1, additionalState: { log_access_counts: 1 } })
+    expect(sent).toEqual([{ kind: 'throughput_samples', rows: [sample] }, { kind: 'tuning_snapshots', rows: [snapshot] },
+        { kind: 'log_access_counts', rows: [accessCount] }])
     expect(sourceThroughputSamples).toHaveLength(0)
     expect(sourceTuningSnapshots).toHaveLength(0)
+    expect(sourceAccessCounts).toHaveLength(0)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_throughput_samples'))).toBe(true)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_tuning_snapshots'))).toBe(true)
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_access_counts'))).toBe(true)
+})
+
+test('migrates ingestion canonicals before copies and deletes canonicals after their dependents', async () => {
+    sourceIngestionCanonical = [{ key: 'canonical-a', organization_id: 'tenant-a', source_event_id: 'source-event-a',
+        canonical_event_id: 'target-event-a', original: { message: 'canonical' }, created_at: '2026-10-20T10:00:00Z' }]
+    sourceIngestionCopies = [{ key: 'copy-a', canonical_key: 'canonical-a', envelope: { event: 'copy' }, created_at: '2026-10-20T10:01:00Z' }]
+    const sent: Array<{ kind: string, rows: Array<Record<string, unknown>> }> = []
+    globalThis.fetch = (async (_input, init) => {
+        sent.push(JSON.parse(String(init?.body)) as { kind: string, rows: Array<Record<string, unknown>> })
+        return new Response(JSON.stringify({ ok: true, accepted: sent.at(-1)?.rows.length }), { status: 200 })
+    }) as typeof fetch
+
+    const result = await migrateLogRuntimeState('https://logs.hanasand.com', 's'.repeat(40))
+    const canonicalDelete = statements.findIndex(statement => statement.sql.startsWith('DELETE FROM log_ingestion_canonical'))
+    const copiesDelete = statements.findIndex(statement => statement.sql.startsWith('DELETE FROM log_ingestion_copies'))
+
+    expect(result.additionalState).toEqual({ log_ingestion_canonical: 1, log_ingestion_copies: 1 })
+    expect(sent.map(batch => batch.kind)).toEqual(['log_ingestion_canonical', 'log_ingestion_copies', 'log_ingestion_canonical'])
+    expect(copiesDelete).toBeGreaterThan(-1)
+    expect(canonicalDelete).toBeGreaterThan(copiesDelete)
+    expect(sourceIngestionCanonical).toHaveLength(0)
+    expect(sourceIngestionCopies).toHaveLength(0)
+})
+
+test('transfers all supported analyzer counters and rolling state before deleting source rows', async () => {
+    sourceRuntimeState = {
+        log_mongo_ping_counts: [{ organization_id: 'tenant-a', host: 'db-1', service: 'cashflow', client_ip: '192.0.2.3',
+            database_name: 'app', day: '2026-10-20', amount: '2', last_seen: '2026-10-20T10:00:00Z' }],
+        log_proxy_counts: [{ organization_id: 'tenant-a', day: '2026-10-20', amount: '3' }],
+        log_postgres_session_state: [{ organization_id: 'tenant-a', recent: [], dropped_records: '4', retained_sessions: '1' }],
+        log_access_windows: [{ organization_id: 'tenant-a', ip: '192.0.2.4', recent: [1.5], alerted_at: null }],
+        log_access_rule_windows: [{ organization_id: 'tenant-a', rule_id: 'access.v1', ip: '192.0.2.5', recent: [2.5], alerted_at: null }],
+        log_ingest_access_ip_minutes: [{ organization_id: 'tenant-a', bucket: '2026-10-20T10:00:00Z', ip: '192.0.2.6', hits: '5' }],
+        log_ingest_access_minute_batches: [{ batch_id: '8c27aade-5207-4c3b-98a3-1390528b4c69', organization_id: 'tenant-a',
+            bucket: '2026-10-20T10:00:00Z', ip: '192.0.2.7', hits: '6' }],
+        log_ingest_access_state: [{ organization_id: 'tenant-a', bucket: '2026-10-20T10:00:00Z', hits: '7', alerted: false }],
+        log_routine_group_state: [{ organization_id: 'tenant-a', rule_id: 'routine.v1', scope: '192.0.2.8', recent: [] }],
+    }
+    const sent: Array<{ kind: string, rows: Array<Record<string, unknown>> }> = []
+    globalThis.fetch = (async (_input, init) => {
+        sent.push(JSON.parse(String(init?.body)) as { kind: string, rows: Array<Record<string, unknown>> })
+        return new Response(JSON.stringify({ ok: true, accepted: sent.at(-1)?.rows.length }), { status: 200 })
+    }) as typeof fetch
+
+    const result = await migrateLogRuntimeState('https://logs.hanasand.com', 's'.repeat(40))
+
+    expect(result.additionalState).toEqual({
+        log_mongo_ping_counts: 1, log_proxy_counts: 1, log_postgres_session_state: 1,
+        log_access_windows: 1, log_access_rule_windows: 1, log_ingest_access_ip_minutes: 1,
+        log_ingest_access_minute_batches: 1, log_ingest_access_state: 1, log_routine_group_state: 1,
+    })
+    expect(sent.map(batch => batch.kind)).toEqual([
+        'log_mongo_ping_counts', 'log_proxy_counts', 'log_postgres_session_state', 'log_access_windows',
+        'log_access_rule_windows', 'log_ingest_access_ip_minutes', 'log_ingest_access_minute_batches',
+        'log_ingest_access_state', 'log_routine_group_state',
+    ])
+    expect(Object.values(sourceRuntimeState).every(rows => rows.length === 0)).toBe(true)
 })
 
 test('clears only log-owned state after the source log event set is empty and rebuilds shared hit counts', async () => {
@@ -480,6 +586,13 @@ test('preserves unrelated events and findings while clearing empty Logs tables',
 test('refuses to clear log-owned state while any Hanasand Logs event remains', async () => {
     sourceLogsRemain = true
     await expect(clearMovedLogState()).rejects.toThrow('while source log events remain')
+    expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE'))).toBe(false)
+})
+
+test('refuses to truncate Logs tables while migrated runtime state remains in Hanasand', async () => {
+    sourceAccessCounts = [{ organization_id: 'tenant-a', ip: '192.0.2.1', day: '2026-10-20', amount: '7' }]
+
+    await expect(clearMovedLogState()).rejects.toThrow('log_access_counts rows remain')
     expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE'))).toBe(false)
 })
 
