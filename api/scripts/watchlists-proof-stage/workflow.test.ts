@@ -61,6 +61,8 @@ test('compiled website and native Core: real FDW save, direct audit and explicit
         const probes: Array<[string, string, Record<string, string>]> = [
             ['GET_on_POST', proof(token, retryProbe, true, { method: 'GET' }), { 'x-device-proof-method': 'GET' }],
             ['foreign_target', proof(token, retryProbe, true, { target: unrelated }), { 'x-device-proof-url': unrelated }],
+            ['forwarded_origin', proof(token, retryProbe, true, { target: `https://foreign.invalid${retryProbe}` }),
+                { 'x-forwarded-host': 'foreign.invalid', 'x-forwarded-proto': 'https', 'x-device-proof-url': `https://foreign.invalid${retryProbe}` }],
             ['wrong_key', proof(token, retryProbe, true, { signer: wrongKey }), {}],
             ['missing_proof', '', {}],
         ]
