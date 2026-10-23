@@ -30,7 +30,7 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
             <header className='flex flex-wrap items-center justify-between gap-3'>
                 <div>
                     <h1 className='text-lg font-semibold'>{consoleTarget} console</h1>
-                    <p role='status' className='text-sm text-ui-muted'>
+                    <p role='status' title={session.status} className='h-5 min-h-5 max-w-full truncate text-sm text-ui-muted'>
                         {session.status}{session.username ? ` · ${session.username}` : ''}
                     </p>
                 </div>
@@ -41,7 +41,7 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
                         <summary aria-label='VM access actions' title='VM access actions' className='flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg border border-ui-border bg-ui-panel text-ui-text [&::-webkit-details-marker]:hidden'>
                             <Menu aria-hidden='true' className='h-4 w-4' />
                         </summary>
-                        <div className='absolute right-0 top-11 z-20 grid min-w-52 gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
+                        <div className='absolute left-0 right-auto top-11 z-20 grid min-w-52 max-w-[calc(100vw-2rem)] gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
                             <VMConnectLocally vmName={name} className='flex h-9 w-full items-center justify-start gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-text hover:bg-ui-raised' />
                             <VMSudoPassword vmName={name} compact triggerClassName='flex h-9 w-full items-center justify-start gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-primary hover:bg-ui-raised' />
                         </div>
@@ -85,7 +85,7 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
                 <div
                     role={session.provisioning.state === 'error' ? 'alert' : 'status'}
                     aria-live='polite'
-                    className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm ${session.provisioning.state === 'error'
+                    className={`flex h-10 min-h-10 shrink-0 items-center gap-2 overflow-hidden rounded-lg border px-3 py-2 text-sm ${session.provisioning.state === 'error'
                         ? 'border-ui-danger/25 bg-ui-danger/5 text-ui-danger'
                         : session.provisioning.state === 'ready'
                             ? 'border-ui-success/25 bg-ui-success/5 text-ui-success'
@@ -95,7 +95,7 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
                         : session.provisioning.state === 'ready'
                             ? <CheckCircle2 className='h-4 w-4 shrink-0' aria-hidden />
                             : <LoaderCircle className='h-4 w-4 shrink-0 animate-spin text-ui-loader' aria-hidden />}
-                    <span className='min-w-0 wrap-break-word'>{session.provisioning.message}</span>
+                    <span title={session.provisioning.message} className='min-w-0 truncate'>{session.provisioning.message}</span>
                 </div>
             )}
             {(session.boot.output || session.boot.error || session.boot.expanded) && (
