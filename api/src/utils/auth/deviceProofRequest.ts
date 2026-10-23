@@ -9,6 +9,8 @@ function headerValue(value: string | string[] | undefined) {
 // Scope this correction to the existing server-registered Watchlist handlers.
 const watchlistProofRoutes = new Set([
     'GET /api/organizations/:id/watchlists',
+    'GET /api/organizations/:organizationId/watchlists/:itemId',
+    'GET /api/organizations/:id/watchlists/alert-terms',
     'POST /api/organizations/:id/watchlists',
     'POST /api/organizations/:id/watchlists/cleanup',
     'POST /api/organizations/:id/watchlists/reconcile',
