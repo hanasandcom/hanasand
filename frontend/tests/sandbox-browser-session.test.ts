@@ -101,10 +101,10 @@ test('keeps the anonymous session available when no Identity cookies are present
     expect(await ensureBrowserIdentitySession()).toEqual({ user: null })
 })
 
-test('routes the standard Hanasand sandbox API and broker through the signed-in site origin', () => {
+test('routes the standard Hanasand sandbox directly to the Browser API and broker', () => {
     const api = browserApiBaseForOrigin('https://hanasand.com', 'https://browsers.hanasand.com/api')
     const broker = browserBrokerBaseForOrigin('https://hanasand.com', api, 'wss://browsers.hanasand.com/api/ws/browser')
 
-    expect(api).toBe('https://hanasand.com/api')
-    expect(broker).toBe('wss://hanasand.com/api/ws/browser')
+    expect(api).toBe('https://browsers.hanasand.com/api')
+    expect(broker).toBe('wss://browsers.hanasand.com/api/ws/browser')
 })

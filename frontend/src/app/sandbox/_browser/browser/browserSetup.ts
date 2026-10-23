@@ -5,19 +5,15 @@ export const historyStorageKey = 'hanasand:browser:history:v1'
 export const statsStorageKey = 'hanasand:browser:stats:v1'
 export const clientIdStorageKey = 'hanasand:browser:client-id:v1'
 export const max60FpsStreamPixels = 1280 * 720
-const configuredBrowserApiBase = (process.env.NEXT_PUBLIC_BROWSER_API_URL || 'http://localhost:8080/api').replace(/\/$/, '')
+const configuredBrowserApiBase = (process.env.NEXT_PUBLIC_BROWSER_API_URL || (process.env.NODE_ENV === 'production' ? 'https://browsers.hanasand.com/api' : 'http://localhost:8080/api')).replace(/\/$/, '')
 const configuredBrowserWs = process.env.NEXT_PUBLIC_BROWSER_WS || ''
-export function browserApiBaseForOrigin(origin: string, configured = configuredBrowserApiBase) {
-    const site = new URL(origin)
-    // The sandbox lives inside the signed-in Hanasand site. Keep its requests
-    // on the site's origin so Identity's HttpOnly cookies reach the Browser
-    // API and broker through the existing reverse proxy.
-    if (site.hostname === 'hanasand.com' || site.hostname === 'www.hanasand.com') return `${site.origin}/api`
+export function browserApiBaseForOrigin(_origin: string, configured = configuredBrowserApiBase) {
+    // Browser owns this API origin. Identity cookies are scoped to the shared
+    // hanasand.com domain, so the normal site's Sandbox can call it directly.
     return configured
 }
 export function browserBrokerBaseForOrigin(origin: string, apiBase: string, configured = configuredBrowserWs) {
-    const site = new URL(origin)
-    if (site.hostname === 'hanasand.com' || site.hostname === 'www.hanasand.com') return `${site.protocol === 'https:' ? 'wss:' : 'ws:'}//${site.host}/api/ws/browser`
+    void origin
     return configured || `${apiBase.replace(/^http/i, 'ws')}/ws/browser`
 }
 export const browserApiBase = typeof window === 'undefined'
