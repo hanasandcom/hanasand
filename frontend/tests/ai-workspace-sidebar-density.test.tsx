@@ -2,6 +2,7 @@
 import { mock, expect, test } from 'bun:test'
 import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { readFile } from 'node:fs/promises'
 
 mock.module('next/link', () => ({
     default: ({ href, children, className }: { href: string, children: ReactNode, className?: string }) =>
@@ -14,6 +15,16 @@ const { WorkspaceDeployPanel } = await import('../src/components/ai/workspaceDep
 const { WorkspaceReleasePanels } = await import('../src/components/ai/workspaceReleasePanels')
 
 const noop = () => {}
+
+test('mobile repository drawer fits its content and caps long sections to the viewport', async () => {
+    const pageClient = await readFile(new URL('../src/app/ai/pageClient.tsx', import.meta.url), 'utf8')
+    const workspacePane = await readFile(new URL('../src/components/ai/workspacePane.tsx', import.meta.url), 'utf8')
+
+    expect(pageClient).toContain('absolute right-0 top-0 z-40 h-fit max-h-[calc(100dvh-5rem)]')
+    expect(pageClient).toContain('lg:h-full lg:max-h-none')
+    expect(workspacePane).toContain('h-fit max-h-full min-h-0')
+    expect(workspacePane).toContain('lg:h-full lg:max-h-none')
+})
 
 test('empty repository panel shows both actions without a duplicate empty card', () => {
     const html = renderToStaticMarkup(createElement(WorkspaceRepositoryPanel, {

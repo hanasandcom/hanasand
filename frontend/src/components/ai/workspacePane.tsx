@@ -99,7 +99,7 @@ export default function WorkspacePane(props: WorkspacePaneProps) {
     const trust = trustRelease?.trust || buildFallbackTrust(trustRelease)
     const launchReport = trust?.launchReport || []
     return (
-        <aside aria-label='Repository details' className='flex h-full min-h-0 w-full max-w-full min-w-0 flex-col gap-3 overflow-hidden rounded-lg bg-ui-raised p-3 outline outline-ui-border'>
+        <aside aria-label='Repository details' className='flex h-fit max-h-full min-h-0 w-full max-w-full min-w-0 flex-col gap-3 overflow-hidden rounded-lg bg-ui-raised p-3 outline outline-ui-border lg:h-full lg:max-h-none'>
             <div className='flex shrink-0 items-center justify-between gap-2 lg:hidden'>
                 <h2 className='text-sm font-semibold text-ui-text'>Repositories</h2>
                 <button type='button' onClick={onClose} aria-label='Close repository details' className='grid h-8 w-8 place-items-center rounded-lg text-ui-muted hover:bg-ui-panel hover:text-ui-text'><span aria-hidden='true'>×</span></button>
