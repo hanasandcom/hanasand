@@ -20,7 +20,8 @@ export function filterVms(vms: VM[], filters: VmFilters, diskTotalsMb: Map<strin
         if (name && !vm.name?.toLocaleLowerCase().includes(name)) return false
         if (cpu && (Number.parseFloat(vm.limits_cpu || '') || 0) < cpu) return false
         if (memory && memoryInGiB(vm.limits_memory) < memory) return false
-        if (disk && (diskTotalsMb.get(vm.name.toLocaleLowerCase()) ?? 0) < disk * 1024) return false
+        const diskTotalMb = diskTotalsMb.get(vm.name.toLocaleLowerCase())
+        if (disk && (typeof diskTotalMb !== 'number' || !Number.isFinite(diskTotalMb) || diskTotalMb < disk * 1024)) return false
         const hasEditors = Boolean(vm.access_users?.length)
         if (filters.editors === 'with' && !hasEditors) return false
         if (filters.editors === 'without' && hasEditors) return false

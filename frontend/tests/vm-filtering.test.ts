@@ -31,5 +31,6 @@ test('VM disk resource filters use latest accessible disk totals and exclude mis
 
     assert.deepEqual(filterVms(vms, { ...defaultVmFilters, disk: '20' }, diskTotalsMb).map(vm => vm.name), ['api-prod', 'docs-preview'])
     assert.deepEqual(filterVms(vms, { ...defaultVmFilters, disk: '40' }, diskTotalsMb).map(vm => vm.name), ['api-prod'])
+    assert.deepEqual(filterVms(vms, { ...defaultVmFilters, disk: '20' }, new Map([['api-prod', 40 * 1024], ['docs-preview', Number.NaN]])).map(vm => vm.name), ['api-prod'])
     assert.deepEqual(filterVms(vms, { ...defaultVmFilters, disk: '10' }).map(vm => vm.name), [])
 })

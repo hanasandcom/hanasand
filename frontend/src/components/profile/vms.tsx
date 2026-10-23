@@ -68,7 +68,8 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
                 const timestamp = Date.parse(metric.created_at)
                 if (!Number.isFinite(timestamp) || timestamp < (timestamps.get(name) ?? -Infinity)) continue
                 timestamps.set(name, timestamp)
-                totals.set(name, metric.disk_total_mb == null ? null : Number(metric.disk_total_mb))
+                const diskTotalMb = metric.disk_total_mb == null ? null : Number(metric.disk_total_mb)
+                totals.set(name, diskTotalMb !== null && Number.isFinite(diskTotalMb) ? diskTotalMb : null)
             }
             setDiskTotalsMb(totals)
             diskMetricsLoaded.current = true
