@@ -24,7 +24,24 @@ export async function localVmStatus(name: string, statusOptions: { allowHostWork
     if (!response.ok) throw new Error(response.status === 404 ? 'VM is unavailable on its host.' : 'VM host is not responding.')
     const body = await response.json() as { metadata?: State }
     if (!body.metadata?.status) throw new Error('VM host did not report a state.')
-    if (body.metadata.status.toLowerCase() !== 'running') return body.metadata
+    if (body.metadata.status.toLowerCase() !== 'running') {
+        const instance = await getLocalLxdInstance(name).catch(() => null)
+        const persistedState = instance?.config?.[provisioningConfigKey]
+        const persistedSetupState = persistedState ? parsePersistedSetupState(persistedState) : undefined
+        if (persistedSetupState?.status.toLowerCase() === 'error') return persistedSetupState
+
+        // A failed setup can leave the guest stopped. Check the host worker only while
+        // a saved setup marker says work is still in progress; the internal status route
+        // disables this probe to prevent a request loop.
+        if (persistedSetupState?.status.toLowerCase() === 'provisioning' && statusOptions.allowHostWorkerProbe !== false) {
+            const workerState = await hostWorkerSetupStatus(name)
+            if (workerState?.status.toLowerCase() === 'error') {
+                await updateLocalLxdConfig(name, { [provisioningConfigKey]: JSON.stringify(workerState) }).catch(() => {})
+                return workerState
+            }
+        }
+        return body.metadata
+    }
 
     const instance = await getLocalLxdInstance(name)
     const planHash = instance.config?.['user.hanasand.setup_plan']

@@ -198,6 +198,44 @@ test('local status keeps a host-worker setup failure authoritative with empty cl
     expect(localConfigUpdates).toEqual([{ 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', status_reason: 'Java installation failed.' }) }])
 })
 
+test('stopped VM status preserves a terminal setup error saved by the guest', async () => {
+    const failedState = { status: 'Error', message: 'Node.js installation failed.' }
+    localConfig = {
+        'user.hanasand.setup_plan': 'setup-hash',
+        'user.hanasand.provisioning_state': JSON.stringify(failedState),
+    }
+    globalThis.fetch = (async () => Response.json({ metadata: { status: 'Stopped' } })) as typeof fetch
+
+    expect(await localVmStatus('stopped-failed-setup-vm')).toEqual({ status: 'Error', status_reason: 'Node.js installation failed.' })
+    expect(remoteRequests).toHaveLength(0)
+})
+
+test('stopped VM status surfaces a host-worker setup failure and persists it', async () => {
+    localConfig = {
+        'user.hanasand.setup_plan': 'setup-hash',
+        'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Installing nodejs…' }),
+    }
+    hostWorkerStatus = { status: 'Error', status_reason: 'Node.js installation failed.' }
+    globalThis.fetch = (async () => Response.json({ metadata: { status: 'Stopped' } })) as typeof fetch
+
+    expect(await localVmStatus('stopped-worker-failed-setup-vm')).toEqual({ status: 'Error', status_reason: 'Node.js installation failed.' })
+    expect(remoteRequests).toEqual([{ host: 'inspur', path: '/vms/internal/stopped-worker-failed-setup-vm/status' }])
+    expect(localConfigUpdates).toEqual([{
+        'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', status_reason: 'Node.js installation failed.' }),
+    }])
+})
+
+test('stopped VMs with a nonterminal setup marker keep their stopped power state', async () => {
+    localConfig = {
+        'user.hanasand.setup_plan': 'setup-hash',
+        'user.hanasand.provisioning_state': JSON.stringify({ status: 'Running', message: 'Setup complete' }),
+    }
+    globalThis.fetch = (async () => Response.json({ metadata: { status: 'Stopped' } })) as typeof fetch
+
+    expect(await localVmStatus('stopped-ready-vm')).toEqual({ status: 'Stopped' })
+    expect(remoteRequests).toHaveLength(0)
+})
+
 test('local VM status accepts its own persisted status_reason field while cloud-init is still running', async () => {
     const savedState = { status: 'Provisioning', status_reason: 'Installing nodejs, postgresql…' }
     localConfig = {
