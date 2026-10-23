@@ -17,6 +17,28 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
     setNmapProfile: Dispatch<SetStateAction<NmapProfile>>
     onSetup: () => void
 }) {
+    const selectedReadyEngines = selectedEngines.filter(id => {
+        const engine = data.engines.find(item => item.id === id)
+        return engine?.status === 'available' && (id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
+    })
+    const engineLabel = (id: UvmAssessmentEngineId) => id === 'nmap' ? 'Nmap' : id === 'gvm' ? 'Greenbone' : id === 'zap' ? 'OWASP ZAP' : 'Nessus via Tenable VM'
+    const engineProfile = (id: UvmAssessmentEngineId) => id === 'nmap'
+        ? nmapProfile === 'tcp-all' ? 'all TCP ports' : nmapProfile === 'tcp-top-100' ? 'top 100 TCP ports' : 'top 1,000 TCP ports'
+        : id === 'gvm' ? 'Full and Fast'
+            : id === 'zap' ? 'same-origin web assessment'
+                : data.tenableScans.find(scan => scan.id === scanId)?.name || 'Choose configuration'
+    function moveEngine(id: UvmAssessmentEngineId, offset: -1 | 1) {
+        setSelectedEngines(current => {
+            const ordered = current.filter(engine => selectedReadyEngines.includes(engine))
+            const index = ordered.indexOf(id)
+            const destination = index + offset
+            if (index < 0 || destination < 0 || destination >= ordered.length) return current
+            const [moved] = ordered.splice(index, 1)
+            if (!moved) return current
+            ordered.splice(destination, 0, moved)
+            return ordered
+        })
+    }
     return <fieldset className='grid gap-2'>
         <legend className='text-sm font-semibold'>Engines</legend>
         <div className='flex justify-end'><UvmHelp label='Assessment engines' text='Nmap inventories selected TCP ports. Greenbone uses Full and Fast. Nessus configurations run through Tenable VM. OWASP ZAP assesses the web origin.' /></div>
@@ -32,6 +54,18 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
                 {ready && engine.id === 'tenable-vm' && selected && <span className='ml-6 grid gap-1 text-xs text-ui-muted'>Enabled scan configuration<select aria-label='Tenable scan configuration' value={scanId} onChange={event => setScanId(event.target.value)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value=''>Choose configuration</option>{data.tenableScans.filter(scan => scan.enabled).map(scan => <option key={scan.id} value={scan.id}>{scan.name}</option>)}</select></span>}
             </label>
         })}</div>
+        {selectedReadyEngines.length > 0 && <div className='grid gap-2 rounded-md border border-ui-border bg-ui-raised p-3'>
+            <div><h3 className='text-sm font-semibold'>Run sequence</h3><p className='text-xs text-ui-muted'>Each stage runs across the selected assets before the next stage.</p></div>
+            <ol aria-label='Assessment run sequence' className='grid gap-1'>
+                {selectedReadyEngines.map((id, index) => <li key={id} className='flex items-center justify-between gap-3 rounded border border-ui-border bg-ui-panel px-2 py-2 text-sm'>
+                    <span><span className='mr-2 text-xs text-ui-muted'>Stage {index + 1}</span><strong>{engineLabel(id)}</strong><span className='ml-2 text-xs text-ui-muted'>{engineProfile(id)}</span></span>
+                    <span className='flex shrink-0 gap-1'>
+                        <button type='button' aria-label={`Move ${engineLabel(id)} earlier`} onClick={() => moveEngine(id, -1)} disabled={index === 0} className='rounded border border-ui-border px-2 py-1 text-xs disabled:opacity-40'>↑</button>
+                        <button type='button' aria-label={`Move ${engineLabel(id)} later`} onClick={() => moveEngine(id, 1)} disabled={index === selectedReadyEngines.length - 1} className='rounded border border-ui-border px-2 py-1 text-xs disabled:opacity-40'>↓</button>
+                    </span>
+                </li>)}
+            </ol>
+        </div>}
         {!data.engines.length && <p className='text-sm text-ui-warning'>{data.scannerError || 'No scanner engines are available.'} <button type='button' onClick={onSetup} className='font-semibold underline'>Scanner setup</button></p>}
     </fieldset>
 }
