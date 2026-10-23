@@ -1,11 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { AlertCircle, CheckCircle2, LoaderCircle, Maximize2, Menu, Minimize2, RefreshCw } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CheckCircle2, LoaderCircle, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { useConsoleViewport } from './useConsoleViewport'
 import { useVmConsoleSession } from './useVmConsoleSession'
-import VMSudoPassword from './vmSudoPassword'
-import VMConnectLocally from './vmConnectLocally'
+import VMAccessActions from './vmAccessActions'
 
 type VmConsoleProps = {
     name?: string
@@ -35,17 +34,7 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
                     </p>
                 </div>
                 <div className='flex flex-wrap items-center gap-2'>
-                    {name && <VMConnectLocally vmName={name} className='hidden h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 text-sm font-medium text-ui-text transition hover:bg-ui-raised sm:inline-flex' />}
-                    {name && <VMSudoPassword vmName={name} compact triggerClassName='hidden h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 text-sm font-medium text-ui-primary transition hover:bg-ui-raised sm:inline-flex' />}
-                    {name && <details className='relative sm:hidden'>
-                        <summary aria-label='VM access actions' title='VM access actions' className='flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg border border-ui-border bg-ui-panel text-ui-text [&::-webkit-details-marker]:hidden'>
-                            <Menu aria-hidden='true' className='h-4 w-4' />
-                        </summary>
-                        <div className='absolute left-0 right-auto top-11 z-20 grid min-w-52 max-w-[calc(100vw-2rem)] gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
-                            <VMConnectLocally vmName={name} className='flex h-9 w-full items-center justify-start gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-text hover:bg-ui-raised' />
-                            <VMSudoPassword vmName={name} compact triggerClassName='flex h-9 w-full items-center justify-start gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-primary hover:bg-ui-raised' />
-                        </div>
-                    </details>}
+                    {name && <VMAccessActions vmName={name} />}
                     {host && onHostChange && (
                         <label className='flex items-center gap-2 text-sm text-ui-muted'>
                             Host
@@ -70,8 +59,8 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
                             ? <Minimize2 className='h-4 w-4' />
                             : <Maximize2 className='h-4 w-4' />}
                     </button>
-                    <Link href={host ? '/system/hosts' : '/system'} className='text-sm text-ui-primary'>
-                        Back to overview
+                    <Link href={host ? '/system/hosts' : '/system'} aria-label='Back to overview' title='Back to overview' className='flex h-9 w-9 items-center justify-center rounded-lg border border-ui-border text-ui-primary transition hover:bg-ui-raised'>
+                        <ArrowLeft aria-hidden='true' className='h-4 w-4' />
                     </Link>
                     <button
                         type='button'
