@@ -1,3 +1,4 @@
+import type { VerifiedWatchlistSession } from './organizationWatchlistSession'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { authApiUrl, identityApiUrl } from '@/utils/auth/authApiUrl'
@@ -6,14 +7,15 @@ type ProxyOptions = {
     method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
     timeoutMs?: number
     service?: 'hanasand' | 'identity'
+    verifiedWatchlistSession?: VerifiedWatchlistSession
     forwardImpersonation?: boolean
 }
 
 export async function proxyOrganizationApiRequest(request: NextRequest, path: string, options: ProxyOptions = {}) {
     try {
         const cookieStore = await cookies()
-        const token = cookieStore.get('access_token')?.value || bearerToken(request.headers.get('authorization')) || ''
-        const id = cookieStore.get('id')?.value || request.headers.get('id') || ''
+        const token = options.verifiedWatchlistSession?.token || cookieStore.get('access_token')?.value || bearerToken(request.headers.get('authorization')) || ''
+        const id = options.verifiedWatchlistSession?.id || cookieStore.get('id')?.value || request.headers.get('id') || ''
         const baseUrl = options.service === 'identity' ? identityApiUrl() : authApiUrl()
         const target = new URL(`${baseUrl.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`)
         for (const [key, value] of request.nextUrl.searchParams.entries()) {
@@ -21,12 +23,19 @@ export async function proxyOrganizationApiRequest(request: NextRequest, path: st
         }
 
         const method = options.method || request.method as ProxyOptions['method'] || 'GET'
+        const sessionHeaders = options.verifiedWatchlistSession
+            ? await (await import('@/utils/auth/serverDeviceProofHeaders')).default(options.verifiedWatchlistSession)
+            : {}
         const init: RequestInit = {
             method,
             cache: 'no-store',
             headers: {
+                ...sessionHeaders,
                 'content-type': 'application/json',
-                'x-tenant-id': request.headers.get('x-tenant-id') || 'default',
+                ...(options.verifiedWatchlistSession ? {
+                    'x-organization-id': options.verifiedWatchlistSession.organizationId,
+                    'x-tenant-id': options.verifiedWatchlistSession.organizationId,
+                } : { 'x-tenant-id': request.headers.get('x-tenant-id') || 'default' }),
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 ...(id ? { id } : {}),
                 ...(options.forwardImpersonation !== false && cookieStore.get('impersonation_token')?.value

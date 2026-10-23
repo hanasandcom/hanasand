@@ -58,6 +58,7 @@ import {
     postOrganizationWatchlist,
     postOrganizationWatchlistAction,
     postOrganizationWatchlistCleanup,
+    postOrganizationWatchlistReconcile,
     patchOrganizationMemberRole,
     putOrganizationSettings,
     putOrganizationWatchlist,
@@ -94,6 +95,7 @@ export function registerOrganizationsAndComputeRoutes(fastify: FastifyInstance) 
     fastify.get('/organizations/:id/watchlists', getOrganizationWatchlists)
     fastify.post('/organizations/:id/watchlists', postOrganizationWatchlist)
     fastify.post('/organizations/:id/watchlists/cleanup', postOrganizationWatchlistCleanup)
+    fastify.post('/organizations/:id/watchlists/reconcile', postOrganizationWatchlistReconcile)
     fastify.put('/organizations/:organizationId/watchlists/:itemId', putOrganizationWatchlist)
     fastify.post('/organizations/:organizationId/watchlists/:itemId/actions', postOrganizationWatchlistAction)
     fastify.delete('/organizations/:organizationId/watchlists/:itemId', deleteOrganizationWatchlist)

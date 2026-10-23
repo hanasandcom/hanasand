@@ -101,7 +101,14 @@ test('GET watchlists uses shared lifecycle status normalization in its contract'
     const response = await app.inject('/organizations/org-1/watchlists?includeArchived=true')
     expect(response.statusCode).toBe(200)
     expect(response.json().sharedWatchlistContract).toMatchObject({
+        capabilities: {
+            authoritativeProjectionSync: true,
+            projectionReconcile: true,
+            projectionReceiptSchemaVersion: 'organization.watchlist_projection_receipt.v1',
+        },
+        permissions: { canReconcile: true },
         lifecycle: {
+            reconcileRoute: 'POST /api/organizations/:id/watchlists/reconcile',
             activeCount: 1,
             pausedCount: 1,
             archivedCount: 2,

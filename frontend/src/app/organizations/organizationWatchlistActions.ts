@@ -75,7 +75,7 @@ export function createOrganizationWatchlistActions(options: WatchlistOptions) {
 
     const watchlistAction = (item: WatchlistItem, action: 'pause' | 'resume' | 'archive' | 'restore') => selectedOrganization && runAction(`${action}-watchlist`, async () => {
         requireEdit()
-        await requestJson(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/${encodeURIComponent(item.id)}/actions`, {
+        const payload = await requestJson<{ dwmAlertBridge?: DwmAlertBridgeResult }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/${encodeURIComponent(item.id)}/actions`, {
             method: 'POST',
             body: JSON.stringify({
                 action,
@@ -83,32 +83,43 @@ export function createOrganizationWatchlistActions(options: WatchlistOptions) {
                 requestId: `org-ui-${Date.now()}`,
             }),
         })
-        return `${item.value} ${action}d.`
+        return watchlistMutationMessage(payload.dwmAlertBridge, `${item.value} ${action}d.`)
     }, `watchlist-${item.id}`)
 
     const deleteWatchlist = (item: WatchlistItem) => selectedOrganization && runAction('delete-watchlist', async () => {
         requireEdit()
-        await requestJson(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/${encodeURIComponent(item.id)}`, {
+        const payload = await requestJson<{ dwmAlertBridge?: DwmAlertBridgeResult }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/${encodeURIComponent(item.id)}`, {
             method: 'DELETE',
             body: JSON.stringify({
                 reason: 'Shared watchlist term retired from organization workspace.',
                 requestId: `org-ui-${Date.now()}`,
             }),
         })
-        return `${item.value} archived.`
+        return watchlistMutationMessage(payload.dwmAlertBridge, `${item.value} archived.`)
     }, `watchlist-${item.id}`)
 
-    const cleanupWatchlists = () => selectedOrganization && runAction('cleanup-watchlists', async () => {
+    const cleanupWatchlists = (itemIds: string[]) => selectedOrganization && runAction('cleanup-watchlists', async () => {
         requireManage()
-        const payload = await requestJson<{ archivedCount?: number, cleanupCount?: number, disabledCount?: number }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/cleanup`, {
+        if (!Array.isArray(itemIds) || itemIds.length < 1 || itemIds.length > 50 || new Set(itemIds).size !== itemIds.length) {
+            throw new Error('Select between 1 and 50 different watchlist terms to archive.')
+        }
+        if (itemIds.some(id => !bundle.watchlists.some(item => item.id === id && item.status !== 'archived' && !item.archivedAt
+            && (!item.organizationId || item.organizationId === selectedOrganization.id)
+            && (!item.tenantId || item.tenantId === selectedOrganization.id)))) {
+            throw new Error('The selected terms changed. Review the current organization watchlist before archiving.')
+        }
+        const payload = await requestJson<{ cleanup?: { archivedCount?: number, skippedItemIds?: string[] }, dwmAlertBridge?: DwmAlertBridgeResult }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/watchlists/cleanup`, {
             method: 'POST',
             body: JSON.stringify({
-                reason: 'Archived watchlist cleanup from organization workspace.',
+                itemIds,
+                reason: 'Selected shared watchlist terms archived from organization workspace.',
                 requestId: `org-ui-${Date.now()}`,
             }),
         })
-        const count = payload.archivedCount ?? payload.cleanupCount ?? payload.disabledCount
-        return count === undefined ? 'Archived watchlists cleaned up.' : `${count} archived watchlist${count === 1 ? '' : 's'} cleaned up.`
+        const count = payload.cleanup?.archivedCount
+        const skipped = payload.cleanup?.skippedItemIds?.length || 0
+        const saved = count === undefined ? 'Selected watchlist archive request saved.' : `${count} selected watchlist term${count === 1 ? '' : 's'} archived.`
+        return watchlistMutationMessage(payload.dwmAlertBridge, `${saved}${skipped ? ` ${skipped} selected term${skipped === 1 ? ' was' : 's were'} skipped.` : ''}`)
     }, 'watchlists-cleanup')
 
     const refreshOrganizationAlerts = () => selectedOrganization && runAction('refresh-events', async () => {

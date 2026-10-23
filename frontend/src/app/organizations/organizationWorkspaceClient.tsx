@@ -102,7 +102,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
         onSaveWatchlist: (item: Parameters<typeof watchlistActions.saveWatchlistEdit>[0]) => void watchlistActions.saveWatchlistEdit(item),
         onWatchlistAction: (item: Parameters<typeof watchlistActions.watchlistAction>[0], action: Parameters<typeof watchlistActions.watchlistAction>[1]) => void watchlistActions.watchlistAction(item, action),
         onDeleteWatchlist: (item: Parameters<typeof watchlistActions.deleteWatchlist>[0]) => void watchlistActions.deleteWatchlist(item),
-        onCleanupWatchlists: () => void watchlistActions.cleanupWatchlists(), onRefreshAlerts: () => void watchlistActions.refreshOrganizationAlerts(),
+        onCleanupWatchlists: (itemIds: string[]) => void watchlistActions.cleanupWatchlists(itemIds), onRefreshAlerts: () => void watchlistActions.refreshOrganizationAlerts(),
         onRequestFreshCollection: () => void watchlistActions.requestFreshCollection(), onRefreshCollectionStatus: () => void watchlistActions.refreshCollectionStatus(),
         onCreateApiKey: (name: string) => void orgActions.createEventApiKey(name),
         onRevokeApiKey: (key: Parameters<typeof orgActions.revokeEventApiKey>[0]) => void orgActions.revokeEventApiKey(key),

@@ -6,7 +6,7 @@ import {
     mirrorOrganizationWatchlistToDwmResult,
     mirrorOrganizationToDwmResult,
 } from '@/app/api/organizations/_organizationWatchlistDwmBridge'
-import { buildOrganizationWatchlistResponse } from '@/app/api/organizations/organizationWatchlistMutation'
+import { watchlistMutationMessage } from '@/app/organizations/model/workspaceApi'
 
 test('mirrors an organization with authenticated owner before watchlist creation', async () => {
     const mirrorPayload = buildDwmOrganizationMirrorPayload({
@@ -108,24 +108,23 @@ test('does not report empty, queued, or failed alert rebuilds as successful sync
     assert.equal(failed.mirrors[0].rebuildStatus, 'failed')
 })
 
-test('maps persisted watchlist outcomes to response status and retry guidance', () => {
-    const savedPayload = { watchlistItem: { id: 'term-1' } }
-    const completed = buildOrganizationWatchlistResponse(savedPayload, 201, { ok: true, rebuildStatus: 'completed' })
-    assert.equal(completed.status, 201)
-    assert.equal(completed.body.dwmAlertBridge.ok, true)
-
-    const empty = buildOrganizationWatchlistResponse(savedPayload, 201, { ok: false, rebuildStatus: 'completed' })
-    assert.equal(empty.status, 201)
-    assert.equal(empty.body.retryable, false)
-    assert.equal((empty.body.error as { code: string }).code, 'dwm_alert_rebuild_empty')
-
-    const pending = buildOrganizationWatchlistResponse(savedPayload, 200, { ok: false, rebuildStatus: 'running' })
-    assert.equal(pending.status, 202)
-    assert.equal(pending.body.retryable, true)
-    assert.equal((pending.body.error as { code: string }).code, 'dwm_alert_rebuild_pending')
-
-    const failed = buildOrganizationWatchlistResponse(savedPayload, 200, { ok: false, rebuildStatus: 'failed' })
-    assert.equal(failed.status, 502)
-    assert.equal(failed.body.retryable, true)
-    assert.equal((failed.body.error as { code: string }).code, 'dwm_watchlist_sync_failed')
+test('projection receipts distinguish saved state from alert generation', () => {
+    const projection = (status: 'synchronized' | 'unchanged' | 'pending' | 'failed') => ({
+        schemaVersion: 'organization.watchlist_projection_receipt.v1' as const,
+        projection: { status, checkedAt: null, source: 'identity' as const, watchlistIds: [], unresolvedItemIds: [] },
+        alertRebuild: { status: 'not_requested' as const, reason: 'projection_only' as const },
+    })
+    for (const status of ['synchronized', 'unchanged'] as const) {
+        const message = watchlistMutationMessage(projection(status), 'Saved.')
+        assert.equal(typeof message, 'string')
+        assert.match(String(message), /Events were not rebuilt/)
+        assert.doesNotMatch(String(message), /No matching captures|generated/)
+    }
+    for (const status of ['pending', 'failed'] as const) {
+        const message = watchlistMutationMessage(projection(status), 'Saved.')
+        assert.equal(typeof message, 'object')
+        assert.equal(typeof message === 'object' && message.warning, true)
+        assert.match(typeof message === 'object' ? message.message : '', /Saved/)
+    }
+    assert.match(String(watchlistMutationMessage({ ok: true, savedAlertCount: 2 }, 'Saved.')), /2 events generated/)
 })
