@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import type { UvmAsset, UvmAssessment, UvmDashboard, UvmFinding, UvmRun } from '@/utils/monitoring/types'
-import { filterAndSortUvmFindings, formatDate, RunCard, SummaryCard, type UvmFindingFilters } from './uvmPanelHelpers'
-import { UvmAssessmentStarter, UvmAssetsView, UvmAssetEngineCoverageView, UvmFindingsView, UvmHelp } from './uvmPanelViews'
+import { filterAndSortUvmFindings, formatDate, RunCard, type UvmFindingFilters } from './uvmPanelHelpers'
+import { UvmAssetsView, UvmFindingsView, UvmHelp } from './uvmPanelViews'
+import { UvmOverview } from './uvmPanelOverview'
 import { UvmAssessmentEngineChoices, type UvmAssessmentEngineId } from './uvmPanelAssessmentControls'
 export { filterAndSortUvmFindings } from './uvmPanelHelpers'
 export type { UvmFindingFilters } from './uvmPanelHelpers'
@@ -49,7 +50,6 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
     const activeAssessments = data.assessments.some(assessment => ['queued', 'running', 'cancelling'].includes(assessment.status))
     const attentionFindings = data.findings.filter(finding => !['resolved', 'false_positive', 'accepted_risk'].includes(finding.status))
     const visibleFindings = filterAndSortUvmFindings(data.findings, findingFilters)
-    const latestRun = data.runs[0]
     const selectableAssessmentEngines = assessmentEngines.filter(engine => {
         const info = data.engines.find(item => item.id === engine)
         return info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
@@ -151,18 +151,8 @@ export default function UvmPanel({ initialData, refreshAction, createAssetAction
         <header className='flex flex-wrap items-center justify-between gap-3'><h1 className='text-2xl font-semibold'>Security scanner</h1><button type='button' onClick={() => setView('assessments')} disabled={dashboardUnavailable} className='rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>New assessment</button></header>
         {dashboardUnavailable && <p role='status' className='rounded-md border border-ui-warning/40 bg-ui-warning/10 px-3 py-2 text-sm text-ui-warning'>Scanner data is unavailable. Counts and findings are unknown until the service responds.</p>}
         <nav aria-label='Vulnerability management views' className='flex flex-wrap gap-2 border-b border-ui-border pb-2'>{([['overview', 'Overview'], ['assessments', `Assessments (${dashboardUnavailable ? '—' : data.assessments.length})`], ['assets', 'Assets'], ['scanners', 'Scanners'], ['runs', 'Scan history'], ['findings', `Findings (${dashboardUnavailable ? '—' : attentionFindings.length})`]] as const).map(([id, label]) => <button key={id} type='button' onClick={() => setView(id)} aria-current={view === id ? 'page' : undefined} className={`rounded-md px-3 py-2 text-sm font-semibold ${view === id ? 'bg-ui-text text-ui-canvas' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}>{label}</button>)}</nav>
-        {view === 'overview' && <section className='grid gap-4'>
-            <UvmAssessmentStarter data={data} onManageAssets={() => setView('assets')} onConfigureScanners={() => setView('scanners')} onStartAssessment={() => setView('assessments')} />
-            <div className='grid gap-3 sm:grid-cols-2'>
-                <SummaryCard label='Active scans' value={dashboardUnavailable ? '—' : String(activeRuns.length)} detail={dashboardUnavailable ? 'Unavailable' : activeRuns.length ? 'Updating automatically' : 'No active jobs'} />
-                <SummaryCard label='Open findings' value={dashboardUnavailable ? '—' : String(attentionFindings.length)} detail={dashboardUnavailable ? 'Unavailable' : attentionFindings.length ? `${attentionFindings.filter(finding => finding.severity === 'critical' || finding.severity === 'high').length} critical or high` : 'None need triage'} />
-            </div>
-            <UvmAssetEngineCoverageView data={data} />
-            <div className='grid gap-4 lg:grid-cols-2'>
-                <section className='rounded-lg border border-ui-border bg-ui-panel p-4'><div className='flex items-start justify-between gap-3'><h2 className='text-base font-semibold'>Latest scan</h2><UvmHelp label='Latest scan' text='Coverage counts completed target addresses. A partial or unreported result does not confirm that an asset is clear.' /></div>
-                    {latestRun ? <div className='mt-3'><div className='flex flex-wrap items-center gap-2'><strong>{latestRun.target}</strong><span className='rounded-full bg-ui-raised px-2 py-1 text-xs'>{latestRun.status}</span></div><p className='mt-1 text-sm text-ui-muted'>{latestRun.engine} · {latestRun.profile} · {formatDate(latestRun.finishedAt || latestRun.startedAt || latestRun.createdAt)}</p><p className='mt-2 text-sm text-ui-muted'>{latestRun.coverage ? `Address coverage ${latestRun.coverage.completedAddresses}/${latestRun.coverage.requestedAddresses ?? latestRun.coverage.attemptedAddresses ?? 0}` : ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(latestRun.status) ? 'Address coverage pending' : 'Coverage was not reported'}</p>{latestRun.error && <p className='mt-2 text-sm text-ui-warning'>{latestRun.error}</p>}</div> : <p className='mt-2 text-sm text-ui-muted'>{dashboardUnavailable ? 'Unavailable — Scanner data could not be loaded.' : 'No scan runs yet.'}</p>}</section>
-            </div>
-        </section>}
+        {view === 'overview' && <UvmOverview data={data} activeRunCount={activeRuns.length} openFindingCount={attentionFindings.length} criticalOrHighCount={attentionFindings.filter(finding => finding.severity === 'critical' || finding.severity === 'high').length}
+            onManageAssets={() => setView('assets')} onConfigureScanners={() => setView('scanners')} onStartAssessment={() => setView('assessments')} />}
         {view === 'assessments' && <section className='grid gap-4'><section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
             <div className='flex items-start justify-between gap-3'><h2 className='text-lg font-semibold'>New assessment</h2><UvmHelp label='Assessment engines and scope' text='Nmap inventories the selected TCP ports. Greenbone uses Full and Fast; Tenable VM runs an enabled Nessus configuration. Scanner rechecks DNS and public IP scope at launch. Results are not a complete penetration test.' /></div>
             <form onSubmit={event => void startAssessment(event)} className='mt-4 grid gap-4'>
