@@ -30,16 +30,15 @@ function HistoryFilters({ query, setQuery, status, setStatus, statusOptions, que
     </div>
 }
 
-export function UvmAssessmentHistory({ assessments, runs, unavailable, busy, nextCursor, loadOlder, onOpenReport, onCancel, onViewRun }: {
+export function UvmAssessmentHistory({ assessments, unavailable, busy, nextCursor, loadOlder, onOpenReport, onCancel, onViewRun }: {
     assessments: UvmAssessment[]
-    runs: UvmRun[]
     unavailable: boolean
     busy: string
     nextCursor: string | null
     loadOlder: (cursor: string | null) => Promise<UvmAssessmentHistoryPage>
     onOpenReport: (assessment: UvmAssessment) => void
     onCancel: (assessment: UvmAssessment) => void
-    onViewRun: (runId: string) => void
+    onViewRun: (runId: string, engine: string) => void
 }) {
     const [query, setQuery] = useState('')
     const [status, setStatus] = useState('all')
@@ -79,7 +78,7 @@ export function UvmAssessmentHistory({ assessments, runs, unavailable, busy, nex
                     <div className='mt-2 grid gap-2'>
                         {assessment.jobs.map(job => <div key={job.id} className='flex flex-wrap items-center justify-between gap-2 border-t border-ui-border pt-2 text-sm'>
                             <span>Stage {job.stageIndex + 1} · {job.asset} · {job.engine} · {job.profile}</span>
-                            <span className='flex items-center gap-2 text-xs text-ui-muted'>{job.status}{job.attemptCount > 1 ? ` · ${job.attemptCount} attempts` : ''}{job.error ? ` · ${job.error}` : ''}{job.runId && runs.some(run => run.id === job.runId) && <button type='button' onClick={() => onViewRun(job.runId!)} className='rounded border border-ui-border px-2 py-1 font-semibold text-ui-text'>View run</button>}</span>
+                            <span className='flex items-center gap-2 text-xs text-ui-muted'>{job.status}{job.attemptCount > 1 ? ` · ${job.attemptCount} attempts` : ''}{job.error ? ` · ${job.error}` : ''}{job.runId && <button type='button' onClick={() => onViewRun(job.runId!, job.engine)} className='rounded border border-ui-border px-2 py-1 font-semibold text-ui-text'>View run</button>}</span>
                         </div>)}
                     </div>
                 </details>
@@ -118,7 +117,7 @@ export function UvmRunHistory({ data, unavailable, selectedRunId, busy, nextCurs
     const [loadError, setLoadError] = useState('')
     useEffect(() => { if (!olderRuns.length) setCursor(nextCursor) }, [nextCursor, olderRuns.length])
     const needle = query.trim().toLowerCase()
-    const allRuns = [...data.runs, ...olderRuns.filter(run => !data.runs.some(current => current.id === run.id))]
+    const allRuns = [...data.runs, ...olderRuns.filter(run => !data.runs.some(current => current.id === run.id && current.engine === run.engine))]
     const filtered = allRuns.filter(run => {
         if (engine !== 'all' && run.engine !== engine) return false
         if (status !== 'all' && run.status !== status) return false
@@ -140,7 +139,7 @@ export function UvmRunHistory({ data, unavailable, selectedRunId, busy, nextCurs
             <label className='grid gap-1 text-xs text-ui-muted'>Status<select value={status} onChange={event => updateStatus(event.target.value)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text'><option value='all'>All statuses</option>{['queued', 'launching', 'running', 'exporting', 'succeeded', 'partial', 'failed', 'cancelling', 'cancelled'].map(value => <option key={value} value={value}>{value}</option>)}</select></label>
         </div>
         <div className='mt-3 grid gap-3'>
-            {pageItems.map((run, index) => <RunCard key={run.id} run={run} defaultOpen={run.id === selectedRunId || (selectedRunId === null && currentPage === 0 && index === 0)} cancelBusy={busy === `run:${run.id}`} onCancel={() => onCancel(run)} />)}
+            {pageItems.map((run, index) => <RunCard key={`${run.engine}:${run.id}`} run={run} defaultOpen={run.id === selectedRunId || (selectedRunId === null && currentPage === 0 && index === 0)} cancelBusy={busy === `run:${run.id}`} onCancel={() => onCancel(run)} />)}
             {!filtered.length && <p className='text-sm text-ui-muted'>{unavailable ? 'Scanner data is unavailable.' : allRuns.length ? 'No runs match these filters.' : 'No scanner runs yet.'}</p>}
         </div>
         <PageControls page={currentPage} pageCount={pageCount} onChange={setPage} />
@@ -148,7 +147,7 @@ export function UvmRunHistory({ data, unavailable, selectedRunId, busy, nextCurs
         {cursor && <button type='button' disabled={loadingOlder} onClick={() => {
             setLoadingOlder(true); setLoadError('')
             void loadOlder(cursor).then(result => {
-                setOlderRuns(current => [...current, ...result.runs.filter(run => !current.some(existing => existing.id === run.id))])
+                setOlderRuns(current => [...current, ...result.runs.filter(run => !current.some(existing => existing.id === run.id && existing.engine === run.engine))])
                 setCursor(result.nextCursor)
             }).catch(error => setLoadError(error instanceof Error ? error.message : 'Older scanner runs could not be loaded.'))
                 .finally(() => setLoadingOlder(false))

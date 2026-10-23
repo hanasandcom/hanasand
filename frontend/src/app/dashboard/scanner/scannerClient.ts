@@ -1,7 +1,7 @@
 'use client'
 
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
-import type { NmapScanProfile, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmRunHistoryPage } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmFindingHistoryPage, UvmRunHistoryPage } from '@/utils/monitoring/types'
 
 type UvmEngineId = 'nmap' | 'tenable-vm' | 'gvm' | 'zap'
 
@@ -18,8 +18,10 @@ export function createScannerClient(organizationId: string) {
 
     return {
         getDashboard: () => request<UvmDashboard>('/v1/uvm/dashboard'),
+        getRun: (runId: string, engine: string) => request<UvmDashboard['runs'][number]>(`/v1/uvm/runs/${encodeURIComponent(runId)}?engine=${encodeURIComponent(engine)}`),
         getRunHistory: (cursor: string | null) => request<UvmRunHistoryPage>(`/v1/uvm/runs?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
         getAssessmentHistory: (cursor: string | null) => request<UvmAssessmentHistoryPage>(`/v1/uvm/assessments?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+        getFindingHistory: (cursor: string | null) => request<UvmFindingHistoryPage>(`/v1/uvm/findings?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
         createAsset: (input: { hostname: string }) => request<{ asset: UvmDashboard['assets'][number] }>('/v1/uvm/assets', { method: 'POST', body: input }),
         verifyAsset: (assetId: string) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/verify`, { method: 'POST', body: {} }),
         saveZapApiDefinition: (assetId: string, path: string | null) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-api-definition`, { method: 'PUT', body: { path } }),

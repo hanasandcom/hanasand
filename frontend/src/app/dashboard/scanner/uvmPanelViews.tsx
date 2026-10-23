@@ -1,7 +1,8 @@
 'use client'
 
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
-import type { NmapScanProfile, UvmAsset, UvmDashboard, UvmEngineSelection, UvmFinding } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAsset, UvmDashboard, UvmEngineSelection, UvmFinding, UvmFindingHistoryPage } from '@/utils/monitoring/types'
+import { useEffect, useState } from 'react'
 import { formatDate, type UvmFindingFilters } from './uvmPanelHelpers'
 import { DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
 import { UvmHelp } from './uvmPanelHelp'
@@ -115,10 +116,16 @@ type FindingsViewProps = {
     findingUpdates: Record<string, { status: UvmFinding['status'], note: string }>
     setFindingUpdates: Dispatch<SetStateAction<Record<string, { status: UvmFinding['status'], note: string }>>>
     onUpdate: (finding: UvmFinding) => void
+    nextCursor: string | null
+    loadOlder: (cursor: string | null) => Promise<UvmFindingHistoryPage>
 }
 
 export function UvmFindingsView(props: FindingsViewProps) {
     const { data, attentionCount, busy, filters, setFilters, visibleFindings, findingUpdates, setFindingUpdates } = props
+    const [cursor, setCursor] = useState(props.nextCursor)
+    const [loadingOlder, setLoadingOlder] = useState(false)
+    const [loadError, setLoadError] = useState('')
+    useEffect(() => { setCursor(props.nextCursor) }, [props.nextCursor])
     return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
             <h2 className='text-lg font-semibold'>Findings</h2>
@@ -126,7 +133,7 @@ export function UvmFindingsView(props: FindingsViewProps) {
         </div>
         <div className='mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
             <label className='grid gap-1 text-xs text-ui-muted sm:col-span-2 xl:col-span-1'>Search findings<input aria-label='Search findings' value={filters.query} onChange={event => setFilters(current => ({ ...current, query: event.target.value }))} placeholder='Title, asset, CVE…' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text' /></label>
-            <label className='grid gap-1 text-xs text-ui-muted'>Scanner<select aria-label='Filter by scanner' value={filters.engine} onChange={event => setFilters(current => ({ ...current, engine: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='all'>All scanners</option>{[...new Set(data.findings.map(finding => finding.engine))].sort().map(engine => <option key={engine} value={engine}>{engine}</option>)}</select></label>
+            <label className='grid gap-1 text-xs text-ui-muted'>Scanner<select aria-label='Filter by scanner' value={filters.engine} onChange={event => setFilters(current => ({ ...current, engine: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='all'>All scanners</option>{data.engines.map(engine => <option key={engine.id} value={engine.id}>{engine.name}</option>)}</select></label>
             <label className='grid gap-1 text-xs text-ui-muted'>Severity<select aria-label='Filter by severity' value={filters.severity} onChange={event => setFilters(current => ({ ...current, severity: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='all'>All severities</option>{['critical', 'high', 'medium', 'low', 'info', 'unknown'].map(severity => <option key={severity} value={severity}>{severity}</option>)}</select></label>
             <label className='grid gap-1 text-xs text-ui-muted'>Status<select aria-label='Filter by status' value={filters.status} onChange={event => setFilters(current => ({ ...current, status: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='actionable'>Unresolved</option><option value='all'>All statuses</option><option value='open'>Open</option><option value='in_progress'>In progress</option><option value='pending_verification'>Pending verification</option><option value='accepted_risk'>Accepted risk</option><option value='false_positive'>False positive</option><option value='resolved'>Resolved</option></select></label>
             <label className='grid gap-1 text-xs text-ui-muted'>Asset<select aria-label='Filter by asset' value={filters.asset} onChange={event => setFilters(current => ({ ...current, asset: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='all'>All assets</option>{[...new Map(data.findings.map(finding => [finding.assetId || finding.asset, finding.asset])).entries()].sort((left, right) => left[1].localeCompare(right[1])).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
@@ -137,6 +144,13 @@ export function UvmFindingsView(props: FindingsViewProps) {
             {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : 'No findings imported. Check authorization, engine status and scan coverage before treating this as clear.'}</p>}
             {data.findings.length > 0 && !visibleFindings.length && <div className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'><p>No findings match these filters.</p><button type='button' onClick={() => setFilters({ query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold text-ui-text'>Clear filters</button></div>}
         </div>
+        {loadError && <p role='status' className='mt-3 text-sm text-ui-warning'>{loadError}</p>}
+        {cursor && <button type='button' disabled={loadingOlder} onClick={() => {
+            setLoadingOlder(true); setLoadError('')
+            void props.loadOlder(cursor).then(result => setCursor(result.nextCursor))
+                .catch(error => setLoadError(error instanceof Error ? error.message : 'Older findings could not be loaded.'))
+                .finally(() => setLoadingOlder(false))
+        }} className='mt-3 rounded-md border border-ui-border px-3 py-2 text-sm font-semibold disabled:opacity-50'>{loadingOlder ? 'Loading…' : 'Load older findings'}</button>}
     </section>
 }
 

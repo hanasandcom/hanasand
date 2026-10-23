@@ -7,13 +7,17 @@ import UvmPanel from './uvmPanel'
 import ScannerPauseNotice, { SCANNER_SERVICES_PAUSED } from './scannerPauseNotice'
 import { createScannerClient, emptyUvmDashboard } from './scannerClient'
 
+const initialScannerDashboard = SCANNER_SERVICES_PAUSED
+    ? { ...emptyUvmDashboard, scannerError: 'Scanner services are stopped pending disk expansion.' }
+    : emptyUvmDashboard
+
 export default function ScannerWorkspace() {
     const { organizationId } = useWorkspace()
     const client = useMemo(() => createScannerClient(organizationId), [organizationId])
     const organizationRef = useRef(organizationId)
     organizationRef.current = organizationId
-    const [dataState, setDataState] = useState<{ organizationId: string | null, data: UvmDashboard }>({ organizationId, data: emptyUvmDashboard })
-    const data = dataState.organizationId === organizationId ? dataState.data : emptyUvmDashboard
+    const [dataState, setDataState] = useState<{ organizationId: string | null, data: UvmDashboard }>({ organizationId, data: initialScannerDashboard })
+    const data = dataState.organizationId === organizationId ? dataState.data : initialScannerDashboard
     const setData = useCallback((next: UvmDashboard | ((current: UvmDashboard) => UvmDashboard)) => {
         const owner = organizationId
         if (organizationRef.current !== owner) return
@@ -57,8 +61,10 @@ export default function ScannerWorkspace() {
             initialData={data}
             servicesPaused={SCANNER_SERVICES_PAUSED}
             refreshAction={refresh}
+            getRunAction={client.getRun}
             getRunHistoryAction={client.getRunHistory}
             assessmentHistoryAction={client.getAssessmentHistory}
+            findingHistoryAction={client.getFindingHistory}
             createAssetAction={client.createAsset}
             verifyAssetAction={client.verifyAsset}
             saveZapApiDefinitionAction={client.saveZapApiDefinition}
