@@ -6,7 +6,6 @@ import ThemeSwitch from '@/components/theme/themeSwitch'
 import { hasAppSidebar } from '@/utils/routes/appRoutes'
 import Menu from '@/components/menu/menu'
 import Link from 'next/link'
-import BrandLogo from '@/components/brand/brandLogo'
 import SiteSearch from './siteSearch'
 import AccountMenu from './accountMenu'
 import { PublicDesktopNavigation, PublicMobileMenu } from './publicNavigation'
@@ -15,6 +14,12 @@ import SupportAssistant from '@/components/support/supportAssistant'
 import { useMobileNavigation } from '@/components/layout/mobileNavigation'
 import { isAppSurfacePath } from '@/components/layout/appSurface'
 import { readRecentUsers, rememberCurrentUser, type RecentUser } from '@/utils/auth/savedProfiles'
+import { Header as SharedHeader } from 'hanasand'
+
+const serviceLinks = [
+    { href: 'https://mail.hanasand.com', label: 'Mail' },
+    { href: 'https://cdn.hanasand.com', label: 'CDN' },
+]
 
 export default function Header({ token, id, username, path: serverPath }: { token: boolean, id: string, username: string, path: string }) {
     const mobile = useMobileNavigation()
@@ -37,26 +42,20 @@ export default function Header({ token, id, username, path: serverPath }: { toke
 
     if (isAiWorkbench) {
         return (
-            <header data-site-header className='site-chrome fixed left-0 top-0 z-1000 w-full border-b border-ui-border bg-ui-panel text-ui-text px-4 sm:px-6'>
-                <div className='mx-auto flex h-14 w-full items-center justify-between gap-3'>
-                    <BrandLogo compact={token} className='shrink-0' />
-                    <div className='flex min-w-0 items-center gap-2'>
-                        {token && <OrganizationSwitcher />}
-                        <AccountMenu token={token} id={id} username={username} pathname={pathname} recentUsers={recentUsers} />
-                    </div>
-                </div>
-            </header>
+            <div data-site-header className='site-chrome fixed left-0 top-0 z-1000 w-full border-b border-ui-border bg-ui-panel text-ui-text px-4 sm:px-6'>
+                <SharedHeader brandHref={token ? '/dashboard' : '/login'} logoSrc='/hanasand-logo-transparent.png' links={serviceLinks} className='mx-auto h-14 w-full justify-between gap-3' actions={<div className='flex min-w-0 items-center gap-2'>
+                    {token && <OrganizationSwitcher />}
+                    <AccountMenu token={token} id={id} username={username} pathname={pathname} recentUsers={recentUsers} />
+                </div>} />
+            </div>
         )
     }
 
     return (
-        <header data-site-header className='site-chrome fixed left-0 top-0 z-1000 w-full border-b border-ui-border bg-ui-panel text-ui-text px-3 sm:px-5 md:px-10 lg:px-16'>
-            <div className='mx-auto flex h-18 w-full max-w-7xl items-center justify-between gap-2 sm:gap-5'>
-                <BrandLogo compact={token} className='shrink-0' />
-
-                <PublicDesktopNavigation pricingHref={pricingHref} />
-
+        <div data-site-header className='site-chrome fixed left-0 top-0 z-1000 w-full border-b border-ui-border bg-ui-panel text-ui-text px-3 sm:px-5 md:px-10 lg:px-16'>
+            <SharedHeader brandHref={token ? '/dashboard' : '/login'} logoSrc='/hanasand-logo-transparent.png' links={serviceLinks} className='mx-auto h-18 w-full max-w-7xl justify-between gap-2 sm:gap-5' actions={
                 <div className='flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2'>
+                    <PublicDesktopNavigation pricingHref={pricingHref} />
                     {token && <OrganizationSwitcher />}
                     <SiteSearch token={token} />
                     <span className='[&_button]:w-10'><ThemeSwitch /></span>
@@ -68,8 +67,8 @@ export default function Header({ token, id, username, path: serverPath }: { toke
                     <PublicMobileMenu key={pathname} token={token} />
                     {mobile.enabled && <Menu />}
                 </div>
-            </div>
+            } />
             <SupportAssistant internal={isAppSurface} />
-        </header>
+        </div>
     )
 }

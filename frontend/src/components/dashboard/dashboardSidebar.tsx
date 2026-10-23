@@ -16,6 +16,7 @@ import { useDashboardSidebarPreferences } from './useDashboardSidebarPreferences
 import { useDashboardSidebarPreview, DashboardSidebarPreviewPanel } from './dashboardSidebarPreview'
 import { DashboardSidebarGroup, DashboardSidebarLink, PendingBadge, sectionIcons } from './dashboardSidebarMenu'
 import { DashboardSidebarHeader } from './dashboardSidebarHeader'
+import { Sidebar } from 'hanasand'
 
 const emptyThesisNavigation: ReturnType<typeof getThesisNavigation> = []
 
@@ -79,7 +80,7 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
         return <DashboardSidebarGroup key={item.label} item={item} domId={domId} activePath={activePath} preferences={preferences} communicationSummary={communicationSummary} onToggle={toggle} renderLink={renderLink} />
     }
 
-    return <aside aria-label='Dashboard sidebar' className={`site-chrome dashboard-sidebar-sticky noscroll min-h-0 w-full overflow-auto rounded-lg border border-ui-border bg-ui-panel text-ui-text p-2 shadow-sm shadow-ui-canvas/10 dark:shadow-ui-canvas/20 ${compact ? 'lg:w-16' : 'lg:w-58'}`}>
+    return <Sidebar aria-label='Dashboard sidebar' className={`site-chrome dashboard-sidebar-sticky noscroll min-h-0 w-full overflow-auto rounded-lg border border-ui-border bg-ui-panel text-ui-text p-2 shadow-sm shadow-ui-canvas/10 dark:shadow-ui-canvas/20 ${compact ? 'lg:w-16' : 'lg:w-58'}`}>
         <DashboardSidebarHeader domId={domId} route={pathname} compact={compact} hasExpandedMenu={hasExpandedMenu} searchOpen={searchOpen} setSearchOpen={setSearchOpen} query={query} setQuery={setQuery} searchButton={searchButton} onCollapseAll={() => { collapseAll(); setQuery('') }} />
         <nav aria-label='Main navigation' onMouseLeave={deferPreviewClose} className='grid gap-1'>
             {compact ? sections.map(section => {
@@ -110,5 +111,5 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
         <nav aria-label='Status shortcut' className='mt-2 grid gap-1 border-t border-ui-border pt-2 lg:hidden'>
             <Link href='/status' className='rounded-md px-2 py-2 text-sm text-ui-muted hover:bg-ui-canvas hover:text-ui-text'>Status</Link>
         </nav>
-    </aside>
+    </Sidebar>
 }

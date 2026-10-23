@@ -1,7 +1,7 @@
 [install]
 registry = "https://registry.npmjs.org"
 minimumReleaseAge = 259200
-minimumReleaseAgeExcludes = ["hanasand@1.0.4"]
+minimumReleaseAgeExcludes = ["hanasand@1.0.4", "hanasand@1.0.5"]
 
 [test]
 preload = ["./tests/setup.ts"]

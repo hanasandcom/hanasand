@@ -1,6 +1,6 @@
 {
   "name": "hanasand",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Shared Hanasand web components, hooks, and utilities",
   "type": "module",
   "files": [
@@ -31,6 +31,7 @@
       "import": "./dist/auth/loginForm.js"
     },
     "./auth.css": "./dist/auth/loginForm.css",
+    "./chrome.css": "./dist/components/chrome.css",
     "./mail": {
       "types": "./dist/mail/index.d.ts",
       "import": "./dist/mail/index.js"
@@ -39,7 +40,7 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "npm run clean && tsc -p tsconfig.build.json && cp src/styles.css dist/styles.css && mkdir -p dist/auth && cp src/auth/loginForm.css dist/auth/loginForm.css",
+    "build": "npm run clean && tsc -p tsconfig.build.json && cp src/styles.css dist/styles.css && mkdir -p dist/auth dist/components dist/assets && cp src/auth/loginForm.css dist/auth/loginForm.css && cp src/components/chrome.css dist/components/chrome.css && cp src/assets/hanasand-logo.png dist/assets/hanasand-logo.png",
     "prepack": "npm run build",
     "test": "bun test tests"
   },
