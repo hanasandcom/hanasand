@@ -7,9 +7,25 @@ services:
         HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-vm-stage}
     environment:
       LXD_PROJECT: hns-stage
+      AI_API_BASE: http://hanasand_ai_staging_api:19182
+      SUPPORT_SERVICE_KEY: ${SUPPORT_SERVICE_KEY:?staging-only support key required}
       VM_LIFECYCLE_MONITOR_ENABLED: "true"
       VM_LIFECYCLE_MONITOR_TARGET: isolated-staging
       VM_LIFECYCLE_MONITOR_SOCKET_PATH: /var/snap/lxd/common/lxd/unix.socket
       VM_LIFECYCLE_MONITOR_PROJECT: hns-stage
       VM_LIFECYCLE_MONITOR_IMAGE_SERVER: https://images.lxd.canonical.com
       VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: ubuntu/24.04/desktop
+    networks:
+      - vm-stage
+      - ai-staging
+  vm-stage-frontend:
+    environment:
+      FRONTEND_INTERNAL_AI_API: http://hanasand_ai_staging_api:19182/api
+    networks:
+      - vm-stage
+      - ai-staging
+
+networks:
+  ai-staging:
+    external: true
+    name: hanasand_ai_staging_internal

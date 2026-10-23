@@ -13,6 +13,7 @@ const internalApiUrl =
     publicApiUrl
 const internalAiApiUrl = process.env.FRONTEND_INTERNAL_AI_API ||
     (process.env.NODE_ENV === 'production' ? 'http://ai:19182/api' : publicApiUrl)
+const publicAiWebsocketUrl = process.env.NEXT_PUBLIC_AI_API_WS || ''
 const internalCdnUrl =
     process.env.FRONTEND_INTERNAL_CDN ||
     process.env.INTERNAL_CDN ||
@@ -26,7 +27,7 @@ const config = {
         support_wss: toWsUrl(process.env.NEXT_PUBLIC_SUPPORT_API || defaultSupportApiUrl).replace(/^http/, 'ws'),
         auth: process.env.FRONTEND_AUTH_API || internalApiUrl,
         api_wss: process.env.NEXT_PUBLIC_API_WS || 'wss://api.hanasand.com/api/ws',
-        api_client_wss: toWsUrl(resolveApiUrl()),
+        api_client_wss: publicAiWebsocketUrl || toWsUrl(resolveApiUrl()),
         cdn_wss: process.env.NEXT_PUBLIC_CDN_WS || toWsUrl(resolveCdnUrl()).replace(/\/api$/, '/api/ws'),
         cdn: resolveCdnUrl(),
         internal: process.env.NEXT_PUBLIC_INTERNAL_API || process.env.INTERNAL_API || internalApiUrl,

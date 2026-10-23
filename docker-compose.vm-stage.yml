@@ -81,6 +81,7 @@ services:
         FRONTEND_INTERNAL_API: http://vm-stage-api:8080/api
         NEXT_PUBLIC_API: http://127.0.0.1:8388/api
         NEXT_PUBLIC_API_WS: ws://127.0.0.1:8388/api/ws
+        NEXT_PUBLIC_AI_API_WS: ws://127.0.0.1:8389/api
     restart: unless-stopped
     environment:
       FRONTEND_INTERNAL_API: http://vm-stage-api:8080/api
