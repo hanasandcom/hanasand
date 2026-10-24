@@ -5,6 +5,10 @@ import { TestsslObservationList } from './uvmTestsslObservations'
 
 export type UvmFindingFilters = { query: string, engine: string, severity: string, status: string, asset: string }
 
+export function buildAssessmentFindingFilters(assetId: string, engine: string): UvmFindingFilters {
+    return { query: '', engine, severity: 'all', status: 'all', asset: assetId }
+}
+
 export function isNmapScanProfile(value: unknown): value is NmapScanProfile {
     return value === 'tcp-top-100' || value === 'tcp-top-1000' || value === 'tcp-top-1000-safe-vuln' || value === 'tcp-all' || value === 'udp-top-100'
 }

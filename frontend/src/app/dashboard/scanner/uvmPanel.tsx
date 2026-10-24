@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssessmentReport, UvmEngineSelection, UvmFinding, UvmRun } from '@/utils/monitoring/types'
 import type { UvmPanelProps } from './uvmPanelProps'
-import { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
+import { buildAssessmentFindingFilters, filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 import { buildUvmAssessmentEnginePlan, buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
 import { UvmAssetsView, UvmFindingsView } from './uvmPanelViews'
 import { UvmHelp } from './uvmPanelHelp'
@@ -173,7 +173,11 @@ export default function UvmPanel({
             <UvmAssessmentHistory assessments={data.assessments} unavailable={dashboardUnavailable} busy={busy} nextCursor={data.assessmentsNextCursor || null} loadOlder={assessmentHistoryAction}
                 onOpenReport={assessment => void openAssessmentReport(assessment)} onCancel={assessment => void cancelAssessment(assessment)}
                 onViewRun={(runId, engine) => void openRun(runId, engine)} />
-            {assessmentReport && <UvmAssessmentReportView assessment={assessmentReport} onClose={() => setAssessmentReport(null)} />}
+            {assessmentReport && <UvmAssessmentReportView assessment={assessmentReport} onClose={() => setAssessmentReport(null)} onOpenFindings={(assetId, engine) => {
+                setFindingFilters(buildAssessmentFindingFilters(assetId, engine))
+                setAssessmentReport(null)
+                setView('findings')
+            }} />}
             </section>}
             {view === 'findings' && <UvmFindingsView data={data} attentionCount={attentionFindingCount} busy={busy} filters={findingFilters} setFilters={setFindingFilters} visibleFindings={visibleFindings} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} nextCursor={data.findingsNextCursor || null} loadOlder={loadOlderFindings} onUpdate={finding => void updateFinding(finding)} />}
             {view === 'assets' && <UvmAssetsView data={data} servicesPaused={servicesPaused} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths} onSaveZapApiDefinition={asset => void saveZapApiDefinition(asset)} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithNaabu={asset => void scanWithNaabu(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)} onScanWithTestssl={asset => void scanWithTestssl(asset)} onScanWithNuclei={asset => void scanWithNuclei(asset)} onScanWithNikto={asset => void scanWithNikto(asset)} onScanWithSslyze={asset => void scanWithSslyze(asset)} onScanWithWapiti={asset => void scanWithWapiti(asset)} onScanWithWhatweb={asset => void scanWithWhatweb(asset)} onScanWithHttpx={asset => void scanWithHttpx(asset)} onScanWithTlsx={asset => void scanWithTlsx(asset)} onScanWithKatana={asset => void scanWithKatana(asset)} onScanWithWafw00f={asset => void scanWithWafw00f(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}

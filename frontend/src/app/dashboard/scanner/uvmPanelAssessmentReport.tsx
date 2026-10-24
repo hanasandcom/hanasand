@@ -7,7 +7,11 @@ const outcomeClass: Record<string, string> = {
     cancelled: 'text-ui-muted', skipped: 'text-ui-muted',
 }
 
-export function UvmAssessmentReportView({ assessment, onClose }: { assessment: UvmAssessmentReport, onClose: () => void }) {
+export function UvmAssessmentReportView({ assessment, onClose, onOpenFindings }: {
+    assessment: UvmAssessmentReport
+    onClose: () => void
+    onOpenFindings: (assetId: string, engine: string) => void
+}) {
     const completed = assessment.jobs.filter(job => job.status === 'succeeded').length
     const observations = assessment.jobs.reduce((total, job) => total + (job.run?.findings?.length || 0) + (job.run?.observations?.length || 0), 0)
     return <section aria-label='Assessment report' className='rounded-lg border border-ui-border bg-ui-panel p-4'>
@@ -70,7 +74,10 @@ export function UvmAssessmentReportView({ assessment, onClose }: { assessment: U
                         {job.run.coverage.truncationReasons?.length ? <span>Reasons: {job.run.coverage.truncationReasons.join(', ')}</span> : null}
                     </div>}
                     <div className='mt-3 grid gap-2'>
-                        {job.run.findings?.length ? <h4 className='border-t border-ui-border pt-2 text-xs font-semibold'>Findings · {job.run.findings.length}</h4> : null}
+                        {job.run.findings?.length ? <div className='flex items-center justify-between gap-2 border-t border-ui-border pt-2'>
+                            <h4 className='text-xs font-semibold'>Findings · {job.run.findings.length}</h4>
+                            <button type='button' onClick={() => onOpenFindings(job.assetId, job.engine)} className='rounded border border-ui-border px-2 py-1 text-xs font-semibold'>Review in triage</button>
+                        </div> : null}
                         {job.run.findings?.map(finding => <RunFinding key={finding.findingId} finding={finding} />)}
                         {!['nmap', 'testssl'].includes(job.engine) && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
                     </div>
