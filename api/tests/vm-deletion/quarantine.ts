@@ -37,7 +37,7 @@ test('preserves the disk, disables startup, and retries without extending the 30
     expect(state.removed).toBe(0)
 })
 
-test('records an already-missing instance accurately and keeps its tombstone until retention expires', async () => {
+test('handles an LXD instance-not-found response and keeps its tombstone until retention expires', async () => {
     state.instance = null
     const response = await app.inject({ method: 'DELETE', url: '/vm/cashflow', headers: { id: 'admin' }, payload: { confirmation: 'cashflow' } })
     expect(response.statusCode).toBe(200)

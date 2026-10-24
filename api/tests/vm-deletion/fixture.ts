@@ -47,7 +47,10 @@ mock.module('../../src/utils/db.ts', () => ({
     },
 }))
 mock.module('../../src/utils/vms/lxd.ts', () => ({
-    getLocalLxdInstance: async () => { if (!state.instance) throw new Error('Missing instance'); return clone(state.instance) },
+    getLocalLxdInstance: async (name: string) => {
+        if (!state.instance) throw new Error(`Failed to fetch instance "${name}" in project "default": Instance not found`)
+        return clone(state.instance)
+    },
     setLocalLxdInstanceState: async (_name: string, action: string) => {
         if (state.failAt === action) throw new Error(`Failed to ${action}`)
         if (action === 'start') state.starts++
