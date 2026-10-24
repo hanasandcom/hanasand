@@ -4,11 +4,12 @@ import { UvmAssetEngineCoverageView } from './uvmPanelCoverageView'
 import { UvmAssessmentStarter } from './uvmPanelAssessmentStarter'
 import { UvmActivityAndSchedules } from './uvmPanelActivity'
 
-export function UvmOverview({ data, servicesPaused = false, activeRunCount, openFindingCount, criticalOrHighCount, onManageAssets, onConfigureScanners, onStartAssessment, onViewRuns }: {
+export function UvmOverview({ data, servicesPaused = false, activeRunCount, openFindingCount, needsReviewCount, criticalOrHighCount, onManageAssets, onConfigureScanners, onStartAssessment, onViewRuns }: {
     data: UvmDashboard
     servicesPaused?: boolean
     activeRunCount: number
     openFindingCount: number
+    needsReviewCount: number
     criticalOrHighCount: number
     onManageAssets: () => void
     onConfigureScanners: () => void
@@ -24,9 +25,10 @@ export function UvmOverview({ data, servicesPaused = false, activeRunCount, open
 
     return <section className='grid gap-4'>
         <UvmAssessmentStarter data={data} onManageAssets={onManageAssets} onConfigureScanners={onConfigureScanners} onStartAssessment={onStartAssessment} />
-        <div className='grid gap-3 sm:grid-cols-2'>
+        <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-3'>
             <SummaryCard label='Active scans' value={unavailable ? '—' : String(activeRunCount)} detail={unavailable ? 'Unavailable' : activeRunCount ? 'Updating automatically' : 'No active jobs'} />
             <SummaryCard label='Open findings' value={unavailable ? '—' : String(openFindingCount)} detail={unavailable ? 'Unavailable' : openFindingCount ? `${criticalOrHighCount} critical or high` : 'None need triage'} />
+            <SummaryCard label='Needs review' value={unavailable ? '—' : String(needsReviewCount)} detail={unavailable ? 'Unavailable' : needsReviewCount ? 'Unvalidated scanner evidence' : 'No review items'} />
         </div>
         <UvmAssetEngineCoverageView data={data} />
         <UvmActivityAndSchedules data={data} onViewRuns={onViewRuns} onManageAssets={onManageAssets} />

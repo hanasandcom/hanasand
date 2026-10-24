@@ -22,13 +22,14 @@ export function filterAndSortUvmFindings(findings: UvmFinding[], filters: UvmFin
         ].join(' ').toLowerCase().includes(query)) return false
         if (filters.engine !== 'all' && finding.engine !== filters.engine) return false
         if (filters.severity !== 'all' && finding.severity !== filters.severity) return false
+        if (filters.status === 'needs_attention' && !['needs_review', 'open', 'in_progress', 'pending_verification'].includes(finding.status)) return false
         if (filters.status === 'actionable' && !['open', 'in_progress', 'pending_verification'].includes(finding.status)) return false
-        if (!['all', 'actionable'].includes(filters.status) && finding.status !== filters.status) return false
+        if (!['all', 'actionable', 'needs_attention'].includes(filters.status) && finding.status !== filters.status) return false
         const assetKey = finding.assetId || finding.asset
         return filters.asset === 'all' || assetKey === filters.asset
     })
     const severityRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4, unknown: 5 }
-    const statusRank: Record<UvmFinding['status'], number> = { open: 0, in_progress: 1, pending_verification: 2, accepted_risk: 3, false_positive: 4, resolved: 5 }
+    const statusRank: Record<UvmFinding['status'], number> = { needs_review: 0, open: 1, in_progress: 2, pending_verification: 3, accepted_risk: 4, false_positive: 5, resolved: 6 }
     return filtered.sort((left, right) => {
         const severityDifference = (severityRank[left.severity] ?? 5) - (severityRank[right.severity] ?? 5)
         if (severityDifference) return severityDifference

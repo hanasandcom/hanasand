@@ -46,7 +46,7 @@ export default function UvmPanel({
     const [assetNmapProfiles, setAssetNmapProfiles] = useState<Record<string, NmapScanProfile>>({})
     const [zapApiDefinitionPaths, setZapApiDefinitionPaths] = useState<Record<string, string>>({})
     const [findingUpdates, setFindingUpdates] = useState<Record<string, { status: UvmFinding['status'], note: string }>>({})
-    const [findingFilters, setFindingFilters] = useState<UvmFindingFilters>({ query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })
+    const [findingFilters, setFindingFilters] = useState<UvmFindingFilters>({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })
     const [findingScope, setFindingScope] = useState<UvmFindingHistoryScope | null>(null)
     const [findingSyncState, setFindingSyncState] = useState<UvmFindingHistoryPage['syncState']>()
     const [busy, setBusy] = useState('')
@@ -62,7 +62,9 @@ export default function UvmPanel({
     const activeRuns = data.runs.filter(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status))
     const activeAssessments = data.assessments.some(assessment => ['queued', 'running', 'cancelling'].includes(assessment.status))
     const attentionFindings = data.findings.filter(finding => !['resolved', 'false_positive', 'accepted_risk'].includes(finding.status))
-    const attentionFindingCount = data.findingSummary?.actionable ?? attentionFindings.length
+    const actionableFindingCount = data.findingSummary?.actionable ?? attentionFindings.filter(finding => finding.status !== 'needs_review').length
+    const needsReviewFindingCount = data.findingSummary?.needsReview ?? attentionFindings.filter(finding => finding.status === 'needs_review').length
+    const attentionFindingCount = actionableFindingCount + needsReviewFindingCount
     const criticalOrHighFindingCount = data.findingSummary?.criticalOrHigh ?? attentionFindings.filter(finding => finding.severity === 'critical' || finding.severity === 'high').length
     const visibleFindings = filterAndSortUvmFindings(data.findings, findingFilters)
     const refresh = useCallback(async () => {
@@ -175,7 +177,7 @@ export default function UvmPanel({
     return <div className='grid gap-4'>
         <UvmPanelNavigation view={view} setView={setView} unavailable={dashboardUnavailable} servicesPaused={servicesPaused} assessmentCount={data.assessments.length} findingCount={attentionFindingCount} />
         <fieldset disabled={dashboardUnavailable && view !== 'scanners'} className='m-0 grid min-w-0 gap-4 border-0 p-0'>
-            {view === 'overview' && <UvmOverview data={data} servicesPaused={servicesPaused} activeRunCount={activeRuns.length} openFindingCount={attentionFindingCount} criticalOrHighCount={criticalOrHighFindingCount}
+            {view === 'overview' && <UvmOverview data={data} servicesPaused={servicesPaused} activeRunCount={activeRuns.length} openFindingCount={actionableFindingCount} needsReviewCount={needsReviewFindingCount} criticalOrHighCount={criticalOrHighFindingCount}
                 onManageAssets={() => setView('assets')} onConfigureScanners={() => setView('scanners')} onStartAssessment={() => setView('assessments')} onViewRuns={() => setView('runs')} />}
             {view === 'assessments' && <section className='grid gap-4'><section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
                 <div className='flex items-start justify-between gap-3'><h2 className='text-lg font-semibold'>New assessment</h2><UvmHelp label='Assessment engines and scope' text='Nmap inventories the selected TCP ports. Greenbone uses Full and Fast; Tenable VM runs an enabled Nessus configuration. Scanner rechecks DNS and public IP scope at launch. Results are not a complete penetration test.' /></div>
