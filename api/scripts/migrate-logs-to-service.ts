@@ -14,7 +14,7 @@ const eventTailChunkBytes = 4 * 1024 ** 3
 const tailVacuumEveryBytes = 16 * 1024 ** 3
 const findingScanSize = 10_000
 const apply = process.argv.includes('--apply')
-const maxPayloadBytes = 4_000_000
+const maxPayloadBytes = 6_000_000
 const configuredMigrationFreeSpaceReserveBytes = Number(process.env.LOGS_MIGRATION_MIN_FREE_BYTES)
 const migrationFreeSpaceReserveBytes = Number.isSafeInteger(configuredMigrationFreeSpaceReserveBytes) && configuredMigrationFreeSpaceReserveBytes > 0
     ? configuredMigrationFreeSpaceReserveBytes : 24 * 1024 ** 3
