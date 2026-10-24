@@ -5,6 +5,21 @@ type StoredLogEvent = {
     organization_id: string
     event_timestamp: string | Date
     normalized: Record<string, unknown>
+    source_vendor?: string | null
+    source_product?: string | null
+    received_at?: string | Date | null
+    event_type?: string | null
+    action?: string | null
+    outcome?: string | null
+    user_id?: string | null
+    user_email?: string | null
+    source_ip?: string | null
+    source_country?: string | null
+    source_city?: string | null
+    device_id?: string | null
+    original?: unknown
+    parser_version?: string | null
+    processing_status?: string | null
 }
 
 const validLevels = new Set(['debug', 'info', 'warn', 'error', 'fatal'])
@@ -63,6 +78,21 @@ export function logMigrationEvent(row: StoredLogEvent) {
             ...(Object.keys(originalMetadataConflicts).length ? { metadata: originalMetadataConflicts } : {}),
             ...(Object.keys(originalTransportFields).length ? { transport: originalTransportFields } : {}),
         }
+    }
+
+    const sourceRecordFields = [
+        'source_vendor', 'source_product', 'received_at', 'event_type', 'action', 'outcome',
+        'user_id', 'user_email', 'source_ip', 'source_country', 'source_city', 'device_id',
+        'original', 'parser_version', 'processing_status',
+    ] as const
+    const sourceRecord = Object.fromEntries(sourceRecordFields
+        .filter(key => Object.hasOwn(row, key))
+        .map(key => [key, row[key]]))
+    if (Object.keys(sourceRecord).length) {
+        let sourceRecordKey = 'sourceHanasandRow'
+        while (Object.hasOwn(metadata, sourceRecordKey)) sourceRecordKey = `_${sourceRecordKey}`
+        metadata[sourceRecordKey] = { id: row.id, ingestion_id: 'logs', organization_id: row.organization_id,
+            event_timestamp: row.event_timestamp, ...sourceRecord }
     }
 
     return {

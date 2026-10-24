@@ -1,9 +1,23 @@
+import { createHash } from 'node:crypto'
 import run, { withTransaction } from '#db'
-import { logsOutboxEnabled, logsServiceConfiguration } from './logOutboxConfig.ts'
+import { logsOutboxEnabled, logsServiceConfiguration, logsServiceDirect } from './logOutboxConfig.ts'
 import { refreshLogsOrganizationSnapshotBatch } from './logOutboxSnapshots.ts'
 
 type OutboxLog = { id: number; payload: Record<string, unknown>; attempts: number }
 type OutboxOrganization = { organization_id: string; source_updated_at: Date | string; payload: Record<string, unknown>; attempts: number }
+
+function stableJson(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+    if (value && typeof value === 'object') {
+        const object = value as Record<string, unknown>
+        return `{${Object.keys(object).sort().map(key => `${JSON.stringify(key)}:${stableJson(object[key])}`).join(',')}}`
+    }
+    return JSON.stringify(value) ?? 'null'
+}
+
+export function logsOutboxPayloadHash(value: Record<string, unknown>) {
+    return createHash('sha256').update(stableJson(value)).digest('hex')
+}
 
 async function claimOrganizations(): Promise<OutboxOrganization[]> {
     return withTransaction(async query => (await query(`WITH selected AS (
@@ -35,9 +49,10 @@ async function deferRows(table: 'log_organization_sync_outbox' | 'log_delivery_o
     [ids.map(String), delay, `HTTP ${status}: ${error.slice(0, 200)}`])
 }
 
-async function sendRows(url: string, token: string, body: unknown) {
+async function sendRows(url: string, token: string, body: unknown, partialAck = false) {
     return fetch(url, {
-        method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json',
+            ...(partialAck ? { 'x-logs-partial-ack': 'collector-v1' } : {}) },
         body: JSON.stringify(body), signal: AbortSignal.timeout(10_000),
     })
 }
@@ -70,12 +85,66 @@ export async function deliverLogsOutboxBatch() {
     if (!events.length) return organizations.length > 0
     let response: Response
     try {
-        response = await sendRows(`${config.url}/api/ingest`, config.ingestToken, { events: events.map(row => row.payload) })
+        response = await sendRows(`${config.url}/api/ingest`, config.ingestToken, { events: events.map(row => row.payload) }, true)
     } catch {
         await deferRows('log_delivery_outbox', events.map(row => row.id), events.map(row => row.attempts), 0, 'Logs API unavailable')
         throw new Error('Logs API is unavailable; the durable outbox will retry.')
     }
-    const result = await response.json().catch(() => ({})) as { ok?: boolean; accepted?: number }
+    const result = await response.json().catch(() => ({})) as {
+        ok?: boolean; accepted?: number; deferred?: number; deferredQueueEventIds?: unknown,
+        resolvedQueueEvents?: Array<{ sourceEventId?: unknown; payloadSha256?: unknown; disposition?: unknown }>,
+    }
+    if (response.status === 202) {
+        const eventIdBySourceId = new Map<string, OutboxLog>()
+        for (const event of events) {
+            const sourceEventId = event.payload.sourceEventId
+            if (typeof sourceEventId !== 'string' || !sourceEventId || eventIdBySourceId.has(sourceEventId)) {
+                await deferRows('log_delivery_outbox', events.map(row => row.id), events.map(row => row.attempts), 202,
+                    'partial acknowledgement could not map queued event identities')
+                throw new Error('Logs partial acknowledgement could not be mapped to unique outbox events; the batch will retry.')
+            }
+            eventIdBySourceId.set(sourceEventId, event)
+        }
+
+        const resolved = result.resolvedQueueEvents
+        const deferredIds = result.deferredQueueEventIds
+        const resolvedIds = new Set<string>()
+        const deferred = new Set<string>()
+        const validResolved = Array.isArray(resolved) && resolved.every(item => {
+            if (!item || typeof item.sourceEventId !== 'string' || typeof item.payloadSha256 !== 'string'
+                || !/^[a-f0-9]{64}$/.test(item.payloadSha256)
+                || !['stored', 'dropped'].includes(String(item.disposition))
+                || resolvedIds.has(item.sourceEventId)) return false
+            const event = eventIdBySourceId.get(item.sourceEventId)
+            if (!event || logsOutboxPayloadHash(event.payload) !== item.payloadSha256) return false
+            resolvedIds.add(item.sourceEventId)
+            return true
+        })
+        const validDeferred = Array.isArray(deferredIds) && deferredIds.every(id => {
+            if (typeof id !== 'string' || !eventIdBySourceId.has(id) || deferred.has(id)) return false
+            deferred.add(id)
+            return true
+        })
+        const submittedIds = new Set(eventIdBySourceId.keys())
+        const completePartition = resolvedIds.size + deferred.size === submittedIds.size
+            && [...resolvedIds].every(id => !deferred.has(id))
+            && [...submittedIds].every(id => resolvedIds.has(id) || deferred.has(id))
+        if (!response.ok || result.ok !== true || !validResolved || !validDeferred || !completePartition
+            || result.accepted !== resolvedIds.size || result.deferred !== deferred.size || !resolvedIds.size) {
+            await deferRows('log_delivery_outbox', events.map(row => row.id), events.map(row => row.attempts), response.status,
+                'partial acknowledgement did not prove a complete batch partition')
+            throw new Error(`Logs returned an incomplete partial acknowledgement (HTTP ${response.status}); the outbox batch will retry.`)
+        }
+
+        const resolvedRows = [...resolvedIds].map(id => eventIdBySourceId.get(id)!)
+        await run('DELETE FROM log_delivery_outbox WHERE id=ANY($1::bigint[])', [resolvedRows.map(row => String(row.id))])
+        const deferredRows = [...deferred].map(id => eventIdBySourceId.get(id)!)
+        if (deferredRows.length) {
+            await deferRows('log_delivery_outbox', deferredRows.map(row => row.id), deferredRows.map(row => row.attempts), 409,
+                'conflicting event identities were deferred by Logs')
+        }
+        return true
+    }
     if (!response.ok || result.ok !== true || result.accepted !== events.length) {
         await deferRows('log_delivery_outbox', events.map(row => row.id), events.map(row => row.attempts), response.status, 'event batch was not acknowledged')
         throw new Error(`Logs event batch was not acknowledged (HTTP ${response.status}).`)
@@ -87,11 +156,11 @@ export async function deliverLogsOutboxBatch() {
     return true
 }
 
-export function startLogsOutboxDelivery(onError: (error: unknown) => void) {
+export function startLogsServiceBackgroundTasks(onError: (error: unknown) => void) {
     if (!logsOutboxEnabled()) return () => {}
     const config = logsServiceConfiguration()
     if (!config.url || !config.ingestToken || !config.syncToken) {
-        onError(new Error('Logs outbox is enabled without LOGS_SERVICE_URL, LOGS_SERVICE_INGEST_TOKEN, and LOGS_SERVICE_SYNC_TOKEN.'))
+        onError(new Error('Logs service delivery is missing its URL or required service credentials.'))
     }
     let running = false
     let snapshotRunning = false
@@ -100,16 +169,22 @@ export function startLogsOutboxDelivery(onError: (error: unknown) => void) {
         running = true
         try { await deliverLogsOutboxBatch() } catch (error) { onError(error) } finally { running = false }
     }
-    void deliver()
-    const timer = setInterval(() => { void deliver() }, 1000)
-    timer.unref()
-    const refresh = async () => {
-        if (snapshotRunning) return
-        snapshotRunning = true
-        try { await refreshLogsOrganizationSnapshotBatch() } catch (error) { onError(error) } finally { snapshotRunning = false }
+    let timer: ReturnType<typeof setInterval> | undefined
+    if (logsOutboxEnabled()) {
+        void deliver()
+        timer = setInterval(() => { void deliver() }, 1000)
+        timer.unref()
     }
-    void refresh()
-    const snapshotTimer = setInterval(() => { void refresh() }, 60_000)
-    snapshotTimer.unref()
-    return () => { clearInterval(timer); clearInterval(snapshotTimer) }
+    let snapshotTimer: ReturnType<typeof setInterval> | undefined
+    if (!logsServiceDirect()) {
+        const refresh = async () => {
+            if (snapshotRunning) return
+            snapshotRunning = true
+            try { await refreshLogsOrganizationSnapshotBatch() } catch (error) { onError(error) } finally { snapshotRunning = false }
+        }
+        void refresh()
+        snapshotTimer = setInterval(() => { void refresh() }, 60_000)
+        snapshotTimer.unref()
+    }
+    return () => { if (timer) clearInterval(timer); if (snapshotTimer) clearInterval(snapshotTimer) }
 }

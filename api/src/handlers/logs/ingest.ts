@@ -1,9 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { isTransientDatabaseError, withTransaction } from '#db'
+import run, { isTransientDatabaseError, withTransaction } from '#db'
 import { hasLogIngestToken } from '#utils/auth/logIngestToken.ts'
 export { hasLogIngestToken } from '#utils/auth/logIngestToken.ts'
 import hasInternalToken from '#utils/auth/internalToken.ts'
 import { recordLogBatch } from '#utils/logs/recordLog.ts'
+import { logsServiceDirect } from '#utils/logs/logOutboxConfig.ts'
 import config from '#constants'
 
 // Each batch holds a connection through up to 200 writes. Leave capacity for
@@ -50,11 +51,17 @@ export default async function ingestLog(req: FastifyRequest, res: FastifyReply) 
     activeBatches++
     try {
         try {
-            await withTransaction(async query => {
-                await query('SET LOCAL lock_timeout=\'1ms\'')
-                const acceptedEntries = entries
-                await recordLogBatch(acceptedEntries.map(entry => ({ ...entry, level: entry.level || 'info' })), query)
-            })
+            const acceptedEntries = entries.map(entry => ({ ...entry, level: entry.level || 'info' }))
+            if (logsServiceDirect()) {
+                // Direct delivery must not hold a Hanasand transaction open while
+                // waiting on the independent Logs API.
+                await recordLogBatch(acceptedEntries, run)
+            } else {
+                await withTransaction(async query => {
+                    await query('SET LOCAL lock_timeout=\'1ms\'')
+                    await recordLogBatch(acceptedEntries, query)
+                })
+            }
         } catch (error) {
             const code = (error as { code?: string })?.code
             if (isTransientDatabaseError(error) || code === '55P03' || code === '57014' || code === '40P01' || code === '40001' || code === 'DB_QUEUE_FULL') {

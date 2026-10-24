@@ -18,11 +18,18 @@ import { recordProfileSshKeyUsageFromEvents } from '../sshKeyUsage.ts'
 import { createHash, randomUUID } from 'node:crypto'
 import { eventRow, insertEvents } from './recordLogPersistence.ts'
 import type { LogRecordEntry, PreparedLog } from './recordLogTypes.ts'
-import { enqueueLogsForIndependentService, logsOutboxEnabled, logsOutboxRemoteOnly } from './logOutbox.ts'
+import { publishLogsToIndependentService, logsOutboxEnabled, logsOutboxRemoteOnly, logsServiceDirect } from './logOutbox.ts'
+import { normalizeApplicationLogEvent } from './logServiceProducer.ts'
 
-function requireRemoteLogsOutbox() {
-    if (logsOutboxRemoteOnly() && !logsOutboxEnabled()) {
-        throw new Error('LOGS_OUTBOX_REMOTE_ONLY requires LOGS_OUTBOX_ENABLED=1; refusing to lose application logs.')
+function requireRemoteLogsDelivery() {
+    if (logsOutboxRemoteOnly() && !logsOutboxEnabled() && !logsServiceDirect()) {
+        throw new Error('Remote-only Logs requires the durable outbox or LOGS_SERVICE_DIRECT=1; refusing to lose application logs.')
+    }
+}
+
+function requireDirectDeliveryOutsideTransaction(query: typeof run) {
+    if (logsServiceDirect() && query !== run) {
+        throw new Error('Direct Logs delivery cannot run inside a Hanasand database transaction.')
     }
 }
 
@@ -111,13 +118,20 @@ async function prepareLog({
 }
 
 export default async function recordLog(entry: LogRecordEntry, query: typeof run = run): Promise<string | undefined> {
+    if (query === run && logsServiceDirect()) {
+        const original = normalizeApplicationLogEvent({ ...preserveUnrecognizedFields(entry), sourceEventId: entry.sourceEventId || randomUUID() })
+        requireRemoteLogsDelivery()
+        await publishLogsToIndependentService([original], run)
+        return original.sourceEventId
+    }
+    requireDirectDeliveryOutsideTransaction(query)
     if (query === run) return withTransaction(async tx => {
         await tx('SET LOCAL lock_timeout=\'1ms\'')
         return recordLog(entry, tx)
     })
     const original = { ...preserveUnrecognizedFields(entry), sourceEventId: entry.sourceEventId || randomUUID() }
-    requireRemoteLogsOutbox()
-    await enqueueLogsForIndependentService([original], query)
+    requireRemoteLogsDelivery()
+    await publishLogsToIndependentService([original], query)
     // The Logs API and worker own filtering and persistence in remote-only mode.
     // The Hanasand outbox remains a temporary durable transfer queue until the
     // production pipeline is verified and historical rows have been migrated.
@@ -132,12 +146,13 @@ export default async function recordLog(entry: LogRecordEntry, query: typeof run
 // Keep analyzer decisions and the insert in the caller's transaction, while
 // ordinary collector rows share one insert instead of 100 sequential round trips.
 export async function recordLogBatch(entries: LogRecordEntry[], query: typeof run) {
+    requireDirectDeliveryOutsideTransaction(query)
     const rows: NonNullable<ReturnType<typeof eventRow>>[] = []
     const retention = new Map<string, Awaited<ReturnType<typeof loadLogRetentionRules>>>()
     const originals = entries.map(entry => ({ ...preserveUnrecognizedFields(entry),
         service: entry.service ?? process.env.SERVICE_NAME ?? 'hanasand-api', sourceEventId: entry.sourceEventId || randomUUID() }))
-    requireRemoteLogsOutbox()
-    await enqueueLogsForIndependentService(originals, query)
+    requireRemoteLogsDelivery()
+    await publishLogsToIndependentService(originals, query)
     // Avoid retaining a second processed copy in Hanasand while the durable
     // transfer outbox moves each batch to the independent Logs database.
     if (logsOutboxRemoteOnly()) return

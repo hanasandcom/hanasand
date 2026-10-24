@@ -63,3 +63,24 @@ test('migration archives metadata and transport values changed by canonical proj
         },
     })
 })
+
+test('migration retains the complete source row fields outside normalized event projection', () => {
+    const original = { input: { method: 'POST', body: { marker: 'raw-source' } } }
+    const row = {
+        id: 'row-id', organization_id: 'tenant-a', event_timestamp: '2026-10-22T12:00:00.000Z',
+        source_vendor: 'Hanasand', source_product: 'Logs', received_at: '2026-10-22T12:01:00.000Z',
+        event_type: 'http', action: 'request', outcome: 'success', user_id: 'user-1', user_email: 'user@example.test',
+        source_ip: '192.0.2.5', source_country: 'NO', source_city: 'Oslo', device_id: 'device-1', original,
+        parser_version: 'logs.v2', processing_status: 'processed',
+        normalized: { service: 'api', host: 'inspur', level: 'info', message: 'request completed', metadata: {} },
+    }
+
+    const event = logMigrationEvent(row)
+    expect(event.metadata.sourceHanasandRow).toEqual({
+        id: 'row-id', ingestion_id: 'logs', organization_id: 'tenant-a',
+        event_timestamp: '2026-10-22T12:00:00.000Z', source_vendor: 'Hanasand', source_product: 'Logs',
+        received_at: '2026-10-22T12:01:00.000Z', event_type: 'http', action: 'request', outcome: 'success',
+        user_id: 'user-1', user_email: 'user@example.test', source_ip: '192.0.2.5', source_country: 'NO',
+        source_city: 'Oslo', device_id: 'device-1', original, parser_version: 'logs.v2', processing_status: 'processed',
+    })
+})

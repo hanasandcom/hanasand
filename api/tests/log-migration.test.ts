@@ -1,13 +1,37 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from 'bun:test'
+import { createHash } from 'node:crypto'
+
+const previousMigrationReserve = process.env.LOGS_MIGRATION_MIN_FREE_BYTES
+const previousMigrationStoragePath = process.env.LOGS_MIGRATION_STORAGE_PATH
+// Migration tests use mocked database/network state; keep their filesystem guard
+// deterministic on developer machines with less than the production 24 GiB reserve.
+process.env.LOGS_MIGRATION_MIN_FREE_BYTES = '1'
+process.env.LOGS_MIGRATION_STORAGE_PATH = '/'
 
 const sourceRows = [{
     id: 'source-row-1',
+    ingestion_id: 'logs',
     organization_id: 'tenant-a',
+    source_vendor: null,
+    source_product: null,
     event_timestamp: '2026-10-20T10:00:00.000Z',
+    received_at: '2026-10-20T10:00:01.000Z',
+    event_type: null,
+    action: null,
+    outcome: null,
+    user_id: null,
+    user_email: null,
+    source_ip: null,
+    source_country: null,
+    source_city: null,
+    device_id: null,
     normalized: {
         source_event_id: 'collector-event-1', service: 'audit', host: 'inspur',
         level: 'info', message: 'process started', timestamp: '2026-10-20T10:00:00.000Z', metadata: {},
     },
+    original: null,
+    parser_version: null,
+    processing_status: null,
 }]
 const statements: Array<{ sql: string; params: unknown[] }> = []
 let sourceFindings: Array<Record<string, unknown>> = []
@@ -16,6 +40,9 @@ let sourceModelReceipts: Array<Record<string, unknown>> = []
 let sourceReadinessReceipts: Array<Record<string, unknown>> = []
 let sourceProxyReceipts: Array<Record<string, unknown>> = []
 let sourceAnalyzeReceipts: Array<Record<string, unknown>> = []
+let sourceAnalyzeReceiptBlocks = new Map<string, number>()
+let sourceAnalyzeRelationBytes = 16_384
+let sourceAnalyzeBlockSize = 8192
 let sourceArchiveRows: Array<Record<string, unknown>> = []
 let sourceThroughputSamples: Array<Record<string, unknown>> = []
 let sourceTuningSnapshots: Array<Record<string, unknown>> = []
@@ -33,8 +60,11 @@ let sourceOtherEventsRemain = false
 let sourceFindingsRemain = false
 let sourceAnalyzeReceiptsRemain = false
 let sourceSpecializedReceiptsRemain = false
+let sourceLogOutboxRemain = false
+let discoveredLogTables = ['log_analyze_receipts', 'log_dimensions']
 let fetchHandler: typeof fetch
 const previousSyncToken = process.env.LOGS_SERVICE_SYNC_TOKEN
+const previousReadinessUrl = process.env.LOGS_FRONTEND_READINESS_URL
 process.env.LOGS_SERVICE_SYNC_TOKEN = 's'.repeat(40)
 const query = async (sql: string, params: unknown[] = []) => {
     statements.push({ sql, params })
@@ -42,17 +72,29 @@ const query = async (sql: string, params: unknown[] = []) => {
         findingScanReads++
         return { rows: findingScanReads === 1 ? [{ id: 'source-row-1' }] : [] }
     }
-    if (sql.includes('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\')')) return { rows: [{ present: sourceLogsRemain }] }
+    if (sql.includes('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id') && sql.includes('\'logs\'')) return { rows: [{ present: sourceLogsRemain }] }
     if (sql === 'SELECT EXISTS(SELECT 1 FROM public.log_access_counts) AS present') return { rows: [{ present: sourceAccessCounts.length > 0 }] }
     if (sql === 'SELECT EXISTS(SELECT 1 FROM events) AS present') return { rows: [{ present: sourceOtherEventsRemain }] }
     if (sql === 'SELECT EXISTS(SELECT 1 FROM findings) AS present') return { rows: [{ present: sourceFindingsRemain }] }
     if (sql.includes('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts)')) {
         return { rows: [{ present: sourceAnalyzeReceiptsRemain || sourceSpecializedReceiptsRemain }] }
     }
-    if (sql.includes('FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace')) {
-        return { rows: [{ relname: 'log_analyze_receipts' }, { relname: 'log_dimensions' }] }
+    if (sql.includes('pg_relation_size(\'public.log_analyze_receipts\')')) {
+        return { rows: [{ bytes: sourceAnalyzeRelationBytes, block_size: sourceAnalyzeBlockSize }] }
     }
-    if (sql.includes('FROM events WHERE ingestion_id = \'logs\'')) return { rows: selectedRowsOverride ?? sourceRows }
+    if (sql.includes('FROM log_analyze_receipts') && sql.includes('ctid >=')) {
+        return { rows: sourceAnalyzeReceipts
+            .filter(row => (sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0) >= Number(params[0])
+                && (sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0) < Number(params[1]))
+            .slice(0, Number(params[2])) }
+    }
+    if (sql.includes('FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace')) {
+        return { rows: discoveredLogTables.map(relname => ({ relname })) }
+    }
+    if (sql.includes('SELECT EXISTS(SELECT 1 FROM public.log_delivery_outbox)')) return { rows: [{ present: sourceLogOutboxRemain }] }
+    if (sql.includes('FROM events WHERE ingestion_id = \'logs\'')) {
+        return { rows: selectedRowsOverride ?? sourceRows.filter(row => String(row.id) > String(params[0])).slice(0, Number(params[1])) }
+    }
     if (sql.includes('FROM findings WHERE event_ids')) return { rows: sourceFindings }
     if (sql.includes('FROM events WHERE id=ANY')) return { rows: referencedRows }
     if (sql.includes('FROM log_model_probe_receipts WHERE nonce >')) return { rows: sourceModelReceipts.filter(row => String(row.nonce) > String(params[0])).slice(0, Number(params[1])) }
@@ -177,7 +219,7 @@ mock.module('#db', () => ({
     },
 }))
 
-const { clearMigratedLogReceipts, clearMovedLogState, dropMigrationCursorIndex, ensureMigrationCursorIndex, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationPayloadHash, moveOneBatch, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
+const { assertMigrationStorageReserve, clearMigratedLogReceipts, clearMovedLogState, customerLogsReadReady, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationPayloadHash, migrationStoragePathsFromDockerInspect, moveOneBatch, resolveMigrationStoragePaths, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
 const { logMigrationEvent } = await import('../src/utils/logs/logMigrationEvent.ts')
 
 beforeEach(() => {
@@ -188,6 +230,9 @@ beforeEach(() => {
     sourceReadinessReceipts = []
     sourceProxyReceipts = []
     sourceAnalyzeReceipts = []
+    sourceAnalyzeReceiptBlocks = new Map()
+    sourceAnalyzeRelationBytes = 16_384
+    sourceAnalyzeBlockSize = 8192
     sourceArchiveRows = []
     sourceThroughputSamples = []
     sourceTuningSnapshots = []
@@ -205,6 +250,8 @@ beforeEach(() => {
     sourceFindingsRemain = false
     sourceAnalyzeReceiptsRemain = false
     sourceSpecializedReceiptsRemain = false
+    sourceLogOutboxRemain = false
+    discoveredLogTables = ['log_analyze_receipts', 'log_dimensions']
     fetchHandler = globalThis.fetch
 })
 
@@ -215,6 +262,12 @@ afterEach(() => {
 afterAll(() => {
     if (previousSyncToken === undefined) delete process.env.LOGS_SERVICE_SYNC_TOKEN
     else process.env.LOGS_SERVICE_SYNC_TOKEN = previousSyncToken
+    if (previousReadinessUrl === undefined) delete process.env.LOGS_FRONTEND_READINESS_URL
+    else process.env.LOGS_FRONTEND_READINESS_URL = previousReadinessUrl
+    if (previousMigrationReserve === undefined) delete process.env.LOGS_MIGRATION_MIN_FREE_BYTES
+    else process.env.LOGS_MIGRATION_MIN_FREE_BYTES = previousMigrationReserve
+    if (previousMigrationStoragePath === undefined) delete process.env.LOGS_MIGRATION_STORAGE_PATH
+    else process.env.LOGS_MIGRATION_STORAGE_PATH = previousMigrationStoragePath
 })
 
 test('reads the Logs-only estimate from PostgreSQL planner output and rejects malformed estimates', () => {
@@ -223,37 +276,129 @@ test('reads the Logs-only estimate from PostgreSQL planner output and rejects ma
     expect(estimatedPlanRows(null)).toBeNull()
 })
 
-test('requires an accepting Logs API and its matching healthy worker before migration', async () => {
-    const health = { ok: true, accepting: true, release: 'logs-release', worker: { ok: true, release: 'logs-release' } }
-    globalThis.fetch = (async () => new Response(JSON.stringify({ ...health, worker: { ...health.worker, ok: false } }), { status: 200 })) as typeof fetch
-    expect(await serviceReady('https://logs.hanasand.com')).toBe(false)
-
-    globalThis.fetch = (async () => new Response(JSON.stringify({ ...health, worker: { ...health.worker, release: 'older-worker' } }), { status: 200 })) as typeof fetch
-    expect(await serviceReady('https://logs.hanasand.com')).toBe(false)
-
-    globalThis.fetch = (async () => new Response(JSON.stringify(health), { status: 200 })) as typeof fetch
-    expect(await serviceReady('https://logs.hanasand.com')).toBe(true)
+test('pauses every migration batch below the filesystem reserve and reports available bytes above it', async () => {
+    const reserve = 24 * 1024 ** 3
+    const checkedPaths: string[] = []
+    await expect(assertMigrationStorageReserve(async () => 1, reserve, ['/source', '/target']))
+        .rejects.toThrow('a PostgreSQL data/WAL filesystem is below the 24 GiB reserve')
+    await expect(assertMigrationStorageReserve(async () => Number.NaN, reserve, ['/source', '/target']))
+        .rejects.toThrow('a PostgreSQL data/WAL filesystem is below the 24 GiB reserve')
+    await expect(assertMigrationStorageReserve(async storagePath => {
+        checkedPaths.push(storagePath)
+        return 32 * 1024 ** 3
+    }, reserve, ['/source', '/target']))
+        .resolves.toEqual(['/source', '/target'])
+    expect(checkedPaths).toEqual(['/source', '/target'])
 })
 
-test('builds and verifies the resumable migration cursor index outside a transaction', async () => {
-    const calls: string[] = []
-    let created = false
-    const query = async (sql: string) => {
-        calls.push(sql)
-        if (sql.includes('FROM pg_index')) return { rows: created ? [{ indisvalid: true, indisready: true,
-            definition: 'CREATE INDEX idx_events_logs_migration_cursor ON public.events USING btree (received_at, id) WHERE (ingestion_id = \'logs\'::text)' }] : [] }
-        if (sql.startsWith('CREATE INDEX CONCURRENTLY')) created = true
-        return { rows: [] }
+test('resolves both PostgreSQL data volumes and any separately mounted WAL directory', () => {
+    const paths = migrationStoragePathsFromDockerInspect([
+        { Name: '/hanasand_database', Config: { Env: [] }, Mounts: [
+            { Destination: '/var/lib/postgresql/data', Source: '/var/lib/docker/volumes/hanasand/_data' },
+            { Destination: '/var/lib/postgresql/data/pg_wal', Source: '/mnt/hanasand-wal' },
+        ] },
+        { Name: '/logs_database', Config: { Env: ['PGDATA=/var/lib/postgresql/data/pgdata'] }, Mounts: [
+            { Destination: '/var/lib/postgresql/data', Source: '/var/lib/docker/volumes/logs/_data' },
+        ] },
+    ], ['hanasand_database', 'logs_database'])
+    expect(paths).toEqual(['/var/lib/docker/volumes/hanasand/_data', '/mnt/hanasand-wal', '/var/lib/docker/volumes/logs/_data'])
+})
+
+test('inspects the configured database containers and fails closed when Docker cannot verify their mounts', () => {
+    const names = ['hanasand_database', 'logs_database']
+    const containers = [
+        { Name: '/hanasand_database', Mounts: [{ Destination: '/var/lib/postgresql/data', Source: '/docker/hanasand' }] },
+        { Name: '/logs_database', Config: { Env: ['PGDATA=/var/lib/postgresql/data/pgdata'] }, Mounts: [{ Destination: '/var/lib/postgresql/data', Source: '/docker/logs' }] },
+    ]
+    let inspectedNames: string[] = []
+    expect(resolveMigrationStoragePaths(undefined, names, values => {
+        inspectedNames = values
+        return containers
+    })).toEqual(['/docker/hanasand', '/docker/logs'])
+    expect(inspectedNames).toEqual(names)
+
+    expect(() => resolveMigrationStoragePaths(undefined, names, () => { throw new Error('docker unavailable') }))
+        .toThrow('Docker could not verify the Hanasand and Logs database volumes')
+    expect(() => resolveMigrationStoragePaths(undefined, names, () => containers.slice(0, 1)))
+        .toThrow('a PostgreSQL container could not be inspected')
+    expect(() => resolveMigrationStoragePaths(undefined, names, () => [
+        containers[0], { ...containers[1], Mounts: [] },
+    ])).toThrow('PostgreSQL data volume is not mounted at a verifiable host path')
+})
+
+test('accepts only absolute override storage paths without invoking Docker', () => {
+    const inspect = () => { throw new Error('Docker must not be called for an explicit override') }
+    expect(resolveMigrationStoragePaths('/source,/target', ['hanasand_database', 'logs_database'], inspect))
+        .toEqual(['/source', '/target'])
+    expect(() => resolveMigrationStoragePaths('relative/path', ['hanasand_database'], inspect))
+        .toThrow('LOGS_MIGRATION_STORAGE_PATH must list absolute PostgreSQL storage paths')
+})
+
+test('requires an accepting Logs API, matching healthy worker, and configured app-log HMAC key before migration', async () => {
+    const previousKey = process.env.LOGS_APPLICATION_LOG_HMAC_KEY
+    process.env.LOGS_APPLICATION_LOG_HMAC_KEY = 'synthetic-migration-signing-key-at-least-32-bytes'
+    try {
+        const expectedKeyId = createHash('sha256').update(process.env.LOGS_APPLICATION_LOG_HMAC_KEY).digest('hex').slice(0, 24)
+        const health = { ok: true, accepting: true, release: 'logs-release', applicationLogHmacReady: true, applicationLogHmacKeyId: expectedKeyId, worker: { ok: true, release: 'logs-release' } }
+        globalThis.fetch = (async () => new Response(JSON.stringify({ ...health, worker: { ...health.worker, ok: false } }), { status: 200 })) as typeof fetch
+        expect(await serviceReady('https://logs.hanasand.com')).toBe(false)
+
+        globalThis.fetch = (async () => new Response(JSON.stringify({ ...health, worker: { ...health.worker, release: 'older-worker' } }), { status: 200 })) as typeof fetch
+        expect(await serviceReady('https://logs.hanasand.com')).toBe(false)
+
+        globalThis.fetch = (async () => new Response(JSON.stringify(health), { status: 200 })) as typeof fetch
+        expect(await serviceReady('https://logs.hanasand.com')).toBe(true)
+
+        globalThis.fetch = (async () => new Response(JSON.stringify({ ...health, applicationLogHmacReady: false }), { status: 200 })) as typeof fetch
+        expect(await serviceReady('https://logs.hanasand.com')).toBe(false)
+
+        globalThis.fetch = (async () => new Response(JSON.stringify({ ...health, applicationLogHmacKeyId: '0'.repeat(24) }), { status: 200 })) as typeof fetch
+        expect(await serviceReady('https://logs.hanasand.com')).toBe(false)
+    } finally {
+        if (previousKey === undefined) delete process.env.LOGS_APPLICATION_LOG_HMAC_KEY
+        else process.env.LOGS_APPLICATION_LOG_HMAC_KEY = previousKey
     }
-    await ensureMigrationCursorIndex(query as never)
-    expect(calls.some(sql => sql.startsWith('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_logs_migration_cursor'))).toBe(true)
-    expect(calls.filter(sql => sql.includes('FROM pg_index'))).toHaveLength(2)
-    const dropQuery = async (sql: string) => { calls.push(sql); return { rows: [] } }
-    await dropMigrationCursorIndex(dropQuery as never)
-    expect(calls.at(-1)).toBe('DROP INDEX CONCURRENTLY IF EXISTS idx_events_logs_migration_cursor')
 })
 
-test('deletes source rows only after Logs acknowledges and processes every copied event', async () => {
+test('requires the public frontend read target and all direct Logs routes before migration', async () => {
+    process.env.LOGS_FRONTEND_READINESS_URL = 'https://hanasand.com/api/health'
+    const responses = [
+        new Response(JSON.stringify({ ok: true, service: 'frontend', logsReadBaseUrl: 'https://logs.hanasand.com/api' }), { status: 200 }),
+        ...Array.from({ length: 4 }, () => new Response('{}', { status: 401 })),
+    ]
+    globalThis.fetch = (async () => responses.shift()!) as typeof fetch
+
+    expect(await customerLogsReadReady('https://logs.hanasand.com')).toBe(true)
+    expect(responses).toHaveLength(0)
+})
+
+test('blocks migration when the public frontend does not route Logs reads to the target service', async () => {
+    process.env.LOGS_FRONTEND_READINESS_URL = 'https://hanasand.com/api/health'
+    let requests = 0
+    globalThis.fetch = (async () => {
+        requests++
+        return new Response(JSON.stringify({ ok: true, service: 'frontend', logsReadBaseUrl: null }), { status: 200 })
+    }) as typeof fetch
+
+    expect(await customerLogsReadReady('https://logs.hanasand.com')).toBe(false)
+    expect(requests).toBe(1)
+})
+
+test('blocks migration if any direct Logs read route is missing', async () => {
+    process.env.LOGS_FRONTEND_READINESS_URL = 'https://hanasand.com/api/health'
+    const responses = [
+        new Response(JSON.stringify({ ok: true, service: 'frontend', logsReadBaseUrl: 'https://logs.hanasand.com/api' }), { status: 200 }),
+        new Response('{}', { status: 401 }),
+        new Response('{}', { status: 401 }),
+        new Response('{}', { status: 404 }),
+        new Response('{}', { status: 401 }),
+    ]
+    globalThis.fetch = (async () => responses.shift()!) as typeof fetch
+
+    expect(await customerLogsReadReady('https://logs.hanasand.com')).toBe(false)
+})
+
+test('deletes source rows only after Logs durably stores and verifies every copied event', async () => {
     let requestBody = ''
     const payloadSha256 = migrationPayloadHash(logMigrationEvent(sourceRows[0]))
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -268,17 +413,44 @@ test('deletes source rows only after Logs acknowledges and processes every copie
         return new Response(JSON.stringify({ ok: true, statuses: [{ id: '6a9ac283dd880765ce8d983ac72fb5710b0b8fc61542ec86170f2f2aa89fb8df', status: 'processed', payloadSha256 }] }), { status: 200 })
     }) as typeof fetch
 
-    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
+    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40), 'source-row-0')
 
-    expect(result).toEqual({ moved: 1, remaining: true, retry: false })
+    expect(result).toEqual({ moved: 1, remaining: true, retry: false, cursor: 'source-row-1' })
     expect(JSON.parse(requestBody).events[0]).toMatchObject({
         sourceEventId: 'collector-event-1', metadata: { organizationId: 'tenant-a' },
     })
     const deletion = statements.find(statement => statement.sql.startsWith('DELETE FROM events'))
+    const selection = statements.find(statement => statement.sql.includes('FROM events WHERE ingestion_id = \'logs\''))
+    expect(selection?.sql).toContain('id > $1')
+    expect(selection?.sql).toContain('ORDER BY id LIMIT $2')
+    expect(selection?.sql).not.toContain('ORDER BY received_at')
+    expect(selection?.params).toEqual(['source-row-0', 200])
     expect(JSON.parse(String(deletion?.params[0]))).toEqual([{
-        id: 'source-row-1', organization_id: 'tenant-a',
-        event_timestamp: '2026-10-20T10:00:00.000Z', normalized: sourceRows[0].normalized,
+        ...sourceRows[0], event_timestamp: '2026-10-20T10:00:00.000Z',
     }])
+    for (const column of ['source_vendor', 'source_product', 'event_type', 'action', 'outcome',
+        'user_id', 'user_email', 'source_ip', 'source_country', 'source_city', 'device_id', 'original',
+        'parser_version', 'processing_status']) {
+        expect(deletion?.sql).toContain(`source.${column} IS NOT DISTINCT FROM expected.${column}`)
+    }
+    expect(deletion?.sql).toContain('source.received_at=expected.received_at')
+    expect(deletion?.sql).toContain('source.normalized=expected.normalized')
+})
+
+test('restarts a full sweep when unprocessed source rows remain behind the current cursor', async () => {
+    selectedRowsOverride = []
+    sourceLogsRemain = true
+    let remoteCalls = 0
+    globalThis.fetch = (async () => {
+        remoteCalls++
+        return new Response('{}', { status: 500 })
+    }) as typeof fetch
+
+    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40), 'source-row-z')
+
+    expect(result).toEqual({ moved: 0, remaining: true, retry: false, cursor: '' })
+    expect(remoteCalls).toBe(0)
+    expect(statements.some(statement => statement.sql.includes('id > $1') && statement.sql.includes('ORDER BY id LIMIT $2'))).toBe(true)
 })
 
 test('deletes a source row only after Logs durably acknowledges its drop-rule receipt', async () => {
@@ -295,7 +467,7 @@ test('deletes a source row only after Logs durably acknowledges its drop-rule re
 
     const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
 
-    expect(result).toEqual({ moved: 1, remaining: true, retry: false })
+    expect(result).toEqual({ moved: 1, remaining: true, retry: false, cursor: 'source-row-1' })
     expect(statusQueried).toBe(false)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
 })
@@ -404,8 +576,12 @@ test('transfers exact compressed model, readiness and general analysis receipts 
         return new Response(JSON.stringify({ ok: true, accepted: body.receipts.length }), { status: 200 })
     }) as typeof fetch
 
-    expect(await migrateAnalysisReceipts('https://logs.hanasand.com', 's'.repeat(40))).toEqual({ modelProbe: 1, readinessAudit: 1, proxy: 0, analyze: 1 })
-    expect(statements.find(statement => statement.sql.includes('FROM log_analyze_receipts WHERE key >'))?.params[1]).toBe(2000)
+    const vacuumed: string[] = []
+    expect(await migrateAnalysisReceipts('https://logs.hanasand.com', 's'.repeat(40), table => vacuumed.push(table)))
+        .toEqual({ modelProbe: 1, readinessAudit: 1, proxy: 0, analyze: 1 })
+    expect(statements.find(statement => statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))?.params)
+        .toEqual([0, 2, 2000])
+    expect(vacuumed).toEqual(['log_analyze_receipts'])
     expect(sent.map(batch => batch.kind)).toEqual(['model_probe', 'readiness_audit', 'analyze'])
     expect(sent[0]?.receipts[0]?.original_base64).toBe(Buffer.from('model proof bytes').toString('base64'))
     expect(sent[1]?.receipts[0]?.original_base64).toBe(Buffer.from('readiness chain bytes').toString('base64'))
@@ -416,6 +592,41 @@ test('transfers exact compressed model, readiness and general analysis receipts 
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_model_probe_receipts'))).toBe(true)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_readiness_audit_receipts'))).toBe(true)
     expect(statements.find(statement => statement.sql.startsWith('DELETE FROM log_analyze_receipts'))?.sql).toContain('source.rule_version=expected.rule_version')
+})
+
+test('selects descending bounded physical tail ranges and builds lock-bounded vacuum commands', async () => {
+    const { migrationTailPageRange, migrationTailVacuumArgs } = await import('../scripts/migrate-logs-to-service.ts')
+    expect(migrationTailPageRange(64 * 1024, 8192, undefined, 16 * 1024)).toEqual({ lowerBlock: 6, upperBlock: 8 })
+    expect(migrationTailPageRange(64 * 1024, 8192, 6, 16 * 1024)).toEqual({ lowerBlock: 4, upperBlock: 6 })
+    expect(migrationTailPageRange(64 * 1024, 8192, 2, 16 * 1024)).toEqual({ lowerBlock: 0, upperBlock: 2 })
+    expect(migrationTailVacuumArgs('hanasand_database', 'postgres', 'hanasand', 'log_analyze_receipts'))
+        .toContain('SET lock_timeout = \'1s\'')
+    expect(migrationTailVacuumArgs('hanasand_database', 'postgres', 'hanasand', 'log_analyze_receipts'))
+        .toContain('SET statement_timeout = \'20min\'')
+    expect(migrationTailVacuumArgs('hanasand_database', 'postgres', 'hanasand', 'log_analyze_receipts').at(-1))
+        .toBe('VACUUM (TRUNCATE) public.log_analyze_receipts')
+})
+
+test('moves receipt batches from the physical tail downward and vacuums only after range acknowledgements', async () => {
+    sourceAnalyzeRelationBytes = 32_768
+    sourceAnalyzeBlockSize = 8192
+    const oldest = { key: 'a'.repeat(64), organization_id: 'tenant-a', rule_id: 'drop.audit.v1', rule_version: 'v3', created_at: '2026-10-20T10:00:00Z' }
+    const newest = { key: 'z'.repeat(64), organization_id: 'tenant-a', rule_id: 'drop.audit.v1', rule_version: 'v4', created_at: '2026-10-20T11:00:00Z' }
+    sourceAnalyzeReceipts = [oldest, newest]
+    sourceAnalyzeReceiptBlocks.set(oldest.key, 0)
+    sourceAnalyzeReceiptBlocks.set(newest.key, 3)
+    globalThis.fetch = (async (_input, init) => {
+        const body = JSON.parse(String(init?.body)) as { receipts: Array<Record<string, unknown>> }
+        return new Response(JSON.stringify({ ok: true, accepted: body.receipts.length }), { status: 200 })
+    }) as typeof fetch
+    const vacuumed: string[] = []
+
+    expect(await migrateReceiptKind('https://logs.hanasand.com', 's'.repeat(40), 'analyze', table => vacuumed.push(table), 16_384)).toBe(2)
+
+    expect(statements.filter(statement => statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))
+        .map(statement => statement.params)).toEqual([[2, 4, 2000], [2, 4, 2000], [0, 2, 2000], [0, 2, 2000]])
+    expect(vacuumed).toEqual(['log_analyze_receipts', 'log_analyze_receipts'])
+    expect(sourceAnalyzeReceipts).toHaveLength(0)
 })
 
 test('keeps source receipt rows when Logs does not acknowledge the full batch', async () => {
@@ -437,14 +648,15 @@ test('retains analysis receipts if Logs does not acknowledge the exact batch', a
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM log_analyze_receipts'))).toBe(false)
 })
 
-test('reclaims receipt and hit-count storage only after every source receipt is gone', async () => {
+test('reclaims migrated receipts without wiping shared finding hit counts', async () => {
     const cleared = await clearMigratedLogReceipts()
 
-    expect(cleared).toEqual(['log_analyze_receipts', 'log_model_probe_receipts', 'log_readiness_audit_receipts',
-        'log_proxy_receipts', 'rule_hit_counts', 'rule_hit_count_deltas'])
+    expect(cleared).toEqual(['log_analyze_receipts', 'log_model_probe_receipts', 'log_readiness_audit_receipts', 'log_proxy_receipts'])
     expect(statements.some(statement => statement.sql.includes('LOCK TABLE findings, log_analyze_receipts, log_model_probe_receipts'))).toBe(true)
     expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE public.log_analyze_receipts'))).toBe(true)
-    expect(statements.some(statement => statement.sql.includes('SELECT organization_id,\'findings\',rule_id,count(*) FROM findings'))).toBe(true)
+    expect(statements.some(statement => statement.sql === 'DELETE FROM rule_hit_count_deltas WHERE source=\'receipts\'')).toBe(true)
+    expect(statements.some(statement => statement.sql === 'DELETE FROM rule_hit_counts WHERE source=\'receipts\'')).toBe(true)
+    expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE public.rule_hit_'))).toBe(false)
 })
 
 test('does not reclaim receipt storage while any source migration receipt remains', async () => {
@@ -617,9 +829,9 @@ test('transfers all supported analyzer counters and rolling state before deletin
 test('clears only log-owned state after the source log event set is empty and rebuilds shared hit counts', async () => {
     const cleared = await clearMovedLogState()
     expect(cleared).toEqual(['log_analyze_receipts', 'log_dimensions', 'events', 'findings'])
-    expect(statements.some(statement => statement.sql.includes('NOT (c.relname=ANY($1::text[]))'))).toBe(true)
-    expect(statements.find(statement => statement.sql.includes('NOT (c.relname=ANY($1::text[]))'))?.params[0])
-        .toEqual(['log_delivery_outbox', 'log_organization_sync_outbox', 'log_organization_sync_cursor'])
+    const catalogQuery = statements.find(statement => statement.sql.includes('FROM pg_class c JOIN pg_namespace n'))
+    expect(catalogQuery?.sql).toContain('left(c.relname,4)=\'log_\'')
+    expect(catalogQuery?.sql).not.toContain('NOT (c.relname=ANY($1::text[]))')
     const stateLocksAt = statements.findIndex(statement => statement.sql.includes('IN ACCESS EXCLUSIVE MODE NOWAIT') && statement.sql.includes('log_dimensions'))
     const firstStateCheckAt = statements.findIndex(statement => statement.sql === 'SELECT EXISTS(SELECT 1 FROM public.log_access_counts) AS present')
     expect(stateLocksAt).toBeGreaterThan(-1)
@@ -627,6 +839,31 @@ test('clears only log-owned state after the source log event set is empty and re
     expect(statements.some(statement => statement.sql === 'TRUNCATE TABLE rule_hit_count_deltas RESTART IDENTITY')).toBe(true)
     expect(statements.some(statement => statement.sql.includes('SELECT organization_id,\'findings\',rule_id,count(*) FROM findings'))).toBe(true)
     expect(statements.some(statement => statement.sql.startsWith('INSERT INTO rule_hit_count_deltas'))).toBe(false)
+})
+
+test('refuses cleanup when Hanasand has an unrecognized log-prefixed relation', async () => {
+    discoveredLogTables = ['log_untracked_future_table']
+
+    await expect(clearMovedLogState()).rejects.toThrow('Unknown Hanasand Logs relation(s)')
+    expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE'))).toBe(false)
+})
+
+test('refuses final cleanup while the transfer outbox still contains rows', async () => {
+    discoveredLogTables = ['log_analyze_receipts', 'log_delivery_outbox', 'log_dimensions']
+    sourceLogOutboxRemain = true
+
+    await expect(clearMovedLogState()).rejects.toThrow('transfer outbox still has rows')
+    expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE'))).toBe(false)
+})
+
+test('reclaims acknowledged organization snapshots from the migration outbox', async () => {
+    discoveredLogTables = ['log_organization_sync_outbox', 'log_dimensions']
+
+    const cleared = await clearMovedLogState()
+
+    expect(cleared).toContain('log_organization_sync_outbox')
+    expect(statements.some(statement => statement.sql.includes('log_organization_sync_outbox WHERE delivered_at IS NULL'))).toBe(true)
+    expect(statements.some(statement => statement.sql.startsWith('TRUNCATE TABLE') && statement.sql.includes('public.log_organization_sync_outbox'))).toBe(true)
 })
 
 test('preserves unrelated events and findings while clearing empty Logs tables', async () => {
@@ -675,14 +912,22 @@ test('retains source rows when Logs is busy and asks the caller to retry', async
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
 })
 
-test('retains source rows when Logs accepts but has not processed the batch', async () => {
-    globalThis.fetch = (async (input: RequestInfo | URL) => String(input).endsWith('/api/ingest')
-        ? new Response(JSON.stringify({ ok: true, accepted: 1 }), { status: 201 })
-        : new Response(JSON.stringify({ ok: true, statuses: [{ id: '6a9ac283dd880765ce8d983ac72fb5710b0b8fc61542ec86170f2f2aa89fb8df', status: 'missing' }] }), { status: 200 })) as typeof fetch
+test('moves a durably stored pending row without waiting for the Logs worker', async () => {
+    const payloadSha256 = migrationPayloadHash(logMigrationEvent(sourceRows[0]))
+    let migrationStatusCalls = 0
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+        if (String(input).endsWith('/api/ingest')) return new Response(JSON.stringify({ ok: true, accepted: 1 }), { status: 201 })
+        migrationStatusCalls++
+        return new Response(JSON.stringify({ ok: true, statuses: [{
+            id: '6a9ac283dd880765ce8d983ac72fb5710b0b8fc61542ec86170f2f2aa89fb8df', status: 'pending', payloadSha256,
+        }] }), { status: 200 })
+    }) as typeof fetch
 
-    await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
-        .rejects.toThrow('unverified event state (missing)')
-    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
+    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
+
+    expect(result).toEqual({ moved: 1, remaining: true, retry: false, cursor: 'source-row-1' })
+    expect(migrationStatusCalls).toBe(1)
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
 })
 
 test('retains source rows when the acknowledgement count is incomplete', async () => {

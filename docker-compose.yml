@@ -47,7 +47,7 @@ services:
       FRONTEND_AUTH_API: ${FRONTEND_AUTH_API:-https://api.hanasand.com/api}
       FRONTEND_IDENTITY_API: ${FRONTEND_IDENTITY_API:-http://identity:8081/api}
       FRONTEND_INTERNAL_API: ${FRONTEND_INTERNAL_API:-http://api:8080/api}
-      FRONTEND_LOGS_API_URL: ${FRONTEND_LOGS_API_URL:-}
+      FRONTEND_LOGS_API_URL: ${FRONTEND_LOGS_API_URL:-https://logs.hanasand.com/api}
       FRONTEND_INTERNAL_AI_API: ${FRONTEND_INTERNAL_AI_API:-http://ai:19182/api}
       TI_SCRAPER_API_BASE: ${TI_SCRAPER_API_BASE:-http://ti-scraper:8097}
       MAIL_JMAP_INTERNAL_URL: ${MAIL_JMAP_INTERNAL_URL:-http://stalwart:8080}
