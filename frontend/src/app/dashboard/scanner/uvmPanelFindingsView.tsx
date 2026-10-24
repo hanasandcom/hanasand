@@ -34,7 +34,7 @@ export function UvmFindingsView(props: FindingsViewProps) {
     return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
             <h2 className='text-lg font-semibold'>Findings</h2>
-            <div className='flex items-center gap-2'><UvmHelp label='Finding coverage' text='Findings retain their source, asset and evidence. An empty list does not mean an asset is clear if a scan is missing or partial.' /><span className='rounded-full bg-ui-warning/15 px-2 py-1 text-xs font-semibold text-ui-warning'>{attentionCount} open</span></div>
+            <div className='flex items-center gap-2'><UvmHelp label='Finding coverage' text='Findings retain their source, asset and evidence. An empty list does not mean an asset is clear if a scan is missing or partial.' /><span className='rounded-full bg-ui-warning/15 px-2 py-1 text-xs font-semibold text-ui-warning'>{attentionCount} open{props.scoped ? ' loaded' : ''}</span></div>
         </div>
         {props.scoped && <div role='status' className='mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-ui-border bg-ui-raised p-3 text-sm'>
             <p className='text-ui-muted'>{props.syncState === 'pending' ? 'Scanner is indexing this assessment’s findings. Check again shortly.'
