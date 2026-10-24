@@ -19,7 +19,7 @@ test('AI workspace can create a project and run a terminal command against the a
     await page.getByRole('button', { name: 'Send' }).click()
 
     await expect(page.getByText('Preparing a remote project and verifying it from the share terminal.')).toBeVisible()
-    await expect(page.getByText(/Created project workspace for Northstar Admin/).first()).toBeVisible()
+    await expect(page.getByText(/Created project repository for Northstar Admin/).first()).toBeVisible()
     await expect(page.getByText(/Ran terminal command on share/).first()).toBeVisible()
     await expect(page.getByText('/workspace/northstar-admin').first()).toBeVisible()
 
@@ -48,7 +48,7 @@ test('AI workspace can scaffold a Next.js and Docker starter directly into the a
     await page.getByRole('button', { name: 'Send' }).click()
 
     await expect(page.getByText('Scaffolding a Docker-ready starter directly in the attached workspace.')).toBeVisible()
-    await expect(page.getByText(/Scaffolded a Next\.js \+ Docker workspace for Moonbase Console/).first()).toBeVisible()
+    await expect(page.getByText(/Scaffolded a Next\.js \+ Docker repository for Moonbase Console/).first()).toBeVisible()
 
     const rootEntry = [...shareState.values()].find((entry) => entry.type === 'folder' && entry.parent === '')
     expect(rootEntry).toBeTruthy()

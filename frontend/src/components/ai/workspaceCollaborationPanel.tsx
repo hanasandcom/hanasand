@@ -36,12 +36,12 @@ export function WorkspaceCollaborationPanel({ activeConversation, currentUserId,
                 <>
                     <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,6.5rem)] gap-2'>
                         <input id='collaborator-user-id' aria-label='Collaborator user ID' value={collaboratorUserId} onChange={(event) => setCollaboratorUserId(event.target.value)} placeholder='user id' className='h-11 min-w-0 rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
-                        <div className='relative min-w-0'>
-                            <select aria-label='Collaborator role' value={collaboratorRole} onChange={(event) => setCollaboratorRole(event.target.value === 'reviewer' ? 'reviewer' : 'editor')} className='h-11 w-full min-w-0 appearance-none rounded-lg bg-ui-panel py-2 pl-3 pr-8 text-sm text-ui-text outline outline-ui-border'>
+                        <div className='relative min-w-0 overflow-hidden rounded-lg'>
+                            <select aria-label='Collaborator role' value={collaboratorRole} onChange={(event) => setCollaboratorRole(event.target.value === 'reviewer' ? 'reviewer' : 'editor')} className='block h-11 w-full max-w-full min-w-0 truncate appearance-none rounded-lg bg-ui-panel py-2 pl-3 pr-9 text-sm text-ui-text outline outline-ui-border'>
                                 <option value='editor'>Editor</option>
                                 <option value='reviewer'>Reviewer</option>
                             </select>
-                            <ChevronDown aria-hidden='true' className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' />
+                            <ChevronDown aria-hidden='true' className='pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' />
                         </div>
                     </div>
                     <button

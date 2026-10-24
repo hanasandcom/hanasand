@@ -26,7 +26,7 @@ export async function ensureWorkspaceRoot({
         ? await ensureExistingRoot({ rootId, template, token, userId })
         : await createWorkspaceRoot({ rootId, template, token, userId })
 
-    if (!root) throw new Error('Failed to create the Next.js workspace root.')
+    if (!root) throw new Error('Failed to create the Next.js repository.')
     if (existingShare) await updateShare(rootId, { path: template.rootPath })
 }
 

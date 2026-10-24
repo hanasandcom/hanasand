@@ -1,11 +1,11 @@
 export function expectedToolCompletionText(content: string): string | null {
     if (content.includes('"action":"scaffold_nextjs_docker"')) {
         const projectName = content.match(/"projectName":"([^"]+)"/)?.[1]
-        return projectName ? `Scaffolded a Next.js + Docker workspace for ${projectName}. The workspace is attached and ready for follow-up edits.` : null
+        return projectName ? `Scaffolded a Next.js + Docker repository for ${projectName}. It is attached and ready for follow-up edits.` : null
     }
     if (content.includes('"action":"create_project"')) {
         const projectName = content.match(/"projectName":"([^"]+)"/)?.[1]
-        return projectName ? `Created project workspace for ${projectName}` : null
+        return projectName ? `Created project repository for ${projectName}` : null
     }
     if (content.includes('"action":"run_terminal_command"')) {
         const command = content.match(/"command":"([^"]+)"/)?.[1]

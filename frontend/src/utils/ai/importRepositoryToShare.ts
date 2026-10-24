@@ -30,7 +30,7 @@ export async function importRepositoryToShare({
         userId,
     })
     if (!root) {
-        throw new Error('Failed to create the repository workspace.')
+        throw new Error('Failed to create the repository files.')
     }
 
     const folderIds = new Map<string, string>([['', repo.id]])

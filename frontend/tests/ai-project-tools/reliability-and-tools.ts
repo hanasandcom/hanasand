@@ -181,7 +181,7 @@ test('AI website workbench handles terminal-contrast and blocked-state stories',
     }).__lastAiPromptRequest)
     const systemPrompt = lastPromptRequest?.messages?.find((message) => message.role === 'system')?.content || ''
     expect(systemPrompt).toContain('Keep visible replies compact')
-    expect(systemPrompt).toContain('Do not run terminal, read_share, or update_share tools before a workspace is attached')
+    expect(systemPrompt).toContain('Do not run terminal, read_share, or update_share tools before a repository is attached')
 
     await context.close()
 })

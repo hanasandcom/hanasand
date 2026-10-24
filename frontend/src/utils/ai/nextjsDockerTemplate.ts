@@ -9,6 +9,29 @@ export type NextjsDockerTemplate = {
     files: WorkspaceTemplateFile[]
 }
 
+const appRouteModule = /^(?:src\/)?app\/(.*\/)?(page|layout|template|default|error|not-found|loading|global-error|route)\.(?:js|jsx|ts|tsx)$/
+
+export function mergeNextjsDockerProjectFiles(templateFiles: WorkspaceTemplateFile[], projectFiles: WorkspaceTemplateFile[]) {
+    const projectRoutes = new Set(projectFiles.flatMap(file => {
+        const match = file.path.match(appRouteModule)
+        return match ? [`${match[1] || ''}${match[2]}`] : []
+    }))
+    const merged = templateFiles
+        .filter(file => {
+            const match = file.path.match(appRouteModule)
+            return !match || !projectRoutes.has(`${match[1] || ''}${match[2]}`)
+        })
+        .map(file => ({ ...file, content: projectFiles.find(candidate => candidate.path === file.path)?.content ?? file.content }))
+    const knownPaths = new Set(merged.map(file => file.path))
+    for (const file of projectFiles) {
+        if (!knownPaths.has(file.path)) {
+            merged.push(file)
+            knownPaths.add(file.path)
+        }
+    }
+    return merged
+}
+
 export function buildNextjsDockerTemplate(projectName?: string | null) {
     const rootName = slugify(projectName || 'hanasand-next-docker')
     const packageName = rootName
@@ -50,7 +73,7 @@ export function buildNextjsDockerTemplate(projectName?: string | null) {
                     compilerOptions: {
                         target: 'ES2017',
                         lib: ['dom', 'dom.iterable', 'esnext'],
-                        allowJs: false,
+                        allowJs: true,
                         skipLibCheck: true,
                         strict: true,
                         noEmit: true,
@@ -95,15 +118,15 @@ export function buildNextjsDockerTemplate(projectName?: string | null) {
                 content: 'services:\n  web:\n    build:\n      context: .\n      dockerfile: Dockerfile\n    ports:\n      - "${HOST_PORT:-3000}:3000"\n    environment:\n      NODE_ENV: production\n    restart: unless-stopped\n',
             },
             {
-                path: 'app/layout.tsx',
-                content: `import './globals.css'\nimport type { Metadata } from 'next'\nimport type { ReactNode } from 'react'\n\nexport const metadata: Metadata = {\n  title: '${titleCase(rootName)}',\n  description: 'A Next.js workspace scaffolded by Hanasand AI.',\n}\n\nexport default function RootLayout({ children }: { children: ReactNode }) {\n  return (\n    <html lang="en">\n      <body>{children}</body>\n    </html>\n  )\n}\n`,
+                path: 'src/app/layout.tsx',
+                content: `import './globals.css'\nimport type { Metadata } from 'next'\nimport type { ReactNode } from 'react'\n\nexport const metadata: Metadata = {\n  title: '${titleCase(rootName)}',\n  description: 'A Next.js repository scaffolded by Hanasand AI.',\n}\n\nexport default function RootLayout({ children }: { children: ReactNode }) {\n  return (\n    <html lang="en">\n      <body>{children}</body>\n    </html>\n  )\n}\n`,
             },
             {
-                path: 'app/page.tsx',
-                content: `const features = [\n  'Next.js App Router with TypeScript',\n  'Standalone Docker image build',\n  'docker-compose ready for local orchestration',\n]\n\nexport default function HomePage() {\n  return (\n    <main className="page-shell">\n      <section className="hero-card">\n        <span className="eyebrow">Hanasand AI Workspace</span>\n        <h1>${titleCase(rootName)}</h1>\n        <p>\n          This starter is ready for npm install, local development, and Docker-based deployment.\n          Use it as a base for a richer product app, admin dashboard, or full-stack workflow.\n        </p>\n        <div className="actions">\n          <a className="primary" href="https://nextjs.org/docs">Read the docs</a>\n          <a className="secondary" href="#stack">Inspect the stack</a>\n        </div>\n      </section>\n\n      <section id="stack" className="stack-grid">\n        {features.map((feature) => (\n          <article key={feature} className="stack-card">\n            <h2>{feature}</h2>\n            <p>Extend this workspace from the browser, then deploy it through the same share-backed flow.</p>\n          </article>\n        ))}\n      </section>\n    </main>\n  )\n}\n`,
+                path: 'src/app/page.tsx',
+                content: `const features = [\n  'Next.js App Router with TypeScript',\n  'Standalone Docker image build',\n  'docker-compose ready for local orchestration',\n]\n\nexport default function HomePage() {\n  return (\n    <main className="page-shell">\n      <section className="hero-card">\n        <span className="eyebrow">Hanasand AI Repository</span>\n        <h1>${titleCase(rootName)}</h1>\n        <p>\n          This starter is ready for npm install, local development, and Docker-based deployment.\n          Use it as a base for a richer product app, admin dashboard, or full-stack workflow.\n        </p>\n        <div className="actions">\n          <a className="primary" href="https://nextjs.org/docs">Read the docs</a>\n          <a className="secondary" href="#stack">Inspect the stack</a>\n        </div>\n      </section>\n\n      <section id="stack" className="stack-grid">\n        {features.map((feature) => (\n          <article key={feature} className="stack-card">\n            <h2>{feature}</h2>\n            <p>Extend this repository from the browser, then deploy it through the same share-backed flow.</p>\n          </article>\n        ))}\n      </section>\n    </main>\n  )\n}\n`,
             },
             {
-                path: 'app/globals.css',
+                path: 'src/app/globals.css',
                 content: ':root {\n  color-scheme: dark;\n  --bg: #07111f;\n  --panel: rgba(10, 23, 39, 0.78);\n  --panel-border: rgba(148, 163, 184, 0.2);\n  --text: #f8fafc;\n  --muted: rgba(226, 232, 240, 0.72);\n  --accent: #f97316;\n  --accent-soft: rgba(249, 115, 22, 0.2);\n}\n\n* {\n  box-sizing: border-box;\n}\n\nhtml,\nbody {\n  margin: 0;\n  min-height: 100%;\n  background:\n    radial-gradient(circle at top, rgba(249, 115, 22, 0.24), transparent 32%),\n    linear-gradient(180deg, #08101c 0%, #07111f 48%, #030712 100%);\n  color: var(--text);\n  font-family: Georgia, \'Times New Roman\', serif;\n}\n\nbody {\n  min-height: 100vh;\n}\n\n a {\n  color: inherit;\n  text-decoration: none;\n}\n\n.page-shell {\n  min-height: 100vh;\n  padding: 48px 20px;\n}\n\n.hero-card,\n.stack-card {\n  backdrop-filter: blur(18px);\n  background: var(--panel);\n  border: 1px solid var(--panel-border);\n  border-radius: 28px;\n  box-shadow: 0 30px 90px rgba(2, 8, 23, 0.38);\n}\n\n.hero-card {\n  max-width: 960px;\n  margin: 0 auto;\n  padding: 32px;\n}\n\n.eyebrow {\n  display: inline-flex;\n  margin-bottom: 16px;\n  padding: 8px 12px;\n  border-radius: 999px;\n  background: var(--accent-soft);\n  color: #fed7aa;\n  font-size: 12px;\n  letter-spacing: 0.16em;\n  text-transform: uppercase;\n}\n\n.hero-card h1 {\n  margin: 0;\n  font-size: clamp(2.5rem, 8vw, 5rem);\n  line-height: 0.96;\n}\n\n.hero-card p {\n  max-width: 42rem;\n  color: var(--muted);\n  font-size: 1.05rem;\n  line-height: 1.8;\n}\n\n.actions {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 14px;\n  margin-top: 28px;\n}\n\n.primary,\n.secondary {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-height: 46px;\n  padding: 0 18px;\n  border-radius: 999px;\n  font-weight: 600;\n}\n\n.primary {\n  background: var(--accent);\n  color: #111827;\n}\n\n.secondary {\n  border: 1px solid rgba(248, 250, 252, 0.14);\n  color: var(--text);\n}\n\n.stack-grid {\n  display: grid;\n  gap: 18px;\n  max-width: 960px;\n  margin: 24px auto 0;\n}\n\n.stack-card {\n  padding: 22px;\n}\n\n.stack-card h2 {\n  margin: 0 0 10px;\n  font-size: 1.1rem;\n}\n\n.stack-card p {\n  margin: 0;\n  color: var(--muted);\n  line-height: 1.7;\n}\n\n@media (min-width: 820px) {\n  .stack-grid {\n    grid-template-columns: repeat(3, minmax(0, 1fr));\n  }\n\n  .hero-card {\n    padding: 44px;\n  }\n}\n',
             },
             {
@@ -112,7 +135,7 @@ export function buildNextjsDockerTemplate(projectName?: string | null) {
             },
             {
                 path: 'README.md',
-                content: `# ${titleCase(rootName)}\n\nScaffolded by Hanasand AI as a browser-native coding workspace.\n\n## Quick start\n\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n\nOpen [http://localhost:3000](http://localhost:3000).\n\n## Docker\n\n\`\`\`bash\nHOST_PORT=3200 docker compose up --build\n\`\`\`\n\n## What is included\n\n- Next.js App Router with TypeScript\n- Production-ready standalone Dockerfile\n- \`docker-compose.yml\` for local orchestration\n- A polished landing page starter for further iteration\n`,
+                content: `# ${titleCase(rootName)}\n\nScaffolded by Hanasand AI as a browser-native code repository.\n\n## Quick start\n\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n\nOpen [http://localhost:3000](http://localhost:3000).\n\n## Docker\n\n\`\`\`bash\nHOST_PORT=3200 docker compose up --build\n\`\`\`\n\n## What is included\n\n- Next.js App Router with TypeScript\n- Production-ready standalone Dockerfile\n- \`docker-compose.yml\` for local orchestration\n- A polished landing page starter for further iteration\n`,
             },
         ] satisfies WorkspaceTemplateFile[],
     }

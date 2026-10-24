@@ -58,7 +58,7 @@ test('AI website workbench handles stricter ambiguous product-building stories w
         promptResponses: stories.map(([match, content]) => ({ match, content })),
     })
 
-    await expect(page.getByText('No workspace attached')).toBeVisible()
+    await expect(page.getByText('No repository is attached yet.')).toBeVisible()
     await expect(page.getByText('Review handoff', { exact: true })).toBeVisible()
     await expect(page.getByText('Release history', { exact: true })).toBeVisible()
     await expect(page.getByText('Create Next.js + Docker workspace')).toBeVisible()
@@ -85,7 +85,7 @@ test('AI website workbench handles stricter ambiguous product-building stories w
     expect(systemPrompt).toContain('Keep visible replies compact')
     expect(systemPrompt).toContain('scaffold or attach workspace -> implement files -> run a focused terminal check -> verify UI in browser')
 
-    await expect(page.getByText(/Scaffolded a Next\.js \+ Docker workspace/).first()).toBeVisible()
+    await expect(page.getByText(/Scaffolded a Next\.js \+ Docker repository/).first()).toBeVisible()
     await expect(page.getByText(/Ran terminal command on share/).first()).toBeVisible()
     await expect(page.getByText(/HTTP GET https:\/\/example\.com/).first()).toBeVisible()
     await expect(page.getByText('I cannot connect to or mutate production data from a vague prompt.')).toBeVisible()
@@ -154,7 +154,7 @@ test('AI website workbench handles accessibility, messy scope, and evidence pres
     await page.getByRole('button', { name: 'Hide repository details' }).click()
     await expect(page.getByRole('button', { name: 'Show repository details' })).toBeVisible()
     await page.getByRole('button', { name: 'Show repository details' }).click()
-    await expect(page.getByText('No workspace attached')).toBeVisible()
+    await expect(page.getByText('No repository is attached yet.')).toBeVisible()
 
     for (const [index, prompt] of prompts.entries()) {
         await test.step(`story ${941 + index}`, async () => {
@@ -178,7 +178,7 @@ test('AI website workbench handles accessibility, messy scope, and evidence pres
         __lastAiPromptRequest?: { messages?: { role: string, content: string }[] }
     }).__lastAiPromptRequest)
     const systemPrompt = lastPromptRequest?.messages?.find((message) => message.role === 'system')?.content || ''
-    expect(systemPrompt).toContain('Do not run terminal, read_share, or update_share tools before a workspace is attached')
+    expect(systemPrompt).toContain('Do not run terminal, read_share, or update_share tools before a repository is attached')
 
     await context.close()
 })

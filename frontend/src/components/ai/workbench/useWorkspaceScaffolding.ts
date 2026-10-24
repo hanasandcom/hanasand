@@ -21,7 +21,7 @@ export function useWorkspaceScaffolding(
         const token = getCookie('access_token')
         const userId = getCookie('id')
         if (!token || !userId) {
-            setStatusNotice('Sign in to scaffold a workspace.')
+            setStatusNotice('Sign in to create a repository.')
             return
         }
 

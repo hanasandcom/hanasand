@@ -26,7 +26,7 @@ export async function createAiWorkspacePage({ browser, baseURL, promptCompleteCo
     await installShareRoutes(page, shareState, treeChildren)
     await page.goto('/ai')
     await expect(page.getByPlaceholder('Ask Hanasand AI to build, inspect, debug, scaffold, or ship something...')).toBeVisible()
-    await expect(page.getByText('No workspace attached')).toBeVisible()
+    await expect(page.getByText('No repository is attached yet.')).toBeVisible()
     await expect(page.getByText('Starter', { exact: true })).toBeVisible()
     await expect(page.getByText('Deploy', { exact: true })).toBeVisible()
     if (modelConnected) {

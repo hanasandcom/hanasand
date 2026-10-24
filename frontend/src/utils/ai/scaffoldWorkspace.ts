@@ -1,7 +1,7 @@
 'use client'
 
 import randomId from '@/utils/random/randomId'
-import { buildNextjsDockerTemplate } from './nextjsDockerTemplate'
+import { buildNextjsDockerTemplate, mergeNextjsDockerProjectFiles } from './nextjsDockerTemplate'
 import { ensureWorkspaceRoot, syncTemplateFiles } from './scaffoldWorkspaceShare'
 
 type ScaffoldNextjsDockerWorkspaceProps = {
@@ -29,18 +29,7 @@ export async function scaffoldNextjsDockerWorkspace({
     projectFiles,
 }: ScaffoldNextjsDockerWorkspaceProps): Promise<ScaffoldedWorkspace> {
     const template = buildNextjsDockerTemplate(projectName)
-    if (projectFiles?.length) {
-        const overrides = new Map(projectFiles.map((file) => [file.path, file.content]))
-        const files = template.files.map((file) => ({ ...file, content: overrides.get(file.path) ?? file.content }))
-        const knownPaths = new Set(files.map((file) => file.path))
-        for (const file of projectFiles) {
-            if (!knownPaths.has(file.path)) {
-                files.push(file)
-                knownPaths.add(file.path)
-            }
-        }
-        template.files = files
-    }
+    if (projectFiles?.length) template.files = mergeNextjsDockerProjectFiles(template.files, projectFiles)
     const rootId = shareId || randomId(12)
 
     await ensureWorkspaceRoot({

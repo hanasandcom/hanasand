@@ -45,7 +45,7 @@ export function buildDeployProfile({
     activeConversation: AIConversation | null
     envPlaceholders: string[]
 }) {
-    const service = sanitizeLabel(activeRepo?.name || activeConversation?.title || 'workspace')
+    const service = sanitizeLabel(activeRepo?.name || activeConversation?.title || 'repository')
     const domain = environment === 'production'
         ? `${service}.hanasand.com`
         : `${service}.staging.hanasand.com`
@@ -74,5 +74,5 @@ function sanitizeLabel(value: string) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
-        .slice(0, 40) || 'workspace'
+        .slice(0, 40) || 'repository'
 }

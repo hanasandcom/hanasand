@@ -24,7 +24,7 @@ export function buildFallbackTrust(release: AIRelease | null): AIReleaseTrust | 
         exports: {
             zipAvailable: true,
             githubAvailable: true,
-            zipLabel: 'Export project as zip from workspace files.',
+            zipLabel: 'Export repository files as a zip archive.',
             githubLabel: 'Push or mirror the project to GitHub.',
         },
         launchReport: [
@@ -46,7 +46,7 @@ export function buildFallbackTrust(release: AIRelease | null): AIReleaseTrust | 
         sla: [
             { tier: 'Starter', promise: 'Background review, basic launch history, and recoverable report records.' },
             { tier: 'Pro', promise: 'Priority verification, rollback target selection, and support bundles.' },
-            { tier: 'Agency', promise: 'Client reports and multi-workspace history.' },
+            { tier: 'Agency', promise: 'Client reports and repository history.' },
             { tier: 'Business', promise: 'Audit logs, approvals, scoped secrets, release details, and SSO later.' },
         ],
     }
