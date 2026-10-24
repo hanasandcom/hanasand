@@ -149,7 +149,7 @@ export function ChatConversationRow({
                 aria-current={active ? 'page' : undefined}
                 aria-keyshortcuts='Shift+F10 Meta+Alt+R Control+Alt+R Meta+Alt+P Control+Alt+P Shift+Meta+U Shift+Control+U Shift+Meta+A Shift+Control+A'
                 aria-describedby={tooltip ? `chat-title-tooltip-${conversation.id}` : undefined}
-                aria-label={`${title}. ${organization ? `${organization}. ` : ''}Right-click or press Shift+F10 for chat actions.`}
+                aria-label={`${title}. ${repositoryName ? `${repositoryName}. ` : ''}${branch ? `Branch: ${branch}. ` : ''}${organization ? `${organization}. ` : ''}Right-click or press Shift+F10 for chat actions.`}
                 onClick={() => { onSelect(conversation.id); if (isUnread) patchMeta({ sidebarUnreadAt: null }) }}
                 onFocus={(event) => showTooltip(event.currentTarget)}
                 onBlur={() => setTooltip(null)}
