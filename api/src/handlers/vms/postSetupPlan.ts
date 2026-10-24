@@ -3,7 +3,7 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { requestAiCompletion } from '#utils/ai/client.ts'
 import { isSupportedSetupService, supportedSetupServices } from '#utils/vms/supportedSetupServices.ts'
 import { normalizeGeneratedNextjsProjectFiles } from '#utils/vms/nextjsProject.ts'
-import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
+import { normalizeAptPackages } from '#utils/vms/aptPackages.ts'
 import { isVmWebsitePlan, type VmWebsitePlan } from '#utils/vms/website.ts'
 
 const servicePackageAliases: Partial<Record<typeof supportedSetupServices[number], ReadonlySet<string>>> = {
@@ -36,7 +36,7 @@ const minecraftServerTypePatterns = [
 ] as const
 
 const setupPlanInstructions = [
-    'Return JSON with summary, unsupportedReason, services, packages, website, minecraftServerType, and projectFiles. Use only allowlisted VM services and exact Ubuntu archive packages.',
+    'Return JSON with summary, unsupportedReason, services, packages, website, minecraftServerType, and projectFiles. Use only allowlisted VM services and exact packages from the selected OS archive.',
     `Allowed services: ${supportedSetupServices.join(', ')}. Use packages only for explicitly requested software not covered by a service. Never use PPAs, third-party repositories, shell commands, credentials, or arbitrary install scripts.`,
     'Use website for a simple informational site. For a custom interactive web app, return projectFiles with a complete Next.js App Router app: src/app/page.jsx, src/app/layout.jsx, and any required src/app/globals.css. Optional files may live only under src/app, src/lib, or public and must end in .js, .jsx, .css, or .json. Do not return package.json; the server adds a fixed manifest with only Next.js and React. Do not use external packages, environment variables, secrets, third-party APIs, or external images. Keep generated code self-contained and use browser storage for local data. Select nodejs when returning projectFiles; do not select website or minecraft-java with projectFiles.',
     'Do not generate game servers other than the supported Minecraft Java service. Do not generate arbitrary TCP/UDP daemons, shell scripts, deployment configuration, or software that needs secrets or external infrastructure. For unsupported requests, return empty services and packages, projectFiles null, website null, minecraftServerType null, and explain the limit in unsupportedReason. Never substitute Minecraft Java for Bedrock, Pocket Edition, or another game.',
@@ -59,8 +59,8 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         return res.status(400).send({ error: 'Describe what you want to build in 5 to 1,200 characters.' })
     }
     const operatingSystem = body?.os === undefined ? 'ubuntu-24.04' : body.os
-    if (typeof operatingSystem !== 'string' || !['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-24.04-desktop'].includes(operatingSystem)) {
-        return res.status(400).send({ error: 'Choose a supported Ubuntu version before generating a setup.' })
+    if (typeof operatingSystem !== 'string' || !['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-24.04-desktop', 'debian-13'].includes(operatingSystem)) {
+        return res.status(400).send({ error: 'Choose a supported operating system before generating a setup.' })
     }
 
     if (/\b(?:minecraft\s+(?:bedrock|pocket)|(?:bedrock|pocket)\s+edition|mcpe)\b/i.test(prompt)) {
@@ -81,7 +81,7 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         if (start < 0 || end <= start) throw new Error('Invalid plan format.')
         if (content.length > 140_000) throw new Error('Generated setup plan is too large.')
         const plan = JSON.parse(content.slice(start, end + 1)) as { summary?: unknown, unsupportedReason?: unknown, services?: unknown, packages?: unknown, website?: unknown, minecraftServerType?: unknown, projectFiles?: unknown }
-        const packages = normalizeUbuntuAptPackages(plan.packages)
+        const packages = normalizeAptPackages(plan.packages)
         const projectFiles = plan.projectFiles === undefined || plan.projectFiles === null
             ? null
             : normalizeGeneratedNextjsProjectFiles(plan.projectFiles)

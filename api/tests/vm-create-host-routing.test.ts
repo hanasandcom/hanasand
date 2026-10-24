@@ -148,6 +148,12 @@ test('VM creation forwards Ubuntu 26.04 LTS', async () => {
     expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-26.04', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: [], minecraftEulaAccepted: false }))
 })
 
+test('VM creation forwards Debian 13', async () => {
+    const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'debian-vm', os: 'debian-13' } })
+    expect(response.statusCode).toBe(201)
+    expect(calls[0]?.body).toBe(JSON.stringify({ os: 'debian-13', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: [], minecraftEulaAccepted: false }))
+})
+
 test('VM creation forwards Ubuntu Desktop and requires the large resource plan', async () => {
     const tooSmall = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'desktop-vm', os: 'ubuntu-24.04-desktop' } })
     expect(tooSmall.statusCode).toBe(400)

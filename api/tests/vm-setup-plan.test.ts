@@ -64,6 +64,13 @@ test('VM setup suggestions return only allowlisted services', async () => {
     expect(unsafePackage.statusCode).toBe(503)
 })
 
+test('VM setup suggestions accept Debian 13 as the selected operating system', async () => {
+    completion = JSON.stringify({ summary: 'Debian web host', services: ['nginx'], packages: [], website: null, minecraftServerType: null })
+    const result = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install an nginx web server', os: 'debian-13' } })
+    expect(result.statusCode).toBe(200)
+    expect(completionMessages[0].content).toContain('The selected OS is debian-13.')
+})
+
 test('unsupported game requests cannot be remapped to Minecraft Java', async () => {
     const callsBefore = completionRequests
     const bedrock = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Set up a Minecraft Bedrock server' } })

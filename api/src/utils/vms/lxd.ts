@@ -78,7 +78,7 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
                     mode: 'pull',
                     server: config.lxd_image_server,
                     protocol: 'simplestreams',
-                    alias: selectedOs.replace('ubuntu-', ''),
+                    alias: selectedOs === 'debian-13' ? 'debian/13/cloud' : selectedOs.replace('ubuntu-', ''),
                 },
             },
         })

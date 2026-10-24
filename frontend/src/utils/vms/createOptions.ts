@@ -3,6 +3,7 @@ export const vmOperatingSystems = [
     { id: 'ubuntu-24.04-desktop', label: 'Ubuntu 24.04 Desktop', description: 'Graphical desktop, accessed through an SSH tunnel · 8 GB RAM and 40 GB disk' },
     { id: 'ubuntu-26.04', label: 'Ubuntu 26.04 LTS', description: 'Latest long-term support release' },
     { id: 'ubuntu-22.04', label: 'Ubuntu 22.04 LTS', description: 'For older software requirements' },
+    { id: 'debian-13', label: 'Debian 13', description: 'Stable Debian server release' },
 ] as const
 
 export const vmResourceOptions = [
@@ -16,7 +17,7 @@ export const vmServices = [
     { id: 'nodejs', group: 'Development', label: 'Node.js + npm', description: 'Node.js 24 LTS and npm' },
     { id: 'bun', group: 'Development', label: 'Bun', description: 'JavaScript runtime and package manager' },
     { id: 'python', group: 'Development', label: 'Python', description: 'Python 3 and pip' },
-    { id: 'java', group: 'Development', label: 'Java', description: 'Java runtime and compiler from the selected Ubuntu release' },
+    { id: 'java', group: 'Development', label: 'Java', description: 'Java runtime and compiler from the selected Linux release' },
     { id: 'go', group: 'Development', label: 'Go', description: 'Go compiler and standard toolchain' },
     { id: 'php', group: 'Development', label: 'PHP + Composer', description: 'PHP CLI and Composer package manager' },
     { id: 'rust', group: 'Development', label: 'Rust', description: 'Rust compiler and Cargo package manager' },

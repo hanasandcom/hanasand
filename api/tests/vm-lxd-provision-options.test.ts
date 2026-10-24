@@ -73,6 +73,20 @@ test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Do
     expect(body.config['cloud-init.user-data']).toContain('apt_packages+=( \'ripgrep\' )')
 })
 
+test.serial('LXD uses the Debian 13 cloud image alias and Debian Docker repository', async () => {
+    await provisionLocalLxdInstance('debian-vm', {
+        os: 'debian-13',
+        resources: { cpu: '2', memory: '4GiB', disk: '20GiB' },
+        services: ['docker'],
+    })
+    const body = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as { source: { alias: string }; config: Record<string, string> }
+    expect(body.source.alias).toBe('debian/13/cloud')
+    expect(body.config['cloud-init.user-data']).toContain("docker_os='ubuntu'")
+    expect(body.config['cloud-init.user-data']).toContain("[[ 'debian-13' == debian-* ]] && docker_os='debian'")
+    expect(body.config['cloud-init.user-data']).toContain('https://download.docker.com/linux/$docker_os/gpg')
+    expect(body.config['cloud-init.user-data']).toContain('https://download.docker.com/linux/%s %s stable')
+})
+
 test.serial('LXD applies a valid custom CPU and memory allocation to the instance limits', async () => {
     await provisionLocalLxdInstance('custom-vm', {
         os: 'ubuntu-24.04',

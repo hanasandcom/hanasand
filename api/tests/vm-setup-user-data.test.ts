@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { expect, test } from 'bun:test'
 import { parse } from 'yaml'
 import { vmSetupUserData } from '../src/utils/vms/vmSetupUserData.ts'
-import { normalizeUbuntuAptPackages } from '../src/utils/vms/ubuntuAptPackages.ts'
+import { normalizeAptPackages } from '../src/utils/vms/aptPackages.ts'
 import { supportedSetupServices } from '../src/utils/vms/supportedSetupServices.ts'
 import { vmServices } from '../../frontend/src/utils/vms/createOptions.ts'
 
@@ -51,7 +51,9 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('tarfile.open(archive, mode="r:xz")')
     expect(script).toContain('The Node.js archive contains an unsafe path.')
     expect(script).toContain('docker.asc')
-    expect(script).toContain('fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc')
+    expect(script).toContain("docker_os='ubuntu'")
+    expect(script).toContain("[[ 'ubuntu-24.04' == debian-* ]] && docker_os='debian'")
+    expect(script).toContain('https://download.docker.com/linux/$docker_os/gpg')
     expect(script).toContain('urlopen(sys.argv[1], timeout=30)')
     expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
     expect(script).toContain('Dpkg::Progress-Fd=3 install -y --no-install-recommends')
@@ -303,7 +305,7 @@ test('apt package installation writes meaningful progress to the VM status file'
     }
 })
 
-test('AI-selected Ubuntu packages are installed as package names, never shell commands', () => {
+test('AI-selected packages are installed as package names, never shell commands', () => {
     const cloudInit = vmSetupUserData('custom-vm', { services: [], aptPackages: ['ruby-full', 'ripgrep'] })
     const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
     const script = config.write_files[0]?.content || ''
@@ -315,13 +317,13 @@ test('AI-selected Ubuntu packages are installed as package names, never shell co
     execFileSync('bash', ['-n'], { input: script })
 })
 
-test('Ubuntu package normalization rejects invalid, duplicate, and oversized lists', () => {
-    expect(normalizeUbuntuAptPackages(undefined)).toEqual([])
-    expect(normalizeUbuntuAptPackages(['ruby-full', 'ripgrep', 'ripgrep'])).toEqual(['ripgrep', 'ruby-full'])
-    expect(normalizeUbuntuAptPackages('ripgrep')).toBeNull()
-    expect(normalizeUbuntuAptPackages(['Ruby'])).toBeNull()
-    expect(normalizeUbuntuAptPackages(['curl;touch /tmp/pwned'])).toBeNull()
-    expect(normalizeUbuntuAptPackages(Array.from({ length: 13 }, (_, index) => `package-${index}`))).toBeNull()
+test('APT package normalization rejects invalid, duplicate, and oversized lists', () => {
+    expect(normalizeAptPackages(undefined)).toEqual([])
+    expect(normalizeAptPackages(['ruby-full', 'ripgrep', 'ripgrep'])).toEqual(['ripgrep', 'ruby-full'])
+    expect(normalizeAptPackages('ripgrep')).toBeNull()
+    expect(normalizeAptPackages(['Ruby'])).toBeNull()
+    expect(normalizeAptPackages(['curl;touch /tmp/pwned'])).toBeNull()
+    expect(normalizeAptPackages(Array.from({ length: 13 }, (_, index) => `package-${index}`))).toBeNull()
 })
 
 test('setup failures persist the stage and line for VM status feedback', () => {

@@ -1,6 +1,6 @@
 import type { VmProvisionOptions } from './provisionOnHost.ts'
 import { validateVmLoginName } from './vmLoginUserData.ts'
-import { normalizeUbuntuAptPackages } from './ubuntuAptPackages.ts'
+import { normalizeAptPackages } from './aptPackages.ts'
 import { normalizeNextjsProjectFiles } from './nextjsProject.ts'
 
 const setupStatePath = '/var/lib/hanasand-vm-setup/status'
@@ -8,9 +8,9 @@ const setupStatePath = '/var/lib/hanasand-vm-setup/status'
 export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     validateVmLoginName(name)
     const services = [...new Set(options.services || [])]
-    const aptPackages = normalizeUbuntuAptPackages(options.aptPackages)
+    const aptPackages = normalizeAptPackages(options.aptPackages)
     if (!aptPackages) {
-        throw new Error('Custom Ubuntu package names must be valid Debian package identifiers, with no more than 12 packages.')
+        throw new Error('Custom package names must be valid Debian package identifiers, with no more than 12 packages.')
     }
     const website = options.websiteHtml ? Buffer.from(options.websiteHtml).toString('base64') : ''
     const memoryGb = Number.parseInt(options.resources?.memory || '2', 10)
@@ -33,7 +33,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     }))
     const minecraftAddons = options.minecraftAddons || []
     if (minecraftAddons.length && !services.includes('minecraft-java')) throw new Error('Minecraft add-ons require the Minecraft Java service.')
-    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages)
+    const script = createSetupScript(name, options.os || 'ubuntu-24.04', services, options.minecraftServerType || 'PAPER', minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages)
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -62,7 +62,7 @@ function yamlObject(value: Record<string, unknown>) {
     return JSON.stringify(value, null, 2)
 }
 
-function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string) {
+function createSetupScript(name: string, os: NonNullable<VmProvisionOptions['os']>, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
     const minecraft = services.includes('minecraft-java')
@@ -138,10 +138,12 @@ if printf '%s' "$services" | grep -q '"minecraft-java"'; then apt_packages+=(cur
 ${installCustomPackages}
 if printf '%s' "$services" | grep -q '"docker"'; then
   install -d -m 0755 /etc/apt/keyrings
-  fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc
+  docker_os='ubuntu'
+  [[ '${os}' == debian-* ]] && docker_os='debian'
+  fetch_apt_key "https://download.docker.com/linux/$docker_os/gpg" /etc/apt/keyrings/docker.asc
   chmod a+r /etc/apt/keyrings/docker.asc
   . /etc/os-release
-  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\\n' "$(dpkg --print-architecture)" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
+  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\\n' "$(dpkg --print-architecture)" "$docker_os" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
   apt_packages+=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
 fi
 if (( \${#apt_packages[@]} > 0 )); then
