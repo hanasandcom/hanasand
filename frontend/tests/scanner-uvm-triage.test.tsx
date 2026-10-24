@@ -22,6 +22,7 @@ test('assessment report exposes a triage action for stages with findings', () =>
             startedAt: null, finishedAt: null,
             run: {
                 ...data.runs[1],
+                id: 'run-2', target: '198.51.100.10', targetOrigin: 'https://example.com',
                 findings: [{
                     findingId: 'finding-1', provider: 'tenable-vm' as const, pluginId: '12345', cveIds: [],
                     title: 'Example plugin finding', severity: 'high', cvssScore: 8.1, description: null,
@@ -31,6 +32,30 @@ test('assessment report exposes a triage action for stages with findings', () =>
             },
         }],
     }
-    const html = renderToStaticMarkup(<UvmAssessmentReportView assessment={report} onClose={() => undefined} onOpenFindings={() => undefined} />)
+    const html = renderToStaticMarkup(<UvmAssessmentReportView assessment={report} onClose={() => undefined} onOpenFindings={() => undefined} onOpenRun={() => undefined} />)
     expect(html).toContain('Review in triage')
+    expect(html).toContain('View run details')
+    expect(html).toContain('Target: https://example.com · Run: run-2')
+})
+
+test('assessment report keeps HTTP observations available in a collapsed disclosure', () => {
+    const run = { ...data.runs[1], id: 'run-httpx', engine: 'httpx', target: 'example.com', findings: [], observations: [{
+        id: 'observation-1', address: '198.51.100.10', url: 'https://example.com/', statusCode: 200,
+        title: 'Example', contentType: 'text/html', contentLength: 512, webServer: 'openresty', technologies: ['Next.js'],
+    }] }
+    const report = {
+        id: 'assessment-httpx', requestId: 'request-httpx', status: 'succeeded' as const, source: 'manual' as const,
+        createdAt: new Date(0).toISOString(), startedAt: null, finishedAt: null,
+        jobs: [{
+            id: 'job-httpx', assetId: 'asset-1', asset: 'example.com', engine: 'httpx' as const,
+            profile: 'httpx-root-probe-v1', stageIndex: 0, stage: 'assessment', runId: run.id, status: 'succeeded',
+            error: null, attemptCount: 1, nextAttemptAt: null, createdAt: new Date(0).toISOString(),
+            startedAt: null, finishedAt: null, run,
+        }],
+    }
+    const html = renderToStaticMarkup(<UvmAssessmentReportView assessment={report} onClose={() => undefined} onOpenFindings={() => undefined} onOpenRun={() => undefined} />)
+    expect(html).toContain('Engine observations · 1')
+    expect(html).toContain('https://example.com/')
+    expect(html).toContain('openresty')
+    expect(html).not.toMatch(/<details[^>]*open[^>]*>/)
 })
