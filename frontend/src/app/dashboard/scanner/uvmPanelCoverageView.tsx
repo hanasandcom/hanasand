@@ -16,8 +16,8 @@ function isCurrent(coverage: UvmAssetEngineCoverage | undefined) {
 function engineCoverage(coverage: UvmAssetEngineCoverage | undefined) {
     if (!coverage) return 'Unknown'
     if (coverage.engine === 'zap') return coverage.webCoverage?.complete
-        ? `${coverage.webCoverage.acceptedInstances} findings · ${coverage.webCoverage.urlsDiscovered ?? 'URL count unknown'} URLs`
-        : 'Web report incomplete or unavailable'
+        ? `${coverage.webCoverage.acceptedInstances} findings · ${coverage.webCoverage.urlsDiscovered ?? 'URL count unavailable'} traditional URLs · ${coverage.webCoverage.clientUrlsDiscovered ?? 'browser URL count unavailable'} browser routes`
+        : 'Findings unavailable · URL count unavailable · browser URL count unavailable'
     if (coverage.coverageKnown && coverage.completedAddresses !== null) {
         return `${coverage.completedAddresses}/${coverage.requestedAddresses.length} addresses`
     }
