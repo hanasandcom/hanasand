@@ -91,9 +91,9 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
             ? canNaabu
             : choice.engine === 'angry-ip-scanner'
                 ? canAngryIp
-            : choice.engine === 'tenable-vm'
-                ? asset.verificationStatus === 'verified' && tenableReady
-                : asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === choice.engine && engine.status === 'available'))
+                : choice.engine === 'tenable-vm'
+                    ? asset.verificationStatus === 'verified' && tenableReady
+                    : asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === choice.engine && engine.status === 'available'))
     const authorized = authorization[asset.id] === true
 
     return <article className='rounded-lg border border-ui-border bg-ui-panel p-4'>
