@@ -14,17 +14,18 @@ test('scanner page states that configured services are stopped pending disk expa
     expect(html).toContain('Image worker is also stopped.')
 })
 
-test('paused Scanner lists at least 20 products and labels setup state', () => {
+test('paused Scanner exposes the searchable 50-product catalog and labels setup state', () => {
     const noop = () => undefined
     const html = renderToStaticMarkup(<UvmPanelScannerSetup data={emptyUvmDashboard} busy='' region='us'
         setRegion={noop} accessKey='' setAccessKey={noop} secretKey='' setSecretKey={noop}
         servicesPaused onSave={noop} onDisconnect={noop}
     />)
 
-    expect(scannerSuiteCatalog.length).toBeGreaterThanOrEqual(20)
+    expect(scannerSuiteCatalog).toHaveLength(50)
     expect(new Set(scannerSuiteCatalog.map(item => item.name)).size).toBe(scannerSuiteCatalog.length)
     expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(20)
-    expect(html).toContain('20 integrations wired · 0 running')
+    expect(html).toContain('50 products · 20 wired · 0 running · stopped pending disk')
+    expect(html).toContain('Filter scanners')
     expect(html).toContain('Nmap')
     expect(html).toContain('Naabu')
     expect(html).toContain('Stopped')
@@ -33,9 +34,13 @@ test('paused Scanner lists at least 20 products and labels setup state', () => {
     expect(html).toContain('testssl.sh')
     expect(html).toContain('Angry IP Scanner')
     expect(html).toContain('Advanced IP Scanner')
+    expect(html).toContain('Prowler')
+    expect(html).toContain('Kubescape')
+    expect(html).toContain('Snyk')
     expect(html).toContain('Adapter needed')
     expect(html).toContain('License + adapter needed')
-    expect(html).toContain('Desktop app')
+    expect(html).toContain('GUI bridge needed')
+    expect(html).toContain('Windows app · no API')
 })
 
 test('partial older API catalogs do not hide products or downgrade staged setup metadata', () => {
