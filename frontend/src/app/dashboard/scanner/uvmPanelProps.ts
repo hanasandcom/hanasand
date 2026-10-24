@@ -10,6 +10,7 @@ import type {
     UvmFinding,
     UvmFindingHistoryPage,
     UvmFindingHistoryScope,
+    UvmFindingUpdate,
     UvmRun,
     UvmRunHistoryPage,
 } from '@/utils/monitoring/types'
@@ -45,7 +46,7 @@ export type UvmPanelProps = {
     runTlsxAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runKatanaAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runWafw00fAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
-    updateFindingAction: (findingId: string, input: { status: UvmFinding['status'], note: string }) => Promise<unknown>
+    updateFindingAction: (findingId: string, input: UvmFindingUpdate) => Promise<unknown>
     cancelRunAction: (runId: string) => Promise<{ run: UvmRun }>
     startAssessmentAction: (input: { requestId: string, assetIds: string[], engines: UvmEngineSelection[], authorized: boolean }) => Promise<{ assessment: UvmAssessment }>
     cancelAssessmentAction: (assessmentId: string) => Promise<{ assessment: UvmAssessment }>

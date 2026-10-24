@@ -1,7 +1,7 @@
 'use client'
 
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
-import type { NmapScanProfile, UvmAssetCriticality, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmRunHistoryPage } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAssetCriticality, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRunHistoryPage } from '@/utils/monitoring/types'
 
 const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.hanasand.com/api').replace(/\/$/, '')
 
@@ -48,7 +48,7 @@ export function createScannerClient(organizationId: string) {
         runTlsx: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/tlsx-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
         runKatana: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/katana-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
         runWafw00f: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/wafw00f-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
-        updateFinding: (findingId: string, input: { status: UvmDashboard['findings'][number]['status'], note: string }) => request(`/v1/uvm/findings/${encodeURIComponent(findingId)}`, { method: 'PUT', body: input }),
+        updateFinding: (findingId: string, input: UvmFindingUpdate) => request(`/v1/uvm/findings/${encodeURIComponent(findingId)}`, { method: 'PUT', body: input }),
         cancelRun: (runId: string) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST', body: {} }),
         startAssessment: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: UvmEngineId, scanId?: string, profile?: UvmEngineProfile }>, authorized: boolean }) => request<{ assessment: UvmDashboard['assessments'][number] }>('/v1/uvm/assessments', { method: 'POST', body: input }),
         cancelAssessment: (assessmentId: string) => request<{ assessment: UvmDashboard['assessments'][number] }>(`/v1/uvm/assessments/${encodeURIComponent(assessmentId)}/cancel`, { method: 'POST', body: {} }),

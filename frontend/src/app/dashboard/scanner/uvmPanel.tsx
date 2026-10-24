@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFinding, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmRun } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFinding, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRun } from '@/utils/monitoring/types'
 import type { UvmPanelProps } from './uvmPanelProps'
 import { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 import { buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
@@ -48,7 +48,7 @@ export default function UvmPanel({
     const [assessmentNmapProfile, setAssessmentNmapProfile] = useState<NetworkScanProfile>('tcp-top-1000')
     const [assetNmapProfiles, setAssetNmapProfiles] = useState<Record<string, NmapScanProfile>>({})
     const [zapApiDefinitionPaths, setZapApiDefinitionPaths] = useState<Record<string, string>>({})
-    const [findingUpdates, setFindingUpdates] = useState<Record<string, { status: UvmFinding['status'], note: string }>>({})
+    const [findingUpdates, setFindingUpdates] = useState<Record<string, UvmFindingUpdate>>({})
     const [findingFilters, setFindingFilters] = useState<UvmFindingFilters>({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })
     const [findingSort, setFindingSort] = useState<'severity' | 'criticality'>('severity')
     const [findingScope, setFindingScope] = useState<UvmFindingHistoryScope | null>(null)
@@ -155,13 +155,21 @@ export default function UvmPanel({
         finally { setBusy('') }
     }
     async function updateFinding(finding: UvmFinding) {
-        const update = findingUpdates[finding.id] || { status: finding.status, note: finding.triageNote || '' }
+        const update = findingUpdates[finding.id] || {
+            status: finding.status,
+            note: finding.triageNote || '',
+            remediationOwner: finding.remediationOwner || '',
+            remediationDueDate: finding.remediationDueDate || '',
+        }
         setBusy(`finding:${finding.id}`); setMessage('')
         try {
             await updateFindingAction(finding.id, update)
             await refresh()
-            setData(current => ({ ...current, findings: current.findings.map(item => item.id === finding.id ? { ...item, status: update.status, triageNote: update.note.trim() || null } : item) }))
-            setMessage('Finding status updated.')
+            setData(current => ({ ...current, findings: current.findings.map(item => item.id === finding.id ? {
+                ...item, status: update.status, triageNote: update.note.trim() || null,
+                remediationOwner: update.remediationOwner.trim() || null, remediationDueDate: update.remediationDueDate || null,
+            } : item) }))
+            setMessage('Finding updated.')
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Finding could not be updated.') }
         finally { setBusy('') }
     }
