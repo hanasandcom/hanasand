@@ -399,7 +399,6 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
     let analyzeUpperBlock: number | undefined
     let analyzeBlockSize = 8192
     let analyzeTailRange: { lowerBlock: number; upperBlock: number } | null = null
-    let analyzeAfterCtid: string | undefined
     let analyzeBytesSinceVacuum = 0
     let analyzeDone = false
     while (true) {
@@ -420,7 +419,6 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                     const blockSize = Number(geometry.rows[0]?.block_size)
                     analyzeBlockSize = blockSize
                     analyzeBytesSinceVacuum = 0
-                    analyzeAfterCtid = undefined
                     const range = migrationTailPageRange(bytes, blockSize, undefined, tailChunkBytes)
                     if (!range) {
                         analyzeDone = true
@@ -442,10 +440,10 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                     return { rows: [] }
                 }
                 analyzeTailRange = range
-                const selected = await query(`SELECT ctid::text AS source_ctid, ${fields} FROM log_analyze_receipts
+                // ACKed rows are deleted before the next query, so an unordered TID range scan advances without sorting millions of rows.
+                const selected = await query(`SELECT ${fields} FROM log_analyze_receipts
                     WHERE ctid >= ('(' || $1::text || ',0)')::tid AND ctid < ('(' || $2::text || ',0)')::tid
-                        AND ($3::tid IS NULL OR ctid > $3::tid)
-                    ORDER BY ctid LIMIT $4`, [range.lowerBlock, range.upperBlock, analyzeAfterCtid || null, batchLimit])
+                    LIMIT $3`, [range.lowerBlock, range.upperBlock, batchLimit])
                 return selected
             }
             await query('SET LOCAL statement_timeout = \'20s\'')
@@ -463,7 +461,6 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                     [range.lowerBlock, range.upperBlock])
                 })
                 if (remainingInRange.rows[0]?.present) {
-                    analyzeAfterCtid = undefined
                     continue
                 }
                 analyzeBytesSinceVacuum += (range.upperBlock - range.lowerBlock) * analyzeBlockSize
@@ -476,10 +473,8 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                     const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts) AS present'))
                     if (!remaining.rows[0]?.present) return migrated
                     analyzeUpperBlock = undefined
-                    analyzeAfterCtid = undefined
                 } else {
                     analyzeUpperBlock = range.lowerBlock
-                    analyzeAfterCtid = undefined
                 }
                 continue
             }
@@ -555,8 +550,7 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
         })
         if (deletion.rows.length !== batch.length) throw new Error(`A ${kind} receipt changed during migration; its delete transaction was rolled back.`)
         migrated += batch.length
-        if (analyze) analyzeAfterCtid = String(source.rows[batch.length - 1]!.source_ctid)
-        else cursor = String(batch[batch.length - 1]![keyColumn])
+        if (!analyze) cursor = String(batch[batch.length - 1]![keyColumn])
     }
 }
 
