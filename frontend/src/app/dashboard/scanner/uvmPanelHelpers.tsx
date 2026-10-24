@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmFinding, UvmRun, UvmTestsslObservation } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmFinding, UvmFindingGroup, UvmRun, UvmTestsslObservation } from '@/utils/monitoring/types'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { TestsslObservationList } from './uvmTestsslObservations'
 
@@ -47,6 +47,25 @@ export function filterAndSortUvmFindings(findings: UvmFinding[], filters: UvmFin
         const leftAge = Date.parse(left.firstSeen || left.lastSeen || left.updatedAt) || Number.MAX_SAFE_INTEGER
         const rightAge = Date.parse(right.firstSeen || right.lastSeen || right.updatedAt) || Number.MAX_SAFE_INTEGER
         return leftAge - rightAge || left.title.localeCompare(right.title)
+    })
+}
+
+export function filterAndSortUvmFindingGroups(groups: UvmFindingGroup[], filters: UvmFindingFilters, assets: UvmAsset[] = [], sort: UvmFindingSort = 'severity') {
+    const matchingGroups = groups.filter(group => filterAndSortUvmFindings(group.members, filters, assets, sort).length > 0)
+    const severityRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4, unknown: 5 }
+    const statusRank: Record<UvmFindingGroup['status'], number> = { actionable: 0, needs_review: 1, mixed: 2, accepted_risk: 3, false_positive: 4, resolved: 5 }
+    const criticalityRank: Record<UvmAssetCriticality, number> = { critical: 0, high: 1, medium: 2, low: 3, unset: 4 }
+    const assetCriticality = new Map(assets.map(asset => [asset.id, asset.criticality]))
+    return matchingGroups.sort((left, right) => {
+        if (sort === 'criticality') {
+            const leftCriticality = left.assetId ? assetCriticality.get(left.assetId) || 'unset' : 'unset'
+            const rightCriticality = right.assetId ? assetCriticality.get(right.assetId) || 'unset' : 'unset'
+            const criticalityDifference = criticalityRank[leftCriticality] - criticalityRank[rightCriticality]
+            if (criticalityDifference) return criticalityDifference
+        }
+        const severityDifference = (severityRank[left.severity] ?? 5) - (severityRank[right.severity] ?? 5)
+        if (severityDifference) return severityDifference
+        return statusRank[left.status] - statusRank[right.status] || left.asset.localeCompare(right.asset) || left.id.localeCompare(right.id)
     })
 }
 

@@ -1,16 +1,17 @@
 import type { Dispatch, SetStateAction } from 'react'
-import type { UvmAssessment, UvmAssessmentReport, UvmDashboard, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmRun } from '@/utils/monitoring/types'
+import type { UvmAssessment, UvmAssessmentReport, UvmDashboard, UvmFindingGroupHistoryPage, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmRun } from '@/utils/monitoring/types'
 import type { UvmPanelView } from './uvmPanelNavigation'
 import { buildAssessmentFindingFilters, type UvmFindingFilters } from './uvmPanelHelpers'
 
 export function createUvmPanelHistoryActions({
-    data, findingScope, getRunAction, findingHistoryAction, getAssessmentReportAction,
+    data, findingScope, getRunAction, findingHistoryAction, findingGroupsAction, getAssessmentReportAction,
     setBusy, setMessage, setSelectedRun, setAssessmentReport, setView, setData, setFindingScope, setFindingSyncState, setFindingFilters,
 }: {
     data: UvmDashboard
     findingScope: UvmFindingHistoryScope | null
     getRunAction: (runId: string, engine: string) => Promise<UvmRun>
     findingHistoryAction: (cursor: string | null, scope?: UvmFindingHistoryScope) => Promise<UvmFindingHistoryPage>
+    findingGroupsAction: (cursor: string | null) => Promise<UvmFindingGroupHistoryPage>
     getAssessmentReportAction: (assessmentId: string) => Promise<{ assessment: UvmAssessmentReport }>
     setBusy: Dispatch<SetStateAction<string>>
     setMessage: Dispatch<SetStateAction<string>>
@@ -23,7 +24,15 @@ export function createUvmPanelHistoryActions({
     setFindingFilters: Dispatch<SetStateAction<UvmFindingFilters>>
 }) {
     async function loadOlderFindings(cursor: string | null) {
-        const page = await findingHistoryAction(cursor, findingScope || undefined)
+        if (!findingScope) {
+            const page = await findingGroupsAction(cursor)
+            setData(current => ({ ...current,
+                findingGroups: [...(current.findingGroups || []), ...page.groups.filter(group => !current.findingGroups?.some(existing => existing.id === group.id))],
+                findingGroupsNextCursor: page.nextCursor, findingGroupSummary: page.summary, findingGroupsConsistency: page.consistency,
+            }))
+            return { nextCursor: page.nextCursor }
+        }
+        const page = await findingHistoryAction(cursor, findingScope)
         setData(current => ({ ...current,
             findings: [...current.findings, ...page.findings.filter(finding => !current.findings.some(existing => existing.id === finding.id))],
             findingsNextCursor: page.nextCursor,
@@ -48,8 +57,9 @@ export function createUvmPanelHistoryActions({
     async function showAllFindings() {
         setBusy('finding-history'); setMessage('')
         try {
-            const page = await findingHistoryAction(null)
-            setData(current => ({ ...current, findings: page.findings, findingsNextCursor: page.nextCursor }))
+            const page = await findingGroupsAction(null)
+            setData(current => ({ ...current, findingGroups: page.groups, findingGroupsNextCursor: page.nextCursor,
+                findingGroupSummary: page.summary, findingGroupsConsistency: page.consistency }))
             setFindingScope(null); setFindingSyncState(undefined)
             setFindingFilters({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Finding history could not be loaded.') }

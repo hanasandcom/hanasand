@@ -1,8 +1,8 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import type { NetworkScanProfile, NmapScanProfile, UvmAssessmentMode, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRun } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAssessmentMode, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFindingGroup, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRun } from '@/utils/monitoring/types'
 import type { UvmPanelProps } from './uvmPanelProps'
-import { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
+import { filterAndSortUvmFindingGroups, filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 import { buildUvmAssessmentEnginePlan, buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
 import { UvmAssetsView, UvmFindingsView } from './uvmPanelViews'
 import { UvmHelp } from './uvmPanelHelp'
@@ -21,7 +21,7 @@ import { createUvmPanelTenableActions, type TenableRegion } from './uvmPanelTena
 export { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 export default function UvmPanel({
     initialData, servicesPaused = false, refreshAction, getRunAction, getRunHistoryAction,
-    assessmentHistoryAction, findingHistoryAction, findingTriageHistoryAction, createAssetAction, verifyAssetAction,
+    assessmentHistoryAction, findingHistoryAction, findingGroupsAction, findingTriageHistoryAction, createAssetAction, verifyAssetAction,
     updateAssetCriticalityAction,
     saveZapApiDefinitionAction, runScanAction, runNaabuAction, runAngryIpAction, scheduleAction,
     configureTenableAction, disconnectTenableAction, runTenableScanAction, runGvmScanAction,
@@ -61,7 +61,7 @@ export default function UvmPanel({
     const [selectedRun, setSelectedRun] = useState<UvmRun | null>(null)
     const [assessmentReport, setAssessmentReport] = useState<UvmAssessmentReport | null>(null)
     const { loadOlderFindings, openAssessmentFindings, openAssessmentReport, openRun, retryAssessmentFindings, showAllFindings } = createUvmPanelHistoryActions({
-        data, findingScope, getRunAction, findingHistoryAction, getAssessmentReportAction,
+        data, findingScope, getRunAction, findingHistoryAction, findingGroupsAction, getAssessmentReportAction,
         setBusy, setMessage, setSelectedRun, setAssessmentReport, setView, setData, setFindingScope, setFindingSyncState, setFindingFilters,
     })
     const dashboardUnavailable = servicesPaused || Boolean(data.scannerError)
@@ -70,15 +70,27 @@ export default function UvmPanel({
     const attentionFindings = data.findings.filter(finding => !['resolved', 'false_positive', 'accepted_risk'].includes(finding.status))
     const actionableFindingCount = data.findingSummary?.actionable ?? attentionFindings.filter(finding => finding.status !== 'needs_review').length
     const needsReviewFindingCount = data.findingSummary?.needsReview ?? attentionFindings.filter(finding => finding.status === 'needs_review').length
-    const attentionFindingCount = actionableFindingCount + needsReviewFindingCount
+    const attentionFindingCount = findingScope ? actionableFindingCount + needsReviewFindingCount
+        : data.findingGroupSummary ? data.findingGroupSummary.actionable + data.findingGroupSummary.needsReview : actionableFindingCount + needsReviewFindingCount
     const criticalOrHighFindingCount = data.findingSummary?.criticalOrHigh ?? attentionFindings.filter(finding => finding.severity === 'critical' || finding.severity === 'high').length
     const visibleFindings = filterAndSortUvmFindings(data.findings, findingFilters, data.assets, findingSort)
+    const findingGroups: UvmFindingGroup[] = data.findingGroups ?? data.findings.map(finding => ({
+        id: `finding:${finding.id}`, correlated: false, assetId: finding.assetId, asset: finding.asset, address: finding.address,
+        affectedLocation: finding.affectedLocation || null, cveIds: finding.cveIds, engines: [finding.engine], severity: finding.severity,
+        status: ['open', 'in_progress', 'pending_verification'].includes(finding.status) ? 'actionable'
+            : finding.status === 'needs_review' ? 'needs_review'
+                : finding.status === 'resolved' ? 'resolved'
+                    : finding.status === 'accepted_risk' ? 'accepted_risk'
+                        : finding.status === 'false_positive' ? 'false_positive' : 'mixed',
+        members: [finding],
+    }))
+    const visibleFindingGroups = filterAndSortUvmFindingGroups(findingGroups, findingFilters, data.assets, findingSort)
     const refresh = useCallback(async () => {
         const refreshed = await refreshAction()
         if (!findingScope) {
             const findings = new Map(data.findings.map(finding => [finding.id, finding]))
             for (const finding of refreshed.findings) findings.set(finding.id, finding)
-            const global = { ...refreshed, findings: [...findings.values()], findingsNextCursor: data.findingsNextCursor }
+            const global = { ...refreshed, findings: [...findings.values()] }
             setData(global)
             return global
         }
@@ -91,7 +103,7 @@ export default function UvmPanel({
         setData(scoped)
         setFindingSyncState(page.syncState)
         return scoped
-    }, [data.findings, data.findingsNextCursor, findingHistoryAction, findingScope, refreshAction])
+    }, [data.findings, findingHistoryAction, findingScope, refreshAction])
     const { updateFinding } = createUvmPanelFindingActions({ findingUpdates, updateFindingAction, refresh, setBusy, setMessage, setData })
     const { saveTenable, disconnectTenable } = createUvmPanelTenableActions({
         region: tenableRegion, accessKey: tenableAccessKey, secretKey: tenableSecretKey,
@@ -185,7 +197,7 @@ export default function UvmPanel({
                 onViewRun={(runId, engine) => void openRun(runId, engine)} />
             {assessmentReport && <UvmAssessmentReportView assessment={assessmentReport} busy={busy} onClose={() => setAssessmentReport(null)} onOpenFindings={(stepId, assetId, engine) => void openAssessmentFindings(assessmentReport.id, stepId, assetId, engine)} onOpenRun={(runId, engine) => void openRun(runId, engine)} />}
             </section>}
-            {view === 'findings' && <UvmFindingsView data={data} attentionCount={findingScope ? attentionFindings.length : attentionFindingCount} busy={busy} filters={findingFilters} setFilters={setFindingFilters} sort={findingSort} setSort={setFindingSort} visibleFindings={visibleFindings} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} nextCursor={data.findingsNextCursor || null} loadOlder={loadOlderFindings} findingTriageHistoryAction={findingTriageHistoryAction} onViewRun={(runId, engine) => void openRun(runId, engine)} onUpdate={finding => void updateFinding(finding)} syncState={findingSyncState} scoped={findingScope !== null} onShowAll={() => void showAllFindings()} onRetryScoped={() => void retryAssessmentFindings()} />}
+            {view === 'findings' && <UvmFindingsView data={data} attentionCount={findingScope ? attentionFindings.length : attentionFindingCount} busy={busy} filters={findingFilters} setFilters={setFindingFilters} sort={findingSort} setSort={setFindingSort} visibleFindings={visibleFindings} visibleGroups={visibleFindingGroups} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} nextCursor={findingScope ? data.findingsNextCursor || null : data.findingGroupsNextCursor || null} loadOlder={loadOlderFindings} findingTriageHistoryAction={findingTriageHistoryAction} onViewRun={(runId, engine) => void openRun(runId, engine)} onUpdate={finding => void updateFinding(finding)} syncState={findingSyncState} scoped={findingScope !== null} onShowAll={() => void showAllFindings()} onRetryScoped={() => void retryAssessmentFindings()} />}
             {view === 'assets' && <UvmAssetsView data={data} servicesPaused={servicesPaused} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths} onSaveCriticality={(asset, criticality) => void updateAssetCriticality(asset, criticality)} onSaveZapApiDefinition={asset => void saveZapApiDefinition(asset)} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithNaabu={asset => void scanWithNaabu(asset)} onScanWithAngryIp={asset => void scanWithAngryIp(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)} onScanWithTestssl={asset => void scanWithTestssl(asset)} onScanWithNuclei={asset => void scanWithNuclei(asset)} onScanWithNikto={asset => void scanWithNikto(asset)} onScanWithSslyze={asset => void scanWithSslyze(asset)} onScanWithWapiti={asset => void scanWithWapiti(asset)} onScanWithWhatweb={asset => void scanWithWhatweb(asset)} onScanWithHttpx={asset => void scanWithHttpx(asset)} onScanWithTlsx={asset => void scanWithTlsx(asset)} onScanWithKatana={asset => void scanWithKatana(asset)} onScanWithWafw00f={asset => void scanWithWafw00f(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
             {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} servicesPaused={servicesPaused} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
             {view === 'runs' && <UvmRunHistory key={selectedRun ? `${selectedRun.engine}:${selectedRun.id}` : 'recent'} data={data} unavailable={dashboardUnavailable} selectedRun={selectedRun} busy={busy} nextCursor={data.runsNextCursor || null} loadOlder={getRunHistoryAction} onCancel={cancelRun} />}

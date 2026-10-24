@@ -9,6 +9,7 @@ import type {
     UvmEngineSelection,
     UvmAssetCriticality,
     UvmFindingHistoryPage,
+    UvmFindingGroupHistoryPage,
     UvmFindingHistoryScope,
     UvmFindingTriageHistoryPage,
     UvmFindingUpdate,
@@ -24,6 +25,7 @@ export type UvmPanelProps = {
     getRunHistoryAction: (cursor: string | null) => Promise<UvmRunHistoryPage>
     assessmentHistoryAction: (cursor: string | null) => Promise<UvmAssessmentHistoryPage>
     findingHistoryAction: (cursor: string | null, scope?: UvmFindingHistoryScope) => Promise<UvmFindingHistoryPage>
+    findingGroupsAction: (cursor: string | null) => Promise<UvmFindingGroupHistoryPage>
     findingTriageHistoryAction: (findingId: string, cursor: string | null) => Promise<UvmFindingTriageHistoryPage>
     createAssetAction: (input: { hostname: string }) => Promise<{ asset: UvmAsset }>
     updateAssetCriticalityAction: (assetId: string, criticality: UvmAssetCriticality) => Promise<{ asset: UvmAsset }>

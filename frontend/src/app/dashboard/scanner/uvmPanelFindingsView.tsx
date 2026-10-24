@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
-import type { UvmAssetCriticality, UvmDashboard, UvmFinding, UvmFindingHistoryPage, UvmFindingTriageHistoryPage, UvmFindingUpdate } from '@/utils/monitoring/types'
-import { formatDate, type UvmFindingFilters, type UvmFindingSort } from './uvmPanelHelpers'
+import type { UvmAssetCriticality, UvmDashboard, UvmFinding, UvmFindingGroup, UvmFindingHistoryPage, UvmFindingTriageHistoryPage, UvmFindingUpdate } from '@/utils/monitoring/types'
+import { filterAndSortUvmFindings, formatDate, type UvmFindingFilters, type UvmFindingSort } from './uvmPanelHelpers'
 import { UvmHelp } from './uvmPanelHelp'
 
 type FindingsViewProps = {
@@ -16,11 +16,12 @@ type FindingsViewProps = {
     sort: UvmFindingSort
     setSort: Dispatch<SetStateAction<UvmFindingSort>>
     visibleFindings: UvmFinding[]
+    visibleGroups: UvmFindingGroup[]
     findingUpdates: Record<string, UvmFindingUpdate>
     setFindingUpdates: Dispatch<SetStateAction<Record<string, UvmFindingUpdate>>>
     onUpdate: (finding: UvmFinding) => void
     nextCursor: string | null
-    loadOlder: (cursor: string | null) => Promise<UvmFindingHistoryPage>
+    loadOlder: (cursor: string | null) => Promise<{ nextCursor: string | null }>
     findingTriageHistoryAction: (findingId: string, cursor: string | null) => Promise<UvmFindingTriageHistoryPage>
     onViewRun: (runId: string, engine: string) => void
     syncState?: UvmFindingHistoryPage['syncState']
@@ -57,14 +58,19 @@ export function UvmFindingsView(props: FindingsViewProps) {
             <label className='grid gap-1 text-xs text-ui-muted'>Asset<select aria-label='Filter by asset' value={filters.asset} onChange={event => setFilters(current => ({ ...current, asset: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='all'>All assets</option>{[...new Map(data.findings.map(finding => [finding.assetId || finding.asset, finding.asset])).entries()].sort((left, right) => left[1].localeCompare(right[1])).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
             <label className='grid gap-1 text-xs text-ui-muted'>Sort by<select aria-label='Sort findings' value={props.sort} onChange={event => props.setSort(event.target.value as UvmFindingSort)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='severity'>Severity, status, age</option><option value='criticality'>Asset importance, then severity</option></select></label>
         </div>
-        <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ui-muted'><p aria-live='polite'>{data.scannerError ? 'Finding counts unavailable' : `${visibleFindings.length} shown · ${data.findings.length} loaded`}</p><p>{props.sort === 'criticality' ? 'Asset importance first · unassigned last.' : 'Severity first.'}</p></div>
+        <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ui-muted'><p aria-live='polite'>{data.scannerError ? 'Finding counts unavailable' : props.scoped ? `${visibleFindings.length} shown · ${data.findings.length} source records loaded` : `${props.visibleGroups.length} issues shown · ${data.findingGroupSummary?.total ?? props.visibleGroups.length} total · ${data.findingGroupSummary?.correlated ?? 0} cross-engine matches`}</p><p>{props.sort === 'criticality' ? 'Asset importance first · unassigned last.' : 'Severity first.'}</p></div>
         <div className='mt-3 grid gap-3'>
-            {visibleFindings.map(finding => <FindingCard key={finding.id} finding={finding} scoped={props.scoped} criticality={data.assets.find(asset => asset.id === finding.assetId)?.criticality || 'unset'} busy={busy} update={findingUpdates[finding.id] || {
+            {props.scoped && visibleFindings.map(finding => <FindingCard key={finding.id} finding={finding} scoped criticality={data.assets.find(asset => asset.id === finding.assetId)?.criticality || 'unset'} busy={busy} update={findingUpdates[finding.id] || {
                 status: finding.status, note: finding.triageNote || '',
                 remediationOwner: finding.remediationOwner || '', remediationDueDate: finding.remediationDueDate || '',
             }} setFindingUpdates={setFindingUpdates} findingTriageHistoryAction={props.findingTriageHistoryAction} onViewRun={props.onViewRun} onUpdate={() => props.onUpdate(finding)} />)}
-            {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : props.scoped ? props.syncState === 'complete' ? 'No normalized findings were recorded for this assessment stage. Review the report and coverage before treating it as clear.' : props.syncState === 'not_indexed' ? 'This engine’s report is available above, but canonical findings are not yet available in triage.' : props.syncState === 'incomplete' ? 'This stage has a scanner run, but it did not complete. Its output remains in the assessment report.' : props.syncState === 'no_run' ? 'This assessment stage did not produce a scanner run.' : 'Findings for this stage have not been indexed yet.' : 'No findings imported. Check authorization, engine status and scan coverage before treating this as clear.'}</p>}
-            {data.findings.length > 0 && !visibleFindings.length && <div className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'><p>No findings match these filters.</p><button type='button' onClick={() => setFilters({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold text-ui-text'>Clear filters</button></div>}
+            {!props.scoped && props.visibleGroups.map(group => group.correlated
+                ? <FindingGroupCard key={group.id} group={group} filters={filters} data={data} scoped={false} busy={busy} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} findingTriageHistoryAction={props.findingTriageHistoryAction} onViewRun={props.onViewRun} onUpdate={props.onUpdate} />
+                : group.members[0] ? <FindingCard key={group.id} finding={group.members[0]} scoped={false} criticality={data.assets.find(asset => asset.id === group.assetId)?.criticality || 'unset'} busy={busy} update={findingUpdates[group.members[0].id] || { status: group.members[0].status, note: group.members[0].triageNote || '', remediationOwner: group.members[0].remediationOwner || '', remediationDueDate: group.members[0].remediationDueDate || '' }} setFindingUpdates={setFindingUpdates} findingTriageHistoryAction={props.findingTriageHistoryAction} onViewRun={props.onViewRun} onUpdate={() => props.onUpdate(group.members[0])} /> : null)}
+            {props.scoped && !data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : props.syncState === 'complete' ? 'No normalized findings were recorded for this assessment stage. Review the report and coverage before treating it as clear.' : props.syncState === 'not_indexed' ? 'This engine’s report is available above, but canonical findings are not yet available in triage.' : props.syncState === 'incomplete' ? 'This stage has a scanner run, but it did not complete. Its output remains in the assessment report.' : props.syncState === 'no_run' ? 'This assessment stage did not produce a scanner run.' : 'Findings for this stage have not been indexed yet.'}</p>}
+            {!props.scoped && !props.visibleGroups.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : !data.findingGroupSummary?.total ? 'No findings imported. Check authorization, engine status and scan coverage before treating this as clear.' : 'No issues match these filters.'}</p>}
+            {props.scoped && data.findings.length > 0 && !visibleFindings.length && <div className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'><p>No findings match these filters.</p><button type='button' onClick={() => setFilters({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold text-ui-text'>Clear filters</button></div>}
+            {!props.scoped && (data.findingGroupSummary?.total || 0) > 0 && !props.visibleGroups.length && <button type='button' onClick={() => setFilters({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })} className='w-fit rounded-md border border-ui-border px-3 py-2 text-xs font-semibold text-ui-text'>Clear filters</button>}
         </div>
         {loadError && <p role='status' className='mt-3 text-sm text-ui-warning'>{loadError}</p>}
         {cursor && <button type='button' disabled={loadingOlder} onClick={() => {
@@ -76,7 +82,36 @@ export function UvmFindingsView(props: FindingsViewProps) {
     </section>
 }
 
-function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpdates, findingTriageHistoryAction, onViewRun, onUpdate }: {
+function FindingGroupCard({ group, filters, data, scoped, busy, findingUpdates, setFindingUpdates, findingTriageHistoryAction, onViewRun, onUpdate }: {
+    group: UvmFindingGroup
+    filters: UvmFindingFilters
+    data: UvmDashboard
+    scoped: boolean
+    busy: string
+    findingUpdates: Record<string, UvmFindingUpdate>
+    setFindingUpdates: FindingsViewProps['setFindingUpdates']
+    findingTriageHistoryAction: FindingsViewProps['findingTriageHistoryAction']
+    onViewRun: FindingsViewProps['onViewRun']
+    onUpdate: (finding: UvmFinding) => void
+}) {
+    const visibleMembers = filterAndSortUvmFindings(group.members, filters, data.assets)
+    return <article className='rounded-md border border-ui-border bg-ui-raised p-3'>
+        <div className='flex flex-wrap items-start justify-between gap-2'>
+            <div>
+                <div className='flex flex-wrap items-center gap-2'><strong>{group.cveIds.join(', ') || group.members[0]?.title || 'Correlated findings'}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 text-[11px] font-semibold text-ui-warning'>{group.severity}</span><span className='text-xs text-ui-muted'>{group.engines.join(' · ')}</span></div>
+                <p className='mt-1 text-xs text-ui-muted'>{group.asset}{group.address ? ` · ${group.address}` : ''}{group.affectedLocation ? ` · ${group.affectedLocation}` : ''}</p>
+            </div>
+            <span className='text-xs font-semibold'>{group.status.replaceAll('_', ' ')} · {group.members.length} records</span>
+        </div>
+        {group.members.length > 1 && <details className='mt-2 text-xs'>
+            <summary className='cursor-pointer text-ui-muted'>Scanner records and individual triage · {group.members.length}</summary>
+            {visibleMembers.length !== group.members.length && <p className='mt-1 text-ui-muted'>Showing {visibleMembers.length} of {group.members.length} records matching the current filters.</p>}
+            <div className='mt-2 grid gap-2'>{visibleMembers.map(finding => <FindingCard key={finding.id} finding={finding} scoped={scoped} criticality={data.assets.find(asset => asset.id === finding.assetId)?.criticality || 'unset'} busy={busy} update={findingUpdates[finding.id] || { status: finding.status, note: finding.triageNote || '', remediationOwner: finding.remediationOwner || '', remediationDueDate: finding.remediationDueDate || '' }} setFindingUpdates={setFindingUpdates} findingTriageHistoryAction={findingTriageHistoryAction} onViewRun={onViewRun} onUpdate={() => onUpdate(finding)} showRelatedSignals={false} />)}</div>
+        </details>}
+    </article>
+}
+
+function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpdates, findingTriageHistoryAction, onViewRun, onUpdate, showRelatedSignals = true }: {
     finding: UvmFinding
     scoped: boolean
     criticality: UvmAssetCriticality
@@ -86,6 +121,7 @@ function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpd
     findingTriageHistoryAction: FindingsViewProps['findingTriageHistoryAction']
     onViewRun: FindingsViewProps['onViewRun']
     onUpdate: () => void
+    showRelatedSignals?: boolean
 }) {
     const evidence = finding.observedInRun?.evidence || finding.evidence
     return <article className='rounded-md border border-ui-border bg-ui-raised p-3'>
@@ -96,7 +132,7 @@ function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpd
             </div>
             <span className='flex items-center gap-2 text-xs font-semibold'>{finding.status.replaceAll('_', ' ')}<UvmHelp label='Remediation plan' text={`Owner/team is a free-form label. Due dates do not change severity; findings resolve only after eligible scan evidence.${scoped ? ' Edits apply to this organization-wide finding across assessments.' : ''}`} /></span>
         </div>
-        {finding.relatedSignals?.length ? <details className='mt-2 text-xs'>
+        {showRelatedSignals && finding.relatedSignals?.length ? <details className='mt-2 text-xs'>
             <summary className='cursor-pointer text-ui-muted'>Possible matches from other engines (showing up to 5)</summary>
             <p className='mt-1 text-ui-muted'>Same asset, CVE and network endpoint. Review before treating these as one issue; records stay separate.</p>
             <ul className='mt-1 grid gap-1'>

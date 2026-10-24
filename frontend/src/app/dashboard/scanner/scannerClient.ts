@@ -1,12 +1,13 @@
 'use client'
 
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
-import type { NmapScanProfile, UvmAssetCriticality, UvmAssessmentHistoryPage, UvmAssessmentMode, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingTriageHistoryPage, UvmFindingUpdate, UvmRunHistoryPage } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAssetCriticality, UvmAssessmentHistoryPage, UvmAssessmentMode, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingGroupHistoryPage, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingTriageHistoryPage, UvmFindingUpdate, UvmRunHistoryPage } from '@/utils/monitoring/types'
 
 const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.hanasand.com/api').replace(/\/$/, '')
 
 export const emptyUvmDashboard: UvmDashboard = {
-    assets: [], coverage: [], engines: [], runs: [], assessments: [], findings: [], tenableScans: [],
+    assets: [], coverage: [], engines: [], runs: [], assessments: [], findings: [], findingGroups: [], tenableScans: [],
+    findingGroupSummary: { total: 0, correlated: 0, actionable: 0, needsReview: 0 },
     scannerError: 'Scanner service is loading.', execution: { enabled: false, state: 'paused', reason: null }, tenableIntegration: null,
 }
 
@@ -25,6 +26,9 @@ export function createScannerClient(organizationId: string) {
                 : '/v1/uvm/findings'
             return request<UvmFindingHistoryPage>(`${path}?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`)
         },
+        getFindingGroups: (cursor: string | null) => request<UvmFindingGroupHistoryPage>(
+            `/v1/uvm/finding-groups?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        ),
         getFindingTriageHistory: (findingId: string, cursor: string | null) => request<UvmFindingTriageHistoryPage>(
             `/v1/uvm/findings/${encodeURIComponent(findingId)}/history?limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
         ),
