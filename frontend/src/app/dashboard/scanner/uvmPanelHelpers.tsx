@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import type { NmapScanProfile, UvmFinding, UvmRun, UvmTestsslObservation } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmFinding, UvmRun, UvmTestsslObservation } from '@/utils/monitoring/types'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { TestsslObservationList } from './uvmTestsslObservations'
 
 export type UvmFindingFilters = { query: string, engine: string, severity: string, status: string, asset: string }
+export type UvmFindingSort = 'severity' | 'criticality'
 
 export function buildAssessmentFindingFilters(assetId: string, engine: string): UvmFindingFilters {
     return { query: '', engine, severity: 'all', status: 'all', asset: assetId }
@@ -13,7 +14,7 @@ export function isNmapScanProfile(value: unknown): value is NmapScanProfile {
     return value === 'tcp-top-100' || value === 'tcp-top-1000' || value === 'tcp-top-1000-safe-vuln' || value === 'tcp-all' || value === 'udp-top-100'
 }
 
-export function filterAndSortUvmFindings(findings: UvmFinding[], filters: UvmFindingFilters) {
+export function filterAndSortUvmFindings(findings: UvmFinding[], filters: UvmFindingFilters, assets: UvmAsset[] = [], sort: UvmFindingSort = 'severity') {
     const query = filters.query.trim().toLowerCase()
     const filtered = findings.filter(finding => {
         if (query && ![
@@ -29,8 +30,16 @@ export function filterAndSortUvmFindings(findings: UvmFinding[], filters: UvmFin
         return filters.asset === 'all' || assetKey === filters.asset
     })
     const severityRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4, unknown: 5 }
+    const criticalityRank: Record<UvmAssetCriticality, number> = { critical: 0, high: 1, medium: 2, low: 3, unset: 4 }
+    const assetCriticality = new Map(assets.map(asset => [asset.id, asset.criticality]))
     const statusRank: Record<UvmFinding['status'], number> = { needs_review: 0, open: 1, in_progress: 2, pending_verification: 3, accepted_risk: 4, false_positive: 5, resolved: 6 }
     return filtered.sort((left, right) => {
+        if (sort === 'criticality') {
+            const leftCriticality = left.assetId ? assetCriticality.get(left.assetId) || 'unset' : 'unset'
+            const rightCriticality = right.assetId ? assetCriticality.get(right.assetId) || 'unset' : 'unset'
+            const criticalityDifference = criticalityRank[leftCriticality] - criticalityRank[rightCriticality]
+            if (criticalityDifference) return criticalityDifference
+        }
         const severityDifference = (severityRank[left.severity] ?? 5) - (severityRank[right.severity] ?? 5)
         if (severityDifference) return severityDifference
         const statusDifference = statusRank[left.status] - statusRank[right.status]

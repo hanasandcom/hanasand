@@ -6,6 +6,7 @@ import type {
     UvmAssessmentReport,
     UvmDashboard,
     UvmEngineSelection,
+    UvmAssetCriticality,
     UvmFinding,
     UvmFindingHistoryPage,
     UvmFindingHistoryScope,
@@ -22,6 +23,7 @@ export type UvmPanelProps = {
     assessmentHistoryAction: (cursor: string | null) => Promise<UvmAssessmentHistoryPage>
     findingHistoryAction: (cursor: string | null, scope?: UvmFindingHistoryScope) => Promise<UvmFindingHistoryPage>
     createAssetAction: (input: { hostname: string }) => Promise<{ asset: UvmAsset }>
+    updateAssetCriticalityAction: (assetId: string, criticality: UvmAssetCriticality) => Promise<{ asset: UvmAsset }>
     verifyAssetAction: (assetId: string) => Promise<{ asset: UvmAsset }>
     saveZapApiDefinitionAction: (assetId: string, path: string | null) => Promise<{ asset: UvmAsset }>
     runScanAction: (assetId: string, authorized: boolean, profile: NmapScanProfile) => Promise<{ run: UvmRun }>

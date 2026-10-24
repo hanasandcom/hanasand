@@ -67,6 +67,7 @@ export default function ScannerWorkspace() {
             assessmentHistoryAction={client.getAssessmentHistory}
             findingHistoryAction={client.getFindingHistory}
             createAssetAction={client.createAsset}
+            updateAssetCriticalityAction={client.updateAssetCriticality}
             verifyAssetAction={client.verifyAsset}
             saveZapApiDefinitionAction={client.saveZapApiDefinition}
             runScanAction={client.runAsset}

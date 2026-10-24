@@ -1,9 +1,27 @@
 'use client'
 
-import type { NmapScanProfile, UvmAsset, UvmEngineSelection } from '@/utils/monitoring/types'
+import { useEffect, useState } from 'react'
+
+import type { NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmEngineSelection } from '@/utils/monitoring/types'
 import { formatDate, isNmapScanProfile } from './uvmPanelHelpers'
 import type { AssetViewProps } from './uvmPanelViews'
 import { UvmHelp } from './uvmPanelHelp'
+
+export function AssetCriticalityControl({ asset, props }: { asset: UvmAsset, props: AssetViewProps }) {
+    const [criticality, setCriticality] = useState<UvmAssetCriticality>(asset.criticality)
+    useEffect(() => setCriticality(asset.criticality), [asset.criticality])
+    const busy = props.busy === `${asset.id}:criticality`
+    return <div className='mt-3 flex flex-wrap items-end gap-2'>
+        <label className='grid gap-1 text-xs text-ui-muted'>Asset importance
+            <select aria-label={`Asset importance for ${asset.hostname}`} value={criticality} onChange={event => setCriticality(event.target.value as UvmAssetCriticality)} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'>
+                <option value='unset'>Unassigned</option><option value='low'>Low</option><option value='medium'>Medium</option><option value='high'>High</option><option value='critical'>Critical</option>
+            </select>
+        </label>
+        <UvmHelp label='Asset importance' text='Set manually. It adds business context to findings; scanner severity stays unchanged.' />
+        <button type='button' onClick={() => props.onSaveCriticality(asset, criticality)} disabled={busy || criticality === asset.criticality} className='h-8 rounded-md border border-ui-border px-3 text-xs font-semibold disabled:opacity-50'>{busy ? 'Saving…' : 'Save importance'}</button>
+        {asset.criticalityUpdatedAt && <span className='text-[11px] text-ui-muted' title={`Set by ${asset.criticalityUpdatedBy || 'unknown user'} at ${asset.criticalityUpdatedAt}`}>Manual · {formatDate(asset.criticalityUpdatedAt)}</span>}
+    </div>
+}
 
 export function DnsRecord({ asset }: { asset: UvmAsset }) {
     return <div className='mt-3 rounded-md border border-ui-border bg-ui-raised p-3 text-xs'>

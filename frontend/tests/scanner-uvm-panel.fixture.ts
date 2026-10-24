@@ -2,7 +2,7 @@ import type { UvmDashboard } from '../src/utils/monitoring/types'
 
 export const data: UvmDashboard = {
     assets: [{
-        id: 'asset-1', hostname: 'example.com', verificationStatus: 'verified',
+        id: 'asset-1', hostname: 'example.com', criticality: 'high', criticalityUpdatedAt: '2026-10-20T12:00:00.000Z', criticalityUpdatedBy: 'eirikhanasand', verificationStatus: 'verified',
         verificationRecordName: '_hanasand-security-verification.example.com',
         verificationRecordValue: 'hanasand-security-verification=challenge', verificationMethod: 'dns_txt',
         verifiedAt: new Date(0).toISOString(), scanAuthorizedAt: new Date(0).toISOString(),

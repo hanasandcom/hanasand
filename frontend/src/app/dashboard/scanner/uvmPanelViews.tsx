@@ -1,9 +1,9 @@
 'use client'
 
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
-import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmDashboard, UvmEngineSelection } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmDashboard, UvmEngineSelection } from '@/utils/monitoring/types'
 import { formatDate } from './uvmPanelHelpers'
-import { DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
+import { AssetCriticalityControl, DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
 import { UvmHelp } from './uvmPanelHelp'
 export { UvmHelp } from './uvmPanelHelp'
 export { UvmAssessmentStarter } from './uvmPanelAssessmentStarter'
@@ -27,6 +27,7 @@ export type AssetViewProps = {
     setAssetNmapProfiles: Dispatch<SetStateAction<Record<string, NmapScanProfile>>>
     zapApiDefinitionPaths: Record<string, string>
     setZapApiDefinitionPaths: Dispatch<SetStateAction<Record<string, string>>>
+    onSaveCriticality: (asset: UvmAsset, criticality: UvmAssetCriticality) => void
     scheduleScanIds: Record<string, string>
     setScheduleScanIds: Dispatch<SetStateAction<Record<string, string>>>
     tenableScanIds: Record<string, string>
@@ -107,6 +108,7 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
             </div>
             <div className='flex items-center gap-2'><UvmHelp label={`${asset.hostname} verification`} text='A DNS TXT record proves control of this domain before network scans can run.' /><button type='button' onClick={() => props.onVerify(asset.id)} disabled={busy === asset.id || asset.verificationMethod === 'internal'} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === asset.id ? 'Working…' : 'Check DNS verification'}</button></div>
         </div>
+        <AssetCriticalityControl asset={asset} props={props} />
         {asset.verificationMethod !== 'internal' && asset.verificationStatus !== 'verified' && <DnsRecord asset={asset} />}
         <details className='mt-3 border-t border-ui-border pt-3'>
             <summary className='cursor-pointer text-sm font-medium text-ui-muted'>Scan controls & schedule</summary>

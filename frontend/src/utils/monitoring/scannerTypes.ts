@@ -5,9 +5,13 @@ export type NetworkScanProfile = NmapScanProfile | NaabuScanProfile | AngryIpSca
 export type UvmEngineId = 'nmap' | 'naabu' | 'angry-ip-scanner' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f'
 export type UvmEngineProfile = NetworkScanProfile | 'bounded-web-dast-v1' | 'tls-default-v1' | 'safe-http-v1' | 'nikto-safe-web-v1' | 'sslyze-tls-safe-v1' | 'wapiti-passive-web-v1' | 'whatweb-stealthy-host-v1' | 'httpx-root-probe-v1' | 'tlsx-certificate-metadata-v1' | 'katana-same-origin-crawl-v1' | 'wafw00f-exact-origin-detection-v1'
 export type UvmEngineSelection = { engine: UvmEngineId, scanId?: string, profile?: UvmEngineProfile }
+export type UvmAssetCriticality = 'unset' | 'low' | 'medium' | 'high' | 'critical'
 export type UvmAsset = {
     id: string
     hostname: string
+    criticality: UvmAssetCriticality
+    criticalityUpdatedAt: string | null
+    criticalityUpdatedBy: string | null
     verificationStatus: 'pending' | 'verified' | 'disabled'
     verificationRecordName: string
     verificationRecordValue: string

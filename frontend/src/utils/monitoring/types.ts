@@ -80,7 +80,7 @@ export type GetVulnerabilities = {
     legacyImportComplete?: boolean
 }
 export type {
-    NmapScanProfile, NaabuScanProfile, NetworkScanProfile, UvmAsset, UvmAssetEngineCoverage, UvmAssessment, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard,
+    NmapScanProfile, NaabuScanProfile, NetworkScanProfile, UvmAsset, UvmAssetCriticality, UvmAssetEngineCoverage, UvmAssessment, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard,
     UvmEngine, UvmEngineId, UvmEngineSelection, UvmFinding, UvmGvmFinding, UvmHost, UvmPort, UvmRun,
     UvmNucleiFinding, UvmNiktoFinding, UvmSslyzeFinding, UvmWapitiFinding, UvmWhatwebFinding, UvmHttpxObservation, UvmTlsxObservation, UvmKatanaObservation, UvmWafw00fObservation, UvmHttpxFinding, UvmTlsxFinding, UvmKatanaFinding, UvmWafw00fFinding, UvmTenableFinding, UvmTenableIntegration, UvmTenableScan, UvmScannerCatalogEntry, UvmTestsslObservation, UvmZapFinding, UvmRunHistoryPage, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmEngineProfile,
 } from './scannerTypes'

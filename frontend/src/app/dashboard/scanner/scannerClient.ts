@@ -1,7 +1,7 @@
 'use client'
 
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
-import type { NmapScanProfile, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmRunHistoryPage } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAssetCriticality, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmRunHistoryPage } from '@/utils/monitoring/types'
 
 const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.hanasand.com/api').replace(/\/$/, '')
 
@@ -26,6 +26,7 @@ export function createScannerClient(organizationId: string) {
             return request<UvmFindingHistoryPage>(`${path}?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`)
         },
         createAsset: (input: { hostname: string }) => request<{ asset: UvmDashboard['assets'][number] }>('/v1/uvm/assets', { method: 'POST', body: input }),
+        updateAssetCriticality: (assetId: string, criticality: UvmAssetCriticality) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/criticality`, { method: 'PUT', body: { criticality } }),
         verifyAsset: (assetId: string) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/verify`, { method: 'POST', body: {} }),
         saveZapApiDefinition: (assetId: string, path: string | null) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-api-definition`, { method: 'PUT', body: { path } }),
         runAsset: (assetId: string, authorized: boolean, profile: NmapScanProfile = 'tcp-top-1000') => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized, profile } }),

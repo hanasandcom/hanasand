@@ -13,6 +13,7 @@ test('overview shows compact readiness, honest coverage, and clear next actions'
         refreshAction={async() => data}
         createAssetAction={noop}
         verifyAssetAction={noop}
+        updateAssetCriticalityAction={noop}
         runScanAction={noop}
         scheduleAction={noop}
         configureTenableAction={noop}
@@ -50,7 +51,7 @@ test('unavailable Scanner API shows unknown state instead of empty-result counts
         scannerError: 'Failed to fetch', tenableIntegration: null,
     }}
     refreshAction={async() => { throw new Error('Failed to fetch') }}
-    createAssetAction={noop} verifyAssetAction={noop} runScanAction={noop} scheduleAction={noop}
+    createAssetAction={noop} updateAssetCriticalityAction={noop} verifyAssetAction={noop} runScanAction={noop} scheduleAction={noop}
     configureTenableAction={noop} disconnectTenableAction={noop} runTenableScanAction={noop}
     updateFindingAction={noop} cancelRunAction={noop} startAssessmentAction={noop} cancelAssessmentAction={noop}
     />)
@@ -73,7 +74,7 @@ test('paused Scanner keeps the product catalog searchable while other views stay
     const html = renderToStaticMarkup(<UvmPanel initialData={{
         assets: [], coverage: [], engines: [], runs: [], assessments: [], findings: [], tenableScans: [],
         scannerError: 'Scanner services are stopped pending disk expansion.', tenableIntegration: null,
-    }} servicesPaused />)
+    }} servicesPaused updateAssetCriticalityAction={noop} />)
 
     expect(html).toContain('placeholder="Filter scanners"')
     expect(html).not.toContain('<fieldset disabled="">')
