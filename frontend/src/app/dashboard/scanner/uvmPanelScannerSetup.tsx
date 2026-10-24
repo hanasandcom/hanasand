@@ -6,8 +6,7 @@ import { formatDate } from './uvmPanelHelpers'
 import { UvmHelp } from './uvmPanelHelp'
 import { getScannerSuiteCatalog } from './scannerSuiteCatalog'
 import { UVM_ASSET_ASSESSMENT_ENGINE_IDS } from './uvmPanelAssessmentControls'
-
-export type TenableRegion = 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp'
+import type { TenableRegion } from './uvmPanelTenableActions'
 
 export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey, setAccessKey, secretKey, setSecretKey, servicesPaused, onSave, onDisconnect }: {
     data: UvmDashboard

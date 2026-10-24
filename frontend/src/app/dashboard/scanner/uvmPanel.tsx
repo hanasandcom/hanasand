@@ -14,7 +14,8 @@ import { UvmPanelNavigation, type UvmPanelView } from './uvmPanelNavigation'
 import { UvmAssessmentReportView } from './uvmPanelAssessmentReport'
 import { UvmAssessmentHistory, UvmRunHistory } from './uvmPanelHistory'
 import { createUvmPanelHistoryActions } from './uvmPanelHistoryActions'
-import { UvmPanelScannerSetup, type TenableRegion } from './uvmPanelScannerSetup'
+import { UvmPanelScannerSetup } from './uvmPanelScannerSetup'
+import { createUvmPanelTenableActions, type TenableRegion } from './uvmPanelTenableActions'
 export { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 export default function UvmPanel({
     initialData, servicesPaused = false, refreshAction, getRunAction, getRunHistoryAction,
@@ -86,6 +87,11 @@ export default function UvmPanel({
         setFindingSyncState(page.syncState)
         return scoped
     }, [data.findings, data.findingsNextCursor, findingHistoryAction, findingScope, refreshAction])
+    const { saveTenable, disconnectTenable } = createUvmPanelTenableActions({
+        region: tenableRegion, accessKey: tenableAccessKey, secretKey: tenableSecretKey,
+        configure: configureTenableAction, disconnect: disconnectTenableAction, refresh,
+        setAccessKey: setTenableAccessKey, setSecretKey: setTenableSecretKey, setBusy, setMessage,
+    })
     const selectableAssessmentEngines = assessmentEngines.filter(engine => {
         const info = data.engines.find(item => item.id === engine)
         return info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
@@ -140,21 +146,6 @@ export default function UvmPanel({
             setData(current => ({ ...current, assets: current.assets.map(item => item.id === asset.id ? result.asset : item) }))
             setMessage(enabled ? `Schedule enabled for ${asset.hostname}.` : `Schedule paused for ${asset.hostname}.`)
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Schedule could not be saved.') }
-        finally { setBusy('') }
-    }
-    async function saveTenable(event: React.FormEvent<HTMLFormElement>) {
-        event.preventDefault(); setBusy('tenable'); setMessage('')
-        try {
-            await configureTenableAction({ region: tenableRegion, accessKey: tenableAccessKey, secretKey: tenableSecretKey })
-            setTenableAccessKey(''); setTenableSecretKey(''); await refresh()
-            setMessage('Tenable connection verified and saved.')
-        } catch (error) { setMessage(error instanceof Error ? error.message : 'Tenable connection could not be saved.') }
-        finally { setBusy('') }
-    }
-    async function disconnectTenable() {
-        setBusy('tenable'); setMessage('')
-        try { await disconnectTenableAction(); await refresh(); setMessage('Tenable connection removed.') }
-        catch (error) { setMessage(error instanceof Error ? error.message : 'Tenable connection could not be removed.') }
         finally { setBusy('') }
     }
     async function updateFinding(finding: UvmFinding) {
