@@ -1,6 +1,6 @@
 'use client'
 
-import type { Dispatch, FormEvent, SetStateAction } from 'react'
+import { useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import type { UvmDashboard } from '@/utils/monitoring/types'
 import { formatDate } from './uvmPanelHelpers'
 import { UvmHelp } from './uvmPanelHelp'
@@ -21,18 +21,11 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     onSave: (event: FormEvent<HTMLFormElement>) => void
     onDisconnect: () => void
 }) {
+    const [productQuery, setProductQuery] = useState('')
     const integration = data.tenableIntegration
     const productCatalog = getScannerSuiteCatalog(data.scannerCatalog)
     const configuredProducts = productCatalog.filter(item => item.setup === 'configured')
-    const featuredDesktopProducts = productCatalog.filter(item => item.id === 'angry-ip-scanner' || item.id === 'advanced-ip-scanner')
-    const visibleProducts = [...configuredProducts, ...featuredDesktopProducts]
-    const otherProducts = productCatalog.filter(item => !visibleProducts.includes(item))
-    const setupCounts = {
-        adapter: otherProducts.filter(item => item.setup === 'adapter-needed').length,
-        licensed: otherProducts.filter(item => item.setup === 'license-and-adapter-needed').length,
-        desktop: otherProducts.filter(item => item.setup === 'desktop-only').length,
-        cliReview: otherProducts.filter(item => item.setup === 'cli-review-needed').length,
-    }
+    const filteredProducts = productCatalog.filter(item => `${item.name} ${item.category}`.toLowerCase().includes(productQuery.trim().toLowerCase()))
     const renderProducts = (products: typeof productCatalog) => products.map(item => {
         const engine = ['nmap', 'naabu', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(item.integration)
             ? data.engines.find(candidate => candidate.id === item.integration)
@@ -54,12 +47,10 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     })
     return <>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-center justify-between gap-3'><div><h2 className='text-lg font-semibold'>Scanner suite</h2><p className='mt-1 text-xs text-ui-muted'>{configuredProducts.length} integrations wired · {servicesPaused ? '0 running' : `${otherProducts.length} other integrations`}</p></div><UvmHelp label='Scanner suite' text='The five image and package tools share the local image worker. Advanced IP Scanner is a Windows desktop app.' /></div>
-            <div className='mt-3 grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>{renderProducts(visibleProducts)}</div>
-            {otherProducts.length > 0 && <details className='mt-2 border-t border-ui-border pt-2'>
-                <summary className='cursor-pointer text-sm font-semibold'>Roadmap and other integrations · {otherProducts.length}<span className='ml-2 text-xs font-normal text-ui-muted'>{setupCounts.adapter} adapters · {setupCounts.licensed} licensed</span></summary>
-                <div className='mt-2 grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>{renderProducts(otherProducts)}</div>
-            </details>}
+            <div className='flex items-center justify-between gap-3'><div><h2 className='text-lg font-semibold'>Scanner suite</h2><p className='mt-1 text-xs text-ui-muted'>{productCatalog.length} products · {configuredProducts.length} wired · {servicesPaused ? '0 running · stopped pending disk' : 'availability shown per product'}</p></div><UvmHelp label='Scanner suite' text='Wired means an adapter exists. Staged products still need their adapter or asset workflow.' /></div>
+            {servicesPaused && <p role='status' className='mt-2 text-xs text-ui-warning'>Configured services are stopped pending disk expansion. No scanner is running.</p>}
+            <label className='mt-3 block'><span className='sr-only'>Filter scanners</span><input value={productQuery} onChange={event => setProductQuery(event.target.value)} placeholder='Filter scanners' className='h-9 w-full rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text placeholder:text-ui-muted' /></label>
+            <div className='mt-2 max-h-80 overflow-y-auto rounded-md border border-ui-border px-3'><div className='grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>{renderProducts(filteredProducts)}</div>{filteredProducts.length === 0 && <p className='py-3 text-sm text-ui-muted'>No scanners match that filter.</p>}</div>
         </section>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
             <div className='flex flex-wrap items-start justify-between gap-3'><div className='flex items-center gap-2'><h2 className='text-lg font-semibold'>Nessus via Tenable VM</h2><UvmHelp label='Tenable VM connection' text='This connects a Tenable cloud account and launches its enabled Nessus scan configurations. Standalone Nessus Pro hosts are not connected.' /></div><span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${integration?.configured ? 'bg-ui-success/15 text-ui-success' : 'bg-ui-warning/15 text-ui-warning'}`}>{servicesPaused && !integration?.configured ? 'Unavailable while stopped' : integration?.configured ? `Connected · ${integration.region}` : 'Not configured'}</span></div>

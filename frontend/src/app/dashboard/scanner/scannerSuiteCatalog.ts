@@ -41,6 +41,20 @@ export const scannerSuiteCatalog: ScannerCatalogEntry[] = [
     { id: 'scoutsuite', name: 'ScoutSuite', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'openscap', name: 'OpenSCAP', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'lynis', name: 'Lynis', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'prowler', name: 'Prowler', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'gitleaks', name: 'Gitleaks', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'trufflehog', name: 'TruffleHog', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'bandit', name: 'Bandit', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'gosec', name: 'gosec', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'brakeman', name: 'Brakeman', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'owasp-dependency-check', name: 'OWASP Dependency-Check', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'retire-js', name: 'Retire.js', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'dockle', name: 'Dockle', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'clair', name: 'Clair', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'kics', name: 'KICS', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'kube-bench', name: 'kube-bench', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'kubescape', name: 'Kubescape', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'snyk', name: 'Snyk', category: 'Cloud and code', integration: 'catalog-only', setup: 'license-and-adapter-needed' },
 ]
 
 export function getScannerSuiteCatalog(apiCatalog: UvmScannerCatalogEntry[] = []): ScannerCatalogEntry[] {
