@@ -148,6 +148,16 @@ test('VM creation forwards Ubuntu 26.04 LTS', async () => {
     expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-26.04', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: [], minecraftEulaAccepted: false }))
 })
 
+test('VM creation forwards Debian and Rocky images to the configured host', async () => {
+    const debian = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'debian-vm', os: 'debian-13' } })
+    expect(debian.statusCode).toBe(201)
+    expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'debian-13', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: [], minecraftEulaAccepted: false }))
+
+    const rocky = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'rocky-vm', os: 'rocky-9', services: ['nodejs', 'postgresql'] } })
+    expect(rocky.statusCode).toBe(201)
+    expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'rocky-9', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['nodejs', 'postgresql'], minecraftEulaAccepted: false }))
+})
+
 test('VM creation forwards Ubuntu Desktop and requires the large resource plan', async () => {
     const tooSmall = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'desktop-vm', os: 'ubuntu-24.04-desktop' } })
     expect(tooSmall.statusCode).toBe(400)

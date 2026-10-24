@@ -77,6 +77,18 @@ test('unsupported game requests cannot be remapped to Minecraft Java', async () 
     expect(unsupportedGame.json()).toEqual({ error: 'This game server is not available yet.' })
 })
 
+test('Rocky Linux setup plans use supported services and reject archive packages', async () => {
+    completion = JSON.stringify({ summary: 'Node and PostgreSQL on Rocky', services: ['nodejs', 'postgresql'], packages: [], website: null, minecraftServerType: null })
+    const supported = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install Node and PostgreSQL', os: 'rocky-9' } })
+    expect(supported.statusCode).toBe(200)
+    expect(supported.json().services).toEqual(['nodejs', 'postgresql'])
+    expect(completionMessages[0].content).toContain('Rocky Linux uses DNF')
+
+    completion = JSON.stringify({ summary: 'Custom package', services: [], packages: ['ripgrep'], website: null, minecraftServerType: null })
+    const unsupportedPackage = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install ripgrep', os: 'rocky-9' } })
+    expect(unsupportedPackage.statusCode).toBe(422)
+})
+
 test('custom web app requests return validated source and a server-owned runtime manifest', async () => {
     completion = JSON.stringify({
         summary: 'A private task board that saves items in this browser.',
