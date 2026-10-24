@@ -1,5 +1,5 @@
 import type { UvmAssessmentReport } from '@/utils/monitoring/types'
-import { formatDate, isTestsslObservation, RunFinding } from './uvmPanelHelpers'
+import { EngineObservationList, formatDate, isTestsslObservation, RunFinding } from './uvmPanelHelpers'
 import { TestsslObservationList } from './uvmTestsslObservations'
 
 const outcomeClass: Record<string, string> = {
@@ -7,11 +7,12 @@ const outcomeClass: Record<string, string> = {
     cancelled: 'text-ui-muted', skipped: 'text-ui-muted',
 }
 
-export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpenFindings }: {
+export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpenFindings, onOpenRun }: {
     assessment: UvmAssessmentReport
     busy?: string
     onClose: () => void
     onOpenFindings: (stepId: string, assetId: string, engine: string) => void
+    onOpenRun: (runId: string, engine: string) => void
 }) {
     const completed = assessment.jobs.filter(job => job.status === 'succeeded').length
     const findingRecords = assessment.jobs.reduce((total, job) => total + (job.run?.findings?.length || 0), 0)
@@ -27,9 +28,10 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
         <div className='mt-4 grid gap-3'>
             {assessment.jobs.map(job => <article key={job.id} className='rounded-md border border-ui-border bg-ui-raised p-3'>
                 <div className='flex flex-wrap items-start justify-between gap-2'>
-                    <div><h3 className='font-semibold'>Stage {job.stageIndex + 1} · {job.asset} · {job.engine}</h3><p className='mt-1 text-xs text-ui-muted'>{job.profile}{job.run?.engineVersion ? ` · ${job.run.engineVersion}` : ''}{job.run?.source ? ` · ${job.run.source}` : ''}</p></div>
+                    <div><h3 className='font-semibold'>Stage {job.stageIndex + 1} · {job.asset} · {job.engine}</h3><p className='mt-1 text-xs text-ui-muted'>{job.profile}{job.run?.engineVersion ? ` · ${job.run.engineVersion}` : ''}{job.run?.source ? ` · ${job.run.source}` : ''}</p>{job.run && <p className='mt-1 break-all text-xs text-ui-muted'>Target: {job.run.targetOrigin || job.run.target} · Run: {job.run.id}</p>}</div>
                     <span className={`text-xs font-semibold ${outcomeClass[job.status] || 'text-ui-text'}`}>{job.status}{job.attemptCount > 1 ? ` · ${job.attemptCount} attempts` : ''}</span>
                 </div>
+                {job.run && <button type='button' onClick={() => onOpenRun(job.run!.id, job.engine)} className='mt-2 rounded border border-ui-border px-2 py-1 text-xs font-semibold'>View run details</button>}
                 {job.reportError && <p className='mt-2 text-xs text-ui-warning'>{job.reportError}</p>}
                 {(job.error || job.run?.error) && <p className='mt-2 text-xs text-ui-warning'>{job.error || job.run?.error}</p>}
                 {!job.run ? <p className='mt-2 text-xs text-ui-muted'>{job.runId ? 'Run details are unavailable.' : 'No scanner run was created for this stage.'}</p> : <>
@@ -60,6 +62,10 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
                         <p className='mt-2 text-xs text-ui-muted'>testssl.sh TLS configuration checks · {job.run.observations?.length || 0} observations · {job.run.completedAddresses?.length ?? job.run.coverage?.completedAddresses ?? 'unknown'} addresses completed</p>
                         <TestsslObservationList observations={job.run.observations?.filter(isTestsslObservation)} />
                     </>}
+                    {['httpx', 'tlsx', 'katana', 'wafw00f'].includes(job.engine) && <details className='mt-3 rounded border border-ui-border px-3 py-2'>
+                        <summary className='cursor-pointer text-xs font-semibold'>Engine observations · {job.run.observations?.length || 0}</summary>
+                        <EngineObservationList engine={job.engine} observations={job.run.observations as unknown as Array<Record<string, unknown>> | undefined} />
+                    </details>}
                     {!job.run.coverage && <p className='mt-3 text-xs text-ui-warning'>Coverage was not reported for this run.</p>}
                     {job.run.coverage && <div className='mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ui-muted'>
                         {job.run.coverage.requestedAddresses !== undefined && <span>Addresses {job.run.coverage.completedAddresses ?? 0}/{job.run.coverage.requestedAddresses} complete</span>}
