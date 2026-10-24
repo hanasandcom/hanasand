@@ -45,6 +45,34 @@ test('operation waits surface terminal LXD operation failures', async () => {
     await expect(waitForLxdOperation(request, 'failed-op', 30)).rejects.toThrow('image unpack failed')
 })
 
+test.serial('long LXD waits use bounded chunks and respect the overall deadline', async () => {
+    const originalNow = Date.now
+    let now = 0
+    Date.now = () => now
+    try {
+        const paths: string[] = []
+        let waitCount = 0
+        const request = async <T>(path: string) => {
+            paths.push(path)
+            waitCount++
+            const timeout = Number(new URL(path, 'http://localhost').searchParams.get('timeout'))
+            now += timeout * 1000
+            return response((waitCount < 3 ? { status: 'Running' } : { status: 'Success' }) as T)
+        }
+
+        await waitForLxdOperation(request, 'slow-op', 300)
+        expect(paths.map(path => new URL(path, 'http://localhost').searchParams.get('timeout'))).toEqual(['120', '120', '60'])
+
+        const deadlineRequest = async <T>() => {
+            now += 31_000
+            return response({ status: 'Running' } as T)
+        }
+        await expect(waitForLxdOperation(deadlineRequest, 'stuck-op', 30)).rejects.toThrow('Timed out waiting for LXD operation')
+    } finally {
+        Date.now = originalNow
+    }
+})
+
 test('instance waits include matching create-like operations and ignore unrelated work', async () => {
     const paths: string[] = []
     let listCalls = 0

@@ -8,6 +8,8 @@ test('local VM setup errors explain exhausted resource quotas without exposing h
         .toContain('memory allocation')
     expect(localProvisionFailureReason(new Error('Reached maximum aggregate value "4" for "limits.cpu" in project "hns-stage"')))
         .toContain('CPU allocation')
+    expect(localProvisionFailureReason(new Error('Reached maximum aggregate value "2" for "limits.virtual-machines" in project "hns-stage"')))
+        .toContain('no available VM capacity')
     expect(localProvisionFailureReason(new Error('LXD image unavailable')))
         .toBe('VM setup could not start. Try again or contact Support if the problem persists.')
 })
