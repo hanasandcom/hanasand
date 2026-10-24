@@ -5,6 +5,7 @@ import type { UvmDashboard } from '@/utils/monitoring/types'
 import { formatDate } from './uvmPanelHelpers'
 import { UvmHelp } from './uvmPanelHelp'
 import { getScannerSuiteCatalog } from './scannerSuiteCatalog'
+import { UVM_ASSET_ASSESSMENT_ENGINE_IDS } from './uvmPanelAssessmentControls'
 
 export type TenableRegion = 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp'
 
@@ -24,7 +25,8 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     const [productQuery, setProductQuery] = useState('')
     const integration = data.tenableIntegration
     const productCatalog = getScannerSuiteCatalog(data.scannerCatalog)
-    const configuredProducts = productCatalog.filter(item => item.setup === 'configured')
+    const assetEngineCount = productCatalog.filter(item => UVM_ASSET_ASSESSMENT_ENGINE_IDS.includes(item.integration as typeof UVM_ASSET_ASSESSMENT_ENGINE_IDS[number])).length
+    const imageToolCount = productCatalog.filter(item => item.integration === 'image-worker' || item.integration === 'grype').length
     const filteredProducts = productCatalog.filter(item => `${item.name} ${item.category}`.toLowerCase().includes(productQuery.trim().toLowerCase()))
     const renderProducts = (products: typeof productCatalog) => products.map(item => {
         const engine = ['nmap', 'naabu', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(item.integration)
@@ -47,7 +49,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     })
     return <>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-center justify-between gap-3'><div><h2 className='text-lg font-semibold'>Scanner suite</h2><p className='mt-1 text-xs text-ui-muted'>{productCatalog.length} products · {configuredProducts.length} wired · {servicesPaused ? '0 running · stopped pending disk' : 'availability shown per product'}</p></div><UvmHelp label='Scanner suite' text='Wired means an adapter exists. Staged products still need their adapter or asset workflow.' /></div>
+            <div className='flex items-center justify-between gap-3'><div><h2 className='text-lg font-semibold'>Scanner suite</h2><p className='mt-1 text-xs text-ui-muted'>{productCatalog.length} products · {assetEngineCount} asset engines · {imageToolCount} image tools{servicesPaused ? ' · 0 running · stopped pending disk' : ''}</p></div><UvmHelp label='Scanner suite' text='Asset engines scan verified public assets. Image tools inspect container images. Other products are catalog entries awaiting an adapter, license, or supported host.' /></div>
             {servicesPaused && <p role='status' className='mt-2 text-xs text-ui-warning'>Configured services are stopped pending disk expansion. No scanner is running.</p>}
             <label className='mt-3 block'><span className='sr-only'>Filter scanners</span><input value={productQuery} onChange={event => setProductQuery(event.target.value)} placeholder='Filter scanners' className='h-9 w-full rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text placeholder:text-ui-muted' /></label>
             <div className='mt-2 max-h-80 overflow-y-auto rounded-md border border-ui-border px-3'><div className='grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>{renderProducts(filteredProducts)}</div>{filteredProducts.length === 0 && <p className='py-3 text-sm text-ui-muted'>No scanners match that filter.</p>}</div>
