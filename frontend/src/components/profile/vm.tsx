@@ -7,7 +7,7 @@ import { useState } from 'react'
 import DeleteVmDialog from '../vms/deleteVmDialog'
 import restoreVM from '@/utils/vms/fetch/restoreVM'
 import deleteVM from '@/utils/vms/fetch/deleteVM'
-import { ArrowRight, Cpu, HardDrive, Menu, Network, TerminalSquare, Trash2 } from 'lucide-react'
+import { ArrowRight, Cpu, HardDrive, Network, TerminalSquare, Trash2 } from 'lucide-react'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import formatDescription from '@/utils/vms/formatDescription'
 import formatStatus from '@/utils/vms/formatStatus'
@@ -17,6 +17,7 @@ import { vmActionStyle } from '../vms/actionStyle'
 import VMSudoPassword from '../vms/vmSudoPassword'
 import VMConnectLocally from '../vms/vmConnectLocally'
 import type { NotifyVmAction } from '../vms/vmActionFeedback'
+import FloatingActionMenu from '../vms/floatingActionMenu'
 
 export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update: () => void, now: number, onFeedback?: NotifyVmAction }) {
     const router = useRouter()
@@ -80,8 +81,8 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
     return (
         <>
             <article className='grid gap-3 rounded-lg border border-ui-border bg-ui-raised p-4 transition-colors hover:bg-ui-panel sm:gap-4'>
-                <div className='flex min-w-0 flex-wrap items-start justify-between gap-3'>
-                    <div className='min-w-0 flex-1 basis-48'>
+                <div className='flex min-w-0 items-start justify-between gap-3'>
+                    <div className='min-w-0 flex-1'>
                         <div className='flex min-w-0 flex-wrap items-center gap-2'>
                             <h3 className='min-w-0 wrap-break-word text-base font-semibold text-ui-text'>{name}</h3>
                             {vm.managed === true && <span title='Provisioned through a share' className='rounded-md border border-ui-border bg-ui-canvas px-2 py-0.5 text-[0.68rem] font-semibold text-ui-muted'>Managed</span>}
@@ -94,6 +95,26 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                         </div>
                         {statusNote && <p className='mt-1 text-xs leading-5 text-ui-muted'>{statusNote}</p>}
                     </div>
+                    {!deleted && <div className='flex shrink-0 items-center xl:hidden'>
+                        <FloatingActionMenu
+                            label={`More actions for ${name}`}
+                            buttonClassName={`${vmActionStyle} w-9 text-ui-muted`}
+                            panelClassName='fixed z-[100] grid w-80 max-w-[calc(100vw_-_1rem)] gap-2 overflow-y-auto rounded-lg border border-ui-border bg-ui-panel p-2 shadow-xl'
+                        >
+                            <div className='grid gap-2'>
+                                {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} w-full justify-start px-3 text-ui-text`} />}
+                                {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`} />}
+                            </div>
+                            <div data-vm-menu-keep-open>
+                                <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
+                            </div>
+                            <button type='button' onClick={() => setConfirmingDelete(true)} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
+                                <Trash2 className='h-4 w-4' /> Delete VM
+                            </button>
+                        </FloatingActionMenu>
+                    </div>}
+                </div>
+                <div className='flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2'>
                     <div className='flex min-w-0 max-w-full flex-1 flex-wrap items-center justify-end gap-2'>
                         {!deleted && <>
                             <RestartButtons vm={vm} onFeedback={onFeedback} showLabels />
@@ -105,23 +126,20 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                             </button>
                             {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} max-xl:!hidden px-3 text-ui-text xl:!inline-flex`} />}
                             {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} max-xl:!hidden px-3 text-ui-primary xl:!inline-flex`} />}
-                            <details className='relative ml-auto w-auto xl:ml-0' data-vm-actions data-vm-danger-actions>
-                                <summary aria-label={`More actions for ${name}`} title='More actions' className={`${vmActionStyle} w-9 cursor-pointer list-none text-ui-muted [&::-webkit-details-marker]:hidden`}>
-                                    <Menu className='h-4 w-4' />
-                                </summary>
-                                <div className='absolute right-0 top-11 z-20 grid w-[min(20rem,calc(100vw-2rem))] gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
-                                    <div className='grid gap-2 xl:!hidden'>
-                                        {!deleted && <>
-                                            {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} w-full justify-start px-3 text-ui-text`} />}
-                                            {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`} />}
-                                        </>}
+                            <div className='hidden xl:flex'>
+                                <FloatingActionMenu
+                                    label={`More actions for ${name}`}
+                                    buttonClassName={`${vmActionStyle} w-9 text-ui-muted`}
+                                    panelClassName='fixed z-[100] grid w-80 max-w-[calc(100vw_-_1rem)] gap-2 overflow-y-auto rounded-lg border border-ui-border bg-ui-panel p-2 shadow-xl'
+                                >
+                                    <div data-vm-menu-keep-open>
+                                        <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
                                     </div>
-                                    <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
                                     <button type='button' onClick={() => setConfirmingDelete(true)} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
                                         <Trash2 className='h-4 w-4' /> Delete VM
                                     </button>
-                                </div>
-                            </details>
+                                </FloatingActionMenu>
+                            </div>
                         </>}
                     </div>
                 </div>

@@ -16,7 +16,7 @@ const api = Bun.serve({
         if (pathname === '/api/vms/dashboard-render-proof-empty-user') return Response.json([])
         if (pathname === '/api/vms/dashboard-render-proof-stalled-user') return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[]')) } }), { headers: { 'content-type': 'application/json' } })
         if (pathname === '/api/vms/dashboard-render-proof-stalled-error-user') return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[]')) } }), { status: 404, headers: { 'content-type': 'application/json' } })
-        if (pathname.startsWith('/api/vms/')) return Response.json([{ name: 'my-machine', owner: 'dashboard-render-proof-user', status: 'running', access_users: [], can_assign_organization: true }])
+        if (pathname.startsWith('/api/vms/')) return Response.json([{ name: 'my-machine', owner: 'dashboard-render-proof-user', status: 'stopped', access_users: [], can_assign_organization: true }])
         if (pathname === '/status') {
             writeFileSync(`${scratch}/state.json`, JSON.stringify({ updatedAt: new Date().toISOString(), compute: { memoryTotalBytes: 123 }, sites: { inspur: { compute: { diskFreeBytes: 456 } } } }))
             return Response.json({ mode: 'normal', readOnly: false, services: [], compute: { memory: 123 }, sites: { inspur: { compute: { memory: 123 } } }, replicaEligibility: { memory: 123 } })
@@ -26,7 +26,7 @@ const api = Bun.serve({
 })
 const env = {
     ...process.env,
-    FRONTEND_INTERNAL_API: `${api.url}api`, FRONTEND_AUTH_API: `${api.url}api`,
+    NEXT_PUBLIC_API: `${api.url}api`, FRONTEND_INTERNAL_API: `${api.url}api`, FRONTEND_AUTH_API: `${api.url}api`,
     RECOVERY_STATUS_URL: `${api.url}status`, RECOVERY_STATE_FILE: `${scratch}/state.json`,
     NEXT_DIST_DIR: '.next/vm-access-check',
     PLAYWRIGHT_MANAGED_SERVERS: '0', PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:3267',
