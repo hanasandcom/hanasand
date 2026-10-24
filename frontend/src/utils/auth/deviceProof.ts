@@ -23,3 +23,12 @@ export async function getDevicePublicJwk() {
 export async function createDeviceProof(token: string, method: string, url: string) {
     return (await ensureDeviceProof()).create(token, method, url)
 }
+
+export async function createDeviceProofHeaders(token: string, method: string, url: string): Promise<Record<string, string>> {
+    const { proof, url: proofUrl } = await createDeviceProof(token, method, url)
+    return {
+        DPoP: proof,
+        'x-device-proof-method': method.toUpperCase(),
+        'x-device-proof-url': proofUrl,
+    }
+}

@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const authOrganizationTasks: TestTask[] = [
+    { id: 'organization-device-proof-fetch', title: 'Organization list device proof handoff', command: [bun, 'test', 'tests/device-proof-organization-fetch.test.ts'] },
     { id: 'auth-register-flow', title: 'Registration and verification flow', command: [bun, 'test', 'tests/register-flow.test.ts'] },
     { id: 'auth-logs-independent-api', title: 'Login failure events use the Logs API', command: [bun, 'test', 'tests/log-auth-failure-routing.test.ts'] },
     { id: 'auth-request-body', title: 'Shared login and registration body parsing', command: [bun, 'test', 'tests/auth-request-body.test.ts'] },

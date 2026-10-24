@@ -5,6 +5,8 @@ import { Building2, ChevronDown, LoaderCircle, TriangleAlert } from 'lucide-reac
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { cleanWorkspaceUrl, organizationFromParams, type Workspace } from '@/utils/organizations/workspace'
 import WorkspaceSwitchNotice, { type WorkspaceSwitchNoticeState } from './workspaceSwitchNotice'
+import { getCookie } from 'hanasand/cookies'
+import { createDeviceProofHeaders } from '@/utils/auth/deviceProof'
 
 type Organization = { id: string, name?: string, slug?: string, role?: string, lifecycleStatus?: string }
 type Context = { organizationId: string, organizationName: string, organizations: Organization[], loading: boolean, unavailable: boolean, switching: boolean, serviceAccount: boolean, canSwitchOrganization: boolean, switchOrganization: (id: string) => Promise<void> }
@@ -54,7 +56,11 @@ export default function WorkspaceProvider({ initial, enabled: authenticated, ser
             let retryable = true
             let message = 'Organizations could not be loaded.'
             try {
-                const response = await fetch('/api/organizations', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]), cache: 'no-store' })
+                const token = getCookie('access_token')
+                const proofHeaders = token
+                    ? await createDeviceProofHeaders(token, 'GET', new URL('/api/organizations', window.location.origin).href)
+                    : {}
+                const response = await fetch('/api/organizations', { headers: proofHeaders, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]), cache: 'no-store' })
                 retryable = response.status === 408 || response.status === 429 || response.status >= 500
                 if (response.status === 401) message = 'Your session expired. Sign in again to load organizations.'
                 if (!response.ok) throw new Error(message)

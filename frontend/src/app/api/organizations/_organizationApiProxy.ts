@@ -37,11 +37,19 @@ export async function proxyOrganizationApiRequest(request: NextRequest, path: st
         const sessionHeaders = options.verifiedWatchlistSession
             ? await (await import('@/utils/auth/serverDeviceProofHeaders')).default(options.verifiedWatchlistSession)
             : {}
+        const browserDeviceProof: Record<string, string> = !options.verifiedWatchlistSession && request.headers.get('dpop')
+            ? {
+                DPoP: request.headers.get('dpop')!,
+                'x-device-proof-url': request.headers.get('x-device-proof-url') || request.url,
+                'x-device-proof-method': request.headers.get('x-device-proof-method') || request.method,
+            }
+            : {}
         const init: RequestInit = {
             method,
             cache: 'no-store',
             headers: {
                 ...sessionHeaders,
+                ...browserDeviceProof,
                 'content-type': 'application/json',
                 ...(options.verifiedWatchlistSession ? {
                     'x-organization-id': options.verifiedWatchlistSession.organizationId,
