@@ -9,6 +9,8 @@ services:
       LXD_PROJECT: hns-stage
       AI_API_BASE: http://hanasand_ai_staging_api:19182
       SUPPORT_SERVICE_KEY: ${SUPPORT_SERVICE_KEY:?staging-only support key required}
+      PUBLIC_STATUS_INGEST_URL: ${PUBLIC_STATUS_INGEST_URL:-https://status.hanasand.com/api/monitoring/ingest}
+      PUBLIC_STATUS_INGEST_TOKEN: ${VM_STATUS_INGEST_TOKEN:?dedicated staging VM status ingest token required}
       VM_LIFECYCLE_MONITOR_ENABLED: "true"
       VM_LIFECYCLE_MONITOR_TARGET: isolated-staging
       VM_LIFECYCLE_MONITOR_SOCKET_PATH: /var/snap/lxd/common/lxd/unix.socket

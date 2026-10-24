@@ -28,7 +28,7 @@ The production VM project, database, DNS, VM gateway, host credentials, and prov
 
 ## Inspur VM lifecycle rehearsal
 
-The Inspur rehearsal uses the separate restricted LXD project `hns-stage`. Before starting it, confirm `lxc project show hns-stage` still reports `restricted: "true"`, `restricted.networks.access: hanai-stage0`, and finite `limits.instances` and `limits.virtual-machines`. The existing `hei` container must remain untouched; the project quota permits one disposable VM alongside it.
+The Inspur rehearsal uses the separate restricted LXD project `hns-stage`. Before starting it, confirm `lxc project show hns-stage` still reports `restricted: "true"`, `restricted.networks.access: hanai-stage0`, and finite `limits.instances` and `limits.virtual-machines`. The existing `hei` container must remain untouched; the project quota permits one disposable VM alongside it. Add the dedicated `VM_STATUS_INGEST_TOKEN` to `/home/hanasand/identity/.env.ai.staging`; never commit or print the token. This VM-only credential can publish only the lifecycle check and cannot publish container inventory or other monitoring rows. The lifecycle monitor publishes only the aggregate `Virtual Machines` result to the public status ingest URL, and the status service redacts its private diagnostics. Results remain fresh for seven hours to match the six-hour probe interval; older results are rejected and shown as unverified.
 
 Run the rehearsal with the staging-only overlay:
 

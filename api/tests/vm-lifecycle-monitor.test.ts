@@ -10,7 +10,7 @@ mock.module('#db', () => ({
     withTransaction: async (callback: (query: typeof fakeDatabaseQuery) => unknown) => callback(fakeDatabaseQuery),
 }))
 mock.module('../src/utils/monitoringIssues.ts', () => ({ recordMonitoringOutcome: async () => {} }))
-const { exerciseDisposableInstance, runVmLifecycleCheck, vmLifecycleMonitorIsConfigured } = await import('../src/utils/vms/lifecycleMonitor.ts')
+const { exerciseDisposableInstance, publishVmLifecycleStatus, runVmLifecycleCheck, vmLifecycleMonitorIsConfigured } = await import('../src/utils/vms/lifecycleMonitor.ts')
 
 const safeSettings = {
     enabled: true,
@@ -155,15 +155,18 @@ test('staging probe refuses to create a VM when its project profile has no root 
 test('a failed VM state check records failure and stops then deletes the disposable VM', async () => {
     const lxd = fakeLxd({ failAt: 'running-state' })
     const observations: { status: string, message: string }[] = []
+    const published: { status: string, message: string }[] = []
     await expect(runVmLifecycleCheck({
         settings: safeSettings,
         request: lxd.request,
         now: () => 1_800_000_000_000,
         record: async (_service, _name, result) => { observations.push(result) },
+        publish: async result => { published.push(result) },
     })).rejects.toThrow('did not reach Running')
 
     expect(observations).toHaveLength(1)
     expect(observations[0].status).toBe('down')
+    expect(published).toEqual([expect.objectContaining({ status: 'down' })])
     expect(lxd.calls.some(call => new URL(call.path, 'http://lxd').pathname.endsWith('/state') && call.method === 'PUT')).toBe(true)
     expect(lxd.calls.filter(call => call.action).map(call => call.action)).toEqual(['start', 'stop'])
     expect(lxd.calls.filter(call => call.method === 'DELETE')).toHaveLength(1)
@@ -179,16 +182,64 @@ test('cleanup failure is reported alongside the lifecycle failure', async () => 
 test('without an isolated staging target the monitor reports no data and makes no LXD request', async () => {
     const lxd = fakeLxd()
     const observations: { status: string, message: string }[] = []
+    const published: { status: string, message: string }[] = []
     const result = await runVmLifecycleCheck({
         settings: { ...safeSettings, enabled: false },
         request: lxd.request,
         now: () => 1_800_000_000_000,
         record: async (_service, _name, observation) => { observations.push(observation) },
+        publish: async observation => { published.push(observation) },
     })
 
     expect(result.status).toBe('no-data')
     expect(observations).toEqual([expect.objectContaining({ status: 'degraded', message: expect.stringContaining('has no data') })])
+    expect(published).toEqual([expect.objectContaining({ status: 'degraded' })])
     expect(lxd.calls).toEqual([])
+})
+
+test('successful lifecycle checks publish only a generic aggregate result', async () => {
+    const lxd = fakeLxd()
+    const published: { status: string, message: string }[] = []
+    const result = await runVmLifecycleCheck({
+        settings: safeSettings,
+        request: lxd.request,
+        now: () => 1_800_000_000_000,
+        record: async () => {},
+        publish: async observation => { published.push(observation) },
+    })
+
+    expect(result.status).toBe('up')
+    expect(published).toEqual([expect.objectContaining({ status: 'up' })])
+})
+
+test('public VM lifecycle ingest uses the dedicated token and never sends VM diagnostics', async () => {
+    let request: { url: string, init?: RequestInit } | undefined
+    await publishVmLifecycleStatus({
+        status: 'down', checkedAt: '2026-10-24T00:00:00.000Z', latencyMs: 9,
+        message: 'private VM name and host details',
+    }, async (url, init) => {
+        request = { url: String(url), init }
+        return new Response(null, { status: 202 })
+    }, { PUBLIC_STATUS_INGEST_URL: 'https://status.example.test/api/monitoring/ingest', PUBLIC_STATUS_INGEST_TOKEN: 'test-only-token' })
+
+    expect(request?.url).toBe('https://status.example.test/api/monitoring/ingest')
+    expect(request?.init?.method).toBe('POST')
+    expect(new Headers(request?.init?.headers).get('authorization')).toBe('Bearer test-only-token')
+    expect(JSON.parse(String(request?.init?.body))).toEqual({
+        service: 'virtual-machines', check_name: 'Disposable staging VM lifecycle', status: 'down',
+        checked_at: '2026-10-24T00:00:00.000Z', latency_ms: 9,
+        message: 'Virtual machine lifecycle needs attention.',
+    })
+    expect(String(request?.init?.body)).not.toMatch(/private VM name|host details|test-only-token/)
+})
+
+test('public VM lifecycle reporting is a no-op when no dedicated ingest token is configured', async () => {
+    let sent = false
+    await publishVmLifecycleStatus({
+        status: 'up', checkedAt: '2026-10-24T00:00:00.000Z', latencyMs: 1, message: 'private details',
+    }, async () => { sent = true; return new Response(null, { status: 202 }) }, {})
+
+    expect(sent).toBe(false)
 })
 
 test('default LXD project is rejected even when probe functions are called directly', async () => {

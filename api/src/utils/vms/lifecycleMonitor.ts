@@ -4,6 +4,7 @@ import { recordServiceCheckCase } from '../status/serviceCheckCase.ts'
 
 export const VM_LIFECYCLE_MONITOR_JOB_ID = 'api-vm-lifecycle-monitor'
 export const VM_LIFECYCLE_MONITOR_CHECK = 'Disposable staging VM lifecycle'
+const publicStatusIngestUrl = process.env.PUBLIC_STATUS_INGEST_URL || 'https://status.hanasand.com/api/monitoring/ingest'
 const MONITOR_INTERVAL_MS = 6 * 60 * 60 * 1000
 const RESOURCE_LIMITS = { cpu: '1', memory: '2GiB', disk: '10GiB' }
 const ISOLATED_STAGING_PROJECT = 'hns-stage'
@@ -56,6 +57,7 @@ export async function runVmLifecycleCheck(options: {
     settings?: MonitorConfig
     request?: LxdRequest
     record?: typeof recordServiceCheckCase
+    publish?: typeof publishVmLifecycleStatus
     now?: () => number
 }) {
     const startedAt = (options.now || Date.now)()
@@ -63,10 +65,13 @@ export async function runVmLifecycleCheck(options: {
     const settings = options.settings || vmLifecycleMonitorConfig()
     const request = options.request || requestLxdJson
     const record = options.record || recordServiceCheckCase
+    const publish = options.publish || publishVmLifecycleStatus
 
     if (!isSafeTarget(settings)) {
         const message = 'Missing isolated staging LXD configuration. VM lifecycle verification has no data.'
-        await record('virtual-machines', VM_LIFECYCLE_MONITOR_CHECK, { status: 'degraded', checkedAt, latencyMs: 0, message })
+        const result = { status: 'degraded' as const, checkedAt, latencyMs: 0, message }
+        await record('virtual-machines', VM_LIFECYCLE_MONITOR_CHECK, result)
+        await publish(result)
         return { status: 'no-data', message }
     }
 
@@ -81,15 +86,39 @@ export async function runVmLifecycleCheck(options: {
     if (lifecycleFailed) {
         const message = `Disposable staging VM lifecycle failed: ${lifecycleError instanceof Error ? lifecycleError.message : 'LXD request failed.'}`
         try {
-            await record('virtual-machines', VM_LIFECYCLE_MONITOR_CHECK, { status: 'down', checkedAt, latencyMs: Math.max(0, (options.now || Date.now)() - startedAt), message })
+            const result = { status: 'down' as const, checkedAt, latencyMs: Math.max(0, (options.now || Date.now)() - startedAt), message }
+            await record('virtual-machines', VM_LIFECYCLE_MONITOR_CHECK, result)
+            await publish(result)
         } catch (recordError) {
-            throw new Error(`${message} Monitoring could not save this result.`, { cause: recordError })
+            throw new Error(`${message} Monitoring could not save or publish this result.`, { cause: recordError })
         }
         throw lifecycleError
     }
     const message = 'Disposable staging VM lifecycle passed: create, inspect, update configuration, start, stop, and delete all succeeded.'
-    await record('virtual-machines', VM_LIFECYCLE_MONITOR_CHECK, { status: 'up', checkedAt, latencyMs: Math.max(0, (options.now || Date.now)() - startedAt), message })
+    const result = { status: 'up' as const, checkedAt, latencyMs: Math.max(0, (options.now || Date.now)() - startedAt), message }
+    await record('virtual-machines', VM_LIFECYCLE_MONITOR_CHECK, result)
+    await publish(result)
     return { status: 'up', message }
+}
+
+export async function publishVmLifecycleStatus(result: { status: 'up' | 'degraded' | 'down', checkedAt: string, latencyMs: number, message: string }, send: typeof fetch = fetch, env: NodeJS.ProcessEnv = process.env) {
+    const token = env.PUBLIC_STATUS_INGEST_TOKEN
+    if (!token) return
+    const response = await send(env.PUBLIC_STATUS_INGEST_URL || publicStatusIngestUrl, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+            service: 'virtual-machines',
+            check_name: VM_LIFECYCLE_MONITOR_CHECK,
+            status: result.status,
+            checked_at: result.checkedAt,
+            latency_ms: result.latencyMs,
+            message: result.status === 'up' ? 'Virtual machine lifecycle is operating normally.' : 'Virtual machine lifecycle needs attention.',
+        }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000),
+    })
+    if (!response.ok) throw new Error(`Public VM lifecycle status ingest failed with HTTP ${response.status}.`)
 }
 
 function isSafeTarget(settings: MonitorConfig) {

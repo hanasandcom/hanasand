@@ -53,6 +53,8 @@ services:
       - ${HANASAND_IDENTITY_STAGING_ENV_FILE:-/home/hanasand/identity/.env.ai.staging}
     environment:
       NODE_ENV: production
+      PUBLIC_STATUS_INGEST_URL: ${PUBLIC_STATUS_INGEST_URL:-https://status.hanasand.com/api/monitoring/ingest}
+      PUBLIC_STATUS_INGEST_TOKEN: ${VM_STATUS_INGEST_TOKEN:-}
       API_HTTP_ONLY: "1"
       DEPLOYMENT_CANDIDATE_ONLY: "1"
       SKIP_MAIL_PROVISIONING: "1"
