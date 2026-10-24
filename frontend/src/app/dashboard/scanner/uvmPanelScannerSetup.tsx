@@ -40,7 +40,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
             : item.setup === 'cli-review-needed' ? 'GUI bridge needed'
                 : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
                     : item.setup === 'adapter-needed' ? 'Adapter needed'
-                        : servicesPaused ? item.integration === 'image-worker' || item.integration === 'grype' ? 'Image worker stopped · pending disk' : 'Stopped · pending disk'
+                        : servicesPaused ? item.integration === 'image-worker' || item.integration === 'grype' ? 'Worker stopped' : 'Stopped'
                             : item.integration === 'image-worker' || item.integration === 'grype' ? 'Integrated · image worker'
                                 : outputCheckPending && engine?.status === 'available' ? 'Ready · output check pending'
                                     : engine?.status || 'Unavailable'
@@ -50,7 +50,11 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
                     || item.integration === 'image-worker' || item.integration === 'grype' ? 'text-ui-success' : 'text-ui-warning'
         return <div key={item.id || item.name} className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-ui-border py-2 text-sm'>
             <span className='flex items-center gap-2'><span className='font-medium'>{item.name}<span className='ml-2 text-xs font-normal text-ui-muted'>{item.category}</span></span>{item.integration === 'angry-ip-scanner' && <UvmHelp label='Angry IP Scanner' text='Confirms host reachability only. The first authorized run also checks its CSV output format.' />}</span>
-            <span className={`text-xs ${statusClass}`}>{status}</span>
+            <span
+                aria-label={servicesPaused && item.setup === 'configured' ? `${item.name}: stopped pending disk expansion` : status}
+                title={servicesPaused && item.setup === 'configured' ? 'Paused pending disk expansion' : undefined}
+                className={`text-xs ${statusClass}`}
+            >{status}</span>
         </div>
     })
     return <>
