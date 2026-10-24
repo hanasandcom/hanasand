@@ -69,6 +69,7 @@ export default function useAiWorkbench(initialData: AIWorkbenchInitialData) {
     return {
         activeConversation,
         activeConversationId: resolvedActiveConversationId,
+        allConversations: state.conversations,
         activeDeployments,
         archivedConversations,
         archiveConversation,
@@ -119,6 +120,7 @@ export default function useAiWorkbench(initialData: AIWorkbenchInitialData) {
         syncingRepoId: state.syncingRepoId,
         importRepo,
         isAuthenticated: state.isAuthenticated,
+        patchConversation,
         renameConversation,
         inviteCollaborator,
         rollbackRelease,
@@ -126,6 +128,7 @@ export default function useAiWorkbench(initialData: AIWorkbenchInitialData) {
         resumeNotice: state.resumeNotice,
         search: state.search,
         statusNotice: state.statusNotice,
+        setStatusNotice: state.setStatusNotice,
         runtimeState,
         setResumeNotice: state.setResumeNotice,
     }

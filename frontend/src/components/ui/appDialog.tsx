@@ -20,6 +20,7 @@ type AppPromptDialogProps = {
     label: string
     initialValue: string
     confirmLabel?: string
+    suggestions?: string[]
     onCancel: () => void
     onConfirm: (value: string) => void
 }
@@ -66,6 +67,7 @@ export function AppPromptDialog({
     label,
     initialValue,
     confirmLabel = 'Save',
+    suggestions = [],
     onCancel,
     onConfirm,
 }: AppPromptDialogProps) {
@@ -91,10 +93,12 @@ export function AppPromptDialog({
                     {label}
                     <input
                         autoFocus
+                        list={suggestions.length ? 'app-prompt-suggestions' : undefined}
                         value={value}
                         onChange={(event) => setValue(event.target.value)}
                         className='mt-1.5 w-full rounded-md border border-ui-border bg-ui-raised px-3 py-2 text-sm text-ui-text outline-none focus:border-ui-primary focus:ring-4 focus:ring-ui-primary/15'
                     />
+                    {suggestions.length ? <datalist id='app-prompt-suggestions'>{suggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist> : null}
                 </label>
                 <div className='mt-4 flex justify-end gap-2'>
                     <DialogCancelButton onCancel={onCancel} />

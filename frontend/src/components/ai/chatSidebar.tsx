@@ -9,6 +9,8 @@ type ChatSidebarProps = {
     activeConversationId: string | null
     archivedConversations: AIConversation[]
     conversations: AIConversation[]
+    allConversations: AIConversation[]
+    repositories: AIImportedRepo[]
     search: string
     setSearch: (value: string) => void
     onArchiveConversation: (id: string, archived: boolean) => void
@@ -16,6 +18,9 @@ type ChatSidebarProps = {
     onNewConversation: () => void
     onRenameConversation: (id: string, title: string) => void
     onSelectConversation: (id: string) => void
+    onPatchConversation: (id: string, patch: Partial<AIConversation>) => void
+    onBranchConversation: (conversation: AIConversation) => void
+    setStatusNotice: (notice: string | null) => void
 }
 
 export default function ChatSidebar(props: ChatSidebarProps) {
@@ -23,6 +28,8 @@ export default function ChatSidebar(props: ChatSidebarProps) {
         activeConversationId,
         archivedConversations,
         conversations,
+        allConversations,
+        repositories,
         search,
         setSearch,
         onArchiveConversation,
@@ -30,6 +37,9 @@ export default function ChatSidebar(props: ChatSidebarProps) {
         onNewConversation,
         onRenameConversation,
         onSelectConversation,
+        onPatchConversation,
+        onBranchConversation,
+        setStatusNotice,
     } = props
     const [showArchived, setShowArchived] = useState(false)
     const [searchOpen, setSearchOpen] = useState(false)
@@ -68,11 +78,16 @@ export default function ChatSidebar(props: ChatSidebarProps) {
 
             <ConversationList
                 conversations={conversations}
+                allConversations={allConversations}
+                repositories={repositories}
                 activeConversationId={activeConversationId}
                 onArchiveConversation={onArchiveConversation}
                 onDeleteConversation={onDeleteConversation}
                 onRenameConversation={onRenameConversation}
                 onSelectConversation={onSelectConversation}
+                onPatchConversation={onPatchConversation}
+                onBranchConversation={onBranchConversation}
+                setStatusNotice={setStatusNotice}
             />
 
             <div className='mt-5 border-t border-ui-border pt-4'>
@@ -83,11 +98,16 @@ export default function ChatSidebar(props: ChatSidebarProps) {
                     <div className='mt-3'>
                         <ConversationList
                             conversations={archivedConversations}
+                            allConversations={allConversations}
+                            repositories={repositories}
                             activeConversationId={activeConversationId}
                             onArchiveConversation={onArchiveConversation}
                             onDeleteConversation={onDeleteConversation}
                             onRenameConversation={onRenameConversation}
                             onSelectConversation={onSelectConversation}
+                            onPatchConversation={onPatchConversation}
+                            onBranchConversation={onBranchConversation}
+                            setStatusNotice={setStatusNotice}
                             archived
                         />
                     </div>

@@ -9,6 +9,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'mail-workspace-page', title: 'Mail workspace initial mailbox page reuse', command: [bun, 'test', 'tests/mail-workspace-page.test.ts'] },
     { id: 'ai-workbench-file-selection', title: 'AI workbench file selection metadata', command: [bun, 'test', 'tests/ai-workbench-file-selection.test.ts'] },
     { id: 'ai-chat-pane-theme', title: 'AI chat theme and accessibility rendering', command: [bun, 'test', 'tests/ai-chat-pane-theme.test.tsx'] },
+    { id: 'ai-chat-sidebar-lifecycle', title: 'AI chat sidebar actions, metadata, and grouping', command: [bun, 'test', 'tests/ai-chat-sidebar-lifecycle.test.tsx'] },
     { id: 'system-rate-limit-fields', title: 'System rate-limit form field rendering', command: [bun, 'test', 'tests/system-rate-limit-fields.test.tsx'] },
     { id: 'system-rate-limit-scope-rows', title: 'System rate-limit scope row editing and removal', command: [bun, 'test', 'tests/system-rate-limit-scope-rows.test.tsx'] },
     { id: 'system-rate-limit-request', title: 'System rate-limit authenticated request contracts', command: [bun, 'test', 'tests/system-rate-limit-request.test.ts'] },

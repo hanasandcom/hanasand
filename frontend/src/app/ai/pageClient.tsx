@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import ChatPane from '@/components/ai/chatPane'
-import ChatSidebar from '@/components/ai/chatSidebar'
 import WorkspacePane from '@/components/ai/workspacePane'
 import useAiWorkbench from '@/components/ai/useAiWorkbench'
 import type { AIWorkbenchInitialData } from '@/components/ai/workbench/initialData'
 import { AIPageNotices } from './AIPageNotices'
+import { PageChatSidebar } from './pageChatSidebar'
 import { usePromptPortal } from '@/components/ai/workbench/usePromptPortal'
+import { branchChatWithProvider } from '@/components/ai/workbench/branchConversation'
 import { mergeConversationMessages, parseConversationProviderPreferences, setConversationProvider, type AssistantProvider } from '@/components/ai/workbench/providerSelection'
 
 type AIPageMode = 'landing' | 'workspace' | 'compact'
@@ -72,22 +73,25 @@ export default function AIPageClient({
         }
     }
 
+    function selectFromSidebar(id: string) {
+        selectConversation(id)
+        setMobileChatsOpen(false)
+    }
+
+    const branchChat = (conversation: AIConversation) => branchChatWithProvider(
+        conversation, provider, providersByConversation, setProvidersByConversation, ai.setStatusNotice, (path) => router.push(path),
+    )
+
     return (
         <div className='h-full enterprise-console relative w-full overflow-hidden bg-ui-canvas text-ui-text'>
             <div className='flex h-full min-h-0 flex-col'>
                 <div className={`grid min-h-0 w-full max-w-full flex-1 grid-cols-[minmax(0,1fr)] overflow-hidden ${showWorkspaceRail ? (detailsOpen ? 'lg:grid-cols-[14rem_minmax(0,1fr)_22rem]' : 'lg:grid-cols-[14rem_minmax(0,1fr)]') : ''}`}>
                     <div className='hidden min-h-0 lg:block'>
-                        <ChatSidebar
-                            activeConversationId={ai.activeConversationId}
-                            archivedConversations={ai.archivedConversations}
-                            conversations={ai.filteredConversations}
-                            search={ai.search}
-                            setSearch={ai.setSearch}
-                            onArchiveConversation={ai.archiveConversation}
-                            onDeleteConversation={ai.deleteConversation}
+                        <PageChatSidebar
+                            ai={ai}
                             onNewConversation={() => { void ai.createNewConversation(); setMobileChatsOpen(false) }}
-                            onRenameConversation={ai.renameConversation}
-                            onSelectConversation={id => { selectConversation(id); setMobileChatsOpen(false) }}
+                            onSelectConversation={selectFromSidebar}
+                            onBranchConversation={branchChat}
                         />
                     </div>
 
@@ -170,17 +174,11 @@ export default function AIPageClient({
                 {mobileChatsOpen ? <div className='absolute inset-0 z-40 lg:hidden'>
                     <button type='button' aria-label='Close chats' onClick={() => setMobileChatsOpen(false)} className='absolute inset-0 bg-ui-scrim/60' />
                     <div className='absolute inset-y-0 left-0 w-[min(19rem,85vw)] shadow-2xl'>
-                        <ChatSidebar
-                            activeConversationId={ai.activeConversationId}
-                            archivedConversations={ai.archivedConversations}
-                            conversations={ai.filteredConversations}
-                            search={ai.search}
-                            setSearch={ai.setSearch}
-                            onArchiveConversation={ai.archiveConversation}
-                            onDeleteConversation={ai.deleteConversation}
+                        <PageChatSidebar
+                            ai={ai}
                             onNewConversation={() => { void ai.createNewConversation(); setMobileChatsOpen(false) }}
-                            onRenameConversation={ai.renameConversation}
-                            onSelectConversation={id => { selectConversation(id); setMobileChatsOpen(false) }}
+                            onSelectConversation={selectFromSidebar}
+                            onBranchConversation={branchChat}
                         />
                     </div>
                 </div> : null}

@@ -1,92 +1,160 @@
-import { useState } from 'react'
-import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react'
-import { AppPromptDialog } from '@/components/ui/appDialog'
+'use client'
+
+import { useMemo, useState } from 'react'
+import { AppConfirmDialog, AppPromptDialog } from '@/components/ui/appDialog'
 import conversationTitle from '@/utils/ai/conversationTitle'
+import { workspaceRepositoryId } from '@/components/ai/workbench/workspaceMetadata'
+import { ChatConversationRow } from './chatConversationRow'
+
+type LabelPrompt = { kind: 'project' | 'section', conversation: AIConversation, initialValue: string } | null
 
 export function ConversationList({
     conversations,
+    allConversations,
+    repositories,
     activeConversationId,
     onArchiveConversation,
     onDeleteConversation,
     onRenameConversation,
     onSelectConversation,
+    onPatchConversation,
+    onBranchConversation,
+    setStatusNotice,
     archived = false,
 }: {
     conversations: AIConversation[]
+    allConversations: AIConversation[]
+    repositories: AIImportedRepo[]
     activeConversationId: string | null
     onArchiveConversation: (id: string, archived: boolean) => void
     onDeleteConversation: (id: string) => void
     onRenameConversation: (id: string, title: string) => void
     onSelectConversation: (id: string) => void
+    onPatchConversation: (id: string, patch: Partial<AIConversation>) => void
+    onBranchConversation: (conversation: AIConversation) => void
+    setStatusNotice: (notice: string | null) => void
     archived?: boolean
 }) {
     const [renamingConversation, setRenamingConversation] = useState<AIConversation | null>(null)
+    const [deletingConversation, setDeletingConversation] = useState<AIConversation | null>(null)
+    const [labelPrompt, setLabelPrompt] = useState<LabelPrompt>(null)
+    const labels = useMemo(() => ({
+        projects: distinctLabels(allConversations, 'sidebarProject'),
+        sections: distinctLabels(allConversations, 'sidebarSection'),
+    }), [allConversations])
+    const groups = useMemo(() => groupConversations(conversations), [conversations])
+
+    function setConversationLabel(conversation: AIConversation, kind: 'project' | 'section', value: string) {
+        const key = kind === 'project' ? 'sidebarProject' : 'sidebarSection'
+        onPatchConversation(conversation.id, {
+            workspaceMeta: { ...conversation.workspaceMeta, [key]: value.trim() || null },
+        })
+    }
 
     if (!conversations.length) {
-        return <div className='px-1 py-3 text-sm text-ui-muted'>No {archived ? 'archived' : 'active'} sessions yet.</div>
+        return <div className='px-1 py-3 text-sm text-ui-muted'>No {archived ? 'archived' : 'active'} chats yet.</div>
     }
 
     return (
         <>
             <AppPromptDialog
                 open={Boolean(renamingConversation)}
-                title='Rename review'
-                label='Session name'
+                title='Rename chat'
+                label='Chat name'
                 initialValue={renamingConversation ? conversationTitle(renamingConversation.title) : ''}
                 onCancel={() => setRenamingConversation(null)}
-                onConfirm={(nextTitle) => {
-                    if (renamingConversation) void onRenameConversation(renamingConversation.id, nextTitle)
+                onConfirm={(title) => {
+                    if (renamingConversation) onRenameConversation(renamingConversation.id, title)
                     setRenamingConversation(null)
                 }}
             />
+            <AppPromptDialog
+                open={Boolean(labelPrompt)}
+                title={labelPrompt?.kind === 'project' ? 'Move to project' : 'Move to section'}
+                label={labelPrompt?.kind === 'project' ? 'Project name' : 'Section name'}
+                initialValue={labelPrompt?.initialValue || ''}
+                suggestions={labelPrompt?.kind === 'project' ? labels.projects : labels.sections}
+                onCancel={() => setLabelPrompt(null)}
+                onConfirm={(value) => {
+                    if (labelPrompt) setConversationLabel(labelPrompt.conversation, labelPrompt.kind, value)
+                    setLabelPrompt(null)
+                }}
+            />
+            <AppConfirmDialog
+                open={Boolean(deletingConversation)}
+                title='Delete chat?'
+                body='This permanently deletes the chat and its messages.'
+                confirmLabel='Delete chat'
+                tone='danger'
+                onCancel={() => setDeletingConversation(null)}
+                onConfirm={() => {
+                    if (deletingConversation) onDeleteConversation(deletingConversation.id)
+                    setDeletingConversation(null)
+                }}
+            />
             <div className='min-h-0 flex-1 space-y-1 overflow-y-auto pr-1'>
-                {conversations.map((conversation) => (
-                    <div
+                {groups.map((group) => <div key={group.key} className='space-y-1'>
+                    {group.label ? <div className='px-2 pt-3 text-[10px] font-semibold uppercase tracking-wide text-ui-muted'>{group.label}</div> : null}
+                    {group.conversations.map((conversation) => <ChatConversationRow
                         key={conversation.id}
-                        role='button'
-                        tabIndex={0}
-                        onClick={() => onSelectConversation(conversation.id)}
-                        onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault()
-                                onSelectConversation(conversation.id)
-                            }
-                        }}
-                        className={`group flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors ${conversation.id === activeConversationId ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}
-                    >
-                        <div className='min-w-0 flex-1 overflow-hidden'>
-                            <div className='truncate text-sm'>{conversationTitle(conversation.title)}</div>
-                        </div>
-                        <div className='flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100'>
-                            <MiniButton label={`Rename ${conversationTitle(conversation.title)}`} icon={<Pencil className='h-3.5 w-3.5' />} onClick={(event) => {
-                                event.stopPropagation()
-                                setRenamingConversation(conversation)
-                            }} />
-                            <MiniButton label={archived ? `Restore ${conversationTitle(conversation.title)}` : `Archive ${conversationTitle(conversation.title)}`} icon={archived ? <ArchiveRestore className='h-3.5 w-3.5' /> : <Archive className='h-3.5 w-3.5' />} onClick={(event) => {
-                                event.stopPropagation()
-                                void onArchiveConversation(conversation.id, !archived)
-                            }} />
-                            <MiniButton label={`Delete ${conversationTitle(conversation.title)}`} danger icon={<Trash2 className='h-3.5 w-3.5' />} onClick={(event) => {
-                                event.stopPropagation()
-                                void onDeleteConversation(conversation.id)
-                            }} />
-                        </div>
-                    </div>
-                ))}
+                        conversation={conversation}
+                        repository={findRepository(conversation, repositories)}
+                        active={conversation.id === activeConversationId}
+                        archived={archived}
+                        onArchive={onArchiveConversation}
+                        onSelect={onSelectConversation}
+                        onPatch={onPatchConversation}
+                        onRename={setRenamingConversation}
+                        onDelete={setDeletingConversation}
+                        onBranch={onBranchConversation}
+                        onLabel={(chat, kind) => setLabelPrompt({
+                            kind,
+                            conversation: chat,
+                            initialValue: labelValue(chat, kind),
+                        })}
+                        setStatusNotice={setStatusNotice}
+                    />)}
+                </div>)}
             </div>
         </>
     )
 }
 
-function MiniButton({ label, icon, danger = false, onClick }: {
-    label: string
-    icon: React.ReactNode
-    danger?: boolean
-    onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
-}) {
-    return (
-        <button type='button' aria-label={label} onClick={onClick} className={`grid h-8 w-8 place-items-center rounded-lg transition-colors ${danger ? 'text-ui-text hover:bg-ui-raised/10' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}>
-            {icon}
-        </button>
-    )
+function findRepository(conversation: AIConversation, repositories: AIImportedRepo[]) {
+    const repositoryId = workspaceRepositoryId(conversation)
+    return repositories.find((repository) => repository.id === repositoryId) || null
+}
+
+function labelValue(conversation: AIConversation, kind: 'project' | 'section') {
+    const value = conversation.workspaceMeta?.[kind === 'project' ? 'sidebarProject' : 'sidebarSection']
+    return typeof value === 'string' ? value : ''
+}
+
+function distinctLabels(conversations: AIConversation[], key: 'sidebarProject' | 'sidebarSection') {
+    return Array.from(new Set(conversations
+        .map((conversation) => conversation.workspaceMeta?.[key])
+        .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))))
+        .sort((a, b) => a.localeCompare(b))
+}
+
+export function groupConversations(conversations: AIConversation[]) {
+    const pinned = conversations.filter((conversation) => Boolean(conversation.workspaceMeta?.sidebarPinnedAt))
+    const unpinned = conversations.filter((conversation) => !conversation.workspaceMeta?.sidebarPinnedAt)
+    const grouped = new Map<string, { key: string, label: string, conversations: AIConversation[] }>()
+    for (const conversation of unpinned) {
+        const project = labelValue(conversation, 'project')
+        const section = labelValue(conversation, 'section')
+        const label = section ? `${project ? `${project} / ` : ''}${section}` : project
+        const key = label ? `group:${label}` : 'group:chats'
+        const group = grouped.get(key) || { key, label, conversations: [] }
+        group.conversations.push(conversation)
+        grouped.set(key, group)
+    }
+    const result = [...grouped.values()].sort((a, b) => {
+        if (!a.label) return -1
+        if (!b.label) return 1
+        return a.label.localeCompare(b.label)
+    })
+    if (pinned.length) result.unshift({ key: 'group:pinned', label: 'Pinned', conversations: pinned })
+    return result
 }
