@@ -44,14 +44,15 @@ test('paused Scanner exposes the searchable 50-product catalog and labels setup 
     expect(html).toContain('Windows app · no API')
 })
 
-test('Angry IP is described as needing a GUI bridge, not CLI review', () => {
+test('catalog-only Angry IP is not offered as a runnable assessment engine', () => {
     const noop = () => undefined
     const html = renderToStaticMarkup(<UvmAssessmentEngineChoices data={emptyUvmDashboard} selectedEngines={[]}
         setSelectedEngines={noop} scanId='' setScanId={noop} nmapProfile='tcp-top-1000' setNmapProfile={noop}
         servicesPaused onSetup={noop}
     />)
 
-    expect(html).toContain('GUI bridge needed')
+    expect(html).not.toContain('Angry IP Scanner')
+    expect(html).not.toContain('GUI bridge needed')
     expect(html).not.toContain('CLI review needed')
 })
 
