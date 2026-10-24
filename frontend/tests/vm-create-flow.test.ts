@@ -8,6 +8,7 @@ const components = new URL('../src/components/profile/vms.tsx', import.meta.url)
 const createForm = new URL('../src/components/profile/vmCreateForm.tsx', import.meta.url)
 const consoleSession = new URL('../src/components/vms/useVmConsoleSession.ts', import.meta.url)
 const progressHook = new URL('../src/components/vms/useVmProvisioningStatus.ts', import.meta.url)
+const optionPicker = new URL('../src/components/profile/vmOptionPicker.tsx', import.meta.url)
 const filters = new URL('../src/components/profile/vmFilters.tsx', import.meta.url)
 const osPicker = new URL('../src/components/profile/vmOperatingSystemPicker.tsx', import.meta.url)
 const resourcePicker = new URL('../src/components/profile/vmResourcePicker.tsx', import.meta.url)
@@ -23,11 +24,11 @@ test('the VM create form offers locally bundled operating systems and installabl
         { id: 'web-games', label: 'Web & games', groups: ['Web', 'Game servers'] },
     ])
     expect(vmServices.find(service => service.id === 'java')?.description).toContain('selected Ubuntu release')
-    expect(vmResourceOptions.map(option => `${option.cpu}:${option.memory}:${option.disk}`)).toEqual(['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'])
+    expect(vmResourceOptions.map(option => `${option.cpu}:${option.memory}:${option.disk}`)).toEqual(['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB', '2:4GiB:40GiB'])
     expect(vmMinecraftServerTypes.map(server => server.id)).toEqual(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'FORGE', 'PURPUR', 'FOLIA'])
     expect(picker).toContain('Operating system')
-    expect(resourcePickerSource).toContain('role=\'listbox\' aria-label=\'Resource sizes\'')
-    expect(resourcePickerSource).toContain('Choose resources')
+    expect(resourcePickerSource).toContain('label=\'Resources\' menuLabel=\'Resource options\'')
+    expect(resourcePickerSource).toContain('description={describeOption}')
     expect(source).toContain('<VmResourcePicker value={resourcePlan} onChange={setResourcePlan} disabled={creating} availableOptions={availableResources} />')
     expect(source).toContain('Install services')
     expect(source).toContain('role=\'tablist\' aria-label=\'Service categories\'')
@@ -35,7 +36,7 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('aria-labelledby={`${promptId}-service-tab-${activeServiceTab}`}')
     expect(source).toContain('setActiveServiceTab(tab.id)')
     expect(source).toContain('selectedServices')
-    expect(source).toContain('resources: { cpu: resources.cpu, memory: resources.memory, disk: resources.disk }')
+    expect(source).toContain('resources: currentResources')
     expect(source).toContain('minecraft_eula_accepted: selectedServices.includes(\'minecraft-java\')')
     expect(source).not.toContain('I accept the')
     expect(source).toContain('minecraft_addons: minecraftAddons')
@@ -59,7 +60,7 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('Additional Ubuntu packages: {customAptPackages.join(\', \')}')
     expect(source).toContain('option.memory !== \'2GiB\'')
     expect(source).toContain('const requiresLargePlan = operatingSystem === \'ubuntu-24.04-desktop\'')
-    expect(source).toContain('if (value === \'ubuntu-24.04-desktop\') setResourcePlan(\'large\')')
+    expect(source).toContain('if (value === \'ubuntu-24.04-desktop\' && resourcePlan !== \'custom\') setResourcePlan(\'large\')')
     expect(source).toContain('setCreationError(result.message)')
     expect(source).toContain('role=\'alert\' className=\'rounded-lg border border-ui-danger/25')
     expect(source).toContain('setProjectFiles(plan.projectFiles || [])')
@@ -82,7 +83,7 @@ test('successful creation opens the terminal without waiting for a VM status fet
 })
 
 test('the console reports real VM setup progress, completion, and failure separately from its connection state', async () => {
-    const consoleClient = await readFile(new URL('../src/components/vms/consoleClient.tsx', import.meta.url), 'utf8')
+    const [consoleClient, progress] = await Promise.all([readFile(new URL('../src/components/vms/consoleClient.tsx', import.meta.url), 'utf8'), readFile(progressHook, 'utf8')])
     expect(getVmProvisioningFeedback().state).toBe('provisioning')
     expect(getVmProvisioningFeedback('PROVISIONING', 'Installing nodejs, postgresql…')).toEqual({
         state: 'provisioning',
@@ -93,6 +94,7 @@ test('the console reports real VM setup progress, completion, and failure separa
         state: 'error',
         message: 'Package installation failed.',
     })
+    expect(progress).toContain('setFeedback({ state: \'unavailable\', message: \'VM status is unavailable. Retrying…\' })')
     expect(consoleClient).toContain('session.provisioning &&')
     expect(consoleClient).toContain('role={session.provisioning.state === \'error\' ? \'alert\' : \'status\'}')
 })
@@ -149,9 +151,10 @@ test('VM filter popover uses the standard inset and slider-knob icon', async () 
 })
 
 test('OS picker gives the arrow breathing room and keeps a custom listbox', async () => {
-    const source = await readFile(osPicker, 'utf8')
-    expect(source).toContain('role=\'listbox\'')
-    expect(source).toContain('pl-3 pr-5 text-left text-sm text-ui-text')
-    expect(source).toContain('h-7 w-7 shrink-0 place-items-center rounded-lg border border-ui-border bg-ui-panel text-ui-muted shadow-sm')
-    expect(source).toContain('text-[10px] font-semibold uppercase tracking-[0.14em] text-ui-muted')
+    const [source, picker] = await Promise.all([readFile(osPicker, 'utf8'), readFile(optionPicker, 'utf8')])
+    expect(source).toContain('options={vmOperatingSystems}')
+    expect(picker).toContain('role=\'listbox\'')
+    expect(picker).toContain('pl-3 pr-4 text-left text-sm text-ui-text')
+    expect(picker).toContain('h-4 w-4 shrink-0 text-ui-muted')
+    expect(picker).toContain('text-[10px] font-semibold uppercase tracking-[0.14em] text-ui-muted')
 })

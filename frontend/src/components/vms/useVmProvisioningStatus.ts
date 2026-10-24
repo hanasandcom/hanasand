@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import getVM from '@/utils/vms/fetch/getVM'
 
 export type VmProvisioningFeedback = {
-    state: 'provisioning' | 'ready' | 'error'
+    state: 'provisioning' | 'ready' | 'error' | 'unavailable'
     message: string
 }
 
@@ -40,7 +40,10 @@ export function useVmProvisioningStatus(name: string | undefined) {
             const vms = await getVM(name, undefined, undefined, null)
             if (!active) return
             const vm = vms?.[0]
-            if (!vm) return
+            if (!vm) {
+                setFeedback({ state: 'unavailable', message: 'VM status is unavailable. Retrying…' })
+                return
+            }
 
             const next = getVmProvisioningFeedback(vm.status, vm.status_reason)
             setFeedback(next)
