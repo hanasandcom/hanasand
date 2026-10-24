@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
-import type { UvmAssetCriticality, UvmDashboard, UvmFinding, UvmFindingHistoryPage, UvmFindingUpdate } from '@/utils/monitoring/types'
+import type { UvmAssetCriticality, UvmDashboard, UvmFinding, UvmFindingHistoryPage, UvmFindingTriageHistoryPage, UvmFindingUpdate } from '@/utils/monitoring/types'
 import { formatDate, type UvmFindingFilters, type UvmFindingSort } from './uvmPanelHelpers'
 import { UvmHelp } from './uvmPanelHelp'
 
@@ -21,6 +21,7 @@ type FindingsViewProps = {
     onUpdate: (finding: UvmFinding) => void
     nextCursor: string | null
     loadOlder: (cursor: string | null) => Promise<UvmFindingHistoryPage>
+    findingTriageHistoryAction: (findingId: string, cursor: string | null) => Promise<UvmFindingTriageHistoryPage>
     syncState?: UvmFindingHistoryPage['syncState']
     scoped: boolean
     onShowAll: () => void
@@ -60,7 +61,7 @@ export function UvmFindingsView(props: FindingsViewProps) {
             {visibleFindings.map(finding => <FindingCard key={finding.id} finding={finding} scoped={props.scoped} criticality={data.assets.find(asset => asset.id === finding.assetId)?.criticality || 'unset'} busy={busy} update={findingUpdates[finding.id] || {
                 status: finding.status, note: finding.triageNote || '',
                 remediationOwner: finding.remediationOwner || '', remediationDueDate: finding.remediationDueDate || '',
-            }} setFindingUpdates={setFindingUpdates} onUpdate={() => props.onUpdate(finding)} />)}
+            }} setFindingUpdates={setFindingUpdates} findingTriageHistoryAction={props.findingTriageHistoryAction} onUpdate={() => props.onUpdate(finding)} />)}
             {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : props.scoped ? props.syncState === 'complete' ? 'No normalized findings were recorded for this assessment stage. Review the report and coverage before treating it as clear.' : props.syncState === 'not_indexed' ? 'This engine’s report is available above, but canonical findings are not yet available in triage.' : props.syncState === 'incomplete' ? 'This stage has a scanner run, but it did not complete. Its output remains in the assessment report.' : props.syncState === 'no_run' ? 'This assessment stage did not produce a scanner run.' : 'Findings for this stage have not been indexed yet.' : 'No findings imported. Check authorization, engine status and scan coverage before treating this as clear.'}</p>}
             {data.findings.length > 0 && !visibleFindings.length && <div className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'><p>No findings match these filters.</p><button type='button' onClick={() => setFilters({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold text-ui-text'>Clear filters</button></div>}
         </div>
@@ -74,13 +75,14 @@ export function UvmFindingsView(props: FindingsViewProps) {
     </section>
 }
 
-function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpdates, onUpdate }: {
+function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpdates, findingTriageHistoryAction, onUpdate }: {
     finding: UvmFinding
     scoped: boolean
     criticality: UvmAssetCriticality
     busy: string
     update: UvmFindingUpdate
     setFindingUpdates: FindingsViewProps['setFindingUpdates']
+    findingTriageHistoryAction: FindingsViewProps['findingTriageHistoryAction']
     onUpdate: () => void
 }) {
     const evidence = finding.observedInRun?.evidence || finding.evidence
@@ -117,8 +119,70 @@ function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpd
             <label className='grid min-w-52 flex-1 gap-1 text-[11px] text-ui-muted'>Triage note<input value={update.note} onChange={event => setFindingUpdates(current => ({ ...current, [finding.id]: { ...update, note: event.target.value } }))} maxLength={2000} placeholder='Reason or remediation context' className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text' /></label>
             <button type='button' onClick={onUpdate} disabled={busy === `finding:${finding.id}`} className='h-8 rounded-md border border-ui-border px-3 text-xs font-semibold disabled:opacity-50'>{busy === `finding:${finding.id}` ? 'Saving…' : 'Save changes'}</button>
         </div>}
+        <FindingTriageHistory findingId={finding.id} findingTitle={finding.title} findingUpdatedAt={finding.updatedAt} scoped={scoped} action={findingTriageHistoryAction} />
         {finding.status === 'needs_review' && <p className='mt-2 text-xs text-ui-muted'>Unvalidated scanner evidence. Review the evidence before promoting it to an open finding.</p>}
         {finding.status === 'pending_verification' && <p className='mt-2 text-xs text-ui-muted'>This finding will resolve after a later successful scan confirms it is no longer present.</p>}
         <p className='mt-2 text-[11px] text-ui-muted'>{finding.observationCount ? `Observed in ${finding.observationCount} run${finding.observationCount === 1 ? '' : 's'} overall · ` : ''}First seen {formatDate(finding.firstSeen)} · Last seen {formatDate(finding.lastSeen)}</p>
     </article>
+}
+
+function FindingTriageHistory({ findingId, findingTitle, findingUpdatedAt, scoped, action }: {
+    findingId: string
+    findingTitle: string
+    findingUpdatedAt: string
+    scoped: boolean
+    action: FindingsViewProps['findingTriageHistoryAction']
+}) {
+    const [open, setOpen] = useState(false)
+    const [loadedAt, setLoadedAt] = useState<string | null>(null)
+    const [entries, setEntries] = useState<UvmFindingTriageHistoryPage['entries']>([])
+    const [nextCursor, setNextCursor] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
+    const [failedRequest, setFailedRequest] = useState<{ cursor: string | null, replace: boolean } | null>(null)
+    const loadRef = useRef(false)
+    const loadPage = useCallback(async (cursor: string | null, replace: boolean) => {
+        if (loadRef.current) return
+        loadRef.current = true
+        setLoading(true)
+        setError('')
+        try {
+            const page = await action(findingId, cursor)
+            setFailedRequest(null)
+            setEntries(current => {
+                if (replace) return page.entries
+                const ids = new Set(current.map(entry => entry.id))
+                return [...current, ...page.entries.filter(entry => !ids.has(entry.id))]
+            })
+            setNextCursor(page.nextCursor)
+        } catch (loadError) {
+            setError(loadError instanceof Error ? loadError.message : 'Triage history could not be loaded.')
+            setFailedRequest({ cursor, replace })
+        } finally {
+            if (replace) setLoadedAt(findingUpdatedAt)
+            loadRef.current = false
+            setLoading(false)
+        }
+    }, [action, findingId, findingUpdatedAt])
+    useEffect(() => {
+        if (open && loadedAt !== findingUpdatedAt) void loadPage(null, true)
+    }, [open, loadedAt, findingUpdatedAt, loadPage])
+    return <details className='mt-3 border-t border-ui-border pt-2 text-xs' onToggle={event => setOpen(event.currentTarget.open)}>
+        <summary aria-label={`Triage history for ${findingTitle}`} className='cursor-pointer text-ui-muted'>Triage history</summary>
+        {scoped && <p className='mt-1 text-ui-muted'>History spans this finding across assessments.</p>}
+        {loading && <p role='status' className='mt-2 text-ui-muted'>Loading history…</p>}
+        {error && <div className='mt-2 flex items-center gap-2 text-ui-warning'><p role='status'>{error}</p><button type='button' onClick={() => void loadPage(failedRequest?.cursor ?? null, failedRequest?.replace ?? true)} disabled={loading} className='rounded border border-ui-border px-2 py-1 font-semibold disabled:opacity-50'>Retry</button></div>}
+        {!loading && !error && loadedAt === findingUpdatedAt && entries.length === 0 && <p role='status' className='mt-2 text-ui-muted'>No triage changes recorded.</p>}
+        {entries.length > 0 && <ol className='mt-2 grid gap-2'>
+            {entries.map(entry => <li key={entry.id} className='rounded border border-ui-border px-2 py-2'>
+                <div className='flex flex-wrap items-center justify-between gap-2'><strong>{entry.status.replaceAll('_', ' ')}</strong><time dateTime={entry.createdAt} className='text-ui-muted'>{formatDate(entry.createdAt)}</time></div>
+                <p className='mt-1 text-ui-muted'>Changed by: {entry.actorId ? <span title={entry.actorId}>Account · {entry.actorId.slice(0, 8)}</span> : 'Not recorded'}</p>
+                {entry.remediationPlanRecorded
+                    ? <p className='mt-1 text-ui-muted'>Owner/team: {entry.remediationOwner || 'Unassigned'} · Due date: {entry.remediationDueDate || 'None'}</p>
+                    : <p className='mt-1 text-ui-muted'>Remediation plan: Not recorded</p>}
+                {entry.note && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Note</summary><p className='mt-1 whitespace-pre-wrap'>{entry.note}</p></details>}
+            </li>)}
+        </ol>}
+        {nextCursor && <button type='button' onClick={() => void loadPage(nextCursor, false)} disabled={loading} className='mt-2 rounded border border-ui-border px-2 py-1 font-semibold disabled:opacity-50'>{loading ? 'Loading…' : 'Load older history'}</button>}
+    </details>
 }

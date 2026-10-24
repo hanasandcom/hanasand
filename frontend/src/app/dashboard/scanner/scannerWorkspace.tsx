@@ -66,6 +66,7 @@ export default function ScannerWorkspace() {
             getRunHistoryAction={client.getRunHistory}
             assessmentHistoryAction={client.getAssessmentHistory}
             findingHistoryAction={client.getFindingHistory}
+            findingTriageHistoryAction={client.getFindingTriageHistory}
             createAssetAction={client.createAsset}
             updateAssetCriticalityAction={client.updateAssetCriticality}
             verifyAssetAction={client.verifyAsset}
