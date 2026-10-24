@@ -13,6 +13,7 @@ test('frontend health succeeds only when the API health endpoint succeeds', asyn
             ok: true,
             service: 'frontend',
             release: process.env.HANASAND_RELEASE_COMMIT || 'unknown',
+            logsReadBaseUrl: process.env.FRONTEND_LOGS_API_URL?.trim().replace(/\/+$/, '') || null,
             api: { ok: true, service: 'api', release: 'release-1' },
         })
     } finally {
