@@ -142,6 +142,8 @@ test('asset controls expose standard Nmap coverage and recurring Greenbone scans
     expect(html).toContain('Run Greenbone scan')
     expect(html).toContain('Quick · top 100')
     expect(html).toContain('UDP · top 100')
+    expect(html).toContain('<input type="checkbox" disabled="" class="accent-ui-primary"/>Naabu · top 100 TCP')
+    expect(html).toContain('Naabu · top 100 TCP<span class="text-ui-warning"> · Unavailable</span>')
 })
 
 test('UDP profile is accepted and recent activity keeps ambiguous ports distinct', () => {

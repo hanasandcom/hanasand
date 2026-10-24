@@ -39,13 +39,10 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
         { id: 'nmap', label: 'Nmap inventory' }, { id: 'naabu', label: 'Naabu · top 100 TCP' }, { id: 'tenable-vm', label: 'Nessus via Tenable VM' },
         { id: 'gvm', label: 'Greenbone' }, { id: 'zap', label: 'OWASP ZAP' }, { id: 'testssl', label: 'testssl.sh TLS checks' }, { id: 'sslyze', label: 'SSLyze TLS checks' }, { id: 'nuclei', label: 'Nuclei safe HTTP checks' }, { id: 'nikto', label: 'Nikto safe web checks' }, { id: 'wapiti', label: 'Wapiti passive web checks' }, { id: 'whatweb', label: 'WhatWeb technology fingerprint' }, { id: 'httpx', label: 'ProjectDiscovery httpx · root probe' }, { id: 'tlsx', label: 'ProjectDiscovery tlsx · TLS metadata' }, { id: 'katana', label: 'Katana same-origin crawl' }, { id: 'wafw00f', label: 'WAFW00F origin detection' },
     ]
-    const niktoAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'nikto' && engine.status === 'available')
-    const wapitiAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'wapiti' && engine.status === 'available')
-    const whatwebAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'whatweb' && engine.status === 'available')
-    const httpxAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'httpx' && engine.status === 'available')
-    const tlsxAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'tlsx' && engine.status === 'available')
-    const katanaAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'katana' && engine.status === 'available')
-    const wafw00fAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'wafw00f' && engine.status === 'available')
+    function engineAvailable(id: UvmEngineSelection['engine']) {
+        return props.servicesPaused !== true && data.engines.some(engine => engine.id === id && engine.status === 'available')
+            && (id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
+    }
     function toggleEngine(engine: UvmEngineSelection['engine'], checked: boolean) {
         props.setSchedulePlans(current => {
             const selected = current[asset.id] || schedulePlan
@@ -71,8 +68,9 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
             <legend>Recurring engines · run in order</legend>
             <div className='flex flex-wrap gap-3'>{engineOptions.map(option => {
                 const checked = schedulePlan.some(choice => choice.engine === option.id)
-                const stopped = props.servicesPaused === true && ['nikto', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(option.id)
-                const unavailable = option.id === 'nikto' && !niktoAvailable || option.id === 'wapiti' && !wapitiAvailable || option.id === 'whatweb' && !whatwebAvailable || option.id === 'httpx' && !httpxAvailable || option.id === 'tlsx' && !tlsxAvailable || option.id === 'katana' && !katanaAvailable || option.id === 'wafw00f' && !wafw00fAvailable
+                const available = engineAvailable(option.id)
+                const unavailable = !available
+                const stopped = props.servicesPaused === true
                 return <label key={option.id} className='flex items-center gap-1.5'>
                     <input type='checkbox' checked={checked} disabled={unavailable && !checked} onChange={event => toggleEngine(option.id, event.target.checked)} className='accent-ui-primary' />{option.label}{unavailable && <span className='text-ui-warning'>{stopped ? ' · Stopped · pending disk' : ' · Unavailable'}</span>}
                 </label>
