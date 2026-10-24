@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssessmentReport, UvmEngineSelection, UvmFinding, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmRun } from '@/utils/monitoring/types'
 import type { UvmPanelProps } from './uvmPanelProps'
 import { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
-import { buildUvmAssessmentEnginePlan, buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
+import { buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
 import { UvmAssetsView, UvmFindingsView } from './uvmPanelViews'
 import { UvmHelp } from './uvmPanelHelp'
 import { UvmOverview } from './uvmPanelOverview'
@@ -94,7 +94,11 @@ export default function UvmPanel({
         refresh,
         runNmap: runScanAction, runNaabu: runNaabuAction, runTenable: runTenableScanAction, runGvm: runGvmScanAction, runZap: runZapScanAction, runTestssl: runTestsslAction, runNuclei: runNucleiAction, runNikto: runNiktoAction, runSslyze: runSslyzeAction, runWapiti: runWapitiAction, runWhatweb: runWhatwebAction, runHttpx: runHttpxAction, runTlsx: runTlsxAction, runKatana: runKatanaAction, runWafw00f: runWafw00fAction,
     })
-    const { cancelAssessment } = createUvmPanelAssessmentActions({ cancelAssessmentAction, setBusy, setMessage, refresh })
+    const { cancelAssessment, startAssessment } = createUvmPanelAssessmentActions({
+        cancelAssessmentAction, startAssessmentAction, assetIds: assessmentAssetIds, engines: selectableAssessmentEngines,
+        scanId: assessmentScanId, nmapProfile: assessmentNmapProfile,
+        setAssetIds: setAssessmentAssetIds, setBusy, setMessage, refresh,
+    })
     useEffect(() => { setData(initialData) }, [initialData])
     useEffect(() => {
         if (!data.runs.some(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status)) && !activeAssessments) return
@@ -159,25 +163,13 @@ export default function UvmPanel({
             await refresh()
             setData(current => ({ ...current, findings: current.findings.map(item => item.id === finding.id ? { ...item, status: update.status, triageNote: update.note.trim() || null } : item) }))
             setMessage('Finding status updated.')
-        }
-        catch (error) { setMessage(error instanceof Error ? error.message : 'Finding could not be updated.') }
+        } catch (error) { setMessage(error instanceof Error ? error.message : 'Finding could not be updated.') }
         finally { setBusy('') }
     }
     async function cancelRun(run: UvmRun) {
         setBusy(`run:${run.id}`); setMessage('')
         try { await cancelRunAction(run.id); await refresh(); setMessage(`Cancellation requested for ${run.target}.`) }
         catch (error) { setMessage(error instanceof Error ? error.message : 'The scan could not be cancelled.') }
-        finally { setBusy('') }
-    }
-    async function startAssessment(event: React.FormEvent<HTMLFormElement>) {
-        event.preventDefault(); setBusy('assessment'); setMessage('')
-        if (!assessmentAssetIds.length || !selectableAssessmentEngines.length) { setMessage('Choose at least one verified asset and one available engine.'); setBusy(''); return }
-        if (selectableAssessmentEngines.includes('tenable-vm') && !assessmentScanId) { setMessage('Choose an enabled Tenable scan configuration.'); setBusy(''); return }
-        try {
-            const engines = buildUvmAssessmentEnginePlan(selectableAssessmentEngines, assessmentScanId, assessmentNmapProfile)
-            await startAssessmentAction({ requestId: crypto.randomUUID(), assetIds: assessmentAssetIds, engines, authorized: true })
-            setAssessmentAssetIds([]); await refresh(); setMessage('Authorized assessment queued. Scanner results will update as each job completes.')
-        } catch (error) { setMessage(error instanceof Error ? error.message : 'The assessment could not start.') }
         finally { setBusy('') }
     }
     return <div className='grid gap-4'>
