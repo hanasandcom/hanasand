@@ -66,27 +66,16 @@ test('VM inventory keeps Start visible and moves secondary actions inline when t
         expect(await page.evaluate(() => window.innerWidth)).toBe(width)
         await expect(more).toBeVisible()
         await expect(start).toBeVisible()
-        const secondaryActionsVisible = width >= 640
-        if (secondaryActionsVisible) {
-            await expect(inlineConsole).toBeVisible()
-            await expect(inlineDetails).toBeVisible()
-        } else {
-            await expect(inlineConsole).toBeHidden()
-            await expect(inlineDetails).toBeHidden()
-        }
+        await expect(inlineConsole).toBeVisible()
+        await expect(inlineDetails).toBeVisible()
         if (await row.locator('details[data-vm-actions]').getAttribute('open') === null) await more.click()
         const menu = row.locator('details[data-vm-actions] > div')
         await expect(menu.getByRole('button', { name: 'Start my-machine', exact: true })).toHaveCount(0)
         await expect(menu.getByRole('button', { name: 'Connect locally', exact: true })).toBeVisible()
         await expect(menu.getByRole('button', { name: 'Show sudo password', exact: true })).toBeVisible()
         await expect(menu.getByRole('button', { name: 'Delete VM', exact: true })).toBeVisible()
-        if (secondaryActionsVisible) {
-            await expect(menu.getByRole('link', { name: 'Open my-machine console', exact: true })).toBeHidden()
-            await expect(menu.getByRole('button', { name: 'Open details', exact: true })).toBeHidden()
-        } else {
-            await expect(menu.getByRole('link', { name: 'Open my-machine console', exact: true })).toBeVisible()
-            await expect(menu.getByRole('button', { name: 'Open details', exact: true })).toBeVisible()
-        }
+        await expect(menu.getByRole('link', { name: 'Open my-machine console', exact: true })).toHaveCount(0)
+        await expect(menu.getByRole('button', { name: 'Open details', exact: true })).toHaveCount(0)
         await expect(menu.getByRole('button', { name: 'Add my-machine to organization', exact: true })).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
         const bounds = await name.boundingBox()
