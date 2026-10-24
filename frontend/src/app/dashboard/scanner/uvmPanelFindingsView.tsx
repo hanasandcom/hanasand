@@ -22,6 +22,7 @@ type FindingsViewProps = {
     nextCursor: string | null
     loadOlder: (cursor: string | null) => Promise<UvmFindingHistoryPage>
     findingTriageHistoryAction: (findingId: string, cursor: string | null) => Promise<UvmFindingTriageHistoryPage>
+    onViewRun: (runId: string, engine: string) => void
     syncState?: UvmFindingHistoryPage['syncState']
     scoped: boolean
     onShowAll: () => void
@@ -61,7 +62,7 @@ export function UvmFindingsView(props: FindingsViewProps) {
             {visibleFindings.map(finding => <FindingCard key={finding.id} finding={finding} scoped={props.scoped} criticality={data.assets.find(asset => asset.id === finding.assetId)?.criticality || 'unset'} busy={busy} update={findingUpdates[finding.id] || {
                 status: finding.status, note: finding.triageNote || '',
                 remediationOwner: finding.remediationOwner || '', remediationDueDate: finding.remediationDueDate || '',
-            }} setFindingUpdates={setFindingUpdates} findingTriageHistoryAction={props.findingTriageHistoryAction} onUpdate={() => props.onUpdate(finding)} />)}
+            }} setFindingUpdates={setFindingUpdates} findingTriageHistoryAction={props.findingTriageHistoryAction} onViewRun={props.onViewRun} onUpdate={() => props.onUpdate(finding)} />)}
             {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : props.scoped ? props.syncState === 'complete' ? 'No normalized findings were recorded for this assessment stage. Review the report and coverage before treating it as clear.' : props.syncState === 'not_indexed' ? 'This engine’s report is available above, but canonical findings are not yet available in triage.' : props.syncState === 'incomplete' ? 'This stage has a scanner run, but it did not complete. Its output remains in the assessment report.' : props.syncState === 'no_run' ? 'This assessment stage did not produce a scanner run.' : 'Findings for this stage have not been indexed yet.' : 'No findings imported. Check authorization, engine status and scan coverage before treating this as clear.'}</p>}
             {data.findings.length > 0 && !visibleFindings.length && <div className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'><p>No findings match these filters.</p><button type='button' onClick={() => setFilters({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold text-ui-text'>Clear filters</button></div>}
         </div>
@@ -75,7 +76,7 @@ export function UvmFindingsView(props: FindingsViewProps) {
     </section>
 }
 
-function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpdates, findingTriageHistoryAction, onUpdate }: {
+function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpdates, findingTriageHistoryAction, onViewRun, onUpdate }: {
     finding: UvmFinding
     scoped: boolean
     criticality: UvmAssetCriticality
@@ -83,6 +84,7 @@ function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpd
     update: UvmFindingUpdate
     setFindingUpdates: FindingsViewProps['setFindingUpdates']
     findingTriageHistoryAction: FindingsViewProps['findingTriageHistoryAction']
+    onViewRun: FindingsViewProps['onViewRun']
     onUpdate: () => void
 }) {
     const evidence = finding.observedInRun?.evidence || finding.evidence
@@ -119,19 +121,20 @@ function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpd
             <label className='grid min-w-52 flex-1 gap-1 text-[11px] text-ui-muted'>Triage note<input value={update.note} onChange={event => setFindingUpdates(current => ({ ...current, [finding.id]: { ...update, note: event.target.value } }))} maxLength={2000} placeholder='Reason or remediation context' className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text' /></label>
             <button type='button' onClick={onUpdate} disabled={busy === `finding:${finding.id}`} className='h-8 rounded-md border border-ui-border px-3 text-xs font-semibold disabled:opacity-50'>{busy === `finding:${finding.id}` ? 'Saving…' : 'Save changes'}</button>
         </div>}
-        <FindingTriageHistory findingId={finding.id} findingTitle={finding.title} findingUpdatedAt={finding.updatedAt} scoped={scoped} action={findingTriageHistoryAction} />
+        <FindingTriageHistory findingId={finding.id} findingTitle={finding.title} findingUpdatedAt={finding.updatedAt} scoped={scoped} action={findingTriageHistoryAction} onViewRun={onViewRun} />
         {finding.status === 'needs_review' && <p className='mt-2 text-xs text-ui-muted'>Unvalidated scanner evidence. Review the evidence before promoting it to an open finding.</p>}
         {finding.status === 'pending_verification' && <p className='mt-2 text-xs text-ui-muted'>This finding will resolve after a later successful scan confirms it is no longer present.</p>}
         <p className='mt-2 text-[11px] text-ui-muted'>{finding.observationCount ? `Observed in ${finding.observationCount} run${finding.observationCount === 1 ? '' : 's'} overall · ` : ''}First seen {formatDate(finding.firstSeen)} · Last seen {formatDate(finding.lastSeen)}</p>
     </article>
 }
 
-function FindingTriageHistory({ findingId, findingTitle, findingUpdatedAt, scoped, action }: {
+function FindingTriageHistory({ findingId, findingTitle, findingUpdatedAt, scoped, action, onViewRun }: {
     findingId: string
     findingTitle: string
     findingUpdatedAt: string
     scoped: boolean
     action: FindingsViewProps['findingTriageHistoryAction']
+    onViewRun: FindingsViewProps['onViewRun']
 }) {
     const [open, setOpen] = useState(false)
     const [loadedAt, setLoadedAt] = useState<string | null>(null)
@@ -176,7 +179,11 @@ function FindingTriageHistory({ findingId, findingTitle, findingUpdatedAt, scope
         {entries.length > 0 && <ol className='mt-2 grid gap-2'>
             {entries.map(entry => <li key={entry.id} className='rounded border border-ui-border px-2 py-2'>
                 <div className='flex flex-wrap items-center justify-between gap-2'><strong>{entry.status.replaceAll('_', ' ')}</strong><time dateTime={entry.createdAt} className='text-ui-muted'>{formatDate(entry.createdAt)}</time></div>
-                <p className='mt-1 text-ui-muted'>Changed by: {entry.actorId ? <span title={entry.actorId}>Account · {entry.actorId.slice(0, 8)}</span> : 'Not recorded'}</p>
+                <p className='mt-1 text-ui-muted'>Changed by: {entry.sourceRunId ? 'Scanner' : entry.actorId ? <span title={entry.actorId}>Account · {entry.actorId.slice(0, 8)}</span> : 'Not recorded'}</p>
+                {entry.sourceRunId && entry.sourceEngine && <div className='mt-1 flex flex-wrap items-center gap-2 text-ui-muted'>
+                    <span>Scan evidence · {entry.sourceEngine}</span>
+                    <button type='button' aria-label={`View ${entry.sourceEngine} run from ${formatDate(entry.createdAt)}`} onClick={() => onViewRun(entry.sourceRunId!, entry.sourceEngine!)} className='rounded border border-ui-border px-2 py-1 font-semibold text-ui-text'>View run</button>
+                </div>}
                 {entry.remediationPlanRecorded
                     ? <p className='mt-1 text-ui-muted'>Owner/team: {entry.remediationOwner || 'Unassigned'} · Due date: {entry.remediationDueDate || 'None'}</p>
                     : <p className='mt-1 text-ui-muted'>Remediation plan: Not recorded</p>}
