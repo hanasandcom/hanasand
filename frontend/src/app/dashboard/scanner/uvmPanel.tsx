@@ -72,11 +72,15 @@ export default function UvmPanel({
             return refreshed
         }
         const page = await findingHistoryAction(null, findingScope)
-        const scoped = { ...refreshed, findings: page.findings, findingsNextCursor: page.nextCursor }
+        const scopedFindings = new Map(page.findings.map(finding => [finding.id, finding]))
+        for (const finding of data.findings) {
+            if (!scopedFindings.has(finding.id)) scopedFindings.set(finding.id, finding)
+        }
+        const scoped = { ...refreshed, findings: [...scopedFindings.values()], findingsNextCursor: data.findingsNextCursor }
         setData(scoped)
         setFindingSyncState(page.syncState)
         return scoped
-    }, [findingHistoryAction, findingScope, refreshAction])
+    }, [data.findings, data.findingsNextCursor, findingHistoryAction, findingScope, refreshAction])
     const selectableAssessmentEngines = assessmentEngines.filter(engine => {
         const info = data.engines.find(item => item.id === engine)
         return info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
@@ -147,7 +151,12 @@ export default function UvmPanel({
     async function updateFinding(finding: UvmFinding) {
         const update = findingUpdates[finding.id] || { status: finding.status, note: finding.triageNote || '' }
         setBusy(`finding:${finding.id}`); setMessage('')
-        try { await updateFindingAction(finding.id, update); await refresh(); setMessage('Finding status updated.') }
+        try {
+            await updateFindingAction(finding.id, update)
+            await refresh()
+            setData(current => ({ ...current, findings: current.findings.map(item => item.id === finding.id ? { ...item, status: update.status, triageNote: update.note.trim() || null } : item) }))
+            setMessage('Finding status updated.')
+        }
         catch (error) { setMessage(error instanceof Error ? error.message : 'Finding could not be updated.') }
         finally { setBusy('') }
     }

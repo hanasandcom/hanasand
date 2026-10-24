@@ -75,7 +75,7 @@ function FindingCard({ finding, busy, update, setFindingUpdates, onUpdate }: {
     setFindingUpdates: FindingsViewProps['setFindingUpdates']
     onUpdate: () => void
 }) {
-    const evidence = finding.observedInRun ? finding.observedInRun.evidence : finding.evidence
+    const evidence = finding.observedInRun?.evidence || finding.evidence
     return <article className='rounded-md border border-ui-border bg-ui-raised p-3'>
         <div className='flex flex-wrap items-start justify-between gap-2'>
             <div>
