@@ -10,7 +10,7 @@ import config from '#constants'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import { enqueueVmProvisionOnHost, waitForVmProvisionOnHost, type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
 import { provisionLocalLxdInstance } from '#utils/vms/lxd.ts'
-import { clearLocalProvisionState, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
+import { clearLocalProvisionState, localProvisionFailureReason, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { isSupportedSetupService, supportedSetupServices } from '#utils/vms/supportedSetupServices.ts'
@@ -246,7 +246,7 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
         void provisionLocalLxdInstance(name, options).then(() => {
             clearLocalProvisionState(name)
         }).catch(error => {
-            setLocalProvisionState(name, { status: 'Error', status_reason: 'VM setup could not start. Try again or contact Support if the problem persists.' })
+            setLocalProvisionState(name, { status: 'Error', status_reason: localProvisionFailureReason(error) })
             void recordVmProvisioningError(name, error, 'create_or_provision')
         })
         return
