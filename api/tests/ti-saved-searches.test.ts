@@ -2,6 +2,10 @@ import { afterEach, beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
 import type { FastifyInstance } from 'fastify'
 
+process.env.DB_PASSWORD ||= 'ti-saved-search-test'
+process.env.DB_HOST ||= '127.0.0.1'
+process.env.VM_API_TOKEN ||= 'ti-saved-search-test'
+
 mock.module('#utils/auth/tokenWrapper.ts', () => ({
     default: async (request: { headers: Record<string, string | string[] | undefined> }) => {
         const id = request.headers.id
@@ -9,7 +13,7 @@ mock.module('#utils/auth/tokenWrapper.ts', () => ({
     },
 }))
 
-import { deleteSavedSearch, getSavedSearches, postSavedSearch } from '../src/handlers/ti/savedSearches.ts'
+const { registerObservabilityRoutes } = await import('../src/routes/observability.ts')
 
 type FetchCall = { url: URL; init: RequestInit }
 let calls: FetchCall[]
@@ -45,9 +49,9 @@ test('requires a user session before forwarding any saved-search operation', asy
     const app = await createApp()
     try {
         const responses = await Promise.all([
-            app.inject({ method: 'GET', url: '/saved-searches' }),
-            app.inject({ method: 'POST', url: '/saved-searches', payload: { query: 'APT29' } }),
-            app.inject({ method: 'DELETE', url: '/saved-searches?query=APT29' }),
+            app.inject({ method: 'GET', url: '/ti/saved-searches' }),
+            app.inject({ method: 'POST', url: '/ti/saved-searches', payload: { query: 'APT29' } }),
+            app.inject({ method: 'DELETE', url: '/ti/saved-searches?query=APT29' }),
         ])
 
         expect(responses.map(response => response.statusCode)).toEqual([401, 401, 401])
@@ -71,7 +75,7 @@ test('lists saved searches for the authenticated user and maps either timestamp 
     })
     const app = await createApp()
     try {
-        const response = await app.inject({ method: 'GET', url: '/saved-searches', headers: { id: 'user-17' } })
+        const response = await app.inject({ method: 'GET', url: '/ti/saved-searches', headers: { id: 'user-17' } })
 
         expect(response.statusCode).toBe(200)
         expect(response.json()).toEqual({
@@ -95,7 +99,7 @@ test('trims and forwards a saved query, then maps the upstream result', async ()
     try {
         const response = await app.inject({
             method: 'POST',
-            url: '/saved-searches',
+            url: '/ti/saved-searches',
             headers: { id: 'user-22' },
             payload: { query: '  APT29  ' },
         })
@@ -119,7 +123,7 @@ test('deletes the requested saved query for the authenticated user', async () =>
     fetchResponse = Response.json({ ok: true })
     const app = await createApp()
     try {
-        const response = await app.inject({ method: 'DELETE', url: '/saved-searches?query=APT29%20%26%20friends', headers: { id: 'user-31' } })
+        const response = await app.inject({ method: 'DELETE', url: '/ti/saved-searches?query=APT29%20%26%20friends', headers: { id: 'user-31' } })
 
         expect(response.statusCode).toBe(200)
         expect(response.json()).toEqual({ ok: true })
@@ -137,10 +141,10 @@ test('rejects invalid save and delete requests before contacting the TI service'
     const app = await createApp()
     try {
         const responses = await Promise.all([
-            app.inject({ method: 'POST', url: '/saved-searches', headers: { id: 'user-17' }, payload: { query: '   ' } }),
-            app.inject({ method: 'POST', url: '/saved-searches', headers: { id: 'user-17' }, payload: { query: 'x'.repeat(201) } }),
-            app.inject({ method: 'POST', url: '/saved-searches', headers: { id: 'user-17' }, payload: { query: 42 } }),
-            app.inject({ method: 'DELETE', url: '/saved-searches?query=%20%20', headers: { id: 'user-17' } }),
+            app.inject({ method: 'POST', url: '/ti/saved-searches', headers: { id: 'user-17' }, payload: { query: '   ' } }),
+            app.inject({ method: 'POST', url: '/ti/saved-searches', headers: { id: 'user-17' }, payload: { query: 'x'.repeat(201) } }),
+            app.inject({ method: 'POST', url: '/ti/saved-searches', headers: { id: 'user-17' }, payload: { query: 42 } }),
+            app.inject({ method: 'DELETE', url: '/ti/saved-searches?query=%20%20', headers: { id: 'user-17' } }),
         ])
 
         expect(responses.map(response => response.statusCode)).toEqual([400, 400, 400, 400])
@@ -160,7 +164,7 @@ test('returns a stable unavailable response when the TI service fails', async ()
     fetchResponse = Response.json({ error: 'upstream unavailable' }, { status: 503 })
     const app = await createApp()
     try {
-        const response = await app.inject({ method: 'GET', url: '/saved-searches', headers: { id: 'user-17' } })
+        const response = await app.inject({ method: 'GET', url: '/ti/saved-searches', headers: { id: 'user-17' } })
 
         expect(response.statusCode).toBe(503)
         expect(response.json()).toEqual({ error: 'Threat-intelligence search is temporarily unavailable.' })
@@ -174,7 +178,7 @@ test('returns the same unavailable response when the TI service request is rejec
     fetchError = new Error('connection refused')
     const app = await createApp()
     try {
-        const response = await app.inject({ method: 'POST', url: '/saved-searches', headers: { id: 'user-17' }, payload: { query: 'APT29' } })
+        const response = await app.inject({ method: 'POST', url: '/ti/saved-searches', headers: { id: 'user-17' }, payload: { query: 'APT29' } })
 
         expect(response.statusCode).toBe(503)
         expect(response.json()).toEqual({ error: 'Threat-intelligence search is temporarily unavailable.' })
@@ -187,9 +191,7 @@ test('returns the same unavailable response when the TI service request is rejec
 
 async function createApp(): Promise<FastifyInstance> {
     const app = Fastify()
-    app.get('/saved-searches', getSavedSearches)
-    app.post('/saved-searches', postSavedSearch)
-    app.delete('/saved-searches', deleteSavedSearch)
+    registerObservabilityRoutes(app)
     return app
 }
 

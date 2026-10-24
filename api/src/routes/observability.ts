@@ -17,10 +17,16 @@ import getMailBlob from '../handlers/mail/getBlob.ts'
 import getMailMessageReputation from '../handlers/mail/getMessageReputation.ts'
 import { postRulePreview, getEvents, getRule, putRule, getRules, getRuleHitCounts, getRuleHitCount, getRuleStorageEstimate, postEventAction, postRule, postRuleAction, postRulePack, postEventSigmaPack } from '../handlers/events.ts'
 import { getRuleReprocess, postRuleReprocess } from '../handlers/ruleReprocess.ts'
+import { deleteSavedSearch, getSavedSearches, postSavedSearch } from '../handlers/ti/savedSearches.ts'
 
 import type { FastifyInstance } from 'fastify'
 
 export function registerObservabilityRoutes(fastify: FastifyInstance) {
+    // Threat intelligence saved searches
+    fastify.get('/ti/saved-searches', getSavedSearches)
+    fastify.post('/ti/saved-searches', postSavedSearch)
+    fastify.delete('/ti/saved-searches', deleteSavedSearch)
+
     // Mail
     fastify.get('/mail/overview', getMailOverview)
     fastify.get('/mail/search', getMailSearch)
