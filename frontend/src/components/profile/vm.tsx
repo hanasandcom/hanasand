@@ -80,8 +80,8 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
     return (
         <>
             <article className='grid gap-3 rounded-lg border border-ui-border bg-ui-raised p-4 transition-colors hover:bg-ui-panel sm:gap-4'>
-                <div className='flex min-w-0 items-start justify-between gap-3'>
-                    <div className='min-w-0 flex-1'>
+                <div className='flex min-w-0 flex-wrap items-start justify-between gap-3'>
+                    <div className='min-w-0 flex-1 basis-48'>
                         <div className='flex min-w-0 flex-wrap items-center gap-2'>
                             <h3 className='min-w-0 wrap-break-word text-base font-semibold text-ui-text'>{name}</h3>
                             {vm.managed === true && <span title='Provisioned through a share' className='rounded-md border border-ui-border bg-ui-canvas px-2 py-0.5 text-[0.68rem] font-semibold text-ui-muted'>Managed</span>}
@@ -94,7 +94,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                         </div>
                         {statusNote && <p className='mt-1 text-xs leading-5 text-ui-muted'>{statusNote}</p>}
                     </div>
-                    <div className='flex w-auto shrink-0 flex-wrap items-center gap-2 xl:flex-nowrap xl:justify-end'>
+                    <div className='flex min-w-0 max-w-full flex-1 flex-wrap items-center justify-end gap-2'>
                         {!deleted && <>
                             <RestartButtons vm={vm} onFeedback={onFeedback} showLabels />
                             <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} max-sm:!hidden w-auto px-2.5 text-ui-primary sm:!inline-flex`}>
