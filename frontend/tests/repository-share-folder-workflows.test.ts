@@ -129,7 +129,7 @@ test('import creates its root first, deduplicates parents, and retains file erro
     reset()
     failedRequest = 1
     await expect(importer.importRepositoryToShare({ repo, token: 'token', userId: 'user' }))
-        .rejects.toThrow('Failed to create the repository workspace.')
+        .rejects.toThrow('Failed to create the repository files.')
     expect(requests).toHaveLength(1)
 
     reset()

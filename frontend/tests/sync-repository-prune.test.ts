@@ -42,7 +42,7 @@ test('stops pruning when a stale share cannot be deleted', async () => {
     const tree = [{ id: 'stale-file', name: 'gone.ts', type: 'file' }] as unknown as Tree
 
     await expect(pruneRemovedEntries({ tree, nextFiles: new Set(), token: 'token', userId: 'user' }))
-        .rejects.toThrow('Failed to remove a stale file from the repository workspace.')
+        .rejects.toThrow('Failed to remove a stale repository file.')
     expect(deletedIds).toEqual(['stale-file'])
     failingId = null
 })
