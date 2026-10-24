@@ -34,6 +34,20 @@ test('rejects a supplied method that differs from the real request', () => {
 test('supports an explicitly configured isolated HTTPS staging origin', () => {
     expect(backendDeviceProofTarget(request(), 'https://127.0.0.1:3456')).toEqual({ url: 'https://127.0.0.1:3456/api/backend/ai/workspace', method: 'GET' })
 })
+test('allows the exact loopback VM staging origin only in a stage build', () => {
+    const localRequest = {
+        url: 'http://127.0.0.1:3388/api/backend/vm?source=builder',
+        method: 'POST',
+        headers: new Headers({
+            'x-device-proof-url': 'http://127.0.0.1:3388/api/backend/vm',
+            'x-device-proof-method': 'POST',
+        }),
+    }
+    expect(backendDeviceProofTarget(localRequest, 'http://127.0.0.1:3388', true)).toEqual({ url: 'http://127.0.0.1:3388/api/backend/vm', method: 'POST' })
+    expect(backendDeviceProofTarget(localRequest, 'http://127.0.0.1:3388', false)).toBeNull()
+    expect(backendDeviceProofTarget(localRequest, 'http://127.0.0.1:3389', true)).toBeNull()
+    expect(backendDeviceProofTarget(localRequest, 'http://localhost:3388', true)).toBeNull()
+})
 for (const origin of ['http://hanasand.com', 'https://user:password@hanasand.com', 'https://hanasand.com/other', 'invalid']) {
     test(`rejects unsafe public origin configuration: ${origin}`, () => {
         expect(backendDeviceProofTarget(request(), origin)).toBeNull()

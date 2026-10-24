@@ -54,12 +54,14 @@ RUN bun run build
 
 FROM oven/bun:1.3.11-alpine AS runner
 
+ARG HANASAND_STAGE_BUILD=0
 ARG HANASAND_RELEASE_COMMIT=unknown
 LABEL org.opencontainers.image.revision=$HANASAND_RELEASE_COMMIT
 
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV HANASAND_STAGE_BUILD=$HANASAND_STAGE_BUILD
 
 RUN apk add --no-cache varnish
 

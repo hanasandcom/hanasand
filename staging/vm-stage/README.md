@@ -2,6 +2,8 @@
 
 This Compose stack runs the Hanasand UI and API against a private, synthetic PostgreSQL database and a fixed staging identity. It does not load production credentials or production records. All published ports bind to loopback so access is through an SSH tunnel.
 
+The staging frontend accepts device proofs for its exact `http://127.0.0.1:3388` origin only in images built with `HANASAND_STAGE_BUILD=1`; production images keep the HTTPS-only proof origin.
+
 On Inspur, the API uses the restricted `hns-stage` LXD project. Its limits are two instances and virtual machines, four CPUs, 8 GiB RAM and 40 GiB disk. The existing `hei` container is preserved; the remaining quota supports one disposable VM. Staging VMs have outbound internet access for package installers, but no public service route. Check host storage and load before creating a VM; project quotas do not guarantee host capacity.
 
 From the Hanasand checkout on Inspur, start the staging stack with:

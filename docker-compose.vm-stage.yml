@@ -89,6 +89,7 @@ services:
       FRONTEND_AUTH_API: http://vm-stage-api:8080/api
       FRONTEND_IDENTITY_API: http://vm-stage-identity:8081/api
       FRONTEND_RELEASE_COMMIT: vm-stage
+      SOCIAL_AUTH_ORIGIN: http://127.0.0.1:3388
     ports:
       - "127.0.0.1:3388:3000"
     depends_on:
