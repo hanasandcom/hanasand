@@ -152,6 +152,8 @@ if (( \${#apt_packages[@]} > 0 )); then
   run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
   apt_install_pid=$!
   last_apt_progress=''
+  apt_install_started=$SECONDS
+  apt_last_status=$SECONDS
   update_apt_progress() {
     local progress_line apt_progress_percent apt_progress
     progress_line="$(tail -n 1 "$apt_progress_file" 2>/dev/null || true)"
@@ -161,11 +163,19 @@ if (( \${#apt_packages[@]} > 0 )); then
       if [[ "$apt_progress" != "$last_apt_progress" ]]; then
         set_stage "Installing \${apt_progress}"
         last_apt_progress=$apt_progress
+        apt_last_status=$SECONDS
       fi
     fi
   }
   while kill -0 "$apt_install_pid" 2>/dev/null; do
     update_apt_progress
+    if (( SECONDS - apt_last_status >= 15 )); then
+      apt_elapsed=$((SECONDS - apt_install_started))
+      apt_minutes=$((apt_elapsed / 60))
+      apt_seconds=$((apt_elapsed % 60))
+      set_stage "Installing selected packages (\${apt_minutes}m \${apt_seconds}s elapsed)"
+      apt_last_status=$SECONDS
+    fi
     sleep 2
   done
   update_apt_progress

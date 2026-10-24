@@ -303,6 +303,39 @@ test('apt package installation writes meaningful progress to the VM status file'
     }
 })
 
+test('apt status reports elapsed time when package configuration emits no progress events', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-apt-heartbeat-'))
+    try {
+        const bin = join(directory, 'bin')
+        const statusPath = join(directory, 'status')
+        const progressLog = join(directory, 'progress.log')
+        mkdirSync(bin)
+        const fakeAptGet = join(bin, 'apt-get')
+        writeFileSync(fakeAptGet, [
+            '#!/usr/bin/env bash',
+            'if [[ " $* " == *" install "* ]]; then sleep 0.3; fi',
+        ].join('\n'))
+        chmodSync(fakeAptGet, 0o755)
+
+        const cloudInit = vmSetupUserData('apt-heartbeat-vm', { aptPackages: ['ripgrep'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content
+            .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
+            .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
+            .replace('apt_last_status=$SECONDS', 'apt_last_status=$((SECONDS - 15))')
+            .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.01\n  done\n  update_apt_progress')
+            .replace('set_stage() { setup_stage=$1; write_state Provisioning "$1"; }', `set_stage() { setup_stage=$1; write_state Provisioning "$1"; printf '%s\\n' "$1" >> '${progressLog}'; }`)
+
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
+        if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)
+        expect(readFileSync(progressLog, 'utf8')).toContain('Installing selected packages (0m 0s elapsed)')
+        expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
+})
+
 test('AI-selected Ubuntu packages are installed as package names, never shell commands', () => {
     const cloudInit = vmSetupUserData('custom-vm', { services: [], aptPackages: ['ruby-full', 'ripgrep'] })
     const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
