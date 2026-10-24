@@ -5,7 +5,7 @@ export const SCANNER_SERVICES_PAUSED = process.env.NEXT_PUBLIC_SCANNER_SERVICES_
 export default function ScannerPauseNotice({ paused, reason }: { paused: boolean, reason: string | null }) {
     if (!paused) return null
     const detail = reason === 'pending_disk_expansion'
-        ? 'Scanner services are stopped pending disk expansion: API, database, Nmap/Naabu, Greenbone, ZAP runner/proxy, testssl.sh, Nuclei, Nikto, SSLyze, Wapiti, WhatWeb, HTTPX, tlsx, Katana, and WAFW00F workers. Image worker is also stopped.'
+        ? 'Scanner API, database, Nmap/Naabu, Angry IP Scanner, Greenbone, ZAP runner/proxy, testssl.sh, Nuclei, Nikto, SSLyze, Wapiti, WhatWeb, HTTPX, tlsx, Katana, WAFW00F, and image worker are stopped pending disk expansion.'
         : 'Scanner API has not confirmed that execution is enabled. Controls stay disabled until the API reports readiness.'
     const message = reason === 'pending_disk_expansion'
         ? 'Scanner services paused pending disk expansion.'

@@ -32,31 +32,33 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
         const engine = ['nmap', 'naabu', 'angry-ip-scanner', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(item.integration)
             ? data.engines.find(candidate => candidate.id === item.integration)
             : undefined
+        const outputCheckPending = item.integration === 'angry-ip-scanner' && Boolean(engine?.reason)
         const status = item.setup === 'desktop-only' ? 'Windows app · no API'
             : item.setup === 'cli-review-needed' ? 'GUI bridge needed'
                 : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
                     : item.setup === 'adapter-needed' ? 'Adapter needed'
-                        : servicesPaused ? 'Stopped'
+                        : servicesPaused ? item.integration === 'image-worker' || item.integration === 'grype' ? 'Image worker stopped · pending disk' : 'Stopped · pending disk'
                             : item.integration === 'image-worker' || item.integration === 'grype' ? 'Integrated · image worker'
-                                : engine?.status || 'Unavailable'
+                                : outputCheckPending && engine?.status === 'available' ? 'Ready · output check pending'
+                                    : engine?.status || 'Unavailable'
         const statusClass = item.setup !== 'configured' ? 'text-ui-muted'
             : servicesPaused ? 'text-ui-warning'
-                : engine?.status === 'available' || item.integration === 'image-worker' || item.integration === 'grype' ? 'text-ui-success' : 'text-ui-warning'
+                : (engine?.status === 'available' && !outputCheckPending)
+                    || item.integration === 'image-worker' || item.integration === 'grype' ? 'text-ui-success' : 'text-ui-warning'
         return <div key={item.id || item.name} className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-ui-border py-2 text-sm'>
-            <span className='font-medium'>{item.name}<span className='ml-2 text-xs font-normal text-ui-muted'>{item.category}</span></span>
+            <span className='flex items-center gap-2'><span className='font-medium'>{item.name}<span className='ml-2 text-xs font-normal text-ui-muted'>{item.category}</span></span>{item.integration === 'angry-ip-scanner' && <UvmHelp label='Angry IP Scanner' text='Confirms host reachability only. The first authorized run also checks its CSV output format.' />}</span>
             <span className={`text-xs ${statusClass}`}>{status}</span>
         </div>
     })
     return <>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-center justify-between gap-3'><div><h2 className='text-lg font-semibold'>Scanner suite</h2><p className='mt-1 text-xs text-ui-muted'>{productCatalog.length} products · {assetEngineCount} asset engines · {imageToolCount} image tools{servicesPaused ? ' · 0 running · stopped pending disk' : ''}</p></div><UvmHelp label='Scanner suite' text='Asset engines scan verified public assets. Image tools inspect container images. Other products are catalog entries awaiting an adapter, license, or supported host.' /></div>
-            {servicesPaused && <p role='status' className='mt-2 text-xs text-ui-warning'>Configured services are stopped pending disk expansion. No scanner is running.</p>}
+            <div className='flex items-center justify-between gap-3'><div><h2 className='text-lg font-semibold'>Scanner suite</h2><p className='mt-1 text-xs text-ui-muted'>{productCatalog.length} products · {assetEngineCount} asset engines · {imageToolCount} image tools{servicesPaused ? ' · 0 running' : ''}</p></div><UvmHelp label='Scanner suite' text='Asset engines scan verified public assets. Image tools inspect container images. Other products are catalog entries awaiting an adapter, license, or supported host.' /></div>
             <label className='mt-3 block'><span className='sr-only'>Filter scanners</span><input value={productQuery} onChange={event => setProductQuery(event.target.value)} placeholder='Filter scanners' className='h-9 w-full rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text placeholder:text-ui-muted' /></label>
             <div className='mt-2 max-h-80 overflow-y-auto rounded-md border border-ui-border px-3'><div className='grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>{renderProducts(filteredProducts)}</div>{filteredProducts.length === 0 && <p className='py-3 text-sm text-ui-muted'>No scanners match that filter.</p>}</div>
         </section>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
             <div className='flex flex-wrap items-start justify-between gap-3'><div className='flex items-center gap-2'><h2 className='text-lg font-semibold'>Nessus via Tenable VM</h2><UvmHelp label='Tenable VM connection' text='This connects a Tenable cloud account and launches its enabled Nessus scan configurations. Standalone Nessus Pro hosts are not connected.' /></div><span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${integration?.configured ? 'bg-ui-success/15 text-ui-success' : 'bg-ui-warning/15 text-ui-warning'}`}>{servicesPaused && !integration?.configured ? 'Unavailable while stopped' : integration?.configured ? `Connected · ${integration.region}` : 'Not configured'}</span></div>
-            {servicesPaused && !integration?.configured ? <p className='mt-2 text-sm text-ui-warning'>Connection setup is unavailable while Scanner is stopped.</p>
+            {servicesPaused && !integration?.configured ? null
                 : !integration?.configured ? <form onSubmit={onSave} className='mt-4 grid gap-3 sm:grid-cols-2'>
                     <label className='grid gap-1 text-xs text-ui-muted'>Cloud region<select value={region} onChange={event => setRegion(event.target.value as TenableRegion)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text'><option value='us'>United States</option><option value='eu'>Europe</option><option value='de'>Germany</option><option value='au'>Australia</option><option value='ca'>Canada</option><option value='jp'>Japan</option></select></label><div />
                     <label className='grid gap-1 text-xs text-ui-muted'>Access key<input autoComplete='off' value={accessKey} onChange={event => setAccessKey(event.target.value)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text' /></label>
