@@ -26,7 +26,11 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     const productCatalog = getScannerSuiteCatalog(data.scannerCatalog)
     const assetEngineCount = productCatalog.filter(item => UVM_ASSET_ASSESSMENT_ENGINE_IDS.includes(item.integration as typeof UVM_ASSET_ASSESSMENT_ENGINE_IDS[number])).length
     const imageToolCount = productCatalog.filter(item => item.integration === 'image-worker' || item.integration === 'grype').length
-    const filteredProducts = productCatalog.filter(item => `${item.name} ${item.category}`.toLowerCase().includes(productQuery.trim().toLowerCase()))
+    const integratedProducts = productCatalog.filter(item => item.setup === 'configured')
+    const catalogProducts = productCatalog.filter(item => item.setup !== 'configured')
+    const query = productQuery.trim().toLowerCase()
+    const filteredProducts = productCatalog.filter(item => `${item.name} ${item.category}`.toLowerCase().includes(query))
+    const visibleProducts = query ? filteredProducts : integratedProducts
     const renderProducts = (products: typeof productCatalog) => products.map(item => {
         const engine = ['nmap', 'naabu', 'angry-ip-scanner', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(item.integration)
             ? data.engines.find(candidate => candidate.id === item.integration)
@@ -53,7 +57,18 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
             <div className='flex items-center justify-between gap-3'><div><h2 className='text-lg font-semibold'>Scanner suite</h2><p className='mt-1 text-xs text-ui-muted'>{productCatalog.length} products · {assetEngineCount} asset engines · {imageToolCount} image tools{servicesPaused ? ' · 0 running' : ''}</p></div><UvmHelp label='Scanner suite' text='Asset engines scan verified public assets. Image tools inspect container images. Other products are catalog entries awaiting an adapter, license, or supported host.' /></div>
             <label className='mt-3 block'><span className='sr-only'>Filter scanners</span><input value={productQuery} onChange={event => setProductQuery(event.target.value)} placeholder='Filter scanners' className='h-9 w-full rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text placeholder:text-ui-muted' /></label>
-            <div className='mt-2 max-h-80 overflow-y-auto rounded-md border border-ui-border px-3'><div className='grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>{renderProducts(filteredProducts)}</div>{filteredProducts.length === 0 && <p className='py-3 text-sm text-ui-muted'>No scanners match that filter.</p>}</div>
+            <div className='mt-2 max-h-80 overflow-y-auto rounded-md border border-ui-border px-3'>
+                {!query && <p className='pt-2 text-xs font-semibold text-ui-muted'>Integrated tools ({integratedProducts.length})</p>}
+                <div className='grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>
+                    {query && filteredProducts.length === 0
+                        ? <p className='py-3 text-sm text-ui-muted'>No scanners match that filter.</p>
+                        : renderProducts(visibleProducts)}
+                </div>
+                {!query && catalogProducts.length > 0 && <details className='border-t border-ui-border py-2'>
+                    <summary className='cursor-pointer py-1 text-sm font-medium'>Other catalog products ({catalogProducts.length})</summary>
+                    <div className='grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>{renderProducts(catalogProducts)}</div>
+                </details>}
+            </div>
         </section>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
             <div className='flex flex-wrap items-start justify-between gap-3'><div className='flex items-center gap-2'><h2 className='text-lg font-semibold'>Nessus via Tenable VM</h2><UvmHelp label='Tenable VM connection' text='This connects a Tenable cloud account and launches its enabled Nessus scan configurations. Standalone Nessus Pro hosts are not connected.' /></div><span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${integration?.configured ? 'bg-ui-success/15 text-ui-success' : 'bg-ui-warning/15 text-ui-warning'}`}>{servicesPaused && !integration?.configured ? 'Unavailable while stopped' : integration?.configured ? `Connected · ${integration.region}` : 'Not configured'}</span></div>
