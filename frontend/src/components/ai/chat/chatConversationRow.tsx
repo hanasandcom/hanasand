@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Archive, ArchiveRestore, Copy, ExternalLink, Eye, EyeOff, FolderOpen, GitBranch, List, Pencil, Pin, PinOff, Share2, Trash2 } from 'lucide-react'
 import { ChatContextMenu, type ChatContextMenuItem } from './chatContextMenu'
 import conversationTitle from '@/utils/ai/conversationTitle'
@@ -36,6 +36,7 @@ export function ChatConversationRow({
 }: Props) {
     const [menu, setMenu] = useState<{ x: number, y: number } | null>(null)
     const [tooltip, setTooltip] = useState<{ left: number, top: number } | null>(null)
+    const rowRef = useRef<HTMLDivElement>(null)
     const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const closeMenu = useCallback(() => setMenu(null), [])
     const title = conversationTitle(conversation.title)
@@ -46,13 +47,43 @@ export function ChatConversationRow({
     const repositoryName = repository?.fullName || repository?.name || null
     const organization = [metadata.sidebarProject, metadata.sidebarSection].filter((value): value is string => typeof value === 'string').join(' · ')
 
-    function patchMeta(updates: Record<string, unknown>) {
+    const patchMeta = useCallback((updates: Record<string, unknown>) => {
         onPatch(conversation.id, { workspaceMeta: { ...conversation.workspaceMeta, ...updates } })
-    }
+    }, [conversation.id, conversation.workspaceMeta, onPatch])
+
+    useEffect(() => {
+        if (!active) return
+
+        function handleShortcuts(event: KeyboardEvent) {
+            if (!(event.metaKey || event.ctrlKey) || event.repeat || !rowRef.current?.getClientRects().length) return
+            const target = event.target
+            if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')) return
+
+            const key = event.key.toLowerCase()
+            let shortcut: 'rename' | 'pin' | 'read' | 'archive' | null = null
+            if (event.altKey && !event.shiftKey) {
+                if (key === 'r') shortcut = 'rename'
+                if (key === 'p') shortcut = 'pin'
+            } else if (event.shiftKey && !event.altKey) {
+                if (key === 'u') shortcut = 'read'
+                if (key === 'a') shortcut = 'archive'
+            }
+            if (!shortcut) return
+
+            event.preventDefault()
+            if (shortcut === 'rename') onRename(conversation)
+            if (shortcut === 'pin') patchMeta({ sidebarPinnedAt: isPinned ? null : new Date().toISOString() })
+            if (shortcut === 'read') patchMeta({ sidebarUnreadAt: isUnread ? null : new Date().toISOString() })
+            if (shortcut === 'archive') onArchive(conversation.id, !archived)
+        }
+
+        document.addEventListener('keydown', handleShortcuts)
+        return () => document.removeEventListener('keydown', handleShortcuts)
+    }, [active, archived, conversation, isPinned, isUnread, onArchive, onRename, patchMeta])
 
     function openMenu(x: number, y: number) {
         setMenu({
-            x: Math.max(8, Math.min(x, window.innerWidth - 240)),
+            x: Math.max(8, Math.min(x, window.innerWidth - 296)),
             y: Math.max(8, Math.min(y, window.innerHeight - 440)),
         })
     }
@@ -60,8 +91,8 @@ export function ChatConversationRow({
     function showTooltip(element: HTMLElement) {
         const rect = element.getBoundingClientRect()
         setTooltip({
-            left: Math.max(8, Math.min(rect.right + 8, window.innerWidth - 296)),
-            top: Math.max(8, Math.min(rect.top, window.innerHeight - 128)),
+            left: Math.max(8, Math.min(rect.right + 8, window.innerWidth - 392)),
+            top: Math.max(8, Math.min(rect.top, window.innerHeight - 224)),
         })
     }
 
@@ -82,9 +113,9 @@ export function ChatConversationRow({
     }
 
     const menuItems: ChatContextMenuItem[] = [
-        { label: 'Rename', icon: <Pencil />, onSelect: select(() => onRename(conversation)) },
-        { label: isPinned ? 'Unpin' : 'Pin', icon: isPinned ? <PinOff /> : <Pin />, onSelect: select(() => patchMeta({ sidebarPinnedAt: isPinned ? null : new Date().toISOString() })) },
-        { label: isUnread ? 'Mark as read' : 'Mark as unread', icon: isUnread ? <Eye /> : <EyeOff />, onSelect: select(() => patchMeta({ sidebarUnreadAt: isUnread ? null : new Date().toISOString() })) },
+        { label: 'Rename', icon: <Pencil />, shortcut: '⌥⌘R', onSelect: select(() => onRename(conversation)) },
+        { label: isPinned ? 'Unpin' : 'Pin', icon: isPinned ? <PinOff /> : <Pin />, shortcut: '⌥⌘P', onSelect: select(() => patchMeta({ sidebarPinnedAt: isPinned ? null : new Date().toISOString() })) },
+        { label: isUnread ? 'Mark as read' : 'Mark as unread', icon: isUnread ? <Eye /> : <EyeOff />, shortcut: '⇧⌘U', onSelect: select(() => patchMeta({ sidebarUnreadAt: isUnread ? null : new Date().toISOString() })) },
         { label: '', separator: true, onSelect: () => {} },
         { label: 'Move to project…', icon: <FolderOpen />, onSelect: select(() => onLabel(conversation, 'project')) },
         ...(metadata.sidebarProject ? [{ label: 'Remove from project', onSelect: select(() => patchMeta({ sidebarProject: null })) }] : []),
@@ -96,12 +127,13 @@ export function ChatConversationRow({
         { label: 'Copy chat', icon: <Copy />, onSelect: select(() => void copy(formatTranscript(conversation), 'Chat copied.')) },
         { label: 'Open in new tab', icon: <ExternalLink />, onSelect: select(() => { window.open(`/ai/${conversation.id}`, '_blank', 'noopener,noreferrer') }) },
         { label: '', separator: true, onSelect: () => {} },
-        { label: archived ? 'Restore' : 'Archive', icon: archived ? <ArchiveRestore /> : <Archive />, onSelect: select(() => onArchive(conversation.id, !archived)) },
+        { label: archived ? 'Restore' : 'Archive', icon: archived ? <ArchiveRestore /> : <Archive />, shortcut: '⇧⌘A', onSelect: select(() => onArchive(conversation.id, !archived)) },
         { label: 'Delete chat…', icon: <Trash2 />, danger: true, onSelect: select(() => onDelete(conversation)) },
     ]
 
     return (
         <div
+            ref={rowRef}
             className={`group relative flex min-w-0 items-center gap-1 rounded-lg px-2 py-1.5 transition-colors ${active ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'} ${isUnread ? 'font-semibold text-ui-text' : ''}`}
             onMouseEnter={(event) => showTooltip(event.currentTarget)}
             onMouseLeave={() => setTooltip(null)}
@@ -115,9 +147,9 @@ export function ChatConversationRow({
             <button
                 type='button'
                 aria-current={active ? 'page' : undefined}
-                aria-keyshortcuts='Shift+F10'
+                aria-keyshortcuts='Shift+F10 Meta+Alt+R Control+Alt+R Meta+Alt+P Control+Alt+P Shift+Meta+U Shift+Control+U Shift+Meta+A Shift+Control+A'
+                aria-describedby={tooltip ? `chat-title-tooltip-${conversation.id}` : undefined}
                 aria-label={`${title}. ${organization ? `${organization}. ` : ''}Right-click or press Shift+F10 for chat actions.`}
-                title={[title, repositoryName, branch ? `Branch: ${branch}` : null, organization || null].filter(Boolean).join('\n')}
                 onClick={() => { onSelect(conversation.id); if (isUnread) patchMeta({ sidebarUnreadAt: null }) }}
                 onFocus={(event) => showTooltip(event.currentTarget)}
                 onBlur={() => setTooltip(null)}
@@ -133,15 +165,15 @@ export function ChatConversationRow({
                 <span className='block truncate'>{title}</span>
             </button>
             {isUnread ? <span aria-label='Unread' title='Unread' className='h-2 w-2 shrink-0 rounded-full bg-ui-primary' /> : null}
-            <div className='flex shrink-0 items-center gap-0.5'>
+            <div className='flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity duration-150 motion-reduce:transition-none [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100'>
                 <MiniButton label={isPinned ? `Unpin ${title}` : `Pin ${title}`} icon={isPinned ? <PinOff /> : <Pin />} onClick={() => patchMeta({ sidebarPinnedAt: isPinned ? null : new Date().toISOString() })} />
                 <MiniButton label={archived ? `Restore ${title}` : `Archive ${title}`} icon={archived ? <ArchiveRestore /> : <Archive />} onClick={() => onArchive(conversation.id, !archived)} />
             </div>
-            {tooltip ? <div className='pointer-events-none fixed z-40 w-72 rounded-lg border border-ui-border bg-ui-panel p-3 text-ui-text shadow-xl' style={tooltip} role='tooltip'>
-                <div className='truncate text-sm font-semibold'>{title}</div>
-                {repositoryName ? <div className='mt-1 truncate text-xs text-ui-muted'>⌂ {repositoryName}</div> : null}
-                {branch ? <div className='mt-1 flex min-w-0 items-center gap-1 truncate text-xs text-ui-muted'><GitBranch className='h-3 w-3 shrink-0' /><span className='truncate'>{branch}</span></div> : null}
-                {organization ? <div className='mt-1 truncate text-xs text-ui-muted'>{organization}</div> : null}
+            {tooltip ? <div id={`chat-title-tooltip-${conversation.id}`} className='pointer-events-none fixed z-40 max-h-[min(18rem,calc(100dvh-1rem))] w-[min(24rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-ui-border/90 bg-ui-panel/95 px-4 py-3 text-ui-text shadow-[0_16px_48px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl' style={tooltip} role='tooltip'>
+                <div className='break-words text-base font-semibold leading-snug'>{title}</div>
+                {repositoryName ? <div className='mt-2 break-words text-xs leading-5 text-ui-muted'>⌂ {repositoryName}</div> : null}
+                {branch ? <div className='mt-1 flex min-w-0 items-start gap-1 text-xs leading-5 text-ui-muted'><GitBranch className='mt-1 h-3 w-3 shrink-0' /><span className='break-all'>{branch}</span></div> : null}
+                {organization ? <div className='mt-1 break-words text-xs leading-5 text-ui-muted'>{organization}</div> : null}
             </div> : null}
             {menu ? <ChatContextMenu title={title} position={menu} items={menuItems} onClose={closeMenu} /> : null}
         </div>

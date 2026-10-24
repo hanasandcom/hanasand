@@ -46,7 +46,7 @@ export default function ChatSidebar(props: ChatSidebarProps) {
     return (
         <aside className='flex h-full min-h-0 flex-col border-r border-ui-border bg-ui-panel p-4 text-ui-text'>
             <div className='flex items-center justify-between gap-2 pb-4'>
-                <button type='button' onClick={onNewConversation} className='inline-flex h-9 items-center gap-2 rounded-lg bg-ui-text px-3 text-sm font-semibold text-ui-canvas transition-opacity hover:opacity-90'>
+                <button type='button' onClick={onNewConversation} className='inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-transparent px-3 text-sm font-semibold text-ui-text transition-colors hover:bg-ui-raised'>
                     <MessageSquarePlus className='h-4 w-4' />
                     New chat
                 </button>

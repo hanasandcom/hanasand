@@ -5,6 +5,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 export type ChatContextMenuItem = {
     label: string
     icon?: ReactNode
+    shortcut?: string
     danger?: boolean
     separator?: boolean
     onSelect: () => void
@@ -51,21 +52,22 @@ export function ChatContextMenu({
             ref={menuRef}
             role='menu'
             aria-label={`${title} actions`}
-            className='fixed z-50 max-h-[min(80vh,30rem)] w-56 overflow-y-auto rounded-lg border border-ui-border bg-ui-panel p-1.5 text-sm text-ui-text shadow-2xl'
+            className='fixed z-50 max-h-[min(80vh,30rem)] w-72 overflow-y-auto rounded-2xl border border-ui-border/90 bg-ui-panel/95 p-2 text-sm text-ui-text shadow-[0_18px_56px_rgba(0,0,0,0.55)] ring-1 ring-white/5 backdrop-blur-xl'
             style={{ left: position.x, top: position.y }}
             onKeyDown={(event) => { if (event.key === 'Tab') onClose() }}
         >
             {items.map((item, index) => item.separator
-                ? <div key={`separator-${index}`} role='separator' className='my-1 border-t border-ui-border' />
+                ? <div key={`separator-${index}`} role='separator' className='my-1.5 border-t border-ui-border/80' />
                 : <button
                     key={`${item.label}-${index}`}
                     type='button'
                     role='menuitem'
                     onClick={item.onSelect}
-                    className={`flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left outline-none hover:bg-ui-raised focus:bg-ui-raised ${item.danger ? 'text-ui-danger' : 'text-ui-text'}`}
+                    className={`flex min-h-10 w-full items-center gap-3 rounded-xl px-2.5 text-left font-medium outline-none transition-colors hover:bg-ui-raised focus:bg-ui-raised ${item.danger ? 'text-ui-danger' : 'text-ui-text'}`}
                 >
-                    <span className='grid h-4 w-4 shrink-0 place-items-center [&>svg]:h-4 [&>svg]:w-4'>{item.icon}</span>
+                    <span className='grid h-4 w-4 shrink-0 place-items-center text-ui-muted [&>svg]:h-4 [&>svg]:w-4'>{item.icon}</span>
                     <span className='truncate'>{item.label}</span>
+                    {item.shortcut ? <kbd className='ml-auto shrink-0 rounded-md border border-ui-border/80 bg-ui-canvas/70 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ui-muted'>{item.shortcut}</kbd> : null}
                 </button>)}
         </div>
     )
