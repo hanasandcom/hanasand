@@ -29,7 +29,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     const imageToolCount = productCatalog.filter(item => item.integration === 'image-worker' || item.integration === 'grype').length
     const filteredProducts = productCatalog.filter(item => `${item.name} ${item.category}`.toLowerCase().includes(productQuery.trim().toLowerCase()))
     const renderProducts = (products: typeof productCatalog) => products.map(item => {
-        const engine = ['nmap', 'naabu', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(item.integration)
+        const engine = ['nmap', 'naabu', 'angry-ip-scanner', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(item.integration)
             ? data.engines.find(candidate => candidate.id === item.integration)
             : undefined
         const status = item.setup === 'desktop-only' ? 'Windows app · no API'

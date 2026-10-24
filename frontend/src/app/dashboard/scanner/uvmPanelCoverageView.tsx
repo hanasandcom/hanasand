@@ -2,7 +2,7 @@ import type { UvmAssetEngineCoverage, UvmDashboard } from '@/utils/monitoring/ty
 import { formatDate } from './uvmPanelHelpers'
 
 const engines: Array<{ id: UvmAssetEngineCoverage['engine'], label: string }> = [
-    { id: 'nmap', label: 'Nmap' }, { id: 'naabu', label: 'Naabu' }, { id: 'tenable-vm', label: 'Tenable VM' },
+    { id: 'nmap', label: 'Nmap' }, { id: 'naabu', label: 'Naabu' }, { id: 'angry-ip-scanner', label: 'Angry IP' }, { id: 'tenable-vm', label: 'Tenable VM' },
     { id: 'gvm', label: 'Greenbone' }, { id: 'zap', label: 'ZAP' }, { id: 'testssl', label: 'testssl.sh' },
     { id: 'nuclei', label: 'Nuclei' }, { id: 'nikto', label: 'Nikto' }, { id: 'sslyze', label: 'SSLyze' },
     { id: 'wapiti', label: 'Wapiti' }, { id: 'whatweb', label: 'WhatWeb' }, { id: 'httpx', label: 'httpx' },

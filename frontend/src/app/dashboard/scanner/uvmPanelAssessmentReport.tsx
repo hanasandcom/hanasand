@@ -52,6 +52,10 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
                         </details>)}</div>
                         {job.run.rawOutputSha256 && <p className='mt-2 break-all text-xs text-ui-muted'>Raw output SHA-256: {job.run.rawOutputSha256}</p>}
                     </>}
+                    {job.engine === 'angry-ip-scanner' && <>
+                        <p className='mt-2 text-xs text-ui-muted'>Angry IP reachability · {job.run.hosts?.filter(host => host.status === 'up').length ?? 0} reachable · {job.run.hosts?.filter(host => host.status === 'unknown').length ?? 0} unknown · no port checks</p>
+                        <ul className='mt-2 grid gap-1 text-xs text-ui-muted'>{job.run.hosts?.map(host => <li key={host.address}>{host.address} · {host.timedOut ? 'timeout' : host.status}</li>)}</ul>
+                    </>}
                     {job.engine === 'testssl' && <>
                         <p className='mt-2 text-xs text-ui-muted'>testssl.sh TLS configuration checks · {job.run.observations?.length || 0} observations · {job.run.completedAddresses?.length ?? job.run.coverage?.completedAddresses ?? 'unknown'} addresses completed</p>
                         <TestsslObservationList observations={job.run.observations?.filter(isTestsslObservation)} />
@@ -80,7 +84,7 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
                             <button type='button' onClick={() => onOpenFindings(job.id, job.assetId, job.engine)} disabled={busy === `assessment-findings:${job.id}`} className='rounded border border-ui-border px-2 py-1 text-xs font-semibold disabled:opacity-50'>{busy === `assessment-findings:${job.id}` ? 'Loading triage…' : 'Review in triage'}</button>
                         </div> : null}
                         {job.run.findings?.map(finding => <RunFinding key={finding.findingId} finding={finding} />)}
-                        {!['nmap', 'testssl'].includes(job.engine) && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
+                        {!['nmap', 'testssl', 'angry-ip-scanner'].includes(job.engine) && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
                     </div>
                 </>}
             </article>)}
