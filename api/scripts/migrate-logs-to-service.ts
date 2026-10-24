@@ -10,6 +10,7 @@ const batchSize = Math.max(1, Math.min(200, Number(process.env.LOGS_MIGRATION_BA
 const receiptBatchSize = 100
 const analyzeReceiptBatchSize = 2000
 const analyzeReceiptTailChunkBytes = 4 * 1024 ** 3
+const eventTailChunkBytes = 4 * 1024 ** 3
 const findingScanSize = 10_000
 const apply = process.argv.includes('--apply')
 const maxPayloadBytes = 450_000
@@ -17,7 +18,7 @@ const configuredMigrationFreeSpaceReserveBytes = Number(process.env.LOGS_MIGRATI
 const migrationFreeSpaceReserveBytes = Number.isSafeInteger(configuredMigrationFreeSpaceReserveBytes) && configuredMigrationFreeSpaceReserveBytes > 0
     ? configuredMigrationFreeSpaceReserveBytes : 24 * 1024 ** 3
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds))
-type MigrationBatchResult = { moved: number, remaining: boolean, retry: boolean, cursor?: string }
+type MigrationBatchResult = { moved: number, remaining: boolean, retry: boolean, cursor?: string, tailCursor?: string, rangeComplete?: boolean }
 
 export function estimatedPlanRows(plan: unknown): number | null {
     const value = Array.isArray(plan) ? plan[0] : plan
@@ -137,13 +138,13 @@ export function migrationTailPageRange(relationBytes: number, blockSize: number,
 }
 
 export function migrationTailVacuumArgs(containerName: string, databaseUser: string, databaseName: string,
-    table: 'log_analyze_receipts') {
+    table: 'events' | 'log_analyze_receipts') {
     if (!containerName || !databaseUser || !databaseName) throw new Error('Migration vacuum requires the inspected PostgreSQL container, user and database.')
     return ['exec', containerName, 'psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-U', databaseUser, '-d', databaseName,
         '-c', 'SET lock_timeout = \'1s\'', '-c', 'SET statement_timeout = \'20min\'', '-c', `VACUUM (TRUNCATE) public.${table}`]
 }
 
-export function runMigrationTailVacuum(table: 'log_analyze_receipts') {
+export function runMigrationTailVacuum(table: 'events' | 'log_analyze_receipts') {
     const containerName = process.env.LOGS_MIGRATION_HANASAND_DB_CONTAINER || 'hanasand_database'
     const inspected = JSON.parse(execFileSync('docker', ['inspect', containerName], { encoding: 'utf8', timeout: 5000 })) as Array<{
         Config?: { Env?: string[] }
@@ -884,11 +885,22 @@ export async function customerLogsReadReady(logsServiceUrl: string) {
     }
 }
 
-export async function moveOneBatch(url: string, token: string, cursor = ''): Promise<MigrationBatchResult> {
+type MigrationTailRange = { lowerBlock: number; upperBlock: number; afterCtid?: string }
+
+export async function moveOneBatch(url: string, token: string, cursor = '', tailRange?: MigrationTailRange): Promise<MigrationBatchResult> {
     const selected = await withTransaction(async query => {
         await query('SET LOCAL lock_timeout = \'1s\'')
-        await query('SET LOCAL statement_timeout = \'20s\'')
-        const selected = await query(`SELECT id, ingestion_id, organization_id, source_vendor, source_product,
+        await query(`SET LOCAL statement_timeout = '${tailRange ? '5min' : '20s'}'`)
+        const selected = tailRange
+            ? await query(`SELECT ctid::text AS source_ctid, id, ingestion_id, organization_id, source_vendor, source_product,
+                event_timestamp::text AS event_timestamp, received_at::text AS received_at,
+                event_type, action, outcome, user_id, user_email, source_ip, source_country, source_city, device_id,
+                normalized, original, parser_version, processing_status
+            FROM events WHERE ingestion_id = 'logs'
+                AND ctid >= ('(' || $1::text || ',0)')::tid AND ctid < ('(' || $2::text || ',0)')::tid
+                AND ($3::tid IS NULL OR ctid > $3::tid)
+            ORDER BY ctid LIMIT $4`, [tailRange.lowerBlock, tailRange.upperBlock, tailRange.afterCtid || null, batchSize])
+            : await query(`SELECT id, ingestion_id, organization_id, source_vendor, source_product,
                 event_timestamp::text AS event_timestamp, received_at::text AS received_at,
                 event_type, action, outcome, user_id, user_email, source_ip, source_country, source_city, device_id,
                 normalized, original, parser_version, processing_status
@@ -897,6 +909,17 @@ export async function moveOneBatch(url: string, token: string, cursor = ''): Pro
         return selected.rows
     })
     if (!selected.length) {
+        if (tailRange) {
+            const remaining = await withTransaction(async query => {
+                await query('SET LOCAL statement_timeout = \'5min\'')
+                return query(`SELECT EXISTS(SELECT 1 FROM events
+                    WHERE ingestion_id='logs' AND ctid >= ('(' || $1::text || ',0)')::tid
+                        AND ctid < ('(' || $2::text || ',0)')::tid) AS present`, [tailRange.lowerBlock, tailRange.upperBlock])
+            })
+            return remaining.rows[0]?.present
+                ? { moved: 0, remaining: true, retry: true }
+                : { moved: 0, remaining: true, retry: false, rangeComplete: true }
+        }
         const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id = \'logs\') AS present'))
         // Sweep from the beginning if a legacy writer inserted a row behind the
         // current cursor. The final pass must observe an actually empty source.
@@ -1051,7 +1074,91 @@ export async function moveOneBatch(url: string, token: string, cursor = ''): Pro
         }
         return result
     })
-    return { moved: ids.length, remaining: true, retry: false, cursor: String(sourceRows[sourceRows.length - 1]!.id) }
+    return { moved: ids.length, remaining: true, retry: false,
+        ...(tailRange ? { tailCursor: String(sourceRows[sourceRows.length - 1]!.source_ctid) } : {}),
+        ...(!tailRange ? { cursor: String(sourceRows[sourceRows.length - 1]!.id) } : {}) }
+}
+
+export async function migrateEventsByPhysicalTail(url: string, token: string,
+    vacuumTail: (table: 'events' | 'log_analyze_receipts') => void = runMigrationTailVacuum,
+    tailChunkBytes = eventTailChunkBytes) {
+    let moved = 0
+    let retryDelay = 1000
+    let upperBlock: number | undefined
+    let blockSize = 8192
+
+    while (true) {
+        if (upperBlock === undefined) {
+            const geometry = await withTransaction(query => query(`SELECT pg_relation_size('public.events')::bigint AS bytes,
+                current_setting('block_size')::integer AS block_size`))
+            const bytes = Number(geometry.rows[0]?.bytes)
+            blockSize = Number(geometry.rows[0]?.block_size)
+            const firstRange = migrationTailPageRange(bytes, blockSize, undefined, tailChunkBytes)
+            if (!firstRange) {
+                const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present'))
+                if (!remaining.rows[0]?.present) return moved
+                await sleep(retryDelay)
+                retryDelay = Math.min(30_000, retryDelay * 2)
+                continue
+            }
+            upperBlock = firstRange.upperBlock
+        }
+
+        const range = migrationTailPageRange(upperBlock * blockSize, blockSize, upperBlock, tailChunkBytes)
+        if (!range) {
+            const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present'))
+            if (!remaining.rows[0]?.present) return moved
+            // A late writer inserted into a previously visited physical range.
+            // Refresh the relation geometry and sweep again before final cleanup.
+            upperBlock = undefined
+            continue
+        }
+
+        let rangeComplete = false
+        let afterCtid: string | undefined
+        while (!rangeComplete) {
+            let result: MigrationBatchResult
+            try {
+                result = await moveOneBatch(url, token, '', { ...range, afterCtid })
+            } catch (error) {
+                if ((error as { migrationPermanent?: boolean }).migrationPermanent) throw error
+                const code = String((error as { code?: string }).code || '')
+                const name = String((error as { name?: string }).name || '')
+                if (!code.startsWith('08') && !['40001', '40P01', '55P03', '57014', 'DB_QUEUE_FULL'].includes(code)
+                    && !['AbortError', 'TimeoutError'].includes(name) && !(error instanceof TypeError)) throw error
+                console.warn('Migration batch was not removed from Hanasand; retrying.', error instanceof Error ? error.message : 'unknown error')
+                await sleep(retryDelay)
+                retryDelay = Math.min(30_000, retryDelay * 2)
+                continue
+            }
+            if (result.retry) {
+                afterCtid = undefined
+                await sleep(retryDelay)
+                retryDelay = Math.min(30_000, retryDelay * 2)
+                continue
+            }
+            retryDelay = 1000
+            if (result.moved) {
+                moved += result.moved
+                if (moved % 1000 === 0) console.log(JSON.stringify({ moved, scope: 'logs events' }))
+            }
+            if (result.tailCursor) afterCtid = result.tailCursor
+            rangeComplete = result.rangeComplete === true
+            if (!rangeComplete && result.moved === 0 && !result.remaining) {
+                // A concurrent writer may have changed the relation while the
+                // range was being walked. Check the whole table before restarting.
+                const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present'))
+                if (!remaining.rows[0]?.present) return moved
+                upperBlock = undefined
+                break
+            }
+        }
+
+        if (rangeComplete) {
+            vacuumTail('events')
+            upperBlock = range.lowerBlock
+        }
+    }
 }
 
 async function main() {
@@ -1093,48 +1200,12 @@ async function main() {
     const reclaimedReceiptTables = await clearMigratedLogReceipts()
     console.log(JSON.stringify({ reclaimedReceiptTables, scope: 'migrated Logs receipts and hit counts' }))
 
-    let moved = 0
-    let retryDelay = 1000
-    let cursor = ''
-    while (true) {
-        let result: Awaited<ReturnType<typeof moveOneBatch>>
-        try {
-            result = await moveOneBatch(url, ingestToken, cursor)
-        } catch (error) {
-            if ((error as { migrationPermanent?: boolean }).migrationPermanent) throw error
-            const code = String((error as { code?: string }).code || '')
-            const name = String((error as { name?: string }).name || '')
-            if (!code.startsWith('08') && !['40001', '40P01', '55P03', '57014', 'DB_QUEUE_FULL'].includes(code)
-                && !['AbortError', 'TimeoutError'].includes(name) && !(error instanceof TypeError)) throw error
-            // Source rows remain unless the acknowledged, stored batch was
-            // unchanged at the final conditional delete.
-            console.warn('Migration batch was not removed from Hanasand; retrying.', error instanceof Error ? error.message : 'unknown error')
-            await sleep(retryDelay)
-            retryDelay = Math.min(30_000, retryDelay * 2)
-            continue
-        }
-        if (result.retry) {
-            await sleep(retryDelay)
-            retryDelay = Math.min(30_000, retryDelay * 2)
-            continue
-        }
-        retryDelay = 1000
-        if (result.cursor !== undefined) cursor = result.cursor
-        if (result.moved) {
-            moved += result.moved
-            if (moved % 1000 === 0) console.log(JSON.stringify({ moved, scope: 'logs events' }))
-        } else if (!result.remaining) {
-            if (!await serviceReady(url)) throw new Error('Logs API or worker became unhealthy before source cleanup; log state remains in Hanasand.')
-            if (!await customerLogsReadReady(url)) throw new Error('The live Hanasand frontend no longer routes Logs reads to this service; source log state remains in Hanasand.')
-            const clearedTables = await clearMovedLogState()
-            console.log(JSON.stringify({ complete: true, moved, scope: 'logs events', clearedTables,
-                physicalRewriteRequired: ['events', 'findings'].filter(table => !clearedTables.includes(table)) }))
-            return
-        } else {
-            // Another active worker or migration owns the remaining row locks.
-            await sleep(1000)
-        }
-    }
+    const moved = await migrateEventsByPhysicalTail(url, ingestToken)
+    if (!await serviceReady(url)) throw new Error('Logs API or worker became unhealthy before source cleanup; log state remains in Hanasand.')
+    if (!await customerLogsReadReady(url)) throw new Error('The live Hanasand frontend no longer routes Logs reads to this service; source log state remains in Hanasand.')
+    const clearedTables = await clearMovedLogState()
+    console.log(JSON.stringify({ complete: true, moved, scope: 'logs events', clearedTables,
+        physicalRewriteRequired: ['events', 'findings'].filter(table => !clearedTables.includes(table)) }))
 }
 
 if (import.meta.main) {

@@ -43,6 +43,8 @@ let sourceAnalyzeReceipts: Array<Record<string, unknown>> = []
 let sourceAnalyzeReceiptBlocks = new Map<string, number>()
 let sourceAnalyzeRelationBytes = 16_384
 let sourceAnalyzeBlockSize = 8192
+let sourceEventRelationBytes = 16_384
+let sourceEventBlockSize = 8192
 let sourceArchiveRows: Array<Record<string, unknown>> = []
 let sourceThroughputSamples: Array<Record<string, unknown>> = []
 let sourceTuningSnapshots: Array<Record<string, unknown>> = []
@@ -51,6 +53,7 @@ let sourceIngestionCanonical: Array<Record<string, unknown>> = []
 let sourceIngestionCopies: Array<Record<string, unknown>> = []
 let sourceRuntimeState: Record<string, Array<Record<string, unknown>>> = {}
 let selectedRowsOverride: Array<Record<string, unknown>> | null = null
+let physicalEventRowsOverride: Array<Record<string, unknown>> | null = null
 let sourceDeleteRowsOverride: Array<Record<string, unknown>> | null = null
 let sourceDeleteMismatchTable: string | null = null
 let transactionErrors = 0
@@ -73,6 +76,8 @@ const query = async (sql: string, params: unknown[] = []) => {
         return { rows: findingScanReads === 1 ? [{ id: 'source-row-1' }] : [] }
     }
     if (sql.includes('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id') && sql.includes('\'logs\'')) return { rows: [{ present: sourceLogsRemain }] }
+    if (sql.includes('pg_relation_size(\'public.events\')')) return { rows: [{ bytes: sourceEventRelationBytes, block_size: sourceEventBlockSize }] }
+    if (sql.includes('SELECT EXISTS(SELECT 1 FROM events') && sql.includes('ctid >=')) return { rows: [{ present: sourceLogsRemain }] }
     if (sql === 'SELECT EXISTS(SELECT 1 FROM public.log_access_counts) AS present') return { rows: [{ present: sourceAccessCounts.length > 0 }] }
     if (sql === 'SELECT EXISTS(SELECT 1 FROM events) AS present') return { rows: [{ present: sourceOtherEventsRemain }] }
     if (sql === 'SELECT EXISTS(SELECT 1 FROM findings) AS present') return { rows: [{ present: sourceFindingsRemain }] }
@@ -87,6 +92,9 @@ const query = async (sql: string, params: unknown[] = []) => {
             .filter(row => (sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0) >= Number(params[0])
                 && (sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0) < Number(params[1]))
             .slice(0, Number(params[2])) }
+    }
+    if (sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && sql.includes('FROM events') && sql.includes('ctid >=')) {
+        return { rows: physicalEventRowsOverride ?? [] }
     }
     if (sql.includes('FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace')) {
         return { rows: discoveredLogTables.map(relname => ({ relname })) }
@@ -219,7 +227,7 @@ mock.module('#db', () => ({
     },
 }))
 
-const { assertMigrationStorageReserve, clearMigratedLogReceipts, clearMovedLogState, customerLogsReadReady, estimatedPlanRows, migrateAnalysisReceipts, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationPayloadHash, migrationStoragePathsFromDockerInspect, moveOneBatch, resolveMigrationStoragePaths, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
+const { assertMigrationStorageReserve, clearMigratedLogReceipts, clearMovedLogState, customerLogsReadReady, estimatedPlanRows, migrateAnalysisReceipts, migrateEventsByPhysicalTail, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationPayloadHash, migrationStoragePathsFromDockerInspect, moveOneBatch, resolveMigrationStoragePaths, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
 const { logMigrationEvent } = await import('../src/utils/logs/logMigrationEvent.ts')
 
 beforeEach(() => {
@@ -233,6 +241,8 @@ beforeEach(() => {
     sourceAnalyzeReceiptBlocks = new Map()
     sourceAnalyzeRelationBytes = 16_384
     sourceAnalyzeBlockSize = 8192
+    sourceEventRelationBytes = 16_384
+    sourceEventBlockSize = 8192
     sourceArchiveRows = []
     sourceThroughputSamples = []
     sourceTuningSnapshots = []
@@ -241,6 +251,7 @@ beforeEach(() => {
     sourceIngestionCopies = []
     sourceRuntimeState = {}
     selectedRowsOverride = null
+    physicalEventRowsOverride = null
     sourceDeleteRowsOverride = null
     sourceDeleteMismatchTable = null
     transactionErrors = 0
@@ -437,6 +448,22 @@ test('deletes source rows only after Logs durably stores and verifies every copi
     expect(deletion?.sql).toContain('source.normalized=expected.normalized')
 })
 
+test('selects event batches inside the requested physical tail range', async () => {
+    physicalEventRowsOverride = [{ ...sourceRows[0], source_ctid: '(8,3)' }]
+    const payloadSha256 = migrationPayloadHash(logMigrationEvent(sourceRows[0]))
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, accepted: 1,
+        droppedSourceEventIds: ['collector-event-1'],
+        droppedEvents: [{ sourceEventId: 'collector-event-1', payloadSha256 }] }), { status: 201 })) as typeof fetch
+
+    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40), '', { lowerBlock: 8, upperBlock: 12 })
+
+    const selection = statements.find(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && statement.sql.includes('ctid >='))
+    expect(result).toMatchObject({ moved: 1, retry: false, tailCursor: '(8,3)' })
+    expect(selection?.sql).toContain('ORDER BY ctid LIMIT $4')
+    expect(selection?.params).toEqual([8, 12, null, 200])
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
+})
+
 test('restarts a full sweep when unprocessed source rows remain behind the current cursor', async () => {
     selectedRowsOverride = []
     sourceLogsRemain = true
@@ -605,6 +632,21 @@ test('selects descending bounded physical tail ranges and builds lock-bounded va
         .toContain('SET statement_timeout = \'20min\'')
     expect(migrationTailVacuumArgs('hanasand_database', 'postgres', 'hanasand', 'log_analyze_receipts').at(-1))
         .toBe('VACUUM (TRUNCATE) public.log_analyze_receipts')
+    expect(migrationTailVacuumArgs('hanasand_database', 'postgres', 'hanasand', 'events').at(-1))
+        .toBe('VACUUM (TRUNCATE) public.events')
+})
+
+test('walks empty event heap ranges from the tail down and vacuums each completed range', async () => {
+    sourceEventRelationBytes = 32_768
+    sourceEventBlockSize = 8192
+    const vacuumed: string[] = []
+
+    expect(await migrateEventsByPhysicalTail('https://logs.hanasand.com', 'i'.repeat(40), table => vacuumed.push(table), 16_384))
+        .toBe(0)
+    expect(statements.filter(statement => statement.sql.includes('pg_relation_size(\'public.events\')'))).toHaveLength(1)
+    expect(statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && statement.sql.includes('ctid >='))
+        .map(statement => statement.params)).toEqual([[2, 4, null, 200], [0, 2, null, 200]])
+    expect(vacuumed).toEqual(['events', 'events'])
 })
 
 test('moves receipt batches from the physical tail downward and vacuums only after range acknowledgements', async () => {
