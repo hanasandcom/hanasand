@@ -107,6 +107,6 @@ function FindingCard({ finding, criticality, busy, update, setFindingUpdates, on
         </div>}
         {finding.status === 'needs_review' && <p className='mt-2 text-xs text-ui-muted'>Unvalidated scanner evidence. Review the evidence before promoting it to an open finding.</p>}
         {finding.status === 'pending_verification' && <p className='mt-2 text-xs text-ui-muted'>This finding will resolve after a later successful scan confirms it is no longer present.</p>}
-        <p className='mt-2 text-[11px] text-ui-muted'>First seen {formatDate(finding.firstSeen)} · Last seen {formatDate(finding.lastSeen)}</p>
+        <p className='mt-2 text-[11px] text-ui-muted'>{finding.observationCount ? `Observed in ${finding.observationCount} run${finding.observationCount === 1 ? '' : 's'} overall · ` : ''}First seen {formatDate(finding.firstSeen)} · Last seen {formatDate(finding.lastSeen)}</p>
     </article>
 }
