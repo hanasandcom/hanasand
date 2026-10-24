@@ -41,7 +41,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
             : item.setup === 'cli-review-needed' ? 'CLI review needed'
                 : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
                     : item.setup === 'adapter-needed' ? 'Adapter needed'
-                        : servicesPaused ? 'Stopped · pending disk'
+                        : servicesPaused ? 'Stopped'
                             : item.integration === 'image-worker' || item.integration === 'grype' ? 'Integrated · image worker'
                                 : engine?.status || 'Unavailable'
         const statusClass = item.setup !== 'configured' ? 'text-ui-muted'
@@ -55,7 +55,6 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     return <>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
             <div className='flex items-center justify-between gap-3'><div><h2 className='text-lg font-semibold'>Scanner suite</h2><p className='mt-1 text-xs text-ui-muted'>{configuredProducts.length} integrations wired · {servicesPaused ? '0 running' : `${otherProducts.length} other integrations`}</p></div><UvmHelp label='Scanner suite' text='The five image and package tools share the local image worker. Advanced IP Scanner is a Windows desktop app.' /></div>
-            {servicesPaused && <p role='status' className='mt-2 text-xs text-ui-warning'>Scanner services are stopped pending disk expansion.</p>}
             <div className='mt-3 grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3'>{renderProducts(visibleProducts)}</div>
             {otherProducts.length > 0 && <details className='mt-2 border-t border-ui-border pt-2'>
                 <summary className='cursor-pointer text-sm font-semibold'>Roadmap and other integrations · {otherProducts.length}<span className='ml-2 text-xs font-normal text-ui-muted'>{setupCounts.adapter} adapters · {setupCounts.licensed} licensed</span></summary>
