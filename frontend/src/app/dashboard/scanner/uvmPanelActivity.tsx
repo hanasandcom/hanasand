@@ -1,5 +1,5 @@
 import type { UvmAssetEngineCoverage, UvmDashboard, UvmRun } from '@/utils/monitoring/types'
-import { formatDate } from './uvmPanelHelpers'
+import { formatDate, isTestsslObservation } from './uvmPanelHelpers'
 
 function runResult(run: UvmRun) {
     if (run.engine === 'nmap' || run.engine === 'naabu') {
@@ -15,11 +15,12 @@ function runResult(run: UvmRun) {
         return `${coverage}${ports}${run.engine === 'naabu' ? ' · port discovery only' : run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : run.profile === 'udp-top-100' ? ' · UDP inventory' : ' · service inventory only'}`
     }
     if (run.engine === 'testssl') {
-        const flagged = run.observations?.filter(observation => observation.disposition === 'finding').length || 0
+        const testsslObservations = run.observations?.filter(isTestsslObservation) || []
+        const flagged = testsslObservations.filter(observation => observation.disposition === 'finding').length
         const completed = run.completedAddresses?.length ?? run.coverage?.completedAddresses
         const requested = run.coverage?.requestedAddresses ?? run.attemptedAddresses?.length
         const addressCoverage = completed === undefined || requested === undefined ? 'TLS address coverage unknown' : `${completed}/${requested} TLS addresses complete`
-        return `${addressCoverage} · ${flagged} flagged TLS checks · ${run.observations?.length || 0} total observations`
+        return `${addressCoverage} · ${flagged} flagged TLS checks · ${testsslObservations.length} total observations`
     }
     if (run.findings) return `${run.findings.length} findings reported`
     if (run.coverage) {

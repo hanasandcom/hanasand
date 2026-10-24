@@ -1,7 +1,7 @@
 'use client'
 
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
-import type { NetworkScanProfile, NmapScanProfile, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmFindingHistoryPage, UvmRunHistoryPage } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingHistoryPage, UvmRunHistoryPage } from '@/utils/monitoring/types'
 
 const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.hanasand.com/api').replace(/\/$/, '')
 
@@ -25,7 +25,7 @@ export function createScannerClient(organizationId: string) {
         saveZapApiDefinition: (assetId: string, path: string | null) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-api-definition`, { method: 'PUT', body: { path } }),
         runAsset: (assetId: string, authorized: boolean, profile: NmapScanProfile = 'tcp-top-1000') => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized, profile } }),
         runNaabu: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/naabu-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
-        scheduleAsset: (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engines: Array<{ engine: UvmEngineId, scanId?: string, profile?: NetworkScanProfile }> }) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/schedule`, { method: 'PUT', body: input }),
+        scheduleAsset: (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engines: Array<{ engine: UvmEngineId, scanId?: string, profile?: UvmEngineProfile }> }) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/schedule`, { method: 'PUT', body: input }),
         configureTenable: (input: { region: 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp', accessKey: string, secretKey: string }) => request<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>('/v1/uvm/integrations/tenable', { method: 'PUT', body: input }),
         disconnectTenable: () => request<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>('/v1/uvm/integrations/tenable', { method: 'DELETE', body: {} }),
         runTenable: (assetId: string, scanId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/tenable-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), scanId, authorized } }),
@@ -33,9 +33,17 @@ export function createScannerClient(organizationId: string) {
         runZap: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
         runTestssl: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/testssl-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
         runNuclei: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/nuclei-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runNikto: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/nikto-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runSslyze: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/sslyze-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runWapiti: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/wapiti-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runWhatweb: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/whatweb-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runHttpx: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/httpx-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runTlsx: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/tlsx-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runKatana: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/katana-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
+        runWafw00f: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/wafw00f-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
         updateFinding: (findingId: string, input: { status: UvmDashboard['findings'][number]['status'], note: string }) => request(`/v1/uvm/findings/${encodeURIComponent(findingId)}`, { method: 'PUT', body: input }),
         cancelRun: (runId: string) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST', body: {} }),
-        startAssessment: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: UvmEngineId, scanId?: string, profile?: NetworkScanProfile }>, authorized: boolean }) => request<{ assessment: UvmDashboard['assessments'][number] }>('/v1/uvm/assessments', { method: 'POST', body: input }),
+        startAssessment: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: UvmEngineId, scanId?: string, profile?: UvmEngineProfile }>, authorized: boolean }) => request<{ assessment: UvmDashboard['assessments'][number] }>('/v1/uvm/assessments', { method: 'POST', body: input }),
         cancelAssessment: (assessmentId: string) => request<{ assessment: UvmDashboard['assessments'][number] }>(`/v1/uvm/assessments/${encodeURIComponent(assessmentId)}/cancel`, { method: 'POST', body: {} }),
         getAssessmentReport: (assessmentId: string) => request<{ assessment: UvmAssessmentReport }>(`/v1/uvm/assessments/${encodeURIComponent(assessmentId)}/report`),
     }

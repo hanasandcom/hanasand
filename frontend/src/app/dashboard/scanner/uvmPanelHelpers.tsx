@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { NmapScanProfile, UvmFinding, UvmGvmFinding, UvmRun, UvmTenableFinding, UvmZapFinding } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmFinding, UvmRun, UvmTestsslObservation } from '@/utils/monitoring/types'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { TestsslObservationList } from './uvmTestsslObservations'
 
@@ -44,7 +44,7 @@ export function SummaryCard({ label, value, detail }: { label: string, value: st
 
 export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRun, defaultOpen: boolean, cancelBusy: boolean, onCancel: () => void }) {
     const [open, setOpen] = useState(defaultOpen)
-    const canCancel = ['nmap', 'naabu'].includes(run.engine) ? run.status === 'queued' : ['tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei'].includes(run.engine) && ['queued', 'launching', 'running', 'cancelling'].includes(run.status)
+    const canCancel = ['nmap', 'naabu'].includes(run.engine) ? run.status === 'queued' : ['tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb'].includes(run.engine) && ['queued', 'launching', 'running', 'cancelling'].includes(run.status)
     const observedPorts = (run.hosts || []).flatMap(host => host.ports.map(port => ({ host, port })))
     const confirmedOpenPorts = observedPorts.filter(({ port }) => port.state === 'open')
     const ambiguousUdpPorts = observedPorts.filter(({ port }) => port.protocol === 'udp' && port.state === 'open|filtered')
@@ -75,7 +75,8 @@ export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRu
             {canCancel && <button type='button' onClick={onCancel} disabled={cancelBusy} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{cancelBusy ? 'Cancelling…' : 'Cancel scan'}</button>}
             {(run.hosts || []).length > 0 && <div className='mt-3 grid gap-2'>{run.hosts!.map(host => <div key={host.address} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><p className='font-semibold'>{host.address} · {host.timedOut ? 'timed out' : host.status}</p>{host.ports.length ? <div className='mt-2 grid gap-1'>{host.ports.map(port => <div key={`${host.address}-${port.protocol}-${port.port}`}><p><code>{port.port}/{port.protocol}</code> · {port.state}{port.service ? ` · ${port.service}` : ' · unknown service'}{port.product ? ` · ${port.product}` : ''}{port.version ? ` ${port.version}` : ''}{port.extraInfo ? ` · ${port.extraInfo}` : ''}</p><NmapScriptEvidence results={port.scriptResults} /></div>)}</div> : <p className='mt-1 text-ui-muted'>No matching ports were reported.</p>}<NmapScriptEvidence results={host.scriptResults} /></div>)}</div>}
             {run.findings?.length ? <div className='mt-3 grid gap-2'><h4 className='text-xs font-semibold'>Vulnerability findings · {run.findings.length}</h4>{run.findings.map(finding => <RunFinding key={finding.findingId} finding={finding} />)}</div> : null}
-            {run.engine === 'testssl' && <TestsslObservationList observations={run.observations} />}
+            {run.engine === 'testssl' && <TestsslObservationList observations={run.observations?.filter(isTestsslObservation)} />}
+            {['httpx', 'tlsx', 'katana', 'wafw00f'].includes(run.engine) && <EngineObservationList engine={run.engine} observations={run.observations as unknown as Array<Record<string, unknown>> | undefined} />}
             {run.status === 'succeeded' && run.engine === 'nmap' && run.profile !== 'tcp-top-1000-safe-vuln' && <p className='mt-2 text-xs text-ui-muted'>Service inventory only. No vulnerability checks were performed by this run.</p>}
             {run.status === 'succeeded' && run.engine === 'naabu' && <p className='mt-2 text-xs text-ui-muted'>Top 100 TCP port discovery only. No service identification or vulnerability checks were performed.</p>}
             {run.engine === 'nmap' && run.profile === 'tcp-top-1000-safe-vuln' && <p className='mt-2 text-xs text-ui-muted'>NSE output is heuristic evidence. Review results; they do not confirm exploitability.</p>}
@@ -89,25 +90,60 @@ function NmapScriptEvidence({ results }: { results?: Array<{ id: string, output:
     return <div className='mt-2 grid gap-1'><p className='font-semibold'>Nmap NSE script evidence</p>{results.map((result, index) => <details key={`${result.id}-${index}`}><summary className='cursor-pointer'>{result.id}</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word text-ui-muted'>{result.output}{result.truncated ? '\n… output truncated' : ''}</pre></details>)}</div>
 }
 
-function RunFinding({ finding }: { finding: UvmTenableFinding | UvmGvmFinding | UvmZapFinding | import('@/utils/monitoring/types').UvmNucleiFinding }) {
+function findingEvidence(evidence: string | null | Record<string, unknown>) {
+    return typeof evidence === 'string' || evidence === null ? evidence : JSON.stringify(evidence, null, 2)
+}
+
+export function isTestsslObservation(observation: NonNullable<UvmRun['observations']>[number]): observation is UvmTestsslObservation {
+    return 'result' in observation && 'disposition' in observation
+}
+
+export function RunFinding({ finding }: { finding: NonNullable<UvmRun['findings']>[number] }) {
+    const evidence = findingEvidence(finding.evidence)
     if (finding.provider === 'zap') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'>
         <div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 font-semibold text-ui-warning'>{finding.severity}</span><span className='text-ui-muted'>Confidence {finding.confidence}</span></div>
         <p className='mt-1 break-all text-ui-muted'>{finding.method || 'HTTP'} {finding.instanceUrl}{finding.parameter ? ` · ${finding.parameter}` : ''}</p>
         {finding.solution && <p className='mt-1'><span className='font-semibold'>Suggested fix:</span> {finding.solution}</p>}
-        {finding.evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{finding.evidence}</pre></details>}
+        {evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}
     </div>
     if (finding.provider === 'gvm') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'>
         <div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 font-semibold text-ui-warning'>{finding.severity}</span><span className='text-ui-muted'>{finding.assetAddress}{finding.port ? `:${finding.port}/${finding.protocol || 'tcp'}` : ''}{finding.nvtOid ? ` · NVT ${finding.nvtOid}` : ''}</span></div>
         {finding.cveIds.length > 0 && <p className='mt-1 text-ui-muted'>{finding.cveIds.join(', ')}{finding.cvssScore !== null ? ` · CVSS ${finding.cvssScore}` : ''}</p>}
         {finding.qualityOfDetection && <p className='mt-1 text-ui-muted'>Detection quality: {finding.qualityOfDetection}</p>}
         {finding.solution && <p className='mt-1'><span className='font-semibold'>Suggested fix:</span> {finding.solution}</p>}
-        {finding.evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{finding.evidence}</pre></details>}
+        {evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}
     </div>
+    if (finding.provider === 'nikto') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'>
+        <div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 font-semibold text-ui-warning'>{finding.severity} · {finding.disposition}</span><span className='text-ui-muted'>{finding.method || 'GET'} {finding.targetOrigin}{finding.uri} · {finding.assetAddress}{finding.pluginId ? ` · ${finding.pluginId}` : ''}</span></div>
+        {evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}
+    </div>
+    if (finding.provider === 'sslyze') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'>
+        <div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 font-semibold text-ui-warning'>{finding.severity} · {finding.disposition}</span><span className='text-ui-muted'>{finding.host}:{finding.port} · {finding.checkId}</span></div>
+        {evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}
+    </div>
+    if (finding.provider === 'wapiti') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 font-semibold text-ui-warning'>{finding.severity} · {finding.disposition}</span><span className='text-ui-muted'>{finding.targetOrigin}{finding.uri} · {finding.assetAddress} · {finding.module}</span></div>{evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}</div>
+    if (finding.provider === 'whatweb') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 font-semibold text-ui-warning'>Informational</span><span className='text-ui-muted'>{finding.targetOrigin} · {finding.plugin}</span></div>{evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}</div>
+    if (finding.provider === 'httpx') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-raised px-2 py-0.5 font-semibold text-ui-muted'>Informational</span><span className='text-ui-muted'>{finding.assetAddress} · HTTP {finding.statusCode ?? 'unknown'}</span></div><p className='mt-1 break-all text-ui-muted'>{finding.url}</p>{evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Response metadata</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}</div>
+    if (finding.provider === 'tlsx') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className={`rounded px-2 py-0.5 font-semibold ${finding.disposition === 'finding' ? 'bg-ui-warning/15 text-ui-warning' : 'bg-ui-raised text-ui-muted'}`}>{finding.disposition === 'finding' ? finding.severity : 'Informational'}</span><span className='text-ui-muted'>{finding.host}:{finding.port} · {finding.assetAddress}</span></div>{evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Certificate details</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}</div>
+    if (finding.provider === 'katana') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-raised px-2 py-0.5 font-semibold text-ui-muted'>Informational</span><span className='text-ui-muted'>{finding.assetAddress} · HTTP {finding.statusCode ?? 'unknown'}</span></div><p className='mt-1 break-all text-ui-muted'>{finding.url}</p></div>
+    if (finding.provider === 'wafw00f') return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-raised px-2 py-0.5 font-semibold text-ui-muted'>Informational</span><span className='text-ui-muted'>{finding.assetAddress}</span></div><p className='mt-1 text-ui-muted'>{[finding.firewall, finding.manufacturer].filter(Boolean).join(' · ') || 'No WAF identified'}</p></div>
     return <div className='rounded border border-ui-border bg-ui-panel p-2 text-xs'>
         <div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 font-semibold text-ui-warning'>{finding.severity}</span><span className='text-ui-muted'>{finding.provider === 'nuclei' ? `Template ${finding.templateId} · ${finding.assetAddress}` : `Plugin ${finding.pluginId} · ${finding.assetAddress}${finding.port ? `:${finding.port}` : ''}`}</span></div>
         {finding.provider === 'nuclei' && <p className='mt-1 text-ui-muted'>Matched: {finding.matchedAt} · {finding.tags.join(', ') || 'untagged'}</p>}
         {finding.cveIds.length > 0 && <p className='mt-1 text-ui-muted'>{finding.cveIds.join(', ')}{finding.cvssScore !== null ? ` · CVSS ${finding.cvssScore}` : ''}</p>}
         {finding.solution && <p className='mt-1'><span className='font-semibold'>Suggested fix:</span> {finding.solution}</p>}
-        {finding.evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{finding.evidence}</pre></details>}
+        {evidence && <details className='mt-1'><summary className='cursor-pointer text-ui-muted'>Evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}
     </div>
+}
+
+function EngineObservationList({ engine, observations }: { engine: string, observations?: Array<Record<string, unknown>> }) {
+    if (!observations?.length) return <p className='mt-2 text-xs text-ui-muted'>No observations reported.</p>
+    return <div className='mt-3 grid gap-2'><h4 className='text-xs font-semibold'>{engine} observations · {observations.length}</h4>{observations.map((item, index) => engine === 'httpx'
+        ? <div key={String(item.id || index)} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><p className='font-semibold break-all'>{String(item.url || 'HTTPS root')} · {String(item.statusCode ?? 'status unknown')}</p><p className='text-ui-muted'>{String(item.address || '')}{item.title ? ` · ${String(item.title)}` : ''}</p><p className='text-ui-muted'>{[item.contentType, item.webServer, Array.isArray(item.technologies) ? item.technologies.join(', ') : null].filter(Boolean).join(' · ') || 'No technology metadata reported'}</p></div>
+        : engine === 'tlsx'
+            ? <div key={String(item.id || index)} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><p className='font-semibold'>{String(item.hostname || '')}:{String(item.port || 443)} · {item.probeStatus ? 'TLS handshake succeeded' : 'TLS handshake not confirmed'}</p><p className='text-ui-muted'>{[item.tlsVersion, item.cipher, item.connectionMode].filter(Boolean).join(' · ') || 'TLS metadata unavailable'}</p><p className='text-ui-muted'>CN: {Array.isArray(item.subjectCommonNames) ? item.subjectCommonNames.join(', ') || 'not reported' : 'not reported'} · SAN: {Array.isArray(item.subjectAlternativeNames) ? item.subjectAlternativeNames.slice(0, 8).join(', ') || 'not reported' : 'not reported'}</p><p className='text-ui-muted'>Certificate valid to: {String(item.notAfter || 'unknown')}</p></div>
+            : engine === 'katana'
+                ? <div key={String(item.id || index)} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><p className='font-semibold break-all'>{String(item.method || 'GET')} {String(item.url || '')}</p><p className='text-ui-muted'>{String(item.address || '')} · HTTP {String(item.statusCode ?? 'unknown')}</p></div>
+                : <div key={String(item.id || index)} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><p className='font-semibold'>{item.detected ? 'WAF detected' : 'No WAF identified'}</p><p className='text-ui-muted'>{[item.firewall, item.manufacturer].filter(Boolean).join(' · ') || 'No product identified'} · {String(item.address || '')}</p><p className='text-ui-muted'>Informational detection signal only.</p></div>
+    )}</div>
 }

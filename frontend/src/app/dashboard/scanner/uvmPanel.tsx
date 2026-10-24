@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssessment, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineSelection, UvmFinding, UvmFindingHistoryPage, UvmRun, UvmRunHistoryPage } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssessmentReport, UvmEngineSelection, UvmFinding, UvmRun } from '@/utils/monitoring/types'
+import type { UvmPanelProps } from './uvmPanelProps'
 import { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 import { buildUvmAssessmentEnginePlan, buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
 import { UvmAssetsView, UvmFindingsView } from './uvmPanelViews'
@@ -15,33 +16,16 @@ import { UvmAssessmentHistory, UvmRunHistory } from './uvmPanelHistory'
 import { createUvmPanelHistoryActions } from './uvmPanelHistoryActions'
 import { UvmPanelScannerSetup, type TenableRegion } from './uvmPanelScannerSetup'
 export { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
-export default function UvmPanel({ initialData, servicesPaused = false, refreshAction, getRunAction, getRunHistoryAction, assessmentHistoryAction, findingHistoryAction, createAssetAction, verifyAssetAction, saveZapApiDefinitionAction, runScanAction, runNaabuAction, scheduleAction, configureTenableAction, disconnectTenableAction, runTenableScanAction, runGvmScanAction, runZapScanAction, runTestsslAction, runNucleiAction, updateFindingAction, cancelRunAction, startAssessmentAction, cancelAssessmentAction, getAssessmentReportAction }: {
-    initialData: UvmDashboard
-    servicesPaused?: boolean
-    refreshAction: () => Promise<UvmDashboard>
-    getRunAction: (runId: string, engine: string) => Promise<UvmRun>
-    getRunHistoryAction: (cursor: string | null) => Promise<UvmRunHistoryPage>
-    assessmentHistoryAction: (cursor: string | null) => Promise<UvmAssessmentHistoryPage>
-    findingHistoryAction: (cursor: string | null) => Promise<UvmFindingHistoryPage>
-    createAssetAction: (input: { hostname: string }) => Promise<{ asset: UvmAsset }>
-    verifyAssetAction: (assetId: string) => Promise<{ asset: UvmAsset }>
-    saveZapApiDefinitionAction: (assetId: string, path: string | null) => Promise<{ asset: UvmAsset }>
-    runScanAction: (assetId: string, authorized: boolean, profile: NmapScanProfile) => Promise<{ run: UvmRun }>
-    runNaabuAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
-    scheduleAction: (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engines: UvmEngineSelection[] }) => Promise<{ asset: UvmAsset }>
-    configureTenableAction: (input: { region: 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp', accessKey: string, secretKey: string }) => Promise<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>
-    disconnectTenableAction: () => Promise<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>
-    runTenableScanAction: (assetId: string, scanId: string, authorized: boolean) => Promise<{ run: UvmRun }>
-    runGvmScanAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
-    runZapScanAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
-    runTestsslAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
-    runNucleiAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
-    updateFindingAction: (findingId: string, input: { status: UvmFinding['status'], note: string }) => Promise<unknown>
-    cancelRunAction: (runId: string) => Promise<{ run: UvmRun }>
-    startAssessmentAction: (input: { requestId: string, assetIds: string[], engines: Array<{ engine: 'nmap' | 'naabu' | 'gvm' | 'tenable-vm' | 'zap' | 'testssl' | 'nuclei', scanId?: string, profile?: NetworkScanProfile }>, authorized: boolean }) => Promise<{ assessment: UvmAssessment }>
-    cancelAssessmentAction: (assessmentId: string) => Promise<{ assessment: UvmAssessment }>
-    getAssessmentReportAction: (assessmentId: string) => Promise<{ assessment: UvmAssessmentReport }>
-}) {
+export default function UvmPanel({
+    initialData, servicesPaused = false, refreshAction, getRunAction, getRunHistoryAction,
+    assessmentHistoryAction, findingHistoryAction, createAssetAction, verifyAssetAction,
+    saveZapApiDefinitionAction, runScanAction, runNaabuAction, scheduleAction,
+    configureTenableAction, disconnectTenableAction, runTenableScanAction, runGvmScanAction,
+    runZapScanAction, runTestsslAction, runNucleiAction, runNiktoAction, runSslyzeAction,
+    runWapitiAction, runWhatwebAction, runHttpxAction, runTlsxAction, runKatanaAction,
+    runWafw00fAction, updateFindingAction, cancelRunAction, startAssessmentAction,
+    cancelAssessmentAction, getAssessmentReportAction,
+}: UvmPanelProps) {
     const [data, setData] = useState(initialData)
     const [hostname, setHostname] = useState('')
     const [authorization, setAuthorization] = useState<Record<string, boolean>>({})
@@ -83,11 +67,11 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
         const info = data.engines.find(item => item.id === engine)
         return info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
     })
-    const { scan, scanWithNaabu, scanWithTenable, scanWithGvm, scanWithZap, scanWithTestssl, scanWithNuclei } = createUvmPanelScanActions({
+    const { scan, scanWithNaabu, scanWithTenable, scanWithGvm, scanWithZap, scanWithTestssl, scanWithNuclei, scanWithNikto, scanWithSslyze, scanWithWapiti, scanWithWhatweb, scanWithHttpx, scanWithTlsx, scanWithKatana, scanWithWafw00f } = createUvmPanelScanActions({
         servicesPaused,
         authorization, assetNmapProfiles, tenableScanIds, defaultTenableScanId: data.tenableScans[0]?.id, setBusy, setMessage,
         refresh: async () => { const refreshed = await refreshAction(); setData(refreshed); return refreshed },
-        runNmap: runScanAction, runNaabu: runNaabuAction, runTenable: runTenableScanAction, runGvm: runGvmScanAction, runZap: runZapScanAction, runTestssl: runTestsslAction, runNuclei: runNucleiAction,
+        runNmap: runScanAction, runNaabu: runNaabuAction, runTenable: runTenableScanAction, runGvm: runGvmScanAction, runZap: runZapScanAction, runTestssl: runTestsslAction, runNuclei: runNucleiAction, runNikto: runNiktoAction, runSslyze: runSslyzeAction, runWapiti: runWapitiAction, runWhatweb: runWhatwebAction, runHttpx: runHttpxAction, runTlsx: runTlsxAction, runKatana: runKatanaAction, runWafw00f: runWafw00fAction,
     })
     const { cancelAssessment } = createUvmPanelAssessmentActions({ cancelAssessmentAction, setBusy, setMessage, refresh })
     useEffect(() => { setData(initialData) }, [initialData])
@@ -192,7 +176,7 @@ export default function UvmPanel({ initialData, servicesPaused = false, refreshA
             {assessmentReport && <UvmAssessmentReportView assessment={assessmentReport} onClose={() => setAssessmentReport(null)} />}
             </section>}
             {view === 'findings' && <UvmFindingsView data={data} attentionCount={attentionFindingCount} busy={busy} filters={findingFilters} setFilters={setFindingFilters} visibleFindings={visibleFindings} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} nextCursor={data.findingsNextCursor || null} loadOlder={loadOlderFindings} onUpdate={finding => void updateFinding(finding)} />}
-            {view === 'assets' && <UvmAssetsView data={data} servicesPaused={servicesPaused} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths} onSaveZapApiDefinition={asset => void saveZapApiDefinition(asset)} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithNaabu={asset => void scanWithNaabu(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)} onScanWithTestssl={asset => void scanWithTestssl(asset)} onScanWithNuclei={asset => void scanWithNuclei(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
+            {view === 'assets' && <UvmAssetsView data={data} servicesPaused={servicesPaused} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths} onSaveZapApiDefinition={asset => void saveZapApiDefinition(asset)} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithNaabu={asset => void scanWithNaabu(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)} onScanWithTestssl={asset => void scanWithTestssl(asset)} onScanWithNuclei={asset => void scanWithNuclei(asset)} onScanWithNikto={asset => void scanWithNikto(asset)} onScanWithSslyze={asset => void scanWithSslyze(asset)} onScanWithWapiti={asset => void scanWithWapiti(asset)} onScanWithWhatweb={asset => void scanWithWhatweb(asset)} onScanWithHttpx={asset => void scanWithHttpx(asset)} onScanWithTlsx={asset => void scanWithTlsx(asset)} onScanWithKatana={asset => void scanWithKatana(asset)} onScanWithWafw00f={asset => void scanWithWafw00f(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
             {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} servicesPaused={servicesPaused} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
             {view === 'runs' && <UvmRunHistory key={selectedRun ? `${selectedRun.engine}:${selectedRun.id}` : 'recent'} data={data} unavailable={dashboardUnavailable} selectedRun={selectedRun} busy={busy} nextCursor={data.runsNextCursor || null} loadOlder={getRunHistoryAction} onCancel={cancelRun} />}
         </fieldset>

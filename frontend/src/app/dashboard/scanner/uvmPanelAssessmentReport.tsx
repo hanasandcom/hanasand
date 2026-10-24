@@ -1,5 +1,5 @@
 import type { UvmAssessmentReport } from '@/utils/monitoring/types'
-import { formatDate } from './uvmPanelHelpers'
+import { formatDate, isTestsslObservation, RunFinding } from './uvmPanelHelpers'
 import { TestsslObservationList } from './uvmTestsslObservations'
 
 const outcomeClass: Record<string, string> = {
@@ -49,7 +49,7 @@ export function UvmAssessmentReportView({ assessment, onClose }: { assessment: U
                     </>}
                     {job.engine === 'testssl' && <>
                         <p className='mt-2 text-xs text-ui-muted'>testssl.sh TLS configuration checks · {job.run.observations?.length || 0} observations · {job.run.completedAddresses?.length ?? job.run.coverage?.completedAddresses ?? 'unknown'} addresses completed</p>
-                        <TestsslObservationList observations={job.run.observations} />
+                        <TestsslObservationList observations={job.run.observations?.filter(isTestsslObservation)} />
                     </>}
                     {!job.run.coverage && <p className='mt-3 text-xs text-ui-warning'>Coverage was not reported for this run.</p>}
                     {job.run.coverage && <div className='mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ui-muted'>
@@ -70,22 +70,8 @@ export function UvmAssessmentReportView({ assessment, onClose }: { assessment: U
                         {job.run.coverage.truncationReasons?.length ? <span>Reasons: {job.run.coverage.truncationReasons.join(', ')}</span> : null}
                     </div>}
                     <div className='mt-3 grid gap-2'>
-                        {job.run.findings?.map(finding => <article key={finding.findingId} className='border-t border-ui-border pt-2'>
-                            <p className='text-sm font-medium'>{finding.title}<span className='ml-2 text-xs text-ui-muted'>{finding.severity}</span>{finding.provider !== 'zap' && finding.cvssScore !== null && <span className='ml-2 text-xs text-ui-muted'>CVSS {finding.cvssScore}</span>}</p>
-                            <p className='mt-1 wrap-break-word text-xs text-ui-muted'>
-                                {finding.provider === 'tenable-vm' ? `Plugin ${finding.pluginId}` : finding.provider === 'gvm' ? `NVT ${finding.nvtOid || 'unknown'}` : finding.provider === 'nuclei' ? `Template ${finding.templateId}` : `ZAP ${finding.alertRef}`}
-                                {' · '}{finding.provider === 'zap' ? `${finding.method || 'HTTP'} · ${finding.instanceUrl}` : finding.provider === 'nuclei' ? `${finding.assetAddress} · ${finding.matchedAt}` : `${finding.assetAddress}${finding.port ? ` · ${finding.protocol || 'tcp'}/${finding.port}` : ''}`}
-                                {finding.provider === 'zap' && finding.parameter ? ` · parameter ${finding.parameter}` : ''}
-                                {finding.provider === 'zap' ? ` · confidence ${finding.confidence}` : finding.provider === 'gvm' && finding.qualityOfDetection ? ` · ${finding.qualityOfDetection}` : ''}
-                                {finding.provider !== 'zap' && finding.cveIds.length ? ` · ${finding.cveIds.join(', ')}` : ''}
-                            </p>
-                            {(finding.description || finding.solution || finding.evidence) && <details className='mt-2 rounded border border-ui-border px-2 py-1 text-xs'>
-                                <summary className='cursor-pointer font-medium'>Technical details</summary>
-                                {finding.description && <p className='mt-2 whitespace-pre-wrap wrap-break-word text-ui-muted'>{finding.description}</p>}
-                                {finding.solution && <p className='mt-2 whitespace-pre-wrap wrap-break-word'><strong>Remediation:</strong> {finding.solution}</p>}
-                                {finding.evidence && <p className='mt-2 whitespace-pre-wrap wrap-break-word text-ui-muted'><strong>Evidence:</strong> {finding.evidence}</p>}
-                            </details>}
-                        </article>)}
+                        {job.run.findings?.length ? <h4 className='border-t border-ui-border pt-2 text-xs font-semibold'>Findings · {job.run.findings.length}</h4> : null}
+                        {job.run.findings?.map(finding => <RunFinding key={finding.findingId} finding={finding} />)}
                         {!['nmap', 'testssl'].includes(job.engine) && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
                     </div>
                 </>}

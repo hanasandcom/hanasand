@@ -5,7 +5,7 @@ import type { NetworkScanProfile, UvmDashboard } from '@/utils/monitoring/types'
 import { UvmHelp } from './uvmPanelHelp'
 import { getScannerSuiteCatalog } from './scannerSuiteCatalog'
 
-export type UvmAssessmentEngineId = 'nmap' | 'naabu' | 'gvm' | 'tenable-vm' | 'zap' | 'testssl' | 'nuclei'
+export type UvmAssessmentEngineId = 'nmap' | 'naabu' | 'gvm' | 'tenable-vm' | 'zap' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f'
 type NmapProfile = NetworkScanProfile
 
 export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedEngines, scanId, setScanId, nmapProfile, setNmapProfile, servicesPaused, onSetup }: {
@@ -24,14 +24,22 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
         const engine = data.engines.find(item => item.id === id)
         return !servicesPaused && engine?.status === 'available' && (id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
     })
-    const engineLabel = (id: UvmAssessmentEngineId) => id === 'nmap' ? 'Nmap' : id === 'naabu' ? 'Naabu' : id === 'gvm' ? 'Greenbone' : id === 'zap' ? 'OWASP ZAP' : id === 'testssl' ? 'testssl.sh' : id === 'nuclei' ? 'Nuclei' : 'Nessus via Tenable VM'
+    const engineLabel = (id: UvmAssessmentEngineId) => id === 'nmap' ? 'Nmap' : id === 'naabu' ? 'Naabu' : id === 'gvm' ? 'Greenbone' : id === 'zap' ? 'OWASP ZAP' : id === 'testssl' ? 'testssl.sh' : id === 'nuclei' ? 'Nuclei' : id === 'nikto' ? 'Nikto' : id === 'sslyze' ? 'SSLyze' : id === 'wapiti' ? 'Wapiti' : id === 'whatweb' ? 'WhatWeb' : id === 'httpx' ? 'httpx' : id === 'tlsx' ? 'tlsx' : id === 'katana' ? 'Katana' : id === 'wafw00f' ? 'WAFW00F' : 'Nessus via Tenable VM'
     const engineProfile = (id: UvmAssessmentEngineId) => id === 'naabu' ? 'top 100 TCP ports · 25 probes/second' : id === 'nmap'
         ? nmapProfile === 'udp-top-100' ? 'top 100 UDP ports' : nmapProfile === 'tcp-all' ? 'all TCP ports' : nmapProfile === 'tcp-top-100' ? 'top 100 TCP ports' : nmapProfile === 'tcp-top-1000-safe-vuln' ? 'top 1,000 TCP ports + NSE checks' : 'top 1,000 TCP ports'
         : id === 'gvm' ? 'Full and Fast'
             : id === 'zap' ? 'same-origin web assessment'
                 : id === 'testssl' ? 'TLS configuration checks'
                     : id === 'nuclei' ? 'Pinned safe HTTP templates'
-                        : data.tenableScans.find(scan => scan.id === scanId)?.name || 'Choose configuration'
+                        : id === 'nikto' ? 'Safe web checks · nikto-safe-web-v1'
+                            : id === 'sslyze' ? 'TLS checks · sslyze-tls-safe-v1'
+                                : id === 'wapiti' ? 'Passive web checks · wapiti-passive-web-v1'
+                                    : id === 'whatweb' ? 'Single-request fingerprint · whatweb-stealthy-host-v1'
+                                        : id === 'httpx' ? 'HTTPS root metadata · httpx-root-probe-v1'
+                                            : id === 'tlsx' ? 'TLS certificate metadata · tlsx-certificate-metadata-v1'
+                                                : id === 'katana' ? 'Bounded same-origin crawl · katana-same-origin-crawl-v1'
+                                                    : id === 'wafw00f' ? 'Exact-origin WAF detection · wafw00f-exact-origin-detection-v1'
+                                                        : data.tenableScans.find(scan => scan.id === scanId)?.name || 'Choose configuration'
     function moveEngine(id: UvmAssessmentEngineId, offset: -1 | 1) {
         setSelectedEngines(current => {
             const ordered = current.filter(engine => selectedReadyEngines.includes(engine))
@@ -46,9 +54,9 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
     }
     return <fieldset className='grid gap-2'>
         <legend className='text-sm font-semibold'>Scanner products · {productCatalog.length}</legend>
-        <div className='flex justify-end'><UvmHelp label='Assessment engines' text='Nmap and Naabu discover network services. Nessus and Greenbone check vulnerabilities. ZAP, testssl.sh and Nuclei check web and TLS exposure.' /></div>
+        <div className='flex justify-end'><UvmHelp label='Assessment engines' text='Nmap and Naabu discover network services. Nessus and Greenbone check vulnerabilities. ZAP, testssl.sh, Nuclei and Nikto check web and TLS exposure.' /></div>
         <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{productCatalog.map(item => {
-            const engineId: UvmAssessmentEngineId | null = item.integration === 'nmap' || item.integration === 'naabu' || item.integration === 'gvm' || item.integration === 'tenable-vm' || item.integration === 'zap' || item.integration === 'testssl' || item.integration === 'nuclei'
+            const engineId: UvmAssessmentEngineId | null = item.integration === 'nmap' || item.integration === 'naabu' || item.integration === 'gvm' || item.integration === 'tenable-vm' || item.integration === 'zap' || item.integration === 'testssl' || item.integration === 'nuclei' || item.integration === 'nikto' || item.integration === 'sslyze' || item.integration === 'wapiti' || item.integration === 'whatweb' || item.integration === 'httpx' || item.integration === 'tlsx' || item.integration === 'katana' || item.integration === 'wafw00f'
                 ? item.integration
                 : null
             const engine = engineId ? data.engines.find(candidate => candidate.id === engineId) : undefined
@@ -59,7 +67,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
                 : item.setup === 'cli-review-needed' ? 'CLI review needed'
                     : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
                         : item.setup === 'adapter-needed' ? 'Adapter needed'
-                            : item.integration === 'image-worker' ? servicesPaused ? 'Image worker stopped · pending disk' : 'Image assets only'
+                            : item.integration === 'image-worker' || item.integration === 'grype' ? servicesPaused ? 'Image worker stopped · pending disk' : 'Image assets only'
                                 : servicesPaused ? item.integration === 'tenable-vm' && !tenableReady ? 'Credentials + disk required' : 'Stopped · pending disk'
                                     : engine?.status === 'available' && !tenableReady ? 'Connect Tenable and enable a scan configuration'
                                         : engine?.status || 'Unavailable'

@@ -78,6 +78,14 @@ export default function ScannerWorkspace() {
             runZapScanAction={client.runZap}
             runTestsslAction={client.runTestssl}
             runNucleiAction={client.runNuclei}
+            runNiktoAction={client.runNikto}
+            runSslyzeAction={client.runSslyze}
+            runWapitiAction={client.runWapiti}
+            runWhatwebAction={client.runWhatweb}
+            runHttpxAction={client.runHttpx}
+            runTlsxAction={client.runTlsx}
+            runKatanaAction={client.runKatana}
+            runWafw00fAction={client.runWafw00f}
             updateFindingAction={client.updateFinding}
             cancelRunAction={client.cancelRun}
             startAssessmentAction={client.startAssessment}

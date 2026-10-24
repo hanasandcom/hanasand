@@ -16,6 +16,14 @@ export function createUvmPanelScanActions(input: {
     runZap: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runTestssl: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runNuclei: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runNikto: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runSslyze: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runWapiti: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runWhatweb: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runHttpx: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runTlsx: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runKatana: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runWafw00f: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
 }) {
     async function run(asset: UvmAsset, engine: string, queuedMessage: string, action: () => Promise<unknown>) {
         input.setBusy(`${asset.id}${engine ? `:${engine}` : ''}`)
@@ -47,5 +55,21 @@ export function createUvmPanelScanActions(input: {
             : run(asset, 'testssl', 'TestSSL TLS configuration', () => input.runTestssl(asset.id, input.authorization[asset.id] === true)),
         scanWithNuclei: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
             : run(asset, 'nuclei', 'Nuclei safe HTTP checks', () => input.runNuclei(asset.id, input.authorization[asset.id] === true)),
+        scanWithNikto: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'nikto', 'Nikto safe web checks', () => input.runNikto(asset.id, input.authorization[asset.id] === true)),
+        scanWithSslyze: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'sslyze', 'SSLyze TLS checks', () => input.runSslyze(asset.id, input.authorization[asset.id] === true)),
+        scanWithWapiti: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'wapiti', 'Wapiti passive web checks', () => input.runWapiti(asset.id, input.authorization[asset.id] === true)),
+        scanWithWhatweb: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'whatweb', 'WhatWeb technology fingerprint', () => input.runWhatweb(asset.id, input.authorization[asset.id] === true)),
+        scanWithHttpx: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'httpx', 'HTTPX root probe', () => input.runHttpx(asset.id, input.authorization[asset.id] === true)),
+        scanWithTlsx: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'tlsx', 'tlsx certificate metadata', () => input.runTlsx(asset.id, input.authorization[asset.id] === true)),
+        scanWithKatana: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'katana', 'Katana same-origin crawl', () => input.runKatana(asset.id, input.authorization[asset.id] === true)),
+        scanWithWafw00f: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'wafw00f', 'WAFW00F origin detection', () => input.runWafw00f(asset.id, input.authorization[asset.id] === true)),
     }
 }

@@ -37,13 +37,20 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
     const { data, busy, authorization } = props
     const engineOptions: Array<{ id: UvmEngineSelection['engine'], label: string }> = [
         { id: 'nmap', label: 'Nmap inventory' }, { id: 'naabu', label: 'Naabu · top 100 TCP' }, { id: 'tenable-vm', label: 'Nessus via Tenable VM' },
-        { id: 'gvm', label: 'Greenbone' }, { id: 'zap', label: 'OWASP ZAP' }, { id: 'testssl', label: 'testssl.sh TLS checks' }, { id: 'nuclei', label: 'Nuclei safe HTTP checks' },
+        { id: 'gvm', label: 'Greenbone' }, { id: 'zap', label: 'OWASP ZAP' }, { id: 'testssl', label: 'testssl.sh TLS checks' }, { id: 'sslyze', label: 'SSLyze TLS checks' }, { id: 'nuclei', label: 'Nuclei safe HTTP checks' }, { id: 'nikto', label: 'Nikto safe web checks' }, { id: 'wapiti', label: 'Wapiti passive web checks' }, { id: 'whatweb', label: 'WhatWeb technology fingerprint' }, { id: 'httpx', label: 'ProjectDiscovery httpx · root probe' }, { id: 'tlsx', label: 'ProjectDiscovery tlsx · TLS metadata' }, { id: 'katana', label: 'Katana same-origin crawl' }, { id: 'wafw00f', label: 'WAFW00F origin detection' },
     ]
+    const niktoAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'nikto' && engine.status === 'available')
+    const wapitiAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'wapiti' && engine.status === 'available')
+    const whatwebAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'whatweb' && engine.status === 'available')
+    const httpxAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'httpx' && engine.status === 'available')
+    const tlsxAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'tlsx' && engine.status === 'available')
+    const katanaAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'katana' && engine.status === 'available')
+    const wafw00fAvailable = props.servicesPaused !== true && data.engines.some(engine => engine.id === 'wafw00f' && engine.status === 'available')
     function toggleEngine(engine: UvmEngineSelection['engine'], checked: boolean) {
         props.setSchedulePlans(current => {
             const selected = current[asset.id] || schedulePlan
             return { ...current, [asset.id]: checked
-                ? [...selected, ...(engine === 'nmap' ? [{ engine, profile: 'tcp-top-1000' as const }] : engine === 'naabu' ? [{ engine, profile: 'naabu-top-100' as const }] : [{ engine }])]
+                ? [...selected, ...(engine === 'nmap' ? [{ engine, profile: 'tcp-top-1000' as const }] : engine === 'naabu' ? [{ engine, profile: 'naabu-top-100' as const }] : engine === 'nikto' ? [{ engine, profile: 'nikto-safe-web-v1' as const }] : engine === 'wapiti' ? [{ engine, profile: 'wapiti-passive-web-v1' as const }] : engine === 'whatweb' ? [{ engine, profile: 'whatweb-stealthy-host-v1' as const }] : engine === 'httpx' ? [{ engine, profile: 'httpx-root-probe-v1' as const }] : engine === 'tlsx' ? [{ engine, profile: 'tlsx-certificate-metadata-v1' as const }] : engine === 'katana' ? [{ engine, profile: 'katana-same-origin-crawl-v1' as const }] : engine === 'wafw00f' ? [{ engine, profile: 'wafw00f-exact-origin-detection-v1' as const }] : [{ engine }])]
                 : selected.filter(choice => choice.engine !== engine) }
         })
     }
@@ -62,9 +69,14 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
         </label>
         <fieldset className='grid gap-2 text-[11px] text-ui-muted'>
             <legend>Recurring engines · run in order</legend>
-            <div className='flex flex-wrap gap-3'>{engineOptions.map(option => <label key={option.id} className='flex items-center gap-1.5'>
-                <input type='checkbox' checked={schedulePlan.some(choice => choice.engine === option.id)} onChange={event => toggleEngine(option.id, event.target.checked)} className='accent-ui-primary' />{option.label}
-            </label>)}</div>
+            <div className='flex flex-wrap gap-3'>{engineOptions.map(option => {
+                const checked = schedulePlan.some(choice => choice.engine === option.id)
+                const stopped = props.servicesPaused === true && ['nikto', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(option.id)
+                const unavailable = option.id === 'nikto' && !niktoAvailable || option.id === 'wapiti' && !wapitiAvailable || option.id === 'whatweb' && !whatwebAvailable || option.id === 'httpx' && !httpxAvailable || option.id === 'tlsx' && !tlsxAvailable || option.id === 'katana' && !katanaAvailable || option.id === 'wafw00f' && !wafw00fAvailable
+                return <label key={option.id} className='flex items-center gap-1.5'>
+                    <input type='checkbox' checked={checked} disabled={unavailable && !checked} onChange={event => toggleEngine(option.id, event.target.checked)} className='accent-ui-primary' />{option.label}{unavailable && <span className='text-ui-warning'>{stopped ? ' · Stopped · pending disk' : ' · Unavailable'}</span>}
+                </label>
+            })}</div>
             {schedulePlan.map((choice, index) => <div key={choice.engine} className='flex flex-wrap items-end gap-2 rounded border border-ui-border bg-ui-raised p-2'>
                 <span className='pb-2 font-semibold'>{index + 1}. {engineOptions.find(option => option.id === choice.engine)?.label}</span>
                 <button type='button' aria-label={`Move ${choice.engine} earlier`} onClick={() => moveEngine(index, -1)} disabled={index === 0} className='rounded border border-ui-border px-2 py-1 disabled:opacity-40'>↑</button>
@@ -75,6 +87,13 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
                     {props.scheduleProfiles[asset.id] === 'tcp-top-1000-safe-vuln' && <UvmHelp label='Nmap NSE checks' text='Runs scripts tagged both safe and vuln. Nmap cannot guarantee no adverse effects. Results are heuristic evidence and do not confirm exploitability.' />}
                 </label>}
                 {choice.engine === 'naabu' && <span className='pb-2 text-xs text-ui-muted'>Top 100 TCP ports · 25 probes/second</span>}
+                {choice.engine === 'nikto' && <span className='pb-2 text-xs text-ui-muted'>Safe web checks · nikto-safe-web-v1</span>}
+                {choice.engine === 'wapiti' && <span className='pb-2 text-xs text-ui-muted'>Passive web checks · wapiti-passive-web-v1</span>}
+                {choice.engine === 'whatweb' && <span className='pb-2 text-xs text-ui-muted'>Single-request fingerprint · whatweb-stealthy-host-v1</span>}
+                {choice.engine === 'httpx' && <span className='pb-2 text-xs text-ui-muted'>HTTPS root metadata · httpx-root-probe-v1</span>}
+                {choice.engine === 'tlsx' && <span className='pb-2 text-xs text-ui-muted'>TLS certificate metadata · tlsx-certificate-metadata-v1</span>}
+                {choice.engine === 'katana' && <span className='pb-2 text-xs text-ui-muted'>Bounded same-origin crawl · katana-same-origin-crawl-v1</span>}
+                {choice.engine === 'wafw00f' && <span className='pb-2 text-xs text-ui-muted'>Exact-origin WAF detection · wafw00f-exact-origin-detection-v1</span>}
                 {choice.engine === 'tenable-vm' && <label className='grid gap-1'>Tenable template
                     <select value={scheduleScanId} onChange={event => props.setScheduleScanIds(current => ({ ...current, [asset.id]: event.target.value }))} disabled={!data.tenableIntegration?.configured || !data.tenableScans.some(scan => scan.enabled)} className='h-8 min-w-44 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'>
                         <option value=''>Choose an enabled template</option>{data.tenableScans.filter(scan => scan.enabled).map(scan => <option key={scan.id} value={scan.id}>{scan.name}</option>)}

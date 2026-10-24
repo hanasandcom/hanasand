@@ -40,6 +40,7 @@ services:
         HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
         FRONTEND_INTERNAL_API: ${FRONTEND_INTERNAL_API:-http://api:8080/api}
         NEXT_PUBLIC_SCANNER_API_URL: ${NEXT_PUBLIC_SCANNER_API_URL:-https://scanner.hanasand.com/api}
+        NEXT_PUBLIC_SCANNER_SERVICES_PAUSED: ${NEXT_PUBLIC_SCANNER_SERVICES_PAUSED:-true}
     env_file:
       - ${HANASAND_DEPLOY_ENV_FILE:-.env}
     environment:
