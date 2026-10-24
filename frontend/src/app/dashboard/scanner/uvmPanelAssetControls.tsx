@@ -23,7 +23,7 @@ export function TenableScanControl({ asset, props }: { asset: UvmAsset, props: A
                 {data.tenableScans.map(scan => <option key={scan.id} value={scan.id}>{scan.name}{scan.enabled ? '' : ' (disabled)'}</option>)}
             </select>
         </label>
-        <button type='button' onClick={() => props.onScanWithTenable(asset)} disabled={busy === `${asset.id}:tenable` || !enabled || (!asset.scanAuthorizedAt && authorization[asset.id] !== true)} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>Run Nessus scan via Tenable VM</button>
+        <button type='button' onClick={() => props.onScanWithTenable(asset)} disabled={props.servicesPaused === true || busy === `${asset.id}:tenable` || !enabled || (!asset.scanAuthorizedAt && authorization[asset.id] !== true)} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>{props.servicesPaused ? 'Nessus · stopped pending disk' : 'Run Nessus scan via Tenable VM'}</button>
     </>
 }
 

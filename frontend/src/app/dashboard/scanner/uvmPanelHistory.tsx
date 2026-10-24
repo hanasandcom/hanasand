@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { UvmAssessment, UvmAssessmentHistoryPage, UvmDashboard, UvmRun, UvmRunHistoryPage } from '@/utils/monitoring/types'
 import { formatDate, RunCard } from './uvmPanelHelpers'
+import { groupUvmRuns, UvmRunGroupCard } from './uvmPanelRunGroups'
 
 const assessmentPageSize = 8
 const runPageSize = 10
@@ -110,6 +111,7 @@ export function UvmRunHistory({ data, unavailable, selectedRun, busy, nextCursor
     const [query, setQuery] = useState('')
     const [engine, setEngine] = useState('all')
     const [status, setStatus] = useState('all')
+    const [groupRepeatedRuns, setGroupRepeatedRuns] = useState(true)
     const [page, setPage] = useState(0)
     const [olderRuns, setOlderRuns] = useState<UvmRun[]>([])
     const [cursor, setCursor] = useState(nextCursor)
@@ -129,27 +131,40 @@ export function UvmRunHistory({ data, unavailable, selectedRun, busy, nextCursor
         if (status !== 'all' && run.status !== status) return false
         return !needle || [run.target, run.engine, run.profile, run.status, run.source || '', run.id].join(' ').toLowerCase().includes(needle)
     })
-    const pageCount = Math.max(1, Math.ceil(filtered.length / runPageSize))
-    const selectedRunIndex = selectedRun ? filtered.findIndex(run => run.id === selectedRun.id && run.engine === selectedRun.engine) : -1
+    const groups = groupUvmRuns(filtered)
+    const selectedRunIndex = selectedRun
+        ? groupRepeatedRuns
+            ? groups.findIndex(group => group.runs.some(run => run.id === selectedRun.id && run.engine === selectedRun.engine))
+            : filtered.findIndex(run => run.id === selectedRun.id && run.engine === selectedRun.engine)
+        : -1
+    const pageCount = Math.max(1, Math.ceil((groupRepeatedRuns ? groups.length : filtered.length) / runPageSize))
     useEffect(() => {
         if (selectedRunIndex >= 0) setPage(Math.floor(selectedRunIndex / runPageSize))
-    }, [selectedRunIndex])
+    }, [selectedRunIndex, groupRepeatedRuns])
     const currentPage = Math.min(page, pageCount - 1)
     const pageItems = filtered.slice(currentPage * runPageSize, (currentPage + 1) * runPageSize)
+    const pageGroups = groups.slice(currentPage * runPageSize, (currentPage + 1) * runPageSize)
 
     function updateQuery(value: string) { setQuery(value); setPage(0) }
     function updateEngine(value: string) { setEngine(value); setPage(0) }
     function updateStatus(value: string) { setStatus(value); setPage(0) }
 
     return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
-        <div className='flex items-center justify-between gap-3'><h2 className='text-lg font-semibold'>Scanner runs</h2><span className='text-xs text-ui-muted'>{filtered.length} loaded{cursor ? ' · older runs available' : ''}</span></div>
+        <div className='flex items-center justify-between gap-3'><h2 className='text-lg font-semibold'>Scanner runs</h2><span className='text-xs text-ui-muted'>{filtered.length} matching loaded runs · {groupRepeatedRuns ? `${groups.length} groups` : 'individual view'}{cursor ? ' · older runs available' : ''}</span></div>
         <div className='mt-3 grid gap-2 sm:grid-cols-3'>
             <label className='grid gap-1 text-xs text-ui-muted'>Search runs<input type='search' value={query} onChange={event => updateQuery(event.target.value)} placeholder='Asset, engine, profile, or run ID' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text' /></label>
             <label className='grid gap-1 text-xs text-ui-muted'>Engine<select value={engine} onChange={event => updateEngine(event.target.value)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text'><option value='all'>All engines</option><option value='nmap'>Nmap</option><option value='naabu'>Naabu</option><option value='tenable-vm'>Tenable VM</option><option value='gvm'>Greenbone</option><option value='zap'>OWASP ZAP</option><option value='testssl'>testssl.sh</option><option value='nuclei'>Nuclei</option><option value='nikto'>Nikto</option><option value='sslyze'>SSLyze</option><option value='wapiti'>Wapiti</option><option value='whatweb'>WhatWeb</option><option value='httpx'>httpx</option><option value='tlsx'>tlsx</option><option value='katana'>Katana</option><option value='wafw00f'>WAFW00F</option></select></label>
             <label className='grid gap-1 text-xs text-ui-muted'>Status<select value={status} onChange={event => updateStatus(event.target.value)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text'><option value='all'>All statuses</option>{['queued', 'launching', 'running', 'exporting', 'succeeded', 'partial', 'failed', 'cancelling', 'cancelled'].map(value => <option key={value} value={value}>{value}</option>)}</select></label>
         </div>
+        <div className='mt-3 flex justify-end gap-2' role='group' aria-label='Run history display'>
+            <button type='button' aria-pressed={groupRepeatedRuns} onClick={() => setGroupRepeatedRuns(true)} className={`rounded-md border border-ui-border px-3 py-2 text-xs font-semibold ${groupRepeatedRuns ? 'bg-ui-raised text-ui-text' : 'text-ui-muted'}`}>Group repeats</button>
+            <button type='button' aria-pressed={!groupRepeatedRuns} onClick={() => setGroupRepeatedRuns(false)} className={`rounded-md border border-ui-border px-3 py-2 text-xs font-semibold ${!groupRepeatedRuns ? 'bg-ui-raised text-ui-text' : 'text-ui-muted'}`}>Show each run</button>
+        </div>
         <div className='mt-3 grid gap-3'>
-            {pageItems.map((run, index) => <RunCard key={`${run.engine}:${run.id}`} run={run} defaultOpen={(selectedRun !== null && run.id === selectedRun.id && run.engine === selectedRun.engine) || (selectedRun === null && currentPage === 0 && index === 0)} cancelBusy={busy === `run:${run.id}`} onCancel={() => onCancel(run)} />)}
+            {groupRepeatedRuns ? pageGroups.map((group, index) => {
+                const containsSelected = selectedRun !== null && group.runs.some(run => run.id === selectedRun.id && run.engine === selectedRun.engine)
+                return <UvmRunGroupCard key={group.key} group={group} selectedRun={selectedRun} busy={busy} onCancel={onCancel} open={containsSelected || (selectedRun === null && currentPage === 0 && index === 0)} />
+            }) : pageItems.map((run, index) => <RunCard key={`${run.engine}:${run.id}`} run={run} defaultOpen={(selectedRun !== null && run.id === selectedRun.id && run.engine === selectedRun.engine) || (selectedRun === null && currentPage === 0 && index === 0)} cancelBusy={busy === `run:${run.id}`} onCancel={() => onCancel(run)} />)}
             {!filtered.length && <p className='text-sm text-ui-muted'>{unavailable ? 'Scanner data is unavailable.' : allRuns.length ? 'No runs match these filters.' : 'No scanner runs yet.'}</p>}
         </div>
         <PageControls page={currentPage} pageCount={pageCount} onChange={setPage} />
