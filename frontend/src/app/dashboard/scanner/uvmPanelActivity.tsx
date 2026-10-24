@@ -2,6 +2,13 @@ import type { UvmAssetEngineCoverage, UvmDashboard, UvmRun } from '@/utils/monit
 import { formatDate, isTestsslObservation } from './uvmPanelHelpers'
 
 function runResult(run: UvmRun) {
+    if (run.engine === 'angry-ip-scanner') {
+        const hosts = run.hosts || []
+        const reachable = hosts.filter(host => host.status === 'up').length
+        const unknown = hosts.filter(host => host.status === 'unknown').length
+        const total = run.coverage?.requestedAddresses ?? hosts.length
+        return `${reachable}/${total} reachable${unknown ? ` · ${unknown} unknown` : ''} · no port checks`
+    }
     if (run.engine === 'nmap' || run.engine === 'naabu') {
         const observations = (run.hosts || []).flatMap(host => host.ports)
         const confirmedOpenPorts = observations.filter(port => port.state === 'open').length

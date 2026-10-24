@@ -1,13 +1,14 @@
 import type { NetworkScanProfile, NmapScanProfile, UvmEngineProfile, UvmEngineSelection } from '@/utils/monitoring/types'
 
 function isNmapProfile(profile: UvmEngineProfile | undefined): profile is NmapScanProfile {
-    return profile !== undefined && profile !== 'naabu-top-100'
+    return profile !== undefined && ['tcp-top-100', 'tcp-top-1000', 'tcp-top-1000-safe-vuln', 'tcp-all', 'udp-top-100'].includes(profile)
 }
 
 export function buildUvmScheduleEnginePlan(plan: UvmEngineSelection[], profile: UvmEngineProfile | undefined, tenableScanId: string): UvmEngineSelection[] {
     return plan.map(choice => choice.engine === 'nmap'
         ? { engine: choice.engine, profile: isNmapProfile(profile) ? profile : isNmapProfile(choice.profile) ? choice.profile : 'tcp-top-1000' }
         : choice.engine === 'naabu' ? { engine: choice.engine, profile: 'naabu-top-100' }
+            : choice.engine === 'angry-ip-scanner' ? { engine: choice.engine, profile: 'angry-ip-reachability-v1' }
             : choice.engine === 'tenable-vm' ? { engine: choice.engine, scanId: tenableScanId || choice.scanId || '' }
                 : choice.engine === 'nikto' ? { engine: choice.engine, profile: 'nikto-safe-web-v1' }
                     : choice.engine === 'sslyze' ? { engine: choice.engine, profile: 'sslyze-tls-safe-v1' }
@@ -25,6 +26,7 @@ export function buildUvmAssessmentEnginePlan(engines: UvmEngineSelection['engine
         ? { engine, scanId: tenableScanId }
         : engine === 'nmap' ? { engine, profile: isNmapProfile(nmapProfile) ? nmapProfile : 'tcp-top-1000' }
             : engine === 'naabu' ? { engine, profile: 'naabu-top-100' }
+                : engine === 'angry-ip-scanner' ? { engine, profile: 'angry-ip-reachability-v1' }
                 : engine === 'nikto' ? { engine, profile: 'nikto-safe-web-v1' }
                     : engine === 'sslyze' ? { engine, profile: 'sslyze-tls-safe-v1' }
                         : engine === 'wapiti' ? { engine, profile: 'wapiti-passive-web-v1' }

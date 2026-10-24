@@ -71,6 +71,7 @@ export default function ScannerWorkspace() {
             saveZapApiDefinitionAction={client.saveZapApiDefinition}
             runScanAction={client.runAsset}
             runNaabuAction={client.runNaabu}
+            runAngryIpAction={client.runAngryIp}
             scheduleAction={client.scheduleAsset}
             configureTenableAction={client.configureTenable}
             disconnectTenableAction={client.disconnectTenable}
