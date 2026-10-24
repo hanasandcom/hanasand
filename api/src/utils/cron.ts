@@ -16,6 +16,7 @@ import { getBackgroundJobRuntime } from './backgroundJobRuntime.ts'
 import purgeDeletedAccounts, { ACCOUNT_DELETION_PURGE_JOB_ID } from './auth/purgeDeletedAccounts.ts'
 import { maintainVmFailover, VM_FAILOVER_JOB_ID } from './vms/failover.ts'
 import { monitorVmLifecycle, vmLifecycleMonitorIsConfigured, VM_LIFECYCLE_MONITOR_JOB_ID } from './vms/lifecycleMonitor.ts'
+import { shouldRunLegacyLogProcessing } from './logs/logOutboxConfig.ts'
 
 export const HOST_UPDATE_MONITOR_JOB_ID = 'api-host-update-monitor'
 
@@ -52,6 +53,7 @@ const apiMinuteCronRunners: Record<string, () => Promise<unknown> | unknown> = {
 
 export function canRunApiCronJobNow(id: string) {
     return Boolean(apiMinuteCronRunners[id])
+        && (![RAW_LOG_RETENTION_JOB_ID, RULE_STORAGE_ESTIMATE_JOB_ID].includes(id) || shouldRunLegacyLogProcessing())
         && (id !== 'api-mail-account-provisioning' || Boolean(mailConfig.adminPassword))
         && (id !== VM_LIFECYCLE_MONITOR_JOB_ID || vmLifecycleMonitorIsConfigured())
 }

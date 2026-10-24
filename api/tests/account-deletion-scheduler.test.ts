@@ -127,3 +127,20 @@ test('the VM lifecycle monitor cron is unavailable without isolated staging sett
         })
     }
 })
+
+test('legacy log cleanup and rule estimate jobs are unavailable in remote-only Logs mode', () => {
+    const previous = process.env.LOGS_OUTBOX_REMOTE_ONLY
+    try {
+        delete process.env.LOGS_OUTBOX_REMOTE_ONLY
+        expect(canRunApiCronJobNow('api-raw-log-retention')).toBe(true)
+        expect(canRunApiCronJobNow('api-rule-storage-estimate')).toBe(true)
+
+        process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
+        expect(canRunApiCronJobNow('api-raw-log-retention')).toBe(false)
+        expect(canRunApiCronJobNow('api-rule-storage-estimate')).toBe(false)
+        expect(canRunApiCronJobNow(ACCOUNT_DELETION_PURGE_JOB_ID)).toBe(true)
+    } finally {
+        if (previous === undefined) delete process.env.LOGS_OUTBOX_REMOTE_ONLY
+        else process.env.LOGS_OUTBOX_REMOTE_ONLY = previous
+    }
+})

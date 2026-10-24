@@ -49,6 +49,7 @@ async function handler(req: NextRequest, context: Context) {
     const path = pathSegments.map(segment => encodeURIComponent(segment)).join('/')
     const impersonationToken = cookieStore.get('impersonation_token')?.value
     const routing = backendTargetBase(pathSegments, config.url.api, config.url.ai, process.env.FRONTEND_LOGS_API_URL, !impersonationToken)
+    if (routing.blocked) return NextResponse.json({ error: routing.blocked }, { status: 501 })
     const targetBase = routing.url
     const target = new URL(`${targetBase}/${path}`)
     target.search = req.nextUrl.search

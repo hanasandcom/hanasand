@@ -499,7 +499,7 @@ requested = json.loads(requested_json)
 if not isinstance(requested, list) or len(requested) > 6 or any(item not in projects for item in requested):
     raise SystemExit('Unsupported Minecraft add-on selection.')
 game_version = sys.argv[4]
-if not re.fullmatch(r'\d+(?:\.\d+){1,3}', game_version):
+if not re.fullmatch(r'\\d+(?:\\.\\d+){1,3}', game_version):
     raise SystemExit('The Minecraft server returned an invalid game version.')
 headers = {'User-Agent': 'Hanasand VM Provisioner/1.0', 'Accept': 'application/json'}
 for slug in requested:

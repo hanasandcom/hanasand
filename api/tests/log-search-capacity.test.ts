@@ -3,8 +3,12 @@ import Fastify from 'fastify'
 mock.module('#constants', () => ({ default: { DB_MAX_CONN: '8' } }))
 let checkouts = 0
 let authorized = true
-const query = async (sql: string): Promise<any> => ({ rows: sql.includes('FROM events WHERE ingestion_id=\'logs\' AND processing_status=\'pending\' LIMIT 10001') ? [{ count: 0, oldest_queued_at: null }] : [] })
-mock.module('#db', () => ({ default: query, withTransaction: async (work: any) => { checkouts++; return work(query) } }))
+const query = async (sql: string): Promise<any> => {
+    if (sql.includes('processing_status=\'pending\'')) return { rows: [{ count: 0, oldest_queued_at: null }] }
+    if (sql.includes('processing_status = \'skipped\'')) return { rows: [{ count: 0 }] }
+    return { rows: [] }
+}
+mock.module('#db', () => ({ default: query, isTransientDatabaseError: () => false, withTransaction: async (work: any) => { checkouts++; return work(query) } }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: authorized }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: true }) }))
 const { withLogSearchTransaction, logSearchCapacity } = await import('../src/utils/logs/searchCapacity.ts')

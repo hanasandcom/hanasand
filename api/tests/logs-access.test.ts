@@ -15,9 +15,12 @@ const nativeServices = [
 const query = async (sql: string, params?: unknown[]) => {
     queries++
     statements.push({ sql, params })
+    if (sql.includes('processing_status=\'pending\'')) return { rows: [{ count: 0, oldest_queued_at: null }] }
+    if (sql.includes('processing_status = \'skipped\'')) return { rows: [{ count: 0 }] }
+    if (sql.includes('WITH raw_events AS NOT MATERIALIZED')) return { rows: [{ total: 0, last_hour: 0, last_24h: 0, server_errors: 0, client_errors: 0, status_counts: [], surface_counts: [], code_counts: [] }] }
     return { rows: sql.includes('SELECT normalized->>\'service\'') ? storedServices : [] }
 }
-mock.module('../src/utils/db.ts', () => ({ default: query, withTransaction: async (work: any) => work(query) }))
+mock.module('../src/utils/db.ts', () => ({ default: query, isTransientDatabaseError: () => false, withTransaction: async (work: any) => work(query) }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: authorized }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: administrator }) }))
 mock.module('../src/utils/logs/native.ts', () => ({ listNativeLogs: async () => [], listNativeLogServices: async () => nativeServices, isNativeLogSourceAvailable: () => false }))

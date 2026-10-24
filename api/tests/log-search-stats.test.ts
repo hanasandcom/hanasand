@@ -6,6 +6,7 @@ const query = async (sql: string, params: any[] = []): Promise<any> => {
     statements.push(sql); parameters.push(params)
     if (sql.includes('AS cursor_time')) return { rows: pageRows }
     if (sql.includes('FROM events WHERE ingestion_id=\'logs\' AND processing_status=\'pending\' LIMIT 10001')) return { rows: [{ count: pendingCount, oldest_queued_at: pendingCount ? '2026-09-19T14:49:32.311Z' : null }] }
+    if (sql.includes('processing_status = \'skipped\'')) return { rows: [{ count: 0 }] }
     if (sql.startsWith('SELECT payload, last_error')) return { rows: [{ payload: { remaining: 3000, processed: 1000, total: 4000, rate: 50, estimated_seconds: 60 }, last_error: null }] }
     if (sql.startsWith('SELECT name, updated_at')) return { rows: [{ name: 'service_logs', last_error: null }] }
     if (sql.startsWith('SELECT ready, last_error')) return { rows: [{ ready, counts_ready: rollupsReady }] }
@@ -15,7 +16,7 @@ const query = async (sql: string, params: any[] = []): Promise<any> => {
     if (sql.includes('GROUP BY 1, 2')) return { rows: [{ severity: 'high', service: 'api', count: 4 }, { severity: 'low', service: 'api', count: 6 }] }
     return { rows: [] }
 }
-mock.module('#db', () => ({ default: query, withTransaction: async (work: any) => work(query) }))
+mock.module('#db', () => ({ default: query, isTransientDatabaseError: () => false, withTransaction: async (work: any) => work(query) }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: authorized }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: administrator }) }))
 const { searchLogs } = await import('../src/handlers/logs/search.ts')

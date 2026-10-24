@@ -12,7 +12,7 @@ test('returns each linked run with readable messages and bounded pagination', as
     const result = await loadMonitoringCaseEvents('12', 2, '2026-09-12T12:00:00Z')
     expect(result.eventTotal).toBe(3)
     expect(result.events.map(e => e.id)).toEqual(['run-1','run-2','run-3'])
-    expect(result.events[0]).toMatchObject({ outcome: 'failure', durationMs: 100, details: { endpoint: 'https://old.example/' }, message: 'The health check timed out before it could confirm the target’s health. Check the monitor timeout and target response time.' })
+        expect(result.events[0]).toMatchObject({ outcome: 'failure', durationMs: 100, details: { endpoint: 'https://old.example/' }, message: 'The health check timed out before it could return health data. Target status is unknown. Check the endpoint response time and the monitor timeout.' })
     expect(result.events[0]?.message).not.toContain('secret')
     expect(queries[0][1]).toEqual(['12',100,'2026-09-12T12:00:00Z'])
     expect(queries[0][0]).toContain('WHERE r.issue_id = $1')

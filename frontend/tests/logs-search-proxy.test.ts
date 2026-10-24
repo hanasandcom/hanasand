@@ -33,7 +33,11 @@ test('configured Logs read requests leave the Hanasand API route only when Logs 
     expect(backendTargetBase(['logs', 'search'], api, ai))
         .toEqual({ url: api, directLogsRead: false })
     expect(backendTargetBase(['logs', 'search'], api, ai, 'https://logs.hanasand.com/api', false))
-        .toEqual({ url: api, directLogsRead: false })
+        .toEqual({
+            url: 'https://logs.hanasand.com/api',
+            directLogsRead: false,
+            blocked: 'Logs reads are unavailable while impersonating another account.',
+        })
     expect(backendTargetBase(['ai', 'chat'], api, ai, 'https://logs.hanasand.com/api'))
         .toEqual({ url: ai, directLogsRead: false })
 })

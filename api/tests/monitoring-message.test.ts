@@ -54,7 +54,7 @@ test('HTTP errors name the monitor and suggest a relevant check', () => {
 })
 test('transport and unreadable response errors explain what is unknown and what to check', () => {
     expect(readableMonitoringMessage('ETIMEDOUT', { monitorName: 'API health' }))
-        .toBe('API health timed out before it could confirm the target’s health. Check the monitor timeout and target response time.')
+        .toBe('API health timed out before it could return health data. Target status is unknown. Check the endpoint response time and the monitor timeout.')
     expect(readableMonitoringMessage('getaddrinfo EAI_AGAIN api.example.com Failed after 2 attempts.', { monitorName: 'API health' }))
         .toBe('API health could not resolve the target hostname. Check DNS and the monitoring service’s network after 2 attempts.')
     expect(readableMonitoringMessage('JSON source returned invalid JSON.', { monitorName: 'Logs health' }))

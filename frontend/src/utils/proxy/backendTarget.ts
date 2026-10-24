@@ -1,4 +1,6 @@
-export function backendTargetBase(pathSegments: string[], apiUrl: string, aiUrl: string, logsApiUrl?: string, allowDirectLogs = true) {
+export type BackendTargetRouting = { url: string; directLogsRead: boolean; blocked?: string }
+
+export function backendTargetBase(pathSegments: string[], apiUrl: string, aiUrl: string, logsApiUrl?: string, allowDirectLogs = true): BackendTargetRouting {
     if (pathSegments[0] === 'ai') return { url: aiUrl, directLogsRead: false }
     const supportedLogRuleHitRead = pathSegments[0] === 'rules' && (
         (pathSegments.length === 2 && pathSegments[1] === 'hits')
@@ -10,7 +12,14 @@ export function backendTargetBase(pathSegments: string[], apiUrl: string, aiUrl:
         || (pathSegments.length === 3 && pathSegments[1] === 'metrics' && pathSegments[2] === 'public')
         || (pathSegments.length === 3 && pathSegments[1] === 'tuning' && pathSegments[2] === 'refresh')
     ))
-    if (allowDirectLogs && supportedLogsRead && logsApiUrl?.trim()) {
+    if (supportedLogsRead && logsApiUrl?.trim()) {
+        if (!allowDirectLogs) {
+            return {
+                url: logsApiUrl.trim().replace(/\/+$/, ''),
+                directLogsRead: false,
+                blocked: 'Logs reads are unavailable while impersonating another account.',
+            }
+        }
         return { url: logsApiUrl.trim().replace(/\/+$/, ''), directLogsRead: true }
     }
     return { url: apiUrl, directLogsRead: false }

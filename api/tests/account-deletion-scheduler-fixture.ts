@@ -65,6 +65,9 @@ mock.module('#db', () => ({
     withTransaction: async (work: (transactionQuery: typeof query) => Promise<unknown>) => work(query),
 }))
 mock.module('../src/utils/events/rawLogRetention.ts', () => ({ RAW_LOG_RETENTION_JOB_ID: 'api-raw-log-retention', retainRawLogs: async () => 0, retainTrafficLogs: async () => 0 }))
+mock.module('../src/utils/logs/logOutboxConfig.ts', () => ({
+    shouldRunLegacyLogProcessing: () => process.env.LOGS_OUTBOX_REMOTE_ONLY !== '1',
+}))
 mock.module('../src/utils/caseDelivery.ts', () => ({ CASE_DELIVERY_JOB_ID: 'api-case-delivery', deliverCases: async () => ({ sent: 0 }) }))
 mock.module('../src/utils/vms/deletion.ts', () => ({ maintainDeletedVms: async () => 0 }))
 mock.module('../src/utils/vms/collectMetrics.ts', () => ({ default: async () => 0, VM_METRICS_JOB_ID: 'api-vm-metrics' }))

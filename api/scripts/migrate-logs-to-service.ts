@@ -12,7 +12,17 @@ const receiptBatchSize = 100
 const analyzeReceiptBatchSize = 20_000
 const analyzeReceiptTailChunkBytes = 4 * 1024 ** 3
 const eventTailChunkBytes = 4 * 1024 ** 3
-const tailVacuumEveryBytes = 16 * 1024 ** 3
+const defaultTailVacuumEveryBytes = 16 * 1024 ** 3
+const minimumTailVacuumEveryBytes = Math.min(analyzeReceiptTailChunkBytes, eventTailChunkBytes)
+export function migrationTailVacuumInterval(configuredValue = process.env.LOGS_MIGRATION_TAIL_VACUUM_EVERY_BYTES) {
+    if (configuredValue === undefined || configuredValue === '') return defaultTailVacuumEveryBytes
+    const bytes = Number(configuredValue)
+    if (!Number.isSafeInteger(bytes) || bytes < minimumTailVacuumEveryBytes) {
+        throw new Error(`LOGS_MIGRATION_TAIL_VACUUM_EVERY_BYTES must be an integer of at least ${minimumTailVacuumEveryBytes} bytes.`)
+    }
+    return bytes
+}
+const tailVacuumEveryBytes = migrationTailVacuumInterval()
 const findingScanSize = 10_000
 const apply = process.argv.includes('--apply')
 const maxPayloadBytes = 6_000_000
@@ -192,8 +202,8 @@ export async function runMigrationTailVacuum(table: 'events' | 'log_analyze_rece
     await assertMigrationStorageReserve()
     const client = await directPool.connect()
     try {
-        await client.query("SET lock_timeout = '1s'")
-        await client.query("SET statement_timeout = '20min'")
+        await client.query('SET lock_timeout = \'1s\'')
+        await client.query('SET statement_timeout = \'20min\'')
         await client.query(`VACUUM (TRUNCATE) public.${table}`)
     } finally {
         await client.query('RESET lock_timeout; RESET statement_timeout').catch(() => {})
