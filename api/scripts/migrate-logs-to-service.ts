@@ -484,14 +484,19 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
         }
 
         const batch: Array<Record<string, unknown>> = []
+        let batchPayloadBytes = Buffer.byteLength(JSON.stringify({ kind, receipts: [] }))
         for (const row of source.rows) {
             const fields = { ...row }
             const original = fields.original
             delete fields.original
             delete fields.source_ctid
             const receipt = kind === 'proxy' ? row : analyze ? fields : { ...fields, original_base64: Buffer.from(original).toString('base64') }
-            if (Buffer.byteLength(JSON.stringify({ kind, receipts: [...batch, receipt] })) > maxPayloadBytes) break
+            const receiptBytes = JSON.stringify(receipt)
+            if (receiptBytes === undefined) throw permanentError(`A ${kind} receipt cannot be serialized; its source data remains in Hanasand.`)
+            const nextBatchPayloadBytes = batchPayloadBytes + (batch.length ? 1 : 0) + Buffer.byteLength(receiptBytes)
+            if (nextBatchPayloadBytes > maxPayloadBytes) break
             batch.push(receipt)
+            batchPayloadBytes = nextBatchPayloadBytes
         }
         if (!batch.length) throw permanentError(`The oldest ${kind} receipt exceeds the Logs migration payload limit; it remains in Hanasand.`)
 
@@ -503,7 +508,7 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                 method: 'POST',
                 headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
                 body: JSON.stringify({ kind, receipts: batch }),
-                signal: AbortSignal.timeout(60_000),
+                signal: AbortSignal.timeout(5 * 60_000),
             })
             const body = await response.json().catch(() => ({})) as { ok?: boolean, accepted?: number, error?: string }
             if (response.status === 429 || response.status === 503) {
