@@ -35,13 +35,16 @@ export default async function getVmConnection(req: FastifyRequest, res: FastifyR
         const details = await run('SELECT device_eth0_ipv4_address FROM vm_details WHERE name = $1', [vmName])
         if (!details.rows.length) return res.status(503).send({ error: 'VM access details are being collected. Try again shortly.' })
 
-        await syncUserCertificatesToVm({
-            vmName,
-            userIds: [id]
-        }).catch((error) => {
+        try {
+            await syncUserCertificatesToVm({
+                vmName,
+                userIds: [id]
+            })
+        } catch (error) {
             req.log.warn({ err: error, vmName, userId: id }, 'Unable to refresh user certificates on VM connection lookup.')
             void recordTerminalFailure(vmName, error)
-        })
+            return res.status(503).send({ error: 'Unable to prepare SSH access. Try again shortly.' })
+        }
 
         const vmIp = typeof details.rows[0].device_eth0_ipv4_address === 'string' ? details.rows[0].device_eth0_ipv4_address : ''
         const username = vmName
