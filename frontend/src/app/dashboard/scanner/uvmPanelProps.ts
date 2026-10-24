@@ -7,7 +7,6 @@ import type {
     UvmDashboard,
     UvmEngineSelection,
     UvmAssetCriticality,
-    UvmFinding,
     UvmFindingHistoryPage,
     UvmFindingHistoryScope,
     UvmFindingTriageHistoryPage,
