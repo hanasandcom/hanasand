@@ -4,6 +4,8 @@ import { resolveVmHostId } from '../src/utils/vms/hostConfig.ts'
 
 const calls: Array<{ host: string; path: string; method?: string; body?: BodyInit | null }> = []
 const databaseCalls: Array<{ sql: string; params: unknown[] }> = []
+const loggerLines: string[] = []
+const runtimeConfig = { lxd_project: '' }
 let existingVm: Record<string, unknown> | undefined
 let failedProvisionRequests = 0
 let queuedProvisionResponses: Response[] = []
@@ -13,7 +15,7 @@ let releaseStatusResponse: (() => void) | undefined
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: any) => ({ valid: Boolean(req.headers.id), id: req.headers.id }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async (req: any) => ({ valid: req.headers.id === 'admin' }) }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false }))
-mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
+mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur', get lxd_project() { return runtimeConfig.lxd_project } } }))
 mock.module('../src/utils/db.ts', () => ({
     withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work(),
     default: async (sql: string, params: unknown[] = []) => {
@@ -53,16 +55,16 @@ mock.module('../src/utils/vms/hostTransport.ts', () => ({
 }))
 mock.module('../src/utils/vms/lxd.ts', () => ({
     canUseLocalLxd: async () => { throw new Error('Remote creation must not use this API host LXD socket.') },
-    provisionLocalLxdInstance: async () => { throw new Error('Remote creation must not use this API host LXD socket.') },
+    provisionLocalLxdInstance: async () => { throw new Error('LXD rejected Authorization: Bearer stage-test-token-value') },
 }))
 mock.module('../src/utils/vms/syncUserCertificatesToVm.ts', () => ({ default: async () => {} }))
 mock.module('../src/utils/logs/recordLog.ts', () => ({ default: async () => {} }))
 mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {} }))
 
 const { default: postVM } = await import('../src/handlers/vms/post.ts')
-const app = Fastify()
+const app = Fastify({ logger: { level: 'error', stream: { write: (line: string) => { loggerLines.push(line) } } } })
 app.post('/vm', postVM)
-beforeEach(() => { calls.length = 0; databaseCalls.length = 0; existingVm = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = []; deferStatusResponse = false; releaseStatusResponse = undefined })
+beforeEach(() => { calls.length = 0; databaseCalls.length = 0; loggerLines.length = 0; runtimeConfig.lxd_project = ''; existingVm = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = []; deferStatusResponse = false; releaseStatusResponse = undefined })
 afterAll(async () => { await app.close() })
 async function waitFor(check: () => boolean) {
     for (let attempt = 0; attempt < 100 && !check(); attempt++) await Bun.sleep(2)
@@ -80,6 +82,23 @@ test('VM creation provisions through the configured primary host, not the centra
     expect(response.statusCode).toBe(201)
     expect(response.json().primary_host).toBe('inspur')
     expect(calls.filter(call => call.path.endsWith('/provision'))).toEqual([{ host: 'inspur', path: '/vms/internal/remote-vm/provision', method: 'POST', body: JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: [], minecraftEulaAccepted: false }) }])
+})
+
+test('local VM setup failures are correlated in server logs and redact credentials', async () => {
+    runtimeConfig.lxd_project = 'hns-stage'
+    const response = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member', 'request-id': 'stage-create-correlation-1' }, payload: { name: 'stage-error-vm' },
+    })
+
+    expect(response.statusCode).toBe(201)
+    await waitFor(() => loggerLines.some(line => line.includes('Unable to provision VM with local LXD.')))
+    const logEntry = JSON.parse(loggerLines.find(line => line.includes('Unable to provision VM with local LXD.'))!) as Record<string, unknown>
+    expect(typeof logEntry.requestId).toBe('string')
+    expect((logEntry.requestId as string).length).toBeGreaterThan(0)
+    expect(logEntry.phase).toBe('create_or_provision')
+    expect(logEntry.error).toBe('LXD rejected Authorization: [REDACTED] [REDACTED]')
+    expect(loggerLines.join(' ')).not.toContain('stage-test-token-value')
+    expect(response.body).not.toContain('stage-test-token-value')
 })
 
 test('VM creation forwards the selected OS and services to its assigned host', async () => {

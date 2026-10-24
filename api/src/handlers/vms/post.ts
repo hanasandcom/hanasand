@@ -18,6 +18,7 @@ import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
 import { isVmWebsitePlan, renderVmWebsite } from '#utils/vms/website.ts'
 import { normalizeNextjsProjectFiles } from '#utils/vms/nextjsProject.ts'
 import { minecraftAddonLoader, normalizeMinecraftAddons } from '#utils/vms/minecraftAddons.ts'
+import { redactLogText } from '#utils/logs/redact.ts'
 
 export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     const body = req.body as {
@@ -126,7 +127,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             if (existing && !canAssignOwner) {
                 if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
-                await queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
+                await queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])], req.log, req.id)
                 return res.status(201).send(existing)
             }
 
@@ -146,7 +147,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 RETURNING *
             `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
-                if (body.provision_local !== false) await queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
+                if (body.provision_local !== false) await queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])], req.log, req.id)
 
                 await recordSystemEvent(req, {
                     actionType: 'vm.access.updated',
@@ -205,7 +206,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
             if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
-            if (body.provision_local !== false) await queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
+            if (body.provision_local !== false) await queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])], req.log, req.id)
 
             await recordSystemEvent(req, {
                 actionType: 'vm.created',
@@ -240,14 +241,16 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     }
 }
 
-async function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
+async function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[], logger: FastifyRequest['log'], requestId: string) {
     if (config.lxd_project) {
         setLocalProvisionState(name, { status: 'Provisioning', status_reason: 'Preparing the selected VM setup' })
         void provisionLocalLxdInstance(name, options).then(() => {
             clearLocalProvisionState(name)
         }).catch(error => {
             setLocalProvisionState(name, { status: 'Error', status_reason: 'VM setup could not start. Try again or contact Support if the problem persists.' })
-            void recordVmProvisioningError(name, error, 'create_or_provision')
+            const errorMessage = redactLogText(error instanceof Error ? error.message : String(error)).slice(0, 500)
+            logger.error({ requestId, vmName: name, phase: 'create_or_provision', error: errorMessage }, 'Unable to provision VM with local LXD.')
+            void recordVmProvisioningError(name, new Error(errorMessage), 'create_or_provision')
         })
         return
     }
