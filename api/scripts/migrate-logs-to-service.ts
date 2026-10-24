@@ -8,13 +8,13 @@ import { logMigrationEvent } from '../src/utils/logs/logMigrationEvent.ts'
 
 const batchSize = Math.max(1, Math.min(200, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 200))
 const receiptBatchSize = 100
-const analyzeReceiptBatchSize = 2000
+const analyzeReceiptBatchSize = 20_000
 const analyzeReceiptTailChunkBytes = 4 * 1024 ** 3
 const eventTailChunkBytes = 4 * 1024 ** 3
 const tailVacuumEveryBytes = 16 * 1024 ** 3
 const findingScanSize = 10_000
 const apply = process.argv.includes('--apply')
-const maxPayloadBytes = 450_000
+const maxPayloadBytes = 4_000_000
 const configuredMigrationFreeSpaceReserveBytes = Number(process.env.LOGS_MIGRATION_MIN_FREE_BYTES)
 const migrationFreeSpaceReserveBytes = Number.isSafeInteger(configuredMigrationFreeSpaceReserveBytes) && configuredMigrationFreeSpaceReserveBytes > 0
     ? configuredMigrationFreeSpaceReserveBytes : 24 * 1024 ** 3
@@ -508,7 +508,7 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                 method: 'POST',
                 headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
                 body: JSON.stringify({ kind, receipts: batch }),
-                signal: AbortSignal.timeout(10_000),
+                signal: AbortSignal.timeout(60_000),
             })
             const body = await response.json().catch(() => ({})) as { ok?: boolean, accepted?: number, error?: string }
             if (response.status === 429 || response.status === 503) {

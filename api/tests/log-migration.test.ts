@@ -668,7 +668,7 @@ test('transfers exact compressed model, readiness and general analysis receipts 
         .toEqual({ modelProbe: 1, readinessAudit: 1, proxy: 0, analyze: 1 })
     expect(statements.find(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, key')
         && statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))?.params)
-        .toEqual([0, 2, null, 2000])
+        .toEqual([0, 2, null, 20_000])
     expect(vacuumed).toEqual(['log_analyze_receipts'])
     expect(sent.map(batch => batch.kind)).toEqual(['model_probe', 'readiness_audit', 'analyze'])
     expect(sent[0]?.receipts[0]?.original_base64).toBe(Buffer.from('model proof bytes').toString('base64'))
@@ -741,7 +741,7 @@ test('moves receipt batches from the physical tail downward and vacuums only aft
 
     expect(statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, key')
         && statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))
-        .map(statement => statement.params)).toEqual([[2, 4, null, 2000], [2, 4, '(3,1)', 2000], [0, 2, null, 2000], [0, 2, '(0,1)', 2000]])
+        .map(statement => statement.params)).toEqual([[2, 4, null, 20_000], [2, 4, '(3,1)', 20_000], [0, 2, null, 20_000], [0, 2, '(0,1)', 20_000]])
     expect(vacuumed).toEqual(['log_analyze_receipts', 'log_analyze_receipts'])
     expect(sourceAnalyzeReceipts).toHaveLength(0)
 })
