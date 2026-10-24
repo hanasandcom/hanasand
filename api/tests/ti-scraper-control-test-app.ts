@@ -27,6 +27,7 @@ export function controlApp(role?: string, withApiKey = false) {
                         membershipStatus: 'active',
                         role,
                     },
+                    session: { token: 'session-token' },
                     refreshed: { token: 'session-token', expires_at: '2030-01-01T00:00:00.000Z' },
                 } } : {}),
             })
