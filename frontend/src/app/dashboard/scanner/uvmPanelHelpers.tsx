@@ -140,7 +140,7 @@ export function RunFinding({ finding }: { finding: NonNullable<UvmRun['findings'
     </div>
 }
 
-function EngineObservationList({ engine, observations }: { engine: string, observations?: Array<Record<string, unknown>> }) {
+export function EngineObservationList({ engine, observations }: { engine: string, observations?: Array<Record<string, unknown>> }) {
     if (!observations?.length) return <p className='mt-2 text-xs text-ui-muted'>No observations reported.</p>
     return <div className='mt-3 grid gap-2'><h4 className='text-xs font-semibold'>{engine} observations · {observations.length}</h4>{observations.map((item, index) => engine === 'httpx'
         ? <div key={String(item.id || index)} className='rounded border border-ui-border bg-ui-panel p-2 text-xs'><p className='font-semibold break-all'>{String(item.url || 'HTTPS root')} · {String(item.statusCode ?? 'status unknown')}</p><p className='text-ui-muted'>{String(item.address || '')}{item.title ? ` · ${String(item.title)}` : ''}</p><p className='text-ui-muted'>{[item.contentType, item.webServer, Array.isArray(item.technologies) ? item.technologies.join(', ') : null].filter(Boolean).join(' · ') || 'No technology metadata reported'}</p></div>

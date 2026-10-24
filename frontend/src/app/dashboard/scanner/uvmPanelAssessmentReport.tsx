@@ -7,19 +7,20 @@ const outcomeClass: Record<string, string> = {
     cancelled: 'text-ui-muted', skipped: 'text-ui-muted',
 }
 
-export function UvmAssessmentReportView({ assessment, onClose, onOpenFindings }: {
+export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpenFindings }: {
     assessment: UvmAssessmentReport
+    busy?: string
     onClose: () => void
-    onOpenFindings: (assetId: string, engine: string) => void
+    onOpenFindings: (stepId: string, assetId: string, engine: string) => void
 }) {
     const completed = assessment.jobs.filter(job => job.status === 'succeeded').length
-    const observations = assessment.jobs.reduce((total, job) => total + (job.run?.findings?.length || 0) + (job.run?.observations?.length || 0), 0)
+    const findingRecords = assessment.jobs.reduce((total, job) => total + (job.run?.findings?.length || 0), 0)
     return <section aria-label='Assessment report' className='rounded-lg border border-ui-border bg-ui-panel p-4'>
         <div className='flex flex-wrap items-start justify-between gap-3'>
             <div>
                 <h2 className='text-lg font-semibold'>Assessment report</h2>
                 <p className='mt-1 text-xs text-ui-muted'>Started {formatDate(assessment.startedAt || assessment.createdAt)}{assessment.finishedAt ? ` · Finished ${formatDate(assessment.finishedAt)}` : ''}</p>
-                <p className='mt-2 text-sm'>{assessment.status} · {completed}/{assessment.jobs.length} stages succeeded · {observations} engine observations</p>
+                <p className='mt-2 text-sm'>{assessment.status} · {completed}/{assessment.jobs.length} stages succeeded · {findingRecords} normalized records</p>
             </div>
             <button type='button' onClick={onClose} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold'>Close report</button>
         </div>
@@ -74,9 +75,9 @@ export function UvmAssessmentReportView({ assessment, onClose, onOpenFindings }:
                         {job.run.coverage.truncationReasons?.length ? <span>Reasons: {job.run.coverage.truncationReasons.join(', ')}</span> : null}
                     </div>}
                     <div className='mt-3 grid gap-2'>
-                        {job.run.findings?.length ? <div className='flex items-center justify-between gap-2 border-t border-ui-border pt-2'>
+                        {job.run.findings?.length && ['succeeded', 'partial'].includes(job.status) ? <div className='flex items-center justify-between gap-2 border-t border-ui-border pt-2'>
                             <h4 className='text-xs font-semibold'>Findings · {job.run.findings.length}</h4>
-                            <button type='button' onClick={() => onOpenFindings(job.assetId, job.engine)} className='rounded border border-ui-border px-2 py-1 text-xs font-semibold'>Review in triage</button>
+                            <button type='button' onClick={() => onOpenFindings(job.id, job.assetId, job.engine)} disabled={busy === `assessment-findings:${job.id}`} className='rounded border border-ui-border px-2 py-1 text-xs font-semibold disabled:opacity-50'>{busy === `assessment-findings:${job.id}` ? 'Loading triage…' : 'Review in triage'}</button>
                         </div> : null}
                         {job.run.findings?.map(finding => <RunFinding key={finding.findingId} finding={finding} />)}
                         {!['nmap', 'testssl'].includes(job.engine) && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}

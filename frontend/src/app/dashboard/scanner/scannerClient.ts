@@ -1,7 +1,7 @@
 'use client'
 
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
-import type { NmapScanProfile, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingHistoryPage, UvmRunHistoryPage } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmRunHistoryPage } from '@/utils/monitoring/types'
 
 const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.hanasand.com/api').replace(/\/$/, '')
 
@@ -19,7 +19,12 @@ export function createScannerClient(organizationId: string) {
         getRun: (runId: string, engine: string) => request<UvmDashboard['runs'][number]>(`/v1/uvm/runs/${encodeURIComponent(runId)}?engine=${encodeURIComponent(engine)}`),
         getRunHistory: (cursor: string | null) => request<UvmRunHistoryPage>(`/v1/uvm/runs?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
         getAssessmentHistory: (cursor: string | null) => request<UvmAssessmentHistoryPage>(`/v1/uvm/assessments?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
-        getFindingHistory: (cursor: string | null) => request<UvmFindingHistoryPage>(`/v1/uvm/findings?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+        getFindingHistory: (cursor: string | null, scope?: UvmFindingHistoryScope) => {
+            const path = scope
+                ? `/v1/uvm/assessments/${encodeURIComponent(scope.assessmentId)}/steps/${encodeURIComponent(scope.stepId)}/findings`
+                : '/v1/uvm/findings'
+            return request<UvmFindingHistoryPage>(`${path}?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`)
+        },
         createAsset: (input: { hostname: string }) => request<{ asset: UvmDashboard['assets'][number] }>('/v1/uvm/assets', { method: 'POST', body: input }),
         verifyAsset: (assetId: string) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/verify`, { method: 'POST', body: {} }),
         saveZapApiDefinition: (assetId: string, path: string | null) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-api-definition`, { method: 'PUT', body: { path } }),
