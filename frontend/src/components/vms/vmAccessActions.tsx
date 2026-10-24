@@ -102,16 +102,22 @@ export default function VMAccessActions({ vmName, className }: VMAccessActionsPr
         >
             <Menu aria-hidden='true' className='h-4 w-4' />
         </button>
-        {mounted && open && createPortal(<div
+        {mounted && createPortal(<div
             ref={panel}
             role='group'
             aria-label='VM access actions'
+            aria-hidden={!open}
             onPointerLeave={event => { if (event.pointerType === 'mouse') scheduleClose() }}
             onPointerEnter={cancelClose}
             onClick={event => {
                 if ((event.target as HTMLElement).closest('button, a')) setOpen(false)
             }}
-            style={{ left: position.left, top: position.top, maxHeight: position.maxHeight }}
+            style={{
+                display: open ? 'grid' : 'none',
+                left: position.left,
+                top: position.top,
+                maxHeight: position.maxHeight,
+            }}
             className='fixed z-[100] grid w-80 max-w-[calc(100vw_-_1rem)] gap-2 overflow-y-auto rounded-lg border border-ui-border bg-ui-panel p-2 shadow-xl'
         >
             <VMConnectLocally vmName={vmName} className='flex h-10 w-full items-center justify-start gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-text hover:bg-ui-raised' />

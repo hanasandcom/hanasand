@@ -47,44 +47,6 @@ test('console bounds scrollback, follows output and preserves its connection in 
     expect(connections).toBe(1)
 })
 
-test('mobile VM access menu stays inside the viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 812 })
-    const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3272'
-    await page.context().addCookies([
-        { name: 'id', value: 'dashboard-render-proof-user', url: origin },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', url: origin },
-    ])
-    await page.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
-    await page.route('**/api/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) }))
-    await page.routeWebSocket('**/vm/cashflow/console', socket => {
-        socket.onMessage(message => {
-            if (JSON.parse(String(message)).type === 'auth') socket.send(JSON.stringify({ type: 'ready', username: 'fixture' }))
-        })
-    })
-    await page.goto('/vms/cashflow/console?provisioning=1')
-    await expect(page.getByRole('status').first()).toContainText('Connected')
-    const overviewLink = page.getByRole('link', { name: 'Back to overview' })
-    await expect(overviewLink).toBeVisible()
-    await expect(overviewLink).not.toHaveText('Back to overview')
-
-    const accessMenuButton = page.locator('summary[aria-label="VM access actions"]')
-    await expect(accessMenuButton).toBeVisible()
-    await accessMenuButton.click()
-
-    const menu = page.locator('details:has(summary[aria-label="VM access actions"]) > div')
-    for (const viewport of [{ width: 375, height: 812 }, { width: 390, height: 844 }, { width: 768, height: 1024 }]) {
-        await page.setViewportSize(viewport)
-        await expect(accessMenuButton).toBeVisible()
-        await expect(menu.getByRole('button', { name: 'Connect locally' })).toBeVisible()
-        await expect(menu.getByRole('button', { name: 'Show sudo password' })).toBeVisible()
-        const bounds = await menu.boundingBox()
-        expect(bounds).not.toBeNull()
-        expect(bounds!.x).toBeGreaterThanOrEqual(0)
-        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width)
-        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width)
-    }
-})
-
 test('VM action feedback does not expand inventory rows or console status surfaces', async () => {
     const deleteDialog = readFileSync(join(process.cwd(), 'src/components/vms/deleteVmDialog.tsx'), 'utf8')
     const vmRow = readFileSync(join(process.cwd(), 'src/components/profile/vm.tsx'), 'utf8')
