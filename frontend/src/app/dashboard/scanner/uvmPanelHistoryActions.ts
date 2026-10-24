@@ -51,7 +51,7 @@ export function createUvmPanelHistoryActions({
             const page = await findingHistoryAction(null)
             setData(current => ({ ...current, findings: page.findings, findingsNextCursor: page.nextCursor }))
             setFindingScope(null); setFindingSyncState(undefined)
-            setFindingFilters({ query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })
+            setFindingFilters({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Finding history could not be loaded.') }
         finally { setBusy('') }
     }
