@@ -64,7 +64,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
             const ready = Boolean(engineId && !servicesPaused && engine?.status === 'available' && tenableReady)
             const selected = Boolean(ready && engineId && selectedEngines.includes(engineId))
             const reason = item.setup === 'desktop-only' ? 'Desktop app'
-                : item.setup === 'cli-review-needed' ? 'CLI review needed'
+                : item.setup === 'cli-review-needed' ? 'GUI bridge needed'
                     : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
                         : item.setup === 'adapter-needed' ? 'Adapter needed'
                             : item.integration === 'image-worker' || item.integration === 'grype' ? servicesPaused ? 'Image worker stopped · pending disk' : 'Image assets only'
