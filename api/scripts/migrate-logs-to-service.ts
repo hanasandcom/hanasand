@@ -948,7 +948,19 @@ export async function customerLogsReadReady(logsServiceUrl: string) {
             headers: { accept: 'application/json' },
             signal: AbortSignal.timeout(5000),
         })))
-        return routeResponses.every(route => route.status === 401)
+        if (!routeResponses.every(route => route.status === 401)) return false
+
+        // Verify the proxy exposes every protected migration endpoint before
+        // the first transfer request can send any batch to Logs.
+        const migrationRoutes = ['/migration/findings', '/migration/receipts', '/migration/linkage-archive',
+            '/migration/state', '/migration/status']
+        const migrationResponses = await Promise.all(migrationRoutes.map(path => fetch(`${apiBase}${path}`, {
+            method: 'POST',
+            headers: { accept: 'application/json', authorization: `Bearer ${'0'.repeat(40)}`, 'content-type': 'application/json' },
+            body: '{}',
+            signal: AbortSignal.timeout(5000),
+        })))
+        return migrationResponses.every(route => route.status === 401)
     } catch {
         return false
     }

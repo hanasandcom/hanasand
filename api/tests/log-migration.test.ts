@@ -415,12 +415,19 @@ test('requires the public frontend read target and all direct Logs routes before
     process.env.LOGS_FRONTEND_READINESS_URL = 'https://hanasand.com/api/health'
     const responses = [
         new Response(JSON.stringify({ ok: true, service: 'frontend', logsReadBaseUrl: 'https://logs.hanasand.com/api' }), { status: 200 }),
-        ...Array.from({ length: 4 }, () => new Response('{}', { status: 401 })),
+        ...Array.from({ length: 9 }, () => new Response('{}', { status: 401 })),
     ]
-    globalThis.fetch = (async () => responses.shift()!) as typeof fetch
+    const requests: RequestInit[] = []
+    globalThis.fetch = (async (_input, init) => {
+        requests.push(init || {})
+        return responses.shift()!
+    }) as typeof fetch
 
     expect(await customerLogsReadReady('https://logs.hanasand.com')).toBe(true)
     expect(responses).toHaveLength(0)
+    expect(requests.slice(-5).map(request => request.method)).toEqual(Array.from({ length: 5 }, () => 'POST'))
+    expect(requests.slice(-5).every(request => String(new Headers(request.headers).get('authorization')).startsWith('Bearer ')
+        && String(request.body) === '{}')).toBe(true)
 })
 
 test('blocks migration when the public frontend does not route Logs reads to the target service', async () => {
@@ -443,6 +450,19 @@ test('blocks migration if any direct Logs read route is missing', async () => {
         new Response('{}', { status: 401 }),
         new Response('{}', { status: 404 }),
         new Response('{}', { status: 401 }),
+    ]
+    globalThis.fetch = (async () => responses.shift()!) as typeof fetch
+
+    expect(await customerLogsReadReady('https://logs.hanasand.com')).toBe(false)
+})
+
+test('blocks migration before writes if an OpenResty migration POST route is missing', async () => {
+    process.env.LOGS_FRONTEND_READINESS_URL = 'https://hanasand.com/api/health'
+    const responses = [
+        new Response(JSON.stringify({ ok: true, service: 'frontend', logsReadBaseUrl: 'https://logs.hanasand.com/api' }), { status: 200 }),
+        ...Array.from({ length: 4 }, () => new Response('{}', { status: 401 })),
+        ...Array.from({ length: 4 }, () => new Response('{}', { status: 401 })),
+        new Response('{}', { status: 404 }),
     ]
     globalThis.fetch = (async () => responses.shift()!) as typeof fetch
 
