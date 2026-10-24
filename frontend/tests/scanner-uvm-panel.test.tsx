@@ -80,8 +80,10 @@ test('finding filters default to actionable statuses and order severity before a
     const resolved = { ...data.findings[0], id: 'finding-resolved', status: 'resolved' as const, severity: 'critical' }
     const olderLow = { ...data.findings[1], id: 'finding-low', severity: 'low', firstSeen: '2020-01-01T00:00:00.000Z' }
     const newerHigh = { ...data.findings[1], id: 'finding-high', severity: 'high', firstSeen: '2025-01-01T00:00:00.000Z' }
-    const results = filterAndSortUvmFindings([olderLow, resolved, newerHigh], { query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })
+    const informational = { ...data.findings[1], id: 'finding-info', severity: 'info' }
+    const results = filterAndSortUvmFindings([olderLow, resolved, newerHigh, informational], { query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })
     expect(results.map(finding => finding.id)).toEqual(['finding-high', 'finding-low'])
+    expect(filterAndSortUvmFindings([informational], { query: '', engine: 'all', severity: 'info', status: 'all', asset: 'all' })).toHaveLength(1)
 })
 
 test('technical help uses a named keyboard-operable disclosure', () => {
