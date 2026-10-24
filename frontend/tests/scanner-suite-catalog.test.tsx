@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { emptyUvmDashboard } from '../src/app/dashboard/scanner/scannerClient'
 import { getScannerSuiteCatalog, scannerSuiteCatalog } from '../src/app/dashboard/scanner/scannerSuiteCatalog'
+import { UvmAssessmentEngineChoices } from '../src/app/dashboard/scanner/uvmPanelAssessmentControls'
 import { UvmPanelScannerSetup } from '../src/app/dashboard/scanner/uvmPanelScannerSetup'
 import ScannerPauseNotice from '../src/app/dashboard/scanner/scannerPauseNotice'
 
@@ -41,6 +42,17 @@ test('paused Scanner exposes the searchable 50-product catalog and labels setup 
     expect(html).toContain('License + adapter needed')
     expect(html).toContain('GUI bridge needed')
     expect(html).toContain('Windows app · no API')
+})
+
+test('Angry IP is described as needing a GUI bridge, not CLI review', () => {
+    const noop = () => undefined
+    const html = renderToStaticMarkup(<UvmAssessmentEngineChoices data={emptyUvmDashboard} selectedEngines={[]}
+        setSelectedEngines={noop} scanId='' setScanId={noop} nmapProfile='tcp-top-1000' setNmapProfile={noop}
+        servicesPaused onSetup={noop}
+    />)
+
+    expect(html).toContain('GUI bridge needed')
+    expect(html).not.toContain('CLI review needed')
 })
 
 test('partial older API catalogs do not hide products or downgrade staged setup metadata', () => {
