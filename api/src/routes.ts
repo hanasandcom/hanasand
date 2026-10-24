@@ -5,6 +5,7 @@ import { registerUserContentRoutes } from './routes/userContent.ts'
 import { registerOrganizationsAndComputeRoutes } from './routes/organizationsAndCompute.ts'
 import { registerPlatformOperationsRoutes } from './routes/platformOperations.ts'
 import { registerObservabilityRoutes } from './routes/observability.ts'
+import publicTiApi from './handlers/ti/publicApi.ts'
 import tokenWrapper from './utils/auth/tokenWrapper.ts'
 
 /**
@@ -26,4 +27,5 @@ export default async function apiRoutes(fastify: FastifyInstance) {
     await registerOrganizationsAndComputeRoutes(fastify)
     await registerPlatformOperationsRoutes(fastify)
     await registerObservabilityRoutes(fastify)
+    await fastify.register(publicTiApi, { prefix: '/v1' })
 }
