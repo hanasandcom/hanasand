@@ -69,6 +69,16 @@ test('unavailable Scanner API shows unknown state instead of empty-result counts
     expect(html).not.toContain('No findings imported')
 })
 
+test('paused Scanner keeps the product catalog searchable while other views stay disabled', () => {
+    const html = renderToStaticMarkup(<UvmPanel initialData={{
+        assets: [], coverage: [], engines: [], runs: [], assessments: [], findings: [], tenableScans: [],
+        scannerError: 'Scanner services are stopped pending disk expansion.', tenableIntegration: null,
+    }} servicesPaused />)
+
+    expect(html).toContain('placeholder="Filter scanners"')
+    expect(html).not.toContain('<fieldset disabled="">')
+})
+
 test('finding filters search CVEs, assets, and scanner metadata', () => {
     const filters = { query: 'cve-2025-0001', engine: 'all', severity: 'all', status: 'all', asset: 'all' }
     expect(filterAndSortUvmFindings(data.findings, filters).map(finding => finding.id)).toEqual(['finding-1'])

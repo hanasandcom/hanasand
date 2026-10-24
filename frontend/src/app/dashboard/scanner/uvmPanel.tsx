@@ -157,7 +157,7 @@ export default function UvmPanel({
     }
     return <div className='grid gap-4'>
         <UvmPanelNavigation view={view} setView={setView} unavailable={dashboardUnavailable} servicesPaused={servicesPaused} assessmentCount={data.assessments.length} findingCount={attentionFindingCount} />
-        <fieldset disabled={dashboardUnavailable} className='m-0 grid min-w-0 gap-4 border-0 p-0'>
+        <fieldset disabled={dashboardUnavailable && view !== 'scanners'} className='m-0 grid min-w-0 gap-4 border-0 p-0'>
             {view === 'overview' && <UvmOverview data={data} servicesPaused={servicesPaused} activeRunCount={activeRuns.length} openFindingCount={attentionFindingCount} criticalOrHighCount={criticalOrHighFindingCount}
                 onManageAssets={() => setView('assets')} onConfigureScanners={() => setView('scanners')} onStartAssessment={() => setView('assessments')} onViewRuns={() => setView('runs')} />}
             {view === 'assessments' && <section className='grid gap-4'><section className='rounded-lg border border-ui-border bg-ui-panel p-4'>

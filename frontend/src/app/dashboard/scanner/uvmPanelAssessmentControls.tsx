@@ -6,6 +6,7 @@ import { UvmHelp } from './uvmPanelHelp'
 import { getScannerSuiteCatalog } from './scannerSuiteCatalog'
 
 export type UvmAssessmentEngineId = 'nmap' | 'naabu' | 'gvm' | 'tenable-vm' | 'zap' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f'
+export const UVM_ASSET_ASSESSMENT_ENGINE_IDS: UvmAssessmentEngineId[] = ['nmap', 'naabu', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f']
 type NmapProfile = NetworkScanProfile
 
 export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedEngines, scanId, setScanId, nmapProfile, setNmapProfile, servicesPaused, onSetup }: {
@@ -20,8 +21,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
     onSetup: () => void
 }) {
     const productCatalog = getScannerSuiteCatalog(data.scannerCatalog)
-    const assessmentEngineIds: UvmAssessmentEngineId[] = ['nmap', 'naabu', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f']
-    const assessmentEngines = assessmentEngineIds.flatMap(id => {
+    const assessmentEngines = UVM_ASSET_ASSESSMENT_ENGINE_IDS.flatMap(id => {
         const product = productCatalog.find(item => item.integration === id)
         return product ? [{ id, product }] : []
     })
