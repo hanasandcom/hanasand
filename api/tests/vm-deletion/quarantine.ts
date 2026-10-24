@@ -24,6 +24,7 @@ test('emails the VM owner and organization administrators once when deletion is 
 
 test('preserves the disk, disables startup, and retries without extending the 30-day deadline', async () => {
     await operations.scheduleVmDeletion('cashflow', 'cashflow')
+    expect(state.localActions).toContainEqual({ name: 'cashflow', action: 'stop' })
     const deadline = state.vm.delete_after
     expect(Date.parse(deadline) - state.now).toBe(30 * day)
     expect(state.instance.status).toBe('Stopped')

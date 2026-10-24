@@ -4,10 +4,12 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import sanitize from '#utils/sanitize.ts'
 import run from '#db'
+import config from '#constants'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import { invalidateLiveVmStatus } from '#utils/vms/status.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
+import { setLocalLxdInstanceState } from '#utils/vms/lxd.ts'
 
 const allowedActions = new Set(['start', 'stop', 'restart'])
 
@@ -39,21 +41,27 @@ export default async function vmAction(req: FastifyRequest, res: FastifyReply) {
 
             if (vm.deleted_at) return res.status(409).send({ error: 'This VM is scheduled for deletion. Restore it before starting.' })
 
-            const internalRes = await internalHostFetch(vm.primary_host, `/vm/${encodeURIComponent(vm.name)}/${action}`, {
-                method: 'POST',
-                headers: {
-                    'User-Agent': 'hanasand_internal',
-                },
-            })
-
-            const text = await internalRes.text()
-            const payload = parseInternalPayload(text)
-
-            if (!internalRes.ok) {
-                return res.status(internalRes.status).send({
-                    error: describeVmActionError(payload, action, id),
-                    details: payload,
+            let payload: Record<string, unknown>
+            if (config.lxd_project) {
+                await setLocalLxdInstanceState(vm.name, action as 'start' | 'stop' | 'restart')
+                payload = { message: `VM ${vm.name} ${action} command completed.`, name: vm.name }
+            } else {
+                const internalRes = await internalHostFetch(vm.primary_host, `/vm/${encodeURIComponent(vm.name)}/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'User-Agent': 'hanasand_internal',
+                    },
                 })
+
+                const text = await internalRes.text()
+                payload = parseInternalPayload(text)
+
+                if (!internalRes.ok) {
+                    return res.status(internalRes.status).send({
+                        error: describeVmActionError(payload, action, id),
+                        details: payload,
+                    })
+                }
             }
 
             invalidateLiveVmStatus(vm.name)
@@ -73,7 +81,7 @@ export default async function vmAction(req: FastifyRequest, res: FastifyReply) {
                 actorId: userId,
                 targetType: 'vm',
                 targetId: id,
-                context: { status: nextStatus, execution: 'internal_vm_api' },
+                context: { status: nextStatus, execution: config.lxd_project ? 'local_lxd' : 'internal_vm_api' },
             })
 
             return res.send(payload)
@@ -85,7 +93,7 @@ export default async function vmAction(req: FastifyRequest, res: FastifyReply) {
                 error: `The ${action} request timed out. The VM may still be processing it; check its status before trying again.`,
             })
         }
-        return res.status(500).send({ error: 'Unable to contact internal VM API.' })
+        return res.status(500).send({ error: config.lxd_project ? 'Unable to contact the local VM host.' : 'Unable to contact internal VM API.' })
     }
 }
 

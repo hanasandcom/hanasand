@@ -14,6 +14,7 @@ export const state = {
     waitCalls: [] as Array<[string | undefined, number]>,
     pendingPatch: null as any,
     sentEmails: [] as Array<{ to: string, subject: string }>,
+    localActions: [] as Array<{ name: string, action: string }>,
     waitGate: undefined as Promise<void> | undefined,
     onWaitStarted: undefined as (() => void) | undefined,
 }
@@ -21,7 +22,7 @@ export const state = {
 let tail = Promise.resolve()
 const clone = (value: any) => structuredClone(value)
 
-mock.module('../../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
+mock.module('../../src/constants.ts', () => ({ default: { vm_host_id: 'ovhcloud', lxd_project: 'hns-stage' } }))
 mock.module('../../src/utils/db.ts', () => ({
     withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => {
         const prior = tail
@@ -49,6 +50,7 @@ mock.module('../../src/utils/db.ts', () => ({
 mock.module('../../src/utils/vms/lxd.ts', () => ({
     getLocalLxdInstance: async () => { if (!state.instance) throw new Error('Missing instance'); return clone(state.instance) },
     setLocalLxdInstanceState: async (_name: string, action: string) => {
+        state.localActions.push({ name: _name, action })
         if (state.failAt === action) throw new Error(`Failed to ${action}`)
         if (action === 'start') state.starts++
         if (action === 'stop' && state.instance.ephemeral) throw new Error('Would destroy ephemeral disk')
@@ -107,6 +109,7 @@ beforeEach(() => {
     state.operationId = ''; state.waitResult = { metadata: { status_code: 200 } }; state.waitCalls = []; state.pendingPatch = null
     state.waitGate = undefined; state.onWaitStarted = undefined
     state.sentEmails = []
-    state.vm = { name: 'cashflow', owner: 'owner', organization_id: 'org-1', primary_host: 'inspur', deleted_at: null, delete_after: null, deletion_restore: null, deletion_error: null }
+    state.localActions = []
+    state.vm = { name: 'cashflow', owner: 'owner', organization_id: 'org-1', primary_host: 'ovhcloud', deleted_at: null, delete_after: null, deletion_restore: null, deletion_error: null }
     state.instance = { name: 'cashflow', status: 'Running', ephemeral: true, config: { 'boot.autostart': 'true', 'limits.cpu': '2' } }
 })
