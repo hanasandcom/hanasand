@@ -96,11 +96,11 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                     </div>
                     <div className='flex w-auto shrink-0 flex-wrap items-center gap-2 xl:flex-nowrap xl:justify-end'>
                         {!deleted && <>
-                            <div className='hidden xl:block'><RestartButtons vm={vm} onFeedback={onFeedback} showLabels /></div>
-                            <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} max-xl:!hidden w-auto px-2.5 text-ui-primary xl:!inline-flex`}>
+                            <RestartButtons vm={vm} onFeedback={onFeedback} showLabels />
+                            <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} hidden w-auto px-2.5 text-ui-primary md:inline-flex`}>
                                 <TerminalSquare className='h-4 w-4' /> <span>Console</span>
                             </Link>
-                            <button type='button' onClick={openDetails} className={`${vmActionStyle} max-xl:!hidden px-3 text-ui-primary xl:!inline-flex`} data-vm-primary-action>
+                            <button type='button' onClick={openDetails} className={`${vmActionStyle} hidden px-3 text-ui-primary md:inline-flex`} data-vm-primary-action>
                                 Open details <ArrowRight className='h-4 w-4' />
                             </button>
                             {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} max-xl:!hidden px-3 text-ui-text xl:!inline-flex`} />}
@@ -110,9 +110,8 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                                     <Menu className='h-4 w-4' />
                                 </summary>
                                 <div className='absolute right-0 top-11 z-20 grid w-[min(20rem,calc(100vw-2rem))] gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
-                                    <div className='grid gap-2 xl:hidden'>
+                                    <div className='grid gap-2 md:hidden'>
                                         {!deleted && <>
-                                            <RestartButtons vm={vm} onFeedback={onFeedback} showLabels />
                                             <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`}>
                                                 <TerminalSquare className='h-4 w-4' /> <span>Console</span>
                                             </Link>

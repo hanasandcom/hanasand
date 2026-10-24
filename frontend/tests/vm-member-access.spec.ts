@@ -38,12 +38,12 @@ test('VM pages still require a signed-in session', async ({ page }) => {
     await expect(page).toHaveURL(/\/login\?path=/)
 })
 
-test('VM inventory puts every row action behind the hamburger on narrow screens', async ({ context, page, baseURL }) => {
+test('VM inventory keeps Start visible and moves secondary actions inline when they fit', async ({ context, page, baseURL }) => {
     test.skip(!process.env.VM_FIXTURE_API, 'Requires the VM fixture API')
     await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
     await context.addCookies(Object.entries({ id: 'dashboard-render-proof-user', access_token: 'local-dashboard-render-proof-token' }).map(([name, value]) => ({ name, value, url: baseURL! })))
     await page.route('**/api/backend/vms/**', route => route.fulfill({ json: [{
-        name: 'my-machine', owner: 'dashboard-render-proof-user', status: 'running', access_users: [], can_assign_organization: true,
+        name: 'my-machine', owner: 'dashboard-render-proof-user', status: 'stopped', access_users: [], can_assign_organization: true,
         device_eth0_ipv4_address: '10.0.0.5', limits_cpu: '2', limits_memory: '2GiB',
         config_image_os: 'ubuntu', config_image_version: '24.04',
     }] }))
@@ -57,20 +57,36 @@ test('VM inventory puts every row action behind the hamburger on narrow screens'
     await expect(name).toBeVisible()
     const row = page.locator('article').filter({ has: name })
     const more = row.locator('summary[aria-label="More actions for my-machine"]')
+    const start = row.getByRole('button', { name: 'Start my-machine', exact: true })
+    const inlineConsole = row.locator('a[href="/vms/my-machine/console"]').first()
+    const inlineDetails = row.locator('[data-vm-primary-action]').first()
 
     for (const width of [390, 768, 1024]) {
         await page.setViewportSize({ width, height: 900 })
         expect(await page.evaluate(() => window.innerWidth)).toBe(width)
         await expect(more).toBeVisible()
-        const desktopConsole = row.locator('a[href="/vms/my-machine/console"]').first()
-        const visibility = await desktopConsole.evaluate(element => ({ width: window.innerWidth, breakpoint: matchMedia('(min-width: 1280px)').matches, display: getComputedStyle(element).display }))
-        expect(visibility, `Desktop action visibility at ${width}px`).toEqual({ width, breakpoint: false, display: 'none' })
+        await expect(start).toBeVisible()
+        const secondaryActionsVisible = width >= 768
+        if (secondaryActionsVisible) {
+            await expect(inlineConsole).toBeVisible()
+            await expect(inlineDetails).toBeVisible()
+        } else {
+            await expect(inlineConsole).toBeHidden()
+            await expect(inlineDetails).toBeHidden()
+        }
         if (await row.locator('details[data-vm-actions]').getAttribute('open') === null) await more.click()
         const menu = row.locator('details[data-vm-actions] > div')
-        for (const action of ['Restart my-machine', 'Stop my-machine', 'Open details', 'Connect locally', 'Show sudo password', 'Delete VM']) {
-            await expect(menu.getByRole('button', { name: action, exact: true })).toBeVisible()
+        await expect(menu.getByRole('button', { name: 'Start my-machine', exact: true })).toHaveCount(0)
+        await expect(menu.getByRole('button', { name: 'Connect locally', exact: true })).toBeVisible()
+        await expect(menu.getByRole('button', { name: 'Show sudo password', exact: true })).toBeVisible()
+        await expect(menu.getByRole('button', { name: 'Delete VM', exact: true })).toBeVisible()
+        if (secondaryActionsVisible) {
+            await expect(menu.getByRole('link', { name: 'Open my-machine console', exact: true })).toBeHidden()
+            await expect(menu.getByRole('button', { name: 'Open details', exact: true })).toBeHidden()
+        } else {
+            await expect(menu.getByRole('link', { name: 'Open my-machine console', exact: true })).toBeVisible()
+            await expect(menu.getByRole('button', { name: 'Open details', exact: true })).toBeVisible()
         }
-        await expect(menu.getByRole('link', { name: 'Open my-machine console', exact: true })).toBeVisible()
         await expect(menu.getByRole('button', { name: 'Add my-machine to organization', exact: true })).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
         const bounds = await name.boundingBox()
