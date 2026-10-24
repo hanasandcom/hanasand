@@ -92,16 +92,16 @@ function FindingCard({ finding, scoped, criticality, busy, update, setFindingUpd
         <div className='flex flex-wrap items-start justify-between gap-2'>
             <div>
                 <div className='flex flex-wrap items-center gap-2'><strong>{finding.title}</strong><span className='rounded bg-ui-warning/15 px-2 py-0.5 text-[11px] font-semibold text-ui-warning'>{finding.severity}</span>{criticality !== 'unset' && <span className='rounded border border-ui-border px-2 py-0.5 text-[11px] text-ui-muted'>Asset {criticality}</span>}<span className='text-xs text-ui-muted'>{finding.engine}</span></div>
-                <p className='mt-1 text-xs text-ui-muted'>{finding.asset}{finding.address ? ` · ${finding.address}` : ''}{finding.cveIds.length ? ` · ${finding.cveIds.join(', ')}` : ''}{finding.cvssScore !== null ? ` · CVSS ${finding.cvssScore}` : ''}</p>
+                <p className='mt-1 text-xs text-ui-muted'>{finding.asset}{finding.address ? ` · ${finding.address}` : ''}{finding.affectedLocation ? ` · ${finding.affectedLocation}` : ''}{finding.cveIds.length ? ` · ${finding.cveIds.join(', ')}` : ''}{finding.cvssScore !== null ? ` · CVSS ${finding.cvssScore}` : ''}</p>
             </div>
             <span className='flex items-center gap-2 text-xs font-semibold'>{finding.status.replaceAll('_', ' ')}<UvmHelp label='Remediation plan' text={`Owner/team is a free-form label. Due dates do not change severity; findings resolve only after eligible scan evidence.${scoped ? ' Edits apply to this organization-wide finding across assessments.' : ''}`} /></span>
         </div>
         {finding.relatedSignals?.length ? <details className='mt-2 text-xs'>
             <summary className='cursor-pointer text-ui-muted'>Possible matches from other engines (showing up to 5)</summary>
-            <p className='mt-1 text-ui-muted'>Same asset and CVE; review before treating these as one issue.</p>
+            <p className='mt-1 text-ui-muted'>Same asset, CVE and network endpoint. Review before treating these as one issue; records stay separate.</p>
             <ul className='mt-1 grid gap-1'>
                 {finding.relatedSignals.map(signal => <li key={signal.id} className='rounded border border-ui-border px-2 py-1'>
-                    <strong>{signal.engine}</strong> · {signal.title} · {signal.sharedCveIds.join(', ')} · {signal.status.replaceAll('_', ' ')}
+                    <strong>{signal.engine}</strong> · {signal.title} · {signal.affectedLocation} · {signal.sharedCveIds.join(', ')} · {signal.status.replaceAll('_', ' ')}
                 </li>)}
             </ul>
         </details> : null}
