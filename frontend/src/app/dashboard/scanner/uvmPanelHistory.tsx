@@ -53,7 +53,7 @@ export function UvmAssessmentHistory({ assessments, unavailable, busy, nextCurso
     const allAssessments = [...assessments, ...olderAssessments.filter(assessment => !assessments.some(current => current.id === assessment.id))]
     const filtered = allAssessments.filter(assessment => {
         if (status !== 'all' && assessment.status !== status) return false
-        return !needle || [assessment.status, assessment.source, ...assessment.jobs.flatMap(job => [job.asset, job.engine, job.profile, job.stage, job.status])].join(' ').toLowerCase().includes(needle)
+        return !needle || [assessment.status, assessment.source, assessment.plan?.mode || 'manual', ...assessment.jobs.flatMap(job => [job.asset, job.engine, job.profile, job.stage, job.status])].join(' ').toLowerCase().includes(needle)
     })
     const pageCount = Math.max(1, Math.ceil(filtered.length / assessmentPageSize))
     const currentPage = Math.min(page, pageCount - 1)
@@ -68,7 +68,14 @@ export function UvmAssessmentHistory({ assessments, unavailable, busy, nextCurso
         <div className='mt-3 grid gap-3'>
             {pageItems.map(assessment => <article key={assessment.id} className='rounded-md border border-ui-border bg-ui-raised p-3'>
                 <div className='flex flex-wrap items-start justify-between gap-2'>
-                    <div><strong>{assessment.jobs.length} scanner jobs</strong><span className='ml-2 rounded-full bg-ui-canvas px-2 py-1 text-xs'>{assessment.source} · {assessment.status}</span><p className='mt-1 text-xs text-ui-muted'>Started {formatDate(assessment.startedAt || assessment.createdAt)}{assessment.finishedAt ? ` · Finished ${formatDate(assessment.finishedAt)}` : ''}</p></div>
+                    <div>
+                        <strong>{assessment.jobs.length} stages</strong>
+                        <span className='ml-2 rounded-full bg-ui-canvas px-2 py-1 text-xs'>{assessment.plan?.mode === 'automatic' ? 'Automatic' : 'Manual'} · {assessment.source} · {assessment.status}</span>
+                        {assessment.jobs.some(job => job.decision?.outcome === 'skipped') && <p className='mt-1 text-xs text-ui-muted'>
+                            {assessment.jobs.filter(job => job.decision?.outcome === 'skipped').length} conditional stages skipped
+                        </p>}
+                        <p className='mt-1 text-xs text-ui-muted'>Started {formatDate(assessment.startedAt || assessment.createdAt)}{assessment.finishedAt ? ` · Finished ${formatDate(assessment.finishedAt)}` : ''}</p>
+                    </div>
                     <div className='flex gap-2'>
                         <button type='button' onClick={() => onOpenReport(assessment)} disabled={busy === `report:${assessment.id}`} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `report:${assessment.id}` ? 'Loading…' : 'View report'}</button>
                         {['queued', 'running'].includes(assessment.status) && <button type='button' onClick={() => onCancel(assessment)} disabled={busy === `assessment:${assessment.id}`} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `assessment:${assessment.id}` ? 'Cancelling…' : 'Cancel'}</button>}
@@ -79,7 +86,11 @@ export function UvmAssessmentHistory({ assessments, unavailable, busy, nextCurso
                     <div className='mt-2 grid gap-2'>
                         {assessment.jobs.map(job => <div key={job.id} className='flex flex-wrap items-center justify-between gap-2 border-t border-ui-border pt-2 text-sm'>
                             <span>Stage {job.stageIndex + 1} · {job.asset} · {job.engine} · {job.profile}</span>
-                            <span className='flex items-center gap-2 text-xs text-ui-muted'>{job.status}{job.attemptCount > 1 ? ` · ${job.attemptCount} attempts` : ''}{job.error ? ` · ${job.error}` : ''}{job.runId && <button type='button' onClick={() => onViewRun(job.runId!, job.engine)} className='rounded border border-ui-border px-2 py-1 font-semibold text-ui-text'>View run</button>}</span>
+                            <span className='flex items-center gap-2 text-xs text-ui-muted'>
+                                {job.status}{job.attemptCount > 1 ? ` · ${job.attemptCount} attempts` : ''}{job.decision?.reason ? ` · ${job.decision.reason}` : job.error ? ` · ${job.error}` : ''}
+                                {job.runId && <button type='button' onClick={() => onViewRun(job.runId!, job.engine)} className='rounded border border-ui-border px-2 py-1 font-semibold text-ui-text'>View run</button>}
+                                {job.decision?.sourceRunId && <button type='button' onClick={() => onViewRun(job.decision!.sourceRunId!, job.decision!.condition.sourceEngine)} className='rounded border border-ui-border px-2 py-1 font-semibold text-ui-text'>View evidence</button>}
+                            </span>
                         </div>)}
                     </div>
                 </details>

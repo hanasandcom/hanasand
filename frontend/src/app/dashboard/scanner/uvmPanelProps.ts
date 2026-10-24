@@ -3,6 +3,7 @@ import type {
     UvmAsset,
     UvmAssessment,
     UvmAssessmentHistoryPage,
+    UvmAssessmentMode,
     UvmAssessmentReport,
     UvmDashboard,
     UvmEngineSelection,
@@ -49,7 +50,7 @@ export type UvmPanelProps = {
     runWafw00fAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     updateFindingAction: (findingId: string, input: UvmFindingUpdate) => Promise<unknown>
     cancelRunAction: (runId: string) => Promise<{ run: UvmRun }>
-    startAssessmentAction: (input: { requestId: string, assetIds: string[], engines: UvmEngineSelection[], authorized: boolean }) => Promise<{ assessment: UvmAssessment }>
+    startAssessmentAction: (input: { requestId: string, assetIds: string[], engines: UvmEngineSelection[], mode: UvmAssessmentMode, authorized: boolean }) => Promise<{ assessment: UvmAssessment }>
     cancelAssessmentAction: (assessmentId: string) => Promise<{ assessment: UvmAssessment }>
     getAssessmentReportAction: (assessmentId: string) => Promise<{ assessment: UvmAssessmentReport }>
 }

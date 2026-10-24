@@ -1,4 +1,6 @@
-import type { NetworkScanProfile, NmapScanProfile, UvmEngineProfile, UvmEngineSelection } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAssessmentMode, UvmEngineProfile, UvmEngineSelection } from '@/utils/monitoring/types'
+
+const automaticEngineOrder: UvmEngineSelection['engine'][] = ['nmap', 'naabu', 'angry-ip-scanner', 'tenable-vm', 'gvm', 'httpx', 'tlsx', 'testssl', 'sslyze', 'wafw00f', 'whatweb', 'katana', 'zap', 'nuclei', 'nikto', 'wapiti']
 
 function isNmapProfile(profile: UvmEngineProfile | undefined): profile is NmapScanProfile {
     return profile !== undefined && ['tcp-top-100', 'tcp-top-1000', 'tcp-top-1000-safe-vuln', 'tcp-all', 'udp-top-100'].includes(profile)
@@ -21,10 +23,16 @@ export function buildUvmScheduleEnginePlan(plan: UvmEngineSelection[], profile: 
                                                     : { engine: choice.engine })
 }
 
-export function buildUvmAssessmentEnginePlan(engines: UvmEngineSelection['engine'][], tenableScanId: string, nmapProfile: NetworkScanProfile): UvmEngineSelection[] {
-    return engines.map(engine => engine === 'tenable-vm'
+export function buildUvmAssessmentEnginePlan(engines: UvmEngineSelection['engine'][], tenableScanId: string, nmapProfile: NetworkScanProfile, mode: UvmAssessmentMode = 'manual'): UvmEngineSelection[] {
+    const selected = [...engines]
+    if (mode === 'automatic') {
+        if (!selected.includes('nmap')) selected.push('nmap')
+        if (!selected.includes('httpx')) selected.push('httpx')
+    }
+    const ordered = mode === 'automatic' ? selected.sort((left, right) => automaticEngineOrder.indexOf(left) - automaticEngineOrder.indexOf(right)) : selected
+    return ordered.map(engine => engine === 'tenable-vm'
         ? { engine, scanId: tenableScanId }
-        : engine === 'nmap' ? { engine, profile: isNmapProfile(nmapProfile) ? nmapProfile : 'tcp-top-1000' }
+        : engine === 'nmap' ? { engine, profile: mode === 'automatic' ? 'tcp-top-1000' : isNmapProfile(nmapProfile) ? nmapProfile : 'tcp-top-1000' }
             : engine === 'naabu' ? { engine, profile: 'naabu-top-100' }
                 : engine === 'angry-ip-scanner' ? { engine, profile: 'angry-ip-reachability-v1' }
                     : engine === 'nikto' ? { engine, profile: 'nikto-safe-web-v1' }

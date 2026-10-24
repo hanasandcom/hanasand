@@ -14,14 +14,14 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
     onOpenFindings: (stepId: string, assetId: string, engine: string) => void
     onOpenRun: (runId: string, engine: string) => void
 }) {
-    const completed = assessment.jobs.filter(job => job.status === 'succeeded').length
+    const completed = assessment.jobs.filter(job => ['succeeded', 'partial', 'failed', 'cancelled', 'skipped'].includes(job.status)).length
     const findingRecords = assessment.jobs.reduce((total, job) => total + (job.run?.findings?.length || 0), 0)
     return <section aria-label='Assessment report' className='rounded-lg border border-ui-border bg-ui-panel p-4'>
         <div className='flex flex-wrap items-start justify-between gap-3'>
             <div>
                 <h2 className='text-lg font-semibold'>Assessment report</h2>
                 <p className='mt-1 text-xs text-ui-muted'>Started {formatDate(assessment.startedAt || assessment.createdAt)}{assessment.finishedAt ? ` · Finished ${formatDate(assessment.finishedAt)}` : ''}</p>
-                <p className='mt-2 text-sm'>{assessment.status} · {completed}/{assessment.jobs.length} stages succeeded · {findingRecords} normalized records</p>
+                <p className='mt-2 text-sm'>{assessment.plan?.mode === 'automatic' ? 'Automatic' : 'Manual'} · {assessment.status} · {completed}/{assessment.jobs.length} stages finished · {findingRecords} normalized records</p>
             </div>
             <button type='button' onClick={onClose} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold'>Close report</button>
         </div>
@@ -31,10 +31,14 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
                     <div><h3 className='font-semibold'>Stage {job.stageIndex + 1} · {job.asset} · {job.engine}</h3><p className='mt-1 text-xs text-ui-muted'>{job.profile}{job.run?.engineVersion ? ` · ${job.run.engineVersion}` : ''}{job.run?.source ? ` · ${job.run.source}` : ''}</p>{job.run && <p className='mt-1 break-all text-xs text-ui-muted'>Target: {job.run.targetOrigin || job.run.target} · Run: {job.run.id}</p>}</div>
                     <span className={`text-xs font-semibold ${outcomeClass[job.status] || 'text-ui-text'}`}>{job.status}{job.attemptCount > 1 ? ` · ${job.attemptCount} attempts` : ''}</span>
                 </div>
+                {job.decision && <div className='mt-2 flex flex-wrap items-center gap-2 text-xs text-ui-muted'>
+                    <span>{job.decision.outcome === 'skipped' ? 'Skipped by automatic rule' : `Triggered by ${job.decision.condition.sourceEngine}`} · {job.decision.reason}</span>
+                    {job.decision.sourceRunId && <button type='button' onClick={() => onOpenRun(job.decision!.sourceRunId!, job.decision!.condition.sourceEngine)} className='rounded border border-ui-border px-2 py-1 font-semibold'>View evidence run</button>}
+                </div>}
                 {job.run && <button type='button' onClick={() => onOpenRun(job.run!.id, job.engine)} className='mt-2 rounded border border-ui-border px-2 py-1 text-xs font-semibold'>View run details</button>}
                 {job.reportError && <p className='mt-2 text-xs text-ui-warning'>{job.reportError}</p>}
-                {(job.error || job.run?.error) && <p className='mt-2 text-xs text-ui-warning'>{job.error || job.run?.error}</p>}
-                {!job.run ? <p className='mt-2 text-xs text-ui-muted'>{job.runId ? 'Run details are unavailable.' : 'No scanner run was created for this stage.'}</p> : <>
+                {(job.error || job.run?.error) && !(job.decision?.outcome === 'skipped' && job.error === job.decision.reason) && <p className='mt-2 text-xs text-ui-warning'>{job.error || job.run?.error}</p>}
+                {!job.run && job.decision?.outcome !== 'skipped' ? <p className='mt-2 text-xs text-ui-muted'>{job.runId ? 'Run details are unavailable.' : 'No scanner run was created for this stage.'}</p> : job.run ? <>
                     {job.engine === 'nmap' && <>
                         <p className='mt-2 text-xs text-ui-muted'>Nmap {job.run.profile === 'tcp-top-1000-safe-vuln' ? 'inventory and NSE script evidence' : job.run.profile === 'udp-top-100' ? 'UDP inventory' : 'TCP service inventory'} · {job.run.hosts?.length || 0} hosts · {job.run.hosts?.reduce((sum, host) => sum + host.ports.filter(port => port.state === 'open').length, 0) ?? 0} open{job.run.profile === 'udp-top-100' ? ` · ${job.run.hosts?.reduce((sum, host) => sum + host.ports.filter(port => port.protocol === 'udp' && port.state === 'open|filtered').length, 0) ?? 0} open|filtered UDP` : ' TCP ports'}</p>
                         <div className='mt-2 grid gap-2'>{job.run.hosts?.map(host => <details key={host.address} className='rounded border border-ui-border px-3 py-2'>
@@ -92,7 +96,7 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
                         {job.run.findings?.map(finding => <RunFinding key={finding.findingId} finding={finding} />)}
                         {!['nmap', 'testssl', 'angry-ip-scanner'].includes(job.engine) && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
                     </div>
-                </>}
+                </> : null}
             </article>)}
         </div>
     </section>

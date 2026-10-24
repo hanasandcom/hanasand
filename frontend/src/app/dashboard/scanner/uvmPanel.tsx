@@ -1,9 +1,9 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRun } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAssessmentMode, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRun } from '@/utils/monitoring/types'
 import type { UvmPanelProps } from './uvmPanelProps'
 import { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
-import { buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
+import { buildUvmAssessmentEnginePlan, buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
 import { UvmAssetsView, UvmFindingsView } from './uvmPanelViews'
 import { UvmHelp } from './uvmPanelHelp'
 import { UvmOverview } from './uvmPanelOverview'
@@ -45,6 +45,7 @@ export default function UvmPanel({
     const [assessmentEngines, setAssessmentEngines] = useState<UvmAssessmentEngineId[]>(
         initialData.engines.some(engine => engine.id === 'nmap' && engine.status === 'available') ? ['nmap'] : [],
     )
+    const [assessmentMode, setAssessmentMode] = useState<UvmAssessmentMode>('automatic')
     const [assessmentScanId, setAssessmentScanId] = useState('')
     const [assessmentNmapProfile, setAssessmentNmapProfile] = useState<NetworkScanProfile>('tcp-top-1000')
     const [assetNmapProfiles, setAssetNmapProfiles] = useState<Record<string, NmapScanProfile>>({})
@@ -99,8 +100,10 @@ export default function UvmPanel({
     })
     const selectableAssessmentEngines = assessmentEngines.filter(engine => {
         const info = data.engines.find(item => item.id === engine)
-        return info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
+        return !servicesPaused && info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
     })
+    const automaticPrerequisitesAvailable = !servicesPaused && ['nmap', 'httpx'].every(id => data.engines.some(engine => engine.id === id && engine.status === 'available'))
+    const plannedEngineCount = buildUvmAssessmentEnginePlan(selectableAssessmentEngines, assessmentScanId, assessmentNmapProfile, assessmentMode).length
     const { scan, scanWithNaabu, scanWithAngryIp, scanWithTenable, scanWithGvm, scanWithZap, scanWithTestssl, scanWithNuclei, scanWithNikto, scanWithSslyze, scanWithWapiti, scanWithWhatweb, scanWithHttpx, scanWithTlsx, scanWithKatana, scanWithWafw00f } = createUvmPanelScanActions({
         servicesPaused,
         authorization, assetNmapProfiles, tenableScanIds, defaultTenableScanId: data.tenableScans[0]?.id, setBusy, setMessage,
@@ -109,7 +112,7 @@ export default function UvmPanel({
     })
     const { cancelAssessment, startAssessment } = createUvmPanelAssessmentActions({
         cancelAssessmentAction, startAssessmentAction, assetIds: assessmentAssetIds, engines: selectableAssessmentEngines,
-        scanId: assessmentScanId, nmapProfile: assessmentNmapProfile,
+        mode: assessmentMode, scanId: assessmentScanId, nmapProfile: assessmentNmapProfile,
         setAssetIds: setAssessmentAssetIds, setBusy, setMessage, refresh,
     })
     useEffect(() => { setData(initialData) }, [initialData])
@@ -172,9 +175,9 @@ export default function UvmPanel({
                 <form onSubmit={event => void startAssessment(event)} className='mt-4 grid gap-4'>
                     <fieldset className='grid gap-2'><legend className='text-sm font-semibold'>Verified assets</legend>{data.assets.filter(asset => asset.verificationStatus === 'verified').map(asset => <label key={asset.id} className='flex items-start gap-2 text-sm'><input type='checkbox' checked={assessmentAssetIds.includes(asset.id)} onChange={event => setAssessmentAssetIds(current => event.target.checked ? [...current, asset.id] : current.filter(id => id !== asset.id))} className='mt-1 accent-ui-primary' /><span>{asset.hostname}<small className='block text-xs text-ui-muted'>{asset.authorizedAddresses.length ? `${asset.authorizedAddresses.length} authorized IP${asset.authorizedAddresses.length === 1 ? '' : 's'}` : 'IP scope resolved at launch'}{asset.authorizedAddresses.length > 0 && <details className='inline-block ml-2'><summary className='cursor-pointer underline underline-offset-2'>View</summary><span className='block max-w-xl break-all pt-1'>{asset.authorizedAddresses.join(', ')}</span></details>}</small></span></label>)}{!data.assets.some(asset => asset.verificationStatus === 'verified') && <p className='text-sm text-ui-muted'>Add and verify an asset first.</p>}</fieldset>
                     <label className='flex items-start gap-2 text-sm'><input type='checkbox' checked={assessmentAssetIds.length > 0 && assessmentAssetIds.every(id => authorization[id] === true)} onChange={event => setAuthorization(current => Object.fromEntries([...new Set([...Object.keys(current), ...assessmentAssetIds])].map(id => [id, assessmentAssetIds.includes(id) ? event.target.checked : current[id] || false])))} className='mt-1 accent-ui-primary' /><span>I’m authorized to scan the selected assets and their public IPs.</span></label>
-                    <UvmAssessmentEngineChoices data={data} selectedEngines={assessmentEngines} setSelectedEngines={setAssessmentEngines} scanId={assessmentScanId} setScanId={setAssessmentScanId} nmapProfile={assessmentNmapProfile} setNmapProfile={setAssessmentNmapProfile} servicesPaused={servicesPaused} onSetup={() => setView('scanners')} />
+                    <UvmAssessmentEngineChoices data={data} selectedEngines={assessmentEngines} setSelectedEngines={setAssessmentEngines} mode={assessmentMode} setMode={setAssessmentMode} scanId={assessmentScanId} setScanId={setAssessmentScanId} nmapProfile={assessmentNmapProfile} setNmapProfile={setAssessmentNmapProfile} servicesPaused={servicesPaused} onSetup={() => setView('scanners')} />
                     {message && <p role='status' className='text-sm text-ui-primary'>{message}</p>}
-                    <button type='submit' disabled={busy === 'assessment' || !assessmentAssetIds.length || !selectableAssessmentEngines.length || !assessmentAssetIds.every(id => authorization[id] === true) || (selectableAssessmentEngines.includes('tenable-vm') && !assessmentScanId)} className='w-fit rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{busy === 'assessment' ? 'Starting…' : `Start assessment · ${assessmentAssetIds.length} assets × ${selectableAssessmentEngines.length} engines`}</button>
+                    <button type='submit' disabled={busy === 'assessment' || !assessmentAssetIds.length || (assessmentMode === 'manual' ? !selectableAssessmentEngines.length : !automaticPrerequisitesAvailable) || !assessmentAssetIds.every(id => authorization[id] === true) || (selectableAssessmentEngines.includes('tenable-vm') && !assessmentScanId)} className='w-fit rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{busy === 'assessment' ? 'Starting…' : assessmentMode === 'automatic' ? `Start automatic assessment · ${assessmentAssetIds.length} assets × ${plannedEngineCount} stages` : `Start assessment · ${assessmentAssetIds.length} assets × ${plannedEngineCount} engines`}</button>
                 </form>
             </section>
             <UvmAssessmentHistory assessments={data.assessments} unavailable={dashboardUnavailable} busy={busy} nextCursor={data.assessmentsNextCursor || null} loadOlder={assessmentHistoryAction}
