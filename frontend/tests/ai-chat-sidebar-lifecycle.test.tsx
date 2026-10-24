@@ -42,6 +42,8 @@ test('chat rows keep pin and archive as the only inline lifecycle controls', () 
     }))
 
     expect(html).toContain('truncate')
+    expect(html).toContain('group-hover:pr-[3.75rem]')
+    expect(html).toContain('absolute right-2 top-1/2')
     expect(html).toContain('Pin A long conversation title that must be truncated')
     expect(html).toContain('Archive A long conversation title that must be truncated')
     expect(html).toContain('press Shift+F10 for chat actions')

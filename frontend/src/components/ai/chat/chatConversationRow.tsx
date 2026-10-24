@@ -144,28 +144,26 @@ export function ChatConversationRow({
             onPointerUp={() => { if (longPressRef.current) clearTimeout(longPressRef.current); longPressRef.current = null }}
             onPointerLeave={() => { if (longPressRef.current) clearTimeout(longPressRef.current); longPressRef.current = null }}
         >
-            <button
-                type='button'
-                aria-current={active ? 'page' : undefined}
-                aria-keyshortcuts='Shift+F10 Meta+Alt+R Control+Alt+R Meta+Alt+P Control+Alt+P Shift+Meta+U Shift+Control+U Shift+Meta+A Shift+Control+A'
-                aria-describedby={tooltip ? `chat-title-tooltip-${conversation.id}` : undefined}
-                aria-label={`${title}. ${repositoryName ? `${repositoryName}. ` : ''}${branch ? `Branch: ${branch}. ` : ''}${organization ? `${organization}. ` : ''}Right-click or press Shift+F10 for chat actions.`}
-                onClick={() => { onSelect(conversation.id); if (isUnread) patchMeta({ sidebarUnreadAt: null }) }}
-                onFocus={(event) => showTooltip(event.currentTarget)}
-                onBlur={() => setTooltip(null)}
-                onKeyDown={(event) => {
-                    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
-                        event.preventDefault()
-                        const rect = event.currentTarget.getBoundingClientRect()
-                        openMenu(rect.left, rect.bottom)
-                    }
-                }}
-                className='min-w-0 flex-1 truncate rounded-md py-1 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ui-primary'
-            >
-                <span className='block truncate'>{title}</span>
-            </button>
-            {isUnread ? <span aria-label='Unread' title='Unread' className='h-2 w-2 shrink-0 rounded-full bg-ui-primary' /> : null}
-            <div className='flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity duration-150 motion-reduce:transition-none [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100'>
+            <div className='flex min-w-0 flex-1 items-center gap-2 transition-[padding] duration-150 group-hover:pr-[3.75rem] group-focus-within:pr-[3.75rem] [@media(hover:none)]:pr-[3.75rem] motion-reduce:transition-none'>
+                <button
+                    type='button'
+                    aria-current={active ? 'page' : undefined}
+                    aria-keyshortcuts='Shift+F10 Meta+Alt+R Control+Alt+R Meta+Alt+P Control+Alt+P Shift+Meta+U Shift+Control+U Shift+Meta+A Shift+Control+A'
+                    aria-describedby={tooltip ? `chat-title-tooltip-${conversation.id}` : undefined}
+                    aria-label={`${title}. ${repositoryName ? `${repositoryName}. ` : ''}${branch ? `Branch: ${branch}. ` : ''}${organization ? `${organization}. ` : ''}Right-click or press Shift+F10 for chat actions.`}
+                    onClick={() => { onSelect(conversation.id); if (isUnread) patchMeta({ sidebarUnreadAt: null }) }}
+                    onFocus={(event) => showTooltip(event.currentTarget)}
+                    onBlur={() => setTooltip(null)}
+                    onKeyDown={(event) => {
+                        if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); openMenu(rect.left, rect.bottom) }
+                    }}
+                    className='min-w-0 flex-1 truncate rounded-md py-1 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ui-primary'
+                >
+                    <span className='block truncate'>{title}</span>
+                </button>
+                {isUnread ? <span aria-label='Unread' title='Unread' className='h-2 w-2 shrink-0 rounded-full bg-ui-primary' /> : null}
+            </div>
+            <div className='absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-100 transition-opacity duration-150 motion-reduce:transition-none [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100'>
                 <MiniButton label={isPinned ? `Unpin ${title}` : `Pin ${title}`} icon={isPinned ? <PinOff /> : <Pin />} onClick={() => patchMeta({ sidebarPinnedAt: isPinned ? null : new Date().toISOString() })} />
                 <MiniButton label={archived ? `Restore ${title}` : `Archive ${title}`} icon={archived ? <ArchiveRestore /> : <Archive />} onClick={() => onArchive(conversation.id, !archived)} />
             </div>
