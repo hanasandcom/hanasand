@@ -170,10 +170,10 @@ export function ChatConversationRow({
                 <MiniButton label={archived ? `Restore ${title}` : `Archive ${title}`} icon={archived ? <ArchiveRestore /> : <Archive />} onClick={() => onArchive(conversation.id, !archived)} />
             </div>
             {tooltip ? <div id={`chat-title-tooltip-${conversation.id}`} className='pointer-events-none fixed z-40 max-h-[min(18rem,calc(100dvh-1rem))] w-[min(24rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-ui-border/90 bg-ui-panel/95 px-4 py-3 text-ui-text shadow-[0_16px_48px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl' style={tooltip} role='tooltip'>
-                <div className='break-words text-base font-semibold leading-snug'>{title}</div>
-                {repositoryName ? <div className='mt-2 break-words text-xs leading-5 text-ui-muted'>⌂ {repositoryName}</div> : null}
+                <div className='wrap-break-word text-base font-semibold leading-snug'>{title}</div>
+                {repositoryName ? <div className='mt-2 wrap-break-word text-xs leading-5 text-ui-muted'>⌂ {repositoryName}</div> : null}
                 {branch ? <div className='mt-1 flex min-w-0 items-start gap-1 text-xs leading-5 text-ui-muted'><GitBranch className='mt-1 h-3 w-3 shrink-0' /><span className='break-all'>{branch}</span></div> : null}
-                {organization ? <div className='mt-1 break-words text-xs leading-5 text-ui-muted'>{organization}</div> : null}
+                {organization ? <div className='mt-1 wrap-break-word text-xs leading-5 text-ui-muted'>{organization}</div> : null}
             </div> : null}
             {menu ? <ChatContextMenu title={title} position={menu} items={menuItems} onClose={closeMenu} /> : null}
         </div>
