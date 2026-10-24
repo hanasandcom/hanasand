@@ -15,7 +15,7 @@ import { UvmAssessmentReportView } from './uvmPanelAssessmentReport'
 import { UvmAssessmentHistory, UvmRunHistory } from './uvmPanelHistory'
 import { createUvmPanelHistoryActions } from './uvmPanelHistoryActions'
 import { createUvmPanelFindingActions } from './uvmPanelFindingActions'
-import { saveUvmAssetCriticality } from './uvmPanelAssetActions'
+import { saveUvmAssetCriticality, saveUvmZapApiDefinition } from './uvmPanelAssetActions'
 import { UvmPanelScannerSetup } from './uvmPanelScannerSetup'
 import { createUvmPanelTenableActions, type TenableRegion } from './uvmPanelTenableActions'
 export { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
@@ -149,15 +149,8 @@ export default function UvmPanel({
         return saveUvmAssetCriticality({ asset, criticality, updateAction: updateAssetCriticalityAction, setBusy, setMessage, setData })
     }
     async function saveZapApiDefinition(asset: UvmAsset) {
-        setBusy(`${asset.id}:zap-api`); setMessage('')
-        try {
-            const path = zapApiDefinitionPaths[asset.id]?.trim() || null
-            const result = await saveZapApiDefinitionAction(asset.id, path)
-            setData(current => ({ ...current, assets: current.assets.map(item => item.id === asset.id ? result.asset : item) }))
-            setZapApiDefinitionPaths(current => ({ ...current, [asset.id]: result.asset.zapApiDefinitionPath || '' }))
-            setMessage(path ? `OpenAPI definition saved for ${asset.hostname}.` : `OpenAPI definition cleared for ${asset.hostname}.`)
-        } catch (error) { setMessage(error instanceof Error ? error.message : 'OpenAPI definition could not be saved.') }
-        finally { setBusy('') }
+        return saveUvmZapApiDefinition({ asset, path: zapApiDefinitionPaths[asset.id]?.trim() || null,
+            updateAction: saveZapApiDefinitionAction, setBusy, setMessage, setData, setPaths: setZapApiDefinitionPaths })
     }
     async function schedule(asset: UvmAsset, enabled: boolean) {
         setBusy(asset.id); setMessage('')
