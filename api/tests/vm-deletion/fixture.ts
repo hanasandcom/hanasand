@@ -22,8 +22,8 @@ export const state = {
 let tail = Promise.resolve()
 const clone = (value: any) => structuredClone(value)
 
-mock.module('../../src/constants.ts', () => ({ default: { vm_host_id: 'ovhcloud', lxd_project: 'hns-stage' } }))
-mock.module('../../src/utils/db.ts', () => ({
+mock.module('#constants', () => ({ default: { vm_host_id: 'ovhcloud', lxd_project: 'hns-stage' } }))
+mock.module('#db', () => ({
     withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => {
         const prior = tail
         let release!: () => void
@@ -47,7 +47,7 @@ mock.module('../../src/utils/db.ts', () => ({
         return { rows: state.vm ? [clone(state.vm)] : [] }
     },
 }))
-mock.module('../../src/utils/vms/lxd.ts', () => ({
+mock.module('#utils/vms/lxd.ts', () => ({
     getLocalLxdInstance: async () => { if (!state.instance) throw new Error('Missing instance'); return clone(state.instance) },
     setLocalLxdInstanceState: async (_name: string, action: string) => {
         state.localActions.push({ name: _name, action })
@@ -86,14 +86,14 @@ mock.module('../../src/utils/vms/lxd.ts', () => ({
         return result
     },
 }))
-mock.module('../../src/utils/vms/access.ts', () => ({ vmViewer: async (req: any, res: any) => {
+mock.module('#utils/vms/access.ts', () => ({ vmViewer: async (req: any, res: any) => {
     if (!req.headers.id) { res.status(401).send({ error: 'Unauthorized' }); return null }
     return { id: req.headers.id, admin: req.headers.id === 'admin' }
 } }))
-mock.module('../../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {} }))
-mock.module('../../src/utils/auth/sessionNetwork.ts', () => ({ sessionNetwork: async () => ({ ip: '203.0.113.4', network: { city: 'Oslo', region: 'Oslo', country: 'Norway' }, private_ip: null }) }))
-mock.module('../../src/utils/mail/system.ts', () => ({ sendSystemMail: async (message: { to: string, subject: string }) => { state.sentEmails.push({ to: message.to, subject: message.subject }) } }))
-mock.module('../../src/utils/vms/deletionMail.ts', () => ({
+mock.module('#utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {} }))
+mock.module('#utils/auth/sessionNetwork.ts', () => ({ sessionNetwork: async () => ({ ip: '203.0.113.4', network: { city: 'Oslo', region: 'Oslo', country: 'Norway' }, private_ip: null }) }))
+mock.module('#utils/mail/system.ts', () => ({ sendSystemMail: async (message: { to: string, subject: string }) => { state.sentEmails.push({ to: message.to, subject: message.subject }) } }))
+mock.module('#utils/vms/deletionMail.ts', () => ({
     vmDeletionNotificationRecipients: async () => [{ email: 'owner@example.test' }, { email: 'admin@example.test' }],
     vmDeletionScheduledMail: ({ vmName }: { vmName: string }) => ({ subject: `VM ${vmName} scheduled`, textBody: '', htmlBody: '' }),
 }))
