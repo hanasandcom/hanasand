@@ -61,7 +61,7 @@ test('VM inventory keeps Start visible and moves secondary actions inline when t
     const inlineConsole = row.locator('a[href="/vms/my-machine/console"]').first()
     const inlineDetails = row.locator('[data-vm-primary-action]').first()
 
-    for (const width of [390, 674, 768, 1024]) {
+    for (const width of [390, 674, 768, 886, 1024]) {
         await page.setViewportSize({ width, height: 900 })
         expect(await page.evaluate(() => window.innerWidth)).toBe(width)
         await expect(more).toBeVisible()
@@ -95,6 +95,13 @@ test('VM inventory keeps Start visible and moves secondary actions inline when t
         const menuBounds = await more.boundingBox()
         expect(menuBounds).not.toBeNull()
         expect(Math.abs(bounds!.y - menuBounds!.y), `Title and menu should share a row at ${width}px`).toBeLessThan(8)
+        const startBounds = await start.boundingBox()
+        const rowBounds = await row.boundingBox()
+        expect(startBounds).not.toBeNull()
+        expect(rowBounds).not.toBeNull()
+        expect(startBounds!.x).toBeGreaterThanOrEqual(rowBounds!.x)
+        expect(startBounds!.x + startBounds!.width).toBeLessThanOrEqual(rowBounds!.x + rowBounds!.width)
+        expect(bounds!.width, `VM name should not collapse at ${width}px`).toBeGreaterThan(80)
     }
 
     const sudoAction = row.locator('details[data-vm-actions] > div').getByRole('button', { name: 'Show sudo password', exact: true })
