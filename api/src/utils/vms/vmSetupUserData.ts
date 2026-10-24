@@ -1,6 +1,6 @@
 import type { VmProvisionOptions } from './provisionOnHost.ts'
 import { validateVmLoginName } from './vmLoginUserData.ts'
-import { normalizeUbuntuAptPackages } from './ubuntuAptPackages.ts'
+import { normalizeAptPackages } from './aptPackages.ts'
 import { normalizeNextjsProjectFiles } from './nextjsProject.ts'
 
 const setupStatePath = '/var/lib/hanasand-vm-setup/status'
@@ -8,9 +8,9 @@ const setupStatePath = '/var/lib/hanasand-vm-setup/status'
 export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     validateVmLoginName(name)
     const services = [...new Set(options.services || [])]
-    const aptPackages = normalizeUbuntuAptPackages(options.aptPackages)
+    const aptPackages = normalizeAptPackages(options.aptPackages)
     if (!aptPackages) {
-        throw new Error('Custom Ubuntu package names must be valid Debian package identifiers, with no more than 12 packages.')
+        throw new Error('Custom package names must be valid Debian package identifiers, with no more than 12 packages.')
     }
     const website = options.websiteHtml ? Buffer.from(options.websiteHtml).toString('base64') : ''
     const memoryGb = Number.parseInt(options.resources?.memory || '2', 10)
@@ -138,10 +138,11 @@ if printf '%s' "$services" | grep -q '"minecraft-java"'; then apt_packages+=(cur
 ${installCustomPackages}
 if printf '%s' "$services" | grep -q '"docker"'; then
   install -d -m 0755 /etc/apt/keyrings
-  fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc
-  chmod a+r /etc/apt/keyrings/docker.asc
   . /etc/os-release
-  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\\n' "$(dpkg --print-architecture)" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
+  case "$ID" in ubuntu|debian) docker_distribution=$ID ;; *) printf 'Docker is not supported on %s.\\n' "$ID" >&2; exit 1 ;; esac
+  fetch_apt_key "https://download.docker.com/linux/$docker_distribution/gpg" /etc/apt/keyrings/docker.asc
+  chmod a+r /etc/apt/keyrings/docker.asc
+  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\\n' "$(dpkg --print-architecture)" "$docker_distribution" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
   apt_packages+=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
 fi
 if (( \${#apt_packages[@]} > 0 )); then
@@ -374,6 +375,8 @@ if printf '%s' "$services" | grep -q '"docker"'; then
   set_stage 'Starting Docker'
   systemctl enable --now docker
   systemctl is-active --quiet docker
+  set_stage 'Checking Docker'
+  wait_for_ready 'Docker daemon' docker info
   docker version --format '{{.Server.Version}}' >/dev/null
   docker compose version >/dev/null
   usermod -aG docker '${name}'
@@ -489,7 +492,7 @@ requested = json.loads(requested_json)
 if not isinstance(requested, list) or len(requested) > 6 or any(item not in projects for item in requested):
     raise SystemExit('Unsupported Minecraft add-on selection.')
 game_version = sys.argv[4]
-if not re.fullmatch(r'\d+(?:\.\d+){1,3}', game_version):
+if not re.fullmatch(r'\\d+(?:\\.\\d+){1,3}', game_version):
     raise SystemExit('The Minecraft server returned an invalid game version.')
 headers = {'User-Agent': 'Hanasand VM Provisioner/1.0', 'Accept': 'application/json'}
 for slug in requested:

@@ -89,6 +89,21 @@ test.serial('LXD applies a valid custom CPU and memory allocation to the instanc
     expect(body.devices.root.size).toBe('40GiB')
 })
 
+test.serial('LXD pulls Debian 13 from the Canonical cloud image catalog', async () => {
+    await provisionLocalLxdInstance('debian-vm', {
+        os: 'debian-13',
+        resources: { cpu: '2', memory: '4GiB', disk: '20GiB' },
+        services: ['nodejs', 'docker'],
+    })
+
+    const body = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as {
+        source: { server: string; protocol: string; alias: string }
+        config: Record<string, string>
+    }
+    expect(body.source).toEqual({ type: 'image', mode: 'pull', server: 'https://images.lxd.canonical.com', protocol: 'simplestreams', alias: 'debian/13/cloud' })
+    expect(body.config['cloud-init.user-data']).toContain('https://download.docker.com/linux/$docker_distribution/gpg')
+})
+
 test.serial('empty AI package lists keep the existing setup hash stable', async () => {
     const options = { os: 'ubuntu-24.04' as const, resources: { cpu: '2' as const, memory: '4GiB' as const, disk: '20GiB' as const }, services: ['nodejs' as const, 'postgresql' as const] }
     const legacyHash = createHash('sha256').update(JSON.stringify({ ...options, services: [...options.services].sort() })).digest('hex')

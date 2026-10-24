@@ -135,7 +135,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                 <button type='button' onClick={suggestSetup} disabled={creating || suggestingSetup || setupPrompt.trim().length < 5} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-medium text-ui-text hover:bg-ui-panel disabled:opacity-50'>{suggestingSetup ? 'Creating…' : 'Generate setup'}</button>
             </div>
             {setupSuggestion && <p role='status' className='text-sm text-ui-muted'>{setupSuggestion}</p>}
-            {customAptPackages.length > 0 && <p className='text-xs text-ui-muted'>Additional Ubuntu packages: {customAptPackages.join(', ')}</p>}
+            {customAptPackages.length > 0 && <p className='text-xs text-ui-muted'>Additional packages: {customAptPackages.join(', ')}</p>}
         </div>
         <div className='grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3'>
             <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>VM name<input ref={nameInput} value={name} onChange={event => setName(event.target.value)} required pattern='[a-z][a-z0-9-]{0,61}[a-z0-9]' minLength={2} maxLength={63} title='2–63 lowercase letters, numbers or hyphens, starting with a letter' disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-ui-text' /></label>

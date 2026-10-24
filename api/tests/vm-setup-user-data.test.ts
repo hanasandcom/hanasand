@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { expect, test } from 'bun:test'
 import { parse } from 'yaml'
 import { vmSetupUserData } from '../src/utils/vms/vmSetupUserData.ts'
-import { normalizeUbuntuAptPackages } from '../src/utils/vms/ubuntuAptPackages.ts'
+import { normalizeAptPackages } from '../src/utils/vms/aptPackages.ts'
 import { supportedSetupServices } from '../src/utils/vms/supportedSetupServices.ts'
 import { vmServices } from '../../frontend/src/utils/vms/createOptions.ts'
 
@@ -13,12 +13,14 @@ test('the server setup generator covers every service advertised in the VM build
     const advertised = vmServices.map(service => service.id).sort()
     expect([...supportedSetupServices].sort()).toEqual(advertised)
 
-    for (const service of advertised) {
-        const cloudInit = vmSetupUserData('catalog-vm', { services: [service] })
-        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
-        const script = config.write_files[0]?.content || ''
-        expect(script).toContain(`"${service}"`)
-        execFileSync('bash', ['-n'], { input: script })
+    for (const os of ['ubuntu-24.04', 'debian-13'] as const) {
+        for (const service of advertised) {
+            const cloudInit = vmSetupUserData('catalog-vm', { os, services: [service] })
+            const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+            const script = config.write_files[0]?.content || ''
+            expect(script).toContain(`"${service}"`)
+            execFileSync('bash', ['-n'], { input: script })
+        }
     }
 })
 
@@ -40,6 +42,8 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('postgresql postgresql-contrib')
     expect(script).toContain('mysql-server')
     expect(script).toContain('docker-ce docker-ce-cli containerd.io')
+    expect(script).toContain("wait_for_ready 'Docker daemon' docker info")
+    expect(script.indexOf("wait_for_ready 'Docker daemon' docker info")).toBeLessThan(script.indexOf("docker version --format"))
     expect(script).toContain('apt_packages+=(rustc cargo)')
     expect(script).toContain('apt_packages+=(ruby ruby-dev)')
     expect(script).toContain('apt_packages+=(build-essential)')
@@ -51,7 +55,9 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('tarfile.open(archive, mode="r:xz")')
     expect(script).toContain('The Node.js archive contains an unsafe path.')
     expect(script).toContain('docker.asc')
-    expect(script).toContain('fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc')
+    expect(script).toContain('case "$ID" in ubuntu|debian) docker_distribution=$ID')
+    expect(script).toContain('fetch_apt_key "https://download.docker.com/linux/$docker_distribution/gpg" /etc/apt/keyrings/docker.asc')
+    expect(script).toContain('https://download.docker.com/linux/%s %s stable')
     expect(script).toContain('urlopen(sys.argv[1], timeout=30)')
     expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
     expect(script).toContain('Dpkg::Progress-Fd=3 install -y --no-install-recommends')
@@ -60,6 +66,22 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('command timeout --signal=TERM --kill-after=10s 190s curl --connect-timeout 15 --max-time 180')
     expect(script).toContain('write_state Running \'Setup complete\'')
     expect(config.runcmd.at(-1)).toEqual(['/usr/local/sbin/hanasand-vm-setup'])
+    execFileSync('bash', ['-n'], { input: script })
+})
+
+test('Debian 13 cloud-init installs Docker from the Debian repository and retains apt-based services', () => {
+    const cloudInit = vmSetupUserData('debian-vm', {
+        os: 'debian-13',
+        services: ['docker', 'nodejs', 'postgresql', 'nginx'],
+    })
+    const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+    const script = config.write_files[0]?.content || ''
+
+    expect(script).toContain('docker_distribution=$ID')
+    expect(script).toContain('https://download.docker.com/linux/%s %s stable')
+    expect(script).toContain('apt_packages+=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)')
+    expect(script).toContain('apt_packages+=(postgresql postgresql-contrib)')
+    expect(script).toContain('systemctl enable --now postgresql')
     execFileSync('bash', ['-n'], { input: script })
 })
 
@@ -316,12 +338,12 @@ test('AI-selected Ubuntu packages are installed as package names, never shell co
 })
 
 test('Ubuntu package normalization rejects invalid, duplicate, and oversized lists', () => {
-    expect(normalizeUbuntuAptPackages(undefined)).toEqual([])
-    expect(normalizeUbuntuAptPackages(['ruby-full', 'ripgrep', 'ripgrep'])).toEqual(['ripgrep', 'ruby-full'])
-    expect(normalizeUbuntuAptPackages('ripgrep')).toBeNull()
-    expect(normalizeUbuntuAptPackages(['Ruby'])).toBeNull()
-    expect(normalizeUbuntuAptPackages(['curl;touch /tmp/pwned'])).toBeNull()
-    expect(normalizeUbuntuAptPackages(Array.from({ length: 13 }, (_, index) => `package-${index}`))).toBeNull()
+    expect(normalizeAptPackages(undefined)).toEqual([])
+    expect(normalizeAptPackages(['ruby-full', 'ripgrep', 'ripgrep'])).toEqual(['ripgrep', 'ruby-full'])
+    expect(normalizeAptPackages('ripgrep')).toBeNull()
+    expect(normalizeAptPackages(['Ruby'])).toBeNull()
+    expect(normalizeAptPackages(['curl;touch /tmp/pwned'])).toBeNull()
+    expect(normalizeAptPackages(Array.from({ length: 13 }, (_, index) => `package-${index}`))).toBeNull()
 })
 
 test('setup failures persist the stage and line for VM status feedback', () => {
@@ -482,5 +504,6 @@ test('Minecraft setup resolves official server builds and starts a dedicated sys
     expect(script).toContain('cdn.modrinth.com')
     expect(script).toContain('hashlib.sha512')
     expect(script).toContain('/opt/minecraft/mods')
+    expect(script).toContain(String.raw`re.fullmatch(r'\d+(?:\.\d+){1,3}', game_version)`)
     execFileSync('bash', ['-n'], { input: script })
 })

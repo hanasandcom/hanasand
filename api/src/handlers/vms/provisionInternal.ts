@@ -4,6 +4,7 @@ import run from '#db'
 import hasInternalToken from '#utils/auth/internalToken.ts'
 import { canUseLocalLxd, provisionLocalLxdInstance } from '#utils/vms/lxd.ts'
 import { clearLocalProvisionState, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
+import { publicVmProvisioningFailureReason } from '#utils/vms/provisioningFailure.ts'
 import { supportedHost } from '#utils/vms/hostTransport.ts'
 import type { VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
 
@@ -44,7 +45,7 @@ export default async function provisionInternalVm(req: FastifyRequest, res: Fast
         void provisionLocalLxdInstance(name, body).then(() => {
             clearLocalProvisionState(name)
         }).catch(error => {
-            setLocalProvisionState(name, { status: 'Error', status_reason: 'VM setup could not start. Try again or contact Support if the problem persists.' })
+            setLocalProvisionState(name, { status: 'Error', status_reason: publicVmProvisioningFailureReason(error) })
             req.log.error({ err: error, vmName: name }, 'Unable to provision VM on its assigned host.')
         })
         return res.status(202).send({ ok: true, name, host: localHost })

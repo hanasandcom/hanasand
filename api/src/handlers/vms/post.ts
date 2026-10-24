@@ -14,10 +14,11 @@ import { clearLocalProvisionState, setLocalProvisionState } from '#utils/vms/loc
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { isSupportedSetupService, supportedSetupServices } from '#utils/vms/supportedSetupServices.ts'
-import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
+import { normalizeAptPackages } from '#utils/vms/aptPackages.ts'
 import { isVmWebsitePlan, renderVmWebsite } from '#utils/vms/website.ts'
 import { normalizeNextjsProjectFiles } from '#utils/vms/nextjsProject.ts'
 import { minecraftAddonLoader, normalizeMinecraftAddons } from '#utils/vms/minecraftAddons.ts'
+import { publicVmProvisioningFailureReason } from '#utils/vms/provisioningFailure.ts'
 
 export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     const body = req.body as {
@@ -246,7 +247,7 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
         void provisionLocalLxdInstance(name, options).then(() => {
             clearLocalProvisionState(name)
         }).catch(error => {
-            setLocalProvisionState(name, { status: 'Error', status_reason: 'VM setup could not start. Try again or contact Support if the problem persists.' })
+            setLocalProvisionState(name, { status: 'Error', status_reason: publicVmProvisioningFailureReason(error) })
             void recordVmProvisioningError(name, error, 'create_or_provision')
         })
         return
@@ -266,11 +267,11 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
 class VmProvisionQueueError extends Error {}
 
 function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, minecraftAddonsInput: unknown, customAptPackages: unknown, website: unknown, projectFilesInput?: unknown): VmProvisionOptions | null {
-    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop'])
+    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop', 'debian-13'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
     if (resources !== undefined && !isSupportedResourceAllocation(resources)) return null
     if (services !== undefined && (!Array.isArray(services) || services.length > supportedSetupServices.length || services.some(service => !isSupportedSetupService(service)))) return null
-    const selectedAptPackages = normalizeUbuntuAptPackages(customAptPackages)
+    const selectedAptPackages = normalizeAptPackages(customAptPackages)
     if (!selectedAptPackages) return null
     const selectedServices = [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)]
     if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null

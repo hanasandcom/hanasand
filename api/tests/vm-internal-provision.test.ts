@@ -8,6 +8,7 @@ let vmRows: Array<{ primary_host: string | null }> = []
 let lxdAvailable = true
 let holdProvisioning = false
 let releaseProvisioning: (() => void) | undefined
+let provisionError: Error | undefined
 let provisionState: { status: string; status_reason: string } | undefined
 const queries: Array<{ sql: string, values?: unknown[] }> = []
 const provisions: Array<{ name: string, options?: unknown }> = []
@@ -24,6 +25,7 @@ mock.module('../src/utils/vms/lxd.ts', () => ({
     canUseLocalLxd: async () => lxdAvailable,
     provisionLocalLxdInstance: async (name: string, options?: unknown) => {
         provisions.push({ name, options })
+        if (provisionError) throw provisionError
         if (holdProvisioning) await new Promise<void>(resolve => { releaseProvisioning = resolve })
     },
 }))
@@ -46,6 +48,7 @@ beforeEach(() => {
     lxdAvailable = true
     holdProvisioning = false
     releaseProvisioning = undefined
+    provisionError = undefined
     provisionState = undefined
     queries.length = 0
     provisions.length = 0
@@ -131,4 +134,18 @@ test('accepts the host job immediately while VM provisioning continues in the ba
     releaseProvisioning?.()
     await new Promise(resolve => setImmediate(resolve))
     expect(provisionState).toBeUndefined()
+})
+
+test('shows a useful disk-capacity error when the host rejects a VM before creating it', async () => {
+    authorized = true
+    provisionError = new Error('Reached maximum aggregate value "40GiB" for "limits.disk" in project "hns-stage"')
+
+    const response = await app.inject({ method: 'POST', url: '/vms/internal/fixture-vm/provision' })
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(response.statusCode).toBe(202)
+    expect(provisionState).toEqual({
+        status: 'Error',
+        status_reason: 'There is not enough disk capacity on the VM host for this plan. Choose a smaller disk or contact Support.',
+    })
 })
