@@ -1,7 +1,7 @@
 import { queryOnce, withTransaction } from '#db'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { statfs } from 'node:fs/promises'
+import { readFile, statfs } from 'node:fs/promises'
 import path from 'node:path'
 import { logsServiceConfiguration, logsOutboxEnabled, logsOutboxRemoteOnly, logsServiceDirect } from '../src/utils/logs/logOutboxConfig.ts'
 import { logMigrationEvent } from '../src/utils/logs/logMigrationEvent.ts'
@@ -11,12 +11,15 @@ const receiptBatchSize = 100
 const analyzeReceiptBatchSize = 2000
 const analyzeReceiptTailChunkBytes = 4 * 1024 ** 3
 const eventTailChunkBytes = 4 * 1024 ** 3
+const tailVacuumEveryBytes = 16 * 1024 ** 3
 const findingScanSize = 10_000
 const apply = process.argv.includes('--apply')
 const maxPayloadBytes = 450_000
 const configuredMigrationFreeSpaceReserveBytes = Number(process.env.LOGS_MIGRATION_MIN_FREE_BYTES)
 const migrationFreeSpaceReserveBytes = Number.isSafeInteger(configuredMigrationFreeSpaceReserveBytes) && configuredMigrationFreeSpaceReserveBytes > 0
     ? configuredMigrationFreeSpaceReserveBytes : 24 * 1024 ** 3
+const migrationCollectorHealthPath = '/var/lib/hanasand-log-collector/health.json'
+const migrationCollectorHealthMaxAgeMs = 120_000
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds))
 type MigrationBatchResult = { moved: number, remaining: boolean, retry: boolean, cursor?: string, tailCursor?: string, rangeComplete?: boolean }
 
@@ -121,6 +124,46 @@ function stableJson(value: unknown): string {
 
 export function migrationPayloadHash(event: ReturnType<typeof logMigrationEvent>) {
     return createHash('sha256').update(stableJson(event)).digest('hex')
+}
+
+export function migrationCollectorReady(health: unknown, now = Date.now(), maxAgeMs = migrationCollectorHealthMaxAgeMs) {
+    if (!health || typeof health !== 'object') return false
+    const snapshot = health as {
+        checkedAt?: unknown
+        collector_health?: Record<string, unknown>
+        source_status?: Record<string, { ok?: unknown; checkedAt?: unknown; lastAcknowledgedAt?: unknown; accepted?: unknown } | undefined>
+    }
+    const checkedAt = typeof snapshot.checkedAt === 'string' ? Date.parse(snapshot.checkedAt) : Number.NaN
+    if (!Number.isFinite(checkedAt) || now - checkedAt < 0 || now - checkedAt > maxAgeMs) return false
+    const collector = snapshot.collector_health
+    if (!collector || ['audit', 'journal', 'docker', 'docker_file_live', 'docker_file_history'].some(key => collector[key] !== true)) return false
+    const status = snapshot.source_status
+    const sourceStatuses = ['journal_live', 'audit_live', 'docker', 'docker_file_live', 'docker_file_history']
+    const isFresh = (value: unknown) => {
+        const timestamp = typeof value === 'string' ? Date.parse(value) : Number.NaN
+        return Number.isFinite(timestamp) && now - timestamp >= 0 && now - timestamp <= maxAgeMs
+    }
+    if (!status || sourceStatuses.some(key => status[key]?.ok !== true || !isFresh(status[key]?.checkedAt))) return false
+    const live = status.delivery_live
+    const lastAcknowledgedAt = typeof live?.lastAcknowledgedAt === 'string' ? Date.parse(live.lastAcknowledgedAt) : Number.NaN
+    return isFresh(live?.checkedAt) && Number.isFinite(lastAcknowledgedAt) && now - lastAcknowledgedAt >= 0 && now - lastAcknowledgedAt <= maxAgeMs
+        && Number.isSafeInteger(live?.accepted) && Number(live?.accepted) > 0
+}
+
+export async function assertMigrationCollectorReady(readHealth = async () => {
+    const contents = await readFile(migrationCollectorHealthPath, 'utf8').catch(() =>
+        execFileSync('sudo', ['-n', 'cat', migrationCollectorHealthPath], { encoding: 'utf8', timeout: 5000 }))
+    return contents
+}) {
+    let health: unknown
+    try {
+        health = JSON.parse(await readHealth())
+    } catch (error) {
+        throw new Error('Logs migration paused: Inspur collector health could not be read; no source rows were moved.', { cause: error })
+    }
+    if (!migrationCollectorReady(health)) {
+        throw new Error('Logs migration paused: Inspur collector sources or its recent live Logs acknowledgement are not healthy; no source rows were moved.')
+    }
 }
 
 export function migrationTailPageRange(relationBytes: number, blockSize: number, upperExclusiveBlock?: number,
@@ -344,7 +387,7 @@ export async function migrateFindingsBeforeEvents(url: string, syncToken: string
 
 export async function migrateReceiptKind(url: string, syncToken: string, kind: 'model_probe' | 'readiness_audit' | 'proxy' | 'analyze',
     vacuumTail: (table: 'log_analyze_receipts') => void = runMigrationTailVacuum,
-    tailChunkBytes = analyzeReceiptTailChunkBytes) {
+    tailChunkBytes = analyzeReceiptTailChunkBytes, vacuumEveryBytes = tailVacuumEveryBytes) {
     const modelProbe = kind === 'model_probe'
     const readinessAudit = kind === 'readiness_audit'
     const analyze = kind === 'analyze'
@@ -356,6 +399,8 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
     let analyzeUpperBlock: number | undefined
     let analyzeBlockSize = 8192
     let analyzeTailRange: { lowerBlock: number; upperBlock: number } | null = null
+    let analyzeAfterCtid: string | undefined
+    let analyzeBytesSinceVacuum = 0
     let analyzeDone = false
     while (true) {
         const source = await withTransaction(async query => {
@@ -374,6 +419,8 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                     const bytes = Number(geometry.rows[0]?.bytes)
                     const blockSize = Number(geometry.rows[0]?.block_size)
                     analyzeBlockSize = blockSize
+                    analyzeBytesSinceVacuum = 0
+                    analyzeAfterCtid = undefined
                     const range = migrationTailPageRange(bytes, blockSize, undefined, tailChunkBytes)
                     if (!range) {
                         analyzeDone = true
@@ -395,9 +442,10 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                     return { rows: [] }
                 }
                 analyzeTailRange = range
-                const selected = await query(`SELECT ${fields} FROM log_analyze_receipts
+                const selected = await query(`SELECT ctid::text AS source_ctid, ${fields} FROM log_analyze_receipts
                     WHERE ctid >= ('(' || $1::text || ',0)')::tid AND ctid < ('(' || $2::text || ',0)')::tid
-                    ORDER BY ctid LIMIT $3`, [range.lowerBlock, range.upperBlock, batchLimit])
+                        AND ($3::tid IS NULL OR ctid > $3::tid)
+                    ORDER BY ctid LIMIT $4`, [range.lowerBlock, range.upperBlock, analyzeAfterCtid || null, batchLimit])
                 return selected
             }
             await query('SET LOCAL statement_timeout = \'20s\'')
@@ -408,13 +456,30 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
             if (analyzeDone) return migrated
             const range = analyzeTailRange
             if (range) {
-                vacuumTail('log_analyze_receipts')
+                const remainingInRange = await withTransaction(async query => {
+                    await query('SET LOCAL statement_timeout = \'5min\'')
+                    return query(`SELECT EXISTS(SELECT 1 FROM log_analyze_receipts
+                        WHERE ctid >= ('(' || $1::text || ',0)')::tid AND ctid < ('(' || $2::text || ',0)')::tid) AS present`,
+                    [range.lowerBlock, range.upperBlock])
+                })
+                if (remainingInRange.rows[0]?.present) {
+                    analyzeAfterCtid = undefined
+                    continue
+                }
+                analyzeBytesSinceVacuum += (range.upperBlock - range.lowerBlock) * analyzeBlockSize
+                const shouldVacuum = analyzeBytesSinceVacuum >= vacuumEveryBytes || range.lowerBlock === 0
+                if (shouldVacuum) {
+                    vacuumTail('log_analyze_receipts')
+                    analyzeBytesSinceVacuum = 0
+                }
                 if (range.lowerBlock === 0) {
                     const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts) AS present'))
                     if (!remaining.rows[0]?.present) return migrated
                     analyzeUpperBlock = undefined
+                    analyzeAfterCtid = undefined
                 } else {
                     analyzeUpperBlock = range.lowerBlock
+                    analyzeAfterCtid = undefined
                 }
                 continue
             }
@@ -425,8 +490,11 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
 
         const batch: Array<Record<string, unknown>> = []
         for (const row of source.rows) {
-            const { original, ...fields } = row
-            const receipt = kind === 'proxy' || analyze ? row : { ...fields, original_base64: Buffer.from(original).toString('base64') }
+            const fields = { ...row }
+            const original = fields.original
+            delete fields.original
+            delete fields.source_ctid
+            const receipt = kind === 'proxy' ? row : analyze ? fields : { ...fields, original_base64: Buffer.from(original).toString('base64') }
             if (Buffer.byteLength(JSON.stringify({ kind, receipts: [...batch, receipt] })) > maxPayloadBytes) break
             batch.push(receipt)
         }
@@ -487,7 +555,8 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
         })
         if (deletion.rows.length !== batch.length) throw new Error(`A ${kind} receipt changed during migration; its delete transaction was rolled back.`)
         migrated += batch.length
-        if (!analyze) cursor = String(batch[batch.length - 1]![keyColumn])
+        if (analyze) analyzeAfterCtid = String(source.rows[batch.length - 1]!.source_ctid)
+        else cursor = String(batch[batch.length - 1]![keyColumn])
     }
 }
 
@@ -1081,11 +1150,13 @@ export async function moveOneBatch(url: string, token: string, cursor = '', tail
 
 export async function migrateEventsByPhysicalTail(url: string, token: string,
     vacuumTail: (table: 'events' | 'log_analyze_receipts') => void = runMigrationTailVacuum,
-    tailChunkBytes = eventTailChunkBytes) {
+    tailChunkBytes = eventTailChunkBytes, vacuumEveryBytes = tailVacuumEveryBytes,
+    checkCollector = assertMigrationCollectorReady) {
     let moved = 0
     let retryDelay = 1000
     let upperBlock: number | undefined
     let blockSize = 8192
+    let bytesSinceVacuum = 0
 
     while (true) {
         if (upperBlock === undefined) {
@@ -1119,6 +1190,7 @@ export async function migrateEventsByPhysicalTail(url: string, token: string,
         while (!rangeComplete) {
             let result: MigrationBatchResult
             try {
+                await checkCollector()
                 result = await moveOneBatch(url, token, '', { ...range, afterCtid })
             } catch (error) {
                 if ((error as { migrationPermanent?: boolean }).migrationPermanent) throw error
@@ -1155,7 +1227,11 @@ export async function migrateEventsByPhysicalTail(url: string, token: string,
         }
 
         if (rangeComplete) {
-            vacuumTail('events')
+            bytesSinceVacuum += (range.upperBlock - range.lowerBlock) * blockSize
+            if (bytesSinceVacuum >= vacuumEveryBytes || range.lowerBlock === 0) {
+                vacuumTail('events')
+                bytesSinceVacuum = 0
+            }
             upperBlock = range.lowerBlock
         }
     }
@@ -1188,6 +1264,7 @@ async function main() {
     }
     const { url, ingestToken, syncToken } = logsServiceConfiguration()
     if (!url || !ingestToken || ingestToken.length < 32 || !syncToken || syncToken.length < 32) throw new Error('Apply requires LOGS_SERVICE_URL and valid Logs ingest and sync tokens.')
+    await assertMigrationCollectorReady()
     if (!await customerLogsReadReady(url)) throw new Error('Apply requires the live Hanasand frontend to report Logs reads routed to the target Logs service and every direct read route to be active.')
     if (!await serviceReady(url)) throw new Error('Logs API or worker is not healthy; no source rows were moved.')
     const receipts = await migrateAnalysisReceipts(url, syncToken)
@@ -1201,6 +1278,7 @@ async function main() {
     console.log(JSON.stringify({ reclaimedReceiptTables, scope: 'migrated Logs receipts and hit counts' }))
 
     const moved = await migrateEventsByPhysicalTail(url, ingestToken)
+    await assertMigrationCollectorReady()
     if (!await serviceReady(url)) throw new Error('Logs API or worker became unhealthy before source cleanup; log state remains in Hanasand.')
     if (!await customerLogsReadReady(url)) throw new Error('The live Hanasand frontend no longer routes Logs reads to this service; source log state remains in Hanasand.')
     const clearedTables = await clearMovedLogState()

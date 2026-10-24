@@ -66,6 +66,12 @@ let sourceSpecializedReceiptsRemain = false
 let sourceLogOutboxRemain = false
 let discoveredLogTables = ['log_analyze_receipts', 'log_dimensions']
 let fetchHandler: typeof fetch
+const compareCtids = (left: string, right: string) => {
+    const leftTid = /^\((\d+),(\d+)\)$/.exec(left)
+    const rightTid = /^\((\d+),(\d+)\)$/.exec(right)
+    if (!leftTid || !rightTid) throw new Error('Invalid test ctid.')
+    return Number(leftTid[1]) - Number(rightTid[1]) || Number(leftTid[2]) - Number(rightTid[2])
+}
 const previousSyncToken = process.env.LOGS_SERVICE_SYNC_TOKEN
 const previousReadinessUrl = process.env.LOGS_FRONTEND_READINESS_URL
 process.env.LOGS_SERVICE_SYNC_TOKEN = 's'.repeat(40)
@@ -87,11 +93,19 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (sql.includes('pg_relation_size(\'public.log_analyze_receipts\')')) {
         return { rows: [{ bytes: sourceAnalyzeRelationBytes, block_size: sourceAnalyzeBlockSize }] }
     }
-    if (sql.includes('FROM log_analyze_receipts') && sql.includes('ctid >=')) {
+    if (sql.startsWith('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts') && sql.includes('ctid >=')) {
+        return { rows: [{ present: sourceAnalyzeReceipts.some(row => {
+            const block = sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0
+            return block >= Number(params[0]) && block < Number(params[1])
+        }) }] }
+    }
+    if (sql.startsWith('SELECT ctid::text AS source_ctid, key') && sql.includes('FROM log_analyze_receipts') && sql.includes('ctid >=')) {
         return { rows: sourceAnalyzeReceipts
             .filter(row => (sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0) >= Number(params[0])
                 && (sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0) < Number(params[1]))
-            .slice(0, Number(params[2])) }
+            .filter(row => !params[2] || compareCtids(String(row.source_ctid || '(0,1)'), String(params[2])) > 0)
+            .slice(0, Number(params[3]))
+            .map((row, index) => ({ ...row, source_ctid: row.source_ctid || `(${sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0},${index + 1})` })) }
     }
     if (sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && sql.includes('FROM events') && sql.includes('ctid >=')) {
         return { rows: physicalEventRowsOverride ?? [] }
@@ -227,7 +241,7 @@ mock.module('#db', () => ({
     },
 }))
 
-const { assertMigrationStorageReserve, clearMigratedLogReceipts, clearMovedLogState, customerLogsReadReady, estimatedPlanRows, migrateAnalysisReceipts, migrateEventsByPhysicalTail, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationPayloadHash, migrationStoragePathsFromDockerInspect, moveOneBatch, resolveMigrationStoragePaths, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
+const { assertMigrationCollectorReady, assertMigrationStorageReserve, clearMigratedLogReceipts, clearMovedLogState, customerLogsReadReady, estimatedPlanRows, migrateAnalysisReceipts, migrateEventsByPhysicalTail, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationCollectorReady, migrationPayloadHash, migrationStoragePathsFromDockerInspect, moveOneBatch, resolveMigrationStoragePaths, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
 const { logMigrationEvent } = await import('../src/utils/logs/logMigrationEvent.ts')
 
 beforeEach(() => {
@@ -300,6 +314,32 @@ test('pauses every migration batch below the filesystem reserve and reports avai
     }, reserve, ['/source', '/target']))
         .resolves.toEqual(['/source', '/target'])
     expect(checkedPaths).toEqual(['/source', '/target'])
+})
+
+test('requires fresh collector sources and a recent live acknowledgement before migration', async () => {
+    const now = Date.now()
+    const health = {
+        checkedAt: new Date(now).toISOString(),
+        collector_health: { audit: true, journal: true, docker: true, docker_file_live: true, docker_file_history: true },
+        source_status: {
+            journal_live: { ok: true, checkedAt: new Date(now).toISOString() },
+            audit_live: { ok: true, checkedAt: new Date(now).toISOString() },
+            docker: { ok: true, checkedAt: new Date(now).toISOString() },
+            docker_file_live: { ok: true, checkedAt: new Date(now).toISOString() },
+            docker_file_history: { ok: true, checkedAt: new Date(now).toISOString() },
+            delivery_live: { ok: false, checkedAt: new Date(now).toISOString(), lastAcknowledgedAt: new Date(now).toISOString(), accepted: 110 },
+        },
+    }
+    expect(migrationCollectorReady(health, now)).toBe(true)
+    expect(migrationCollectorReady({ ...health, checkedAt: new Date(now - 121_000).toISOString() }, now)).toBe(false)
+    expect(migrationCollectorReady({ ...health, source_status: { ...health.source_status,
+        delivery_live: { ...health.source_status.delivery_live, lastAcknowledgedAt: new Date(now - 121_000).toISOString() } } }, now)).toBe(false)
+    expect(migrationCollectorReady({ ...health, source_status: { ...health.source_status,
+        docker: { ...health.source_status.docker, checkedAt: new Date(now - 121_000).toISOString() } } }, now)).toBe(false)
+    expect(migrationCollectorReady({ ...health, source_status: { ...health.source_status,
+        journal_live: { ok: true } } }, now)).toBe(false)
+    await expect(assertMigrationCollectorReady(async () => JSON.stringify({})))
+        .rejects.toThrow('collector sources or its recent live Logs acknowledgement are not healthy')
 })
 
 test('resolves both PostgreSQL data volumes and any separately mounted WAL directory', () => {
@@ -606,8 +646,9 @@ test('transfers exact compressed model, readiness and general analysis receipts 
     const vacuumed: string[] = []
     expect(await migrateAnalysisReceipts('https://logs.hanasand.com', 's'.repeat(40), table => vacuumed.push(table)))
         .toEqual({ modelProbe: 1, readinessAudit: 1, proxy: 0, analyze: 1 })
-    expect(statements.find(statement => statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))?.params)
-        .toEqual([0, 2, 2000])
+    expect(statements.find(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, key')
+        && statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))?.params)
+        .toEqual([0, 2, null, 2000])
     expect(vacuumed).toEqual(['log_analyze_receipts'])
     expect(sent.map(batch => batch.kind)).toEqual(['model_probe', 'readiness_audit', 'analyze'])
     expect(sent[0]?.receipts[0]?.original_base64).toBe(Buffer.from('model proof bytes').toString('base64'))
@@ -636,17 +677,30 @@ test('selects descending bounded physical tail ranges and builds lock-bounded va
         .toBe('VACUUM (TRUNCATE) public.events')
 })
 
+test('orders physical tuple cursors numerically across multi-digit page numbers', () => {
+    expect(compareCtids('(10,1)', '(9,1)')).toBeGreaterThan(0)
+    expect(compareCtids('(10,2)', '(10,1)')).toBeGreaterThan(0)
+})
+
 test('walks empty event heap ranges from the tail down and vacuums each completed range', async () => {
-    sourceEventRelationBytes = 32_768
+    sourceEventRelationBytes = 49_152
     sourceEventBlockSize = 8192
     const vacuumed: string[] = []
 
-    expect(await migrateEventsByPhysicalTail('https://logs.hanasand.com', 'i'.repeat(40), table => vacuumed.push(table), 16_384))
+    expect(await migrateEventsByPhysicalTail('https://logs.hanasand.com', 'i'.repeat(40), table => vacuumed.push(table), 16_384, 32_768, async () => {}))
         .toBe(0)
     expect(statements.filter(statement => statement.sql.includes('pg_relation_size(\'public.events\')'))).toHaveLength(1)
     expect(statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && statement.sql.includes('ctid >='))
-        .map(statement => statement.params)).toEqual([[2, 4, null, 200], [0, 2, null, 200]])
+        .map(statement => statement.params)).toEqual([[4, 6, null, 200], [2, 4, null, 200], [0, 2, null, 200]])
     expect(vacuumed).toEqual(['events', 'events'])
+})
+
+test('stops the physical event sweep if Inspur collector readiness goes stale', async () => {
+    sourceEventRelationBytes = 8192
+    await expect(migrateEventsByPhysicalTail('https://logs.hanasand.com', 'i'.repeat(40), undefined, undefined, undefined,
+        async () => { throw new Error('collector health expired') }))
+        .rejects.toThrow('collector health expired')
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
 })
 
 test('moves receipt batches from the physical tail downward and vacuums only after range acknowledgements', async () => {
@@ -663,10 +717,11 @@ test('moves receipt batches from the physical tail downward and vacuums only aft
     }) as typeof fetch
     const vacuumed: string[] = []
 
-    expect(await migrateReceiptKind('https://logs.hanasand.com', 's'.repeat(40), 'analyze', table => vacuumed.push(table), 16_384)).toBe(2)
+    expect(await migrateReceiptKind('https://logs.hanasand.com', 's'.repeat(40), 'analyze', table => vacuumed.push(table), 16_384, 16_384)).toBe(2)
 
-    expect(statements.filter(statement => statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))
-        .map(statement => statement.params)).toEqual([[2, 4, 2000], [2, 4, 2000], [0, 2, 2000], [0, 2, 2000]])
+    expect(statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, key')
+        && statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))
+        .map(statement => statement.params)).toEqual([[2, 4, null, 2000], [2, 4, '(3,1)', 2000], [0, 2, null, 2000], [0, 2, '(0,1)', 2000]])
     expect(vacuumed).toEqual(['log_analyze_receipts', 'log_analyze_receipts'])
     expect(sourceAnalyzeReceipts).toHaveLength(0)
 })
