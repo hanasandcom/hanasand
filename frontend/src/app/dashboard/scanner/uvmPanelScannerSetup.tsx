@@ -30,8 +30,8 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
         const engine = ['nmap', 'naabu', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(item.integration)
             ? data.engines.find(candidate => candidate.id === item.integration)
             : undefined
-        const status = item.setup === 'desktop-only' ? 'Desktop app'
-            : item.setup === 'cli-review-needed' ? 'CLI review needed'
+        const status = item.setup === 'desktop-only' ? 'Windows app · no API'
+            : item.setup === 'cli-review-needed' ? 'GUI bridge needed'
                 : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
                     : item.setup === 'adapter-needed' ? 'Adapter needed'
                         : servicesPaused ? 'Stopped'
