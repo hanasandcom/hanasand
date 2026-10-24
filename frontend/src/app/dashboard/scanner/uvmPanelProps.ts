@@ -1,6 +1,4 @@
-import type { FormEvent } from 'react'
 import type {
-    NetworkScanProfile,
     NmapScanProfile,
     UvmAsset,
     UvmAssessment,
