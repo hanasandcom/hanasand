@@ -69,6 +69,12 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     async function create(event: React.FormEvent) {
         event.preventDefault()
         setCreationError('')
+        if (!canCreate) {
+            const message = permissionMessage || 'An organization owner or admin must create VMs.'
+            setCreationError(message)
+            notify(message, 'error', 'vm-create')
+            return
+        }
         if (resourceError) {
             setCreationError(resourceError)
             return
@@ -195,6 +201,6 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         </>}
         {!canCreate && permissionMessage && <p role='status' className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm leading-5 text-ui-muted'>{permissionMessage}</p>}
         {unresolvedSetupPrompt && <p role='status' className='text-xs leading-5 text-ui-muted'>Generate a supported setup for this description, or clear it to create a blank VM.</p>}
-        <button disabled={creating || !canCreate || unresolvedSetupPrompt} className='h-10 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{creating ? 'Creating VM…' : 'Create VM'}</button>
+        <button disabled={creating || Boolean(permissionMessage) || unresolvedSetupPrompt} aria-disabled={!canCreate || undefined} className={`h-10 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50 ${!canCreate ? 'cursor-not-allowed opacity-50' : ''}`}>{creating ? 'Creating VM…' : 'Create VM'}</button>
         {creationError && <p role='alert' className='rounded-lg border border-ui-danger/25 bg-ui-danger/5 px-3 py-2.5 text-sm leading-5 text-ui-danger'>{creationError}</p>}
     </form>}

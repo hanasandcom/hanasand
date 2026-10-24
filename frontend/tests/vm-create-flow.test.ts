@@ -124,7 +124,10 @@ test('organization VM creation enforces access without the owner/admin disclaime
     expect(inventory).toContain('!organizationsLoading && !organizationsUnavailable')
     expect(inventory).not.toContain('Only an owner or admin of')
     expect(form).toContain('{!canCreate && permissionMessage && <p role=\'status\'')
-    expect(form).toContain('disabled={creating || !canCreate || unresolvedSetupPrompt}')
+    expect(form).toContain('if (!canCreate)')
+    expect(form).toContain('notify(message, \'error\', \'vm-create\')')
+    expect(form).toContain('aria-disabled={!canCreate || undefined}')
+    expect(form).toContain('disabled={creating || Boolean(permissionMessage) || unresolvedSetupPrompt}')
 })
 
 test('VM creation preserves workspace conflict details from the API', async () => {
