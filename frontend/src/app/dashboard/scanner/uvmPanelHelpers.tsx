@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import type { NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmFinding, UvmFindingGroup, UvmRun, UvmTestsslObservation } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmRun, UvmTestsslObservation } from '@/utils/monitoring/types'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { TestsslObservationList } from './uvmTestsslObservations'
-
-export type UvmFindingFilters = { query: string, engine: string, severity: string, status: string, asset: string }
-export type UvmFindingSort = 'severity' | 'criticality'
+import type { UvmFindingFilters } from './uvmPanelFindingOrdering'
+export { type UvmFindingFilters, type UvmFindingSort } from './uvmPanelFindingOrdering'
 
 export function buildAssessmentFindingFilters(assetId: string, engine: string): UvmFindingFilters {
     return { query: '', engine, severity: 'all', status: 'all', asset: assetId }
@@ -14,60 +13,7 @@ export function isNmapScanProfile(value: unknown): value is NmapScanProfile {
     return value === 'tcp-top-100' || value === 'tcp-top-1000' || value === 'tcp-top-1000-safe-vuln' || value === 'tcp-all' || value === 'udp-top-100'
 }
 
-export function filterAndSortUvmFindings(findings: UvmFinding[], filters: UvmFindingFilters, assets: UvmAsset[] = [], sort: UvmFindingSort = 'severity') {
-    const query = filters.query.trim().toLowerCase()
-    const filtered = findings.filter(finding => {
-        if (query && ![
-            finding.title, finding.asset, finding.address || '', finding.externalId, finding.engine,
-            finding.description || '', ...finding.cveIds,
-        ].join(' ').toLowerCase().includes(query)) return false
-        if (filters.engine !== 'all' && finding.engine !== filters.engine) return false
-        if (filters.severity !== 'all' && finding.severity !== filters.severity) return false
-        if (filters.status === 'needs_attention' && !['needs_review', 'open', 'in_progress', 'pending_verification'].includes(finding.status)) return false
-        if (filters.status === 'actionable' && !['open', 'in_progress', 'pending_verification'].includes(finding.status)) return false
-        if (!['all', 'actionable', 'needs_attention'].includes(filters.status) && finding.status !== filters.status) return false
-        const assetKey = finding.assetId || finding.asset
-        return filters.asset === 'all' || assetKey === filters.asset
-    })
-    const severityRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4, unknown: 5 }
-    const criticalityRank: Record<UvmAssetCriticality, number> = { critical: 0, high: 1, medium: 2, low: 3, unset: 4 }
-    const assetCriticality = new Map(assets.map(asset => [asset.id, asset.criticality]))
-    const statusRank: Record<UvmFinding['status'], number> = { needs_review: 0, open: 1, in_progress: 2, pending_verification: 3, accepted_risk: 4, false_positive: 5, resolved: 6 }
-    return filtered.sort((left, right) => {
-        if (sort === 'criticality') {
-            const leftCriticality = left.assetId ? assetCriticality.get(left.assetId) || 'unset' : 'unset'
-            const rightCriticality = right.assetId ? assetCriticality.get(right.assetId) || 'unset' : 'unset'
-            const criticalityDifference = criticalityRank[leftCriticality] - criticalityRank[rightCriticality]
-            if (criticalityDifference) return criticalityDifference
-        }
-        const severityDifference = (severityRank[left.severity] ?? 5) - (severityRank[right.severity] ?? 5)
-        if (severityDifference) return severityDifference
-        const statusDifference = statusRank[left.status] - statusRank[right.status]
-        if (statusDifference) return statusDifference
-        const leftAge = Date.parse(left.firstSeen || left.lastSeen || left.updatedAt) || Number.MAX_SAFE_INTEGER
-        const rightAge = Date.parse(right.firstSeen || right.lastSeen || right.updatedAt) || Number.MAX_SAFE_INTEGER
-        return leftAge - rightAge || left.title.localeCompare(right.title)
-    })
-}
-
-export function filterAndSortUvmFindingGroups(groups: UvmFindingGroup[], filters: UvmFindingFilters, assets: UvmAsset[] = [], sort: UvmFindingSort = 'severity') {
-    const matchingGroups = groups.filter(group => filterAndSortUvmFindings(group.members, filters, assets, sort).length > 0)
-    const severityRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4, unknown: 5 }
-    const statusRank: Record<UvmFindingGroup['status'], number> = { actionable: 0, needs_review: 1, mixed: 2, accepted_risk: 3, false_positive: 4, resolved: 5 }
-    const criticalityRank: Record<UvmAssetCriticality, number> = { critical: 0, high: 1, medium: 2, low: 3, unset: 4 }
-    const assetCriticality = new Map(assets.map(asset => [asset.id, asset.criticality]))
-    return matchingGroups.sort((left, right) => {
-        if (sort === 'criticality') {
-            const leftCriticality = left.assetId ? assetCriticality.get(left.assetId) || 'unset' : 'unset'
-            const rightCriticality = right.assetId ? assetCriticality.get(right.assetId) || 'unset' : 'unset'
-            const criticalityDifference = criticalityRank[leftCriticality] - criticalityRank[rightCriticality]
-            if (criticalityDifference) return criticalityDifference
-        }
-        const severityDifference = (severityRank[left.severity] ?? 5) - (severityRank[right.severity] ?? 5)
-        if (severityDifference) return severityDifference
-        return statusRank[left.status] - statusRank[right.status] || left.asset.localeCompare(right.asset) || left.id.localeCompare(right.id)
-    })
-}
+export { filterAndSortUvmFindings, filterAndSortUvmFindingGroups } from './uvmPanelFindingOrdering'
 
 export function formatDate(value?: string | null) { return formatUtcDateTime(value, 'pending') }
 

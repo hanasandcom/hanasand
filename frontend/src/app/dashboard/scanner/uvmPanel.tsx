@@ -52,7 +52,7 @@ export default function UvmPanel({
     const [zapApiDefinitionPaths, setZapApiDefinitionPaths] = useState<Record<string, string>>({})
     const [findingUpdates, setFindingUpdates] = useState<Record<string, UvmFindingUpdate>>({})
     const [findingFilters, setFindingFilters] = useState<UvmFindingFilters>({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })
-    const [findingSort, setFindingSort] = useState<'severity' | 'criticality'>('severity')
+    const [findingSort, setFindingSort] = useState<'severity' | 'criticality' | 'due-date'>('severity')
     const [findingScope, setFindingScope] = useState<UvmFindingHistoryScope | null>(null)
     const [findingSyncState, setFindingSyncState] = useState<UvmFindingHistoryPage['syncState']>()
     const [busy, setBusy] = useState('')
