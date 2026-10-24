@@ -19,6 +19,10 @@ type FindingsViewProps = {
     onUpdate: (finding: UvmFinding) => void
     nextCursor: string | null
     loadOlder: (cursor: string | null) => Promise<UvmFindingHistoryPage>
+    syncState?: UvmFindingHistoryPage['syncState']
+    scoped: boolean
+    onShowAll: () => void
+    onRetryScoped: () => void
 }
 
 export function UvmFindingsView(props: FindingsViewProps) {
@@ -30,8 +34,17 @@ export function UvmFindingsView(props: FindingsViewProps) {
     return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
             <h2 className='text-lg font-semibold'>Findings</h2>
-            <div className='flex items-center gap-2'><UvmHelp label='Finding coverage' text='Findings retain their source, asset and evidence. An empty list does not mean an asset is clear if a scan is missing or partial.' /><span className='rounded-full bg-ui-warning/15 px-2 py-1 text-xs font-semibold text-ui-warning'>{attentionCount} open</span></div>
+            <div className='flex items-center gap-2'><UvmHelp label='Finding coverage' text='Findings retain their source, asset and evidence. An empty list does not mean an asset is clear if a scan is missing or partial.' /><span className='rounded-full bg-ui-warning/15 px-2 py-1 text-xs font-semibold text-ui-warning'>{attentionCount} open{props.scoped ? ' loaded' : ''}</span></div>
         </div>
+        {props.scoped && <div role='status' className='mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-ui-border bg-ui-raised p-3 text-sm'>
+            <p className='text-ui-muted'>{props.syncState === 'pending' ? 'Scanner is indexing this assessment’s findings. Check again shortly.'
+                : props.syncState === 'not_indexed' ? 'This engine’s report is available, but its output is not connected to cross-run triage yet.'
+                    : props.syncState === 'incomplete' ? 'This stage has a scanner run, but it did not complete. Review its report output; incomplete results are not added to triage.'
+                        : props.syncState === 'no_run' ? 'This assessment stage has no scanner run.'
+                            : 'Showing findings recorded by this assessment stage, with their current triage status.'}</p>
+            <div className='flex gap-2'><button type='button' onClick={props.onShowAll} disabled={Boolean(busy)} className='rounded border border-ui-border px-2 py-1 text-xs font-semibold disabled:opacity-50'>All findings</button>
+                {props.syncState === 'pending' && <button type='button' onClick={props.onRetryScoped} disabled={Boolean(busy)} className='rounded border border-ui-border px-2 py-1 text-xs font-semibold disabled:opacity-50'>Check again</button>}</div>
+        </div>}
         <div className='mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
             <label className='grid gap-1 text-xs text-ui-muted sm:col-span-2 xl:col-span-1'>Search findings<input aria-label='Search findings' value={filters.query} onChange={event => setFilters(current => ({ ...current, query: event.target.value }))} placeholder='Title, asset, CVE…' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text' /></label>
             <label className='grid gap-1 text-xs text-ui-muted'>Scanner<select aria-label='Filter by scanner' value={filters.engine} onChange={event => setFilters(current => ({ ...current, engine: event.target.value }))} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='all'>All scanners</option>{data.engines.map(engine => <option key={engine.id} value={engine.id}>{engine.name}</option>)}</select></label>
@@ -42,7 +55,7 @@ export function UvmFindingsView(props: FindingsViewProps) {
         <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ui-muted'><p aria-live='polite'>{data.scannerError ? 'Finding counts unavailable' : `${visibleFindings.length} shown · ${data.findings.length} loaded`}</p><p>Sorted by severity, status, then age.</p></div>
         <div className='mt-3 grid gap-3'>
             {visibleFindings.map(finding => <FindingCard key={finding.id} finding={finding} busy={busy} update={findingUpdates[finding.id] || { status: finding.status, note: finding.triageNote || '' }} setFindingUpdates={setFindingUpdates} onUpdate={() => props.onUpdate(finding)} />)}
-            {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : 'No findings imported. Check authorization, engine status and scan coverage before treating this as clear.'}</p>}
+            {!data.findings.length && <p className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{data.scannerError ? 'Unavailable — Scanner data could not be loaded.' : props.scoped ? props.syncState === 'complete' ? 'No normalized findings were recorded for this assessment stage. Review the report and coverage before treating it as clear.' : props.syncState === 'not_indexed' ? 'This engine’s report is available above, but canonical findings are not yet available in triage.' : props.syncState === 'incomplete' ? 'This stage has a scanner run, but it did not complete. Its output remains in the assessment report.' : props.syncState === 'no_run' ? 'This assessment stage did not produce a scanner run.' : 'Findings for this stage have not been indexed yet.' : 'No findings imported. Check authorization, engine status and scan coverage before treating this as clear.'}</p>}
             {data.findings.length > 0 && !visibleFindings.length && <div className='rounded-md border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'><p>No findings match these filters.</p><button type='button' onClick={() => setFilters({ query: '', engine: 'all', severity: 'all', status: 'actionable', asset: 'all' })} className='mt-2 rounded-md border border-ui-border px-3 py-2 text-xs font-semibold text-ui-text'>Clear filters</button></div>}
         </div>
         {loadError && <p role='status' className='mt-3 text-sm text-ui-warning'>{loadError}</p>}
@@ -62,6 +75,7 @@ function FindingCard({ finding, busy, update, setFindingUpdates, onUpdate }: {
     setFindingUpdates: FindingsViewProps['setFindingUpdates']
     onUpdate: () => void
 }) {
+    const evidence = finding.observedInRun?.evidence || finding.evidence
     return <article className='rounded-md border border-ui-border bg-ui-raised p-3'>
         <div className='flex flex-wrap items-start justify-between gap-2'>
             <div>
@@ -72,7 +86,7 @@ function FindingCard({ finding, busy, update, setFindingUpdates, onUpdate }: {
         </div>
         {finding.description && <details className='mt-2 text-sm'><summary className='cursor-pointer text-ui-muted'>Description</summary><p className='mt-1'>{finding.description}</p></details>}
         {finding.solution && <details className='mt-2 text-sm'><summary className='cursor-pointer text-ui-muted'>Suggested fix</summary><p className='mt-1'>{finding.solution}</p></details>}
-        {finding.evidence && <details className='mt-2 text-xs'><summary className='cursor-pointer text-ui-muted'>Scanner evidence</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{finding.evidence}</pre></details>}
+        {evidence && <details className='mt-2 text-xs'><summary className='cursor-pointer text-ui-muted'>Scanner evidence{finding.observedInRun ? ` · observed ${formatDate(finding.observedInRun.observedAt)}` : ''}</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}
         {finding.status !== 'resolved' && <div className='mt-3 flex flex-wrap items-end gap-2'>
             <label className='grid gap-1 text-[11px] text-ui-muted'>Status<select value={update.status} onChange={event => setFindingUpdates(current => ({ ...current, [finding.id]: { ...update, status: event.target.value as UvmFinding['status'] } }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'><option value='open'>Open</option><option value='in_progress'>In progress</option><option value='pending_verification'>Pending verification</option><option value='accepted_risk'>Accepted risk</option><option value='false_positive'>False positive</option></select></label>
             <label className='grid min-w-52 flex-1 gap-1 text-[11px] text-ui-muted'>Triage note<input value={update.note} onChange={event => setFindingUpdates(current => ({ ...current, [finding.id]: { ...update, note: event.target.value } }))} maxLength={2000} placeholder='Reason or remediation context' className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text' /></label>

@@ -8,7 +8,7 @@ import ScannerPauseNotice, { SCANNER_SERVICES_PAUSED } from './scannerPauseNotic
 import { createScannerClient, emptyUvmDashboard } from './scannerClient'
 
 const initialScannerDashboard = SCANNER_SERVICES_PAUSED
-    ? { ...emptyUvmDashboard, scannerError: 'Scanner services are stopped pending disk expansion.' }
+    ? { ...emptyUvmDashboard, execution: { enabled: false, state: 'paused' as const, reason: 'pending_disk_expansion' }, scannerError: 'Scanner services are stopped pending disk expansion.' }
     : emptyUvmDashboard
 
 export default function ScannerWorkspace() {
@@ -18,6 +18,7 @@ export default function ScannerWorkspace() {
     organizationRef.current = organizationId
     const [dataState, setDataState] = useState<{ organizationId: string | null, data: UvmDashboard }>({ organizationId, data: initialScannerDashboard })
     const data = dataState.organizationId === organizationId ? dataState.data : initialScannerDashboard
+    const servicesPaused = SCANNER_SERVICES_PAUSED || Boolean(data.scannerError) || data.execution?.enabled !== true
     const setData = useCallback((next: UvmDashboard | ((current: UvmDashboard) => UvmDashboard)) => {
         const owner = organizationId
         if (organizationRef.current !== owner) return
@@ -28,7 +29,7 @@ export default function ScannerWorkspace() {
     }, [organizationId])
     const refresh = useCallback(async () => {
         if (SCANNER_SERVICES_PAUSED) {
-            const paused = { ...emptyUvmDashboard, scannerError: 'Scanner services are stopped pending disk expansion.' }
+            const paused = { ...emptyUvmDashboard, execution: { enabled: false, state: 'paused' as const, reason: 'pending_disk_expansion' }, scannerError: 'Scanner services are stopped pending disk expansion.' }
             setData(paused)
             return paused
         }
@@ -55,11 +56,11 @@ export default function ScannerWorkspace() {
     }, [refresh])
 
     return <div className='grid gap-4'>
-        <ScannerPauseNotice />
+        <ScannerPauseNotice paused={servicesPaused} reason={data.execution?.reason ?? null} />
         <UvmPanel
             key={organizationId || 'personal-workspace'}
             initialData={data}
-            servicesPaused={SCANNER_SERVICES_PAUSED}
+            servicesPaused={servicesPaused}
             refreshAction={refresh}
             getRunAction={client.getRun}
             getRunHistoryAction={client.getRunHistory}
