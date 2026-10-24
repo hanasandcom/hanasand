@@ -64,6 +64,16 @@ test('VM setup suggestions return only allowlisted services', async () => {
     expect(unsafePackage.statusCode).toBe(503)
 })
 
+test('VM setup suggestions parse a fenced plan after prose containing brace placeholders', async () => {
+    const plan = JSON.stringify({ summary: 'A Node site with a database', services: ['nodejs', 'postgresql'], packages: [], website: null, minecraftServerType: null })
+    completion = `Use the \`{summary}\` field from this plan:\n\`\`\`json\n${plan}\n\`\`\``
+
+    const result = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A Node website with PostgreSQL' } })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.json()).toMatchObject({ summary: 'A Node site with a database', services: ['nodejs', 'postgresql'], packages: [] })
+})
+
 test('unsupported game requests cannot be remapped to Minecraft Java', async () => {
     const callsBefore = completionRequests
     const bedrock = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Set up a Minecraft Bedrock server' } })

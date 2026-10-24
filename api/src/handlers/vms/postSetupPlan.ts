@@ -49,6 +49,42 @@ function requestedMinecraftServerType(prompt: string) {
     return matches.length === 1 ? matches[0][0] : null
 }
 
+function parseSetupPlan(content: string) {
+    if (content.length > 140_000) throw new Error('Generated setup plan is too large.')
+
+    for (let start = content.indexOf('{'); start !== -1; start = content.indexOf('{', start + 1)) {
+        let depth = 0
+        let inString = false
+        let escaped = false
+        for (let end = start; end < content.length; end += 1) {
+            const character = content[end]
+            if (inString) {
+                if (escaped) escaped = false
+                else if (character === '\\') escaped = true
+                else if (character === '"') inString = false
+                continue
+            }
+            if (character === '"') inString = true
+            else if (character === '{') depth += 1
+            else if (character === '}') {
+                depth -= 1
+                if (depth === 0) {
+                    try {
+                        const candidate: unknown = JSON.parse(content.slice(start, end + 1))
+                        if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)
+                            && 'summary' in candidate && 'services' in candidate) return candidate
+                    } catch {
+                        // The model may include braces in prose; keep looking for its plan object.
+                    }
+                    break
+                }
+            }
+        }
+    }
+
+    throw new Error('Invalid plan format.')
+}
+
 export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyReply) {
     const auth = await tokenWrapper(req, res)
     if (!auth.valid || !auth.id) return res.status(401).send({ error: 'Unauthorized.' })
@@ -76,11 +112,7 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
             },
             { role: 'user', content: prompt.trim() },
         ], 20_000)
-        const start = content.indexOf('{')
-        const end = content.lastIndexOf('}')
-        if (start < 0 || end <= start) throw new Error('Invalid plan format.')
-        if (content.length > 140_000) throw new Error('Generated setup plan is too large.')
-        const plan = JSON.parse(content.slice(start, end + 1)) as { summary?: unknown, unsupportedReason?: unknown, services?: unknown, packages?: unknown, website?: unknown, minecraftServerType?: unknown, projectFiles?: unknown }
+        const plan = parseSetupPlan(content) as { summary?: unknown, unsupportedReason?: unknown, services?: unknown, packages?: unknown, website?: unknown, minecraftServerType?: unknown, projectFiles?: unknown }
         const packages = normalizeUbuntuAptPackages(plan.packages)
         const projectFiles = plan.projectFiles === undefined || plan.projectFiles === null
             ? null
