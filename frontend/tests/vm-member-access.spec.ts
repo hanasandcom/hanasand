@@ -61,12 +61,12 @@ test('VM inventory keeps Start visible and moves secondary actions inline when t
     const inlineConsole = row.locator('a[href="/vms/my-machine/console"]').first()
     const inlineDetails = row.locator('[data-vm-primary-action]').first()
 
-    for (const width of [390, 768, 1024]) {
+    for (const width of [390, 674, 768, 1024]) {
         await page.setViewportSize({ width, height: 900 })
         expect(await page.evaluate(() => window.innerWidth)).toBe(width)
         await expect(more).toBeVisible()
         await expect(start).toBeVisible()
-        const secondaryActionsVisible = width >= 768
+        const secondaryActionsVisible = width >= 640
         if (secondaryActionsVisible) {
             await expect(inlineConsole).toBeVisible()
             await expect(inlineDetails).toBeVisible()
