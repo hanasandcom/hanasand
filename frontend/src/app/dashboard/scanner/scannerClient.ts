@@ -7,7 +7,7 @@ const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.
 
 export const emptyUvmDashboard: UvmDashboard = {
     assets: [], coverage: [], engines: [], runs: [], assessments: [], findings: [], tenableScans: [],
-    scannerError: 'Scanner service is loading.', tenableIntegration: null,
+    scannerError: 'Scanner service is loading.', execution: { enabled: false, state: 'paused', reason: null }, tenableIntegration: null,
 }
 
 export function createScannerClient(organizationId: string) {
