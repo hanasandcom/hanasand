@@ -20,6 +20,11 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
     onSetup: () => void
 }) {
     const productCatalog = getScannerSuiteCatalog(data.scannerCatalog)
+    const assessmentEngineIds: UvmAssessmentEngineId[] = ['nmap', 'naabu', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f']
+    const assessmentEngines = assessmentEngineIds.flatMap(id => {
+        const product = productCatalog.find(item => item.integration === id)
+        return product ? [{ id, product }] : []
+    })
     const selectedReadyEngines = selectedEngines.filter(id => {
         const engine = data.engines.find(item => item.id === id)
         return !servicesPaused && engine?.status === 'available' && (id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
@@ -53,16 +58,13 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
         })
     }
     return <fieldset className='grid gap-2'>
-        <legend className='text-sm font-semibold'>Scanner products · {productCatalog.length}</legend>
+        <legend className='text-sm font-semibold'>Assessment engines · {assessmentEngines.length}</legend>
         <div className='flex justify-end'><UvmHelp label='Assessment engines' text='Nmap and Naabu discover network services. Nessus and Greenbone check vulnerabilities. ZAP, testssl.sh, Nuclei and Nikto check web and TLS exposure.' /></div>
-        <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{productCatalog.map(item => {
-            const engineId: UvmAssessmentEngineId | null = item.integration === 'nmap' || item.integration === 'naabu' || item.integration === 'gvm' || item.integration === 'tenable-vm' || item.integration === 'zap' || item.integration === 'testssl' || item.integration === 'nuclei' || item.integration === 'nikto' || item.integration === 'sslyze' || item.integration === 'wapiti' || item.integration === 'whatweb' || item.integration === 'httpx' || item.integration === 'tlsx' || item.integration === 'katana' || item.integration === 'wafw00f'
-                ? item.integration
-                : null
-            const engine = engineId ? data.engines.find(candidate => candidate.id === engineId) : undefined
+        <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{assessmentEngines.map(({ id: engineId, product: item }) => {
+            const engine = data.engines.find(candidate => candidate.id === engineId)
             const tenableReady = engineId !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled))
-            const ready = Boolean(engineId && !servicesPaused && engine?.status === 'available' && tenableReady)
-            const selected = Boolean(ready && engineId && selectedEngines.includes(engineId))
+            const ready = Boolean(!servicesPaused && engine?.status === 'available' && tenableReady)
+            const selected = ready && selectedEngines.includes(engineId)
             const reason = item.setup === 'desktop-only' ? 'Desktop app'
                 : item.setup === 'cli-review-needed' ? 'GUI bridge needed'
                     : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
@@ -72,8 +74,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
                                     : engine?.status === 'available' && !tenableReady ? 'Connect Tenable and enable a scan configuration'
                                         : engine?.status || 'Unavailable'
             return <label key={item.id || item.name} className={`grid gap-1 rounded-md border border-ui-border p-3 text-sm ${ready ? 'cursor-pointer' : 'opacity-75'}`}>
-                <span className='flex items-start gap-2'><input type='checkbox' checked={selected} disabled={!ready || !engineId} onChange={event => {
-                    if (!engineId) return
+                <span className='flex items-start gap-2'><input type='checkbox' checked={selected} disabled={!ready} onChange={event => {
                     setSelectedEngines(current => event.target.checked ? [...current, engineId] : current.filter(id => id !== engineId))
                 }} className='mt-1 accent-ui-primary' /><span className='font-semibold'>{item.name}<small className='ml-2 font-normal text-ui-muted'>{item.category}</small><small className={`block font-normal ${ready ? 'text-ui-success' : 'text-ui-warning'}`}>{ready ? 'Ready' : reason}</small></span></span>
                 {ready && engineId === 'nmap' && selected && <span className='ml-6 flex flex-wrap items-center gap-2 text-xs text-ui-muted'><label className='grid gap-1'>Port coverage<select aria-label='Nmap port coverage' value={nmapProfile} onChange={event => setNmapProfile(event.target.value as NmapProfile)} className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text'><option value='tcp-top-1000'>Standard · top 1,000 TCP ports</option><option value='tcp-top-100'>Quick · top 100 TCP ports</option><option value='tcp-top-1000-safe-vuln'>NSE checks · top 1,000 TCP ports</option><option value='tcp-all'>Thorough · all 65,535 TCP ports</option><option value='udp-top-100'>UDP · top 100 ports</option></select></label>{nmapProfile === 'tcp-all' && <small className='text-ui-warning'>Full sweep · up to 20 min/address, 100 min/run.</small>}{nmapProfile === 'udp-top-100' && <small className='text-ui-warning'>UDP results may be open or open|filtered.</small>}{nmapProfile === 'tcp-top-1000-safe-vuln' && <UvmHelp label='Nmap NSE checks' text='Runs scripts tagged both safe and vuln. Nmap cannot guarantee no adverse effects. Results are heuristic evidence and do not confirm exploitability.' />}</span>}
