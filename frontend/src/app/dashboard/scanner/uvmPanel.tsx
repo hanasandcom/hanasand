@@ -68,8 +68,11 @@ export default function UvmPanel({
     const refresh = useCallback(async () => {
         const refreshed = await refreshAction()
         if (!findingScope) {
-            setData(refreshed)
-            return refreshed
+            const findings = new Map(data.findings.map(finding => [finding.id, finding]))
+            for (const finding of refreshed.findings) findings.set(finding.id, finding)
+            const global = { ...refreshed, findings: [...findings.values()], findingsNextCursor: data.findingsNextCursor }
+            setData(global)
+            return global
         }
         const page = await findingHistoryAction(null, findingScope)
         const scopedFindings = new Map(page.findings.map(finding => [finding.id, finding]))
