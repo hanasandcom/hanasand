@@ -88,6 +88,15 @@ function FindingCard({ finding, criticality, busy, update, setFindingUpdates, on
             </div>
             <span className='text-xs font-semibold'>{finding.status.replaceAll('_', ' ')}</span>
         </div>
+        {finding.relatedSignals?.length ? <details className='mt-2 text-xs'>
+            <summary className='cursor-pointer text-ui-muted'>Possible matches from other engines (showing up to 5)</summary>
+            <p className='mt-1 text-ui-muted'>Same asset and CVE; review before treating these as one issue.</p>
+            <ul className='mt-1 grid gap-1'>
+                {finding.relatedSignals.map(signal => <li key={signal.id} className='rounded border border-ui-border px-2 py-1'>
+                    <strong>{signal.engine}</strong> · {signal.title} · {signal.sharedCveIds.join(', ')} · {signal.status.replaceAll('_', ' ')}
+                </li>)}
+            </ul>
+        </details> : null}
         {finding.description && <details className='mt-2 text-sm'><summary className='cursor-pointer text-ui-muted'>Description</summary><p className='mt-1'>{finding.description}</p></details>}
         {finding.solution && <details className='mt-2 text-sm'><summary className='cursor-pointer text-ui-muted'>Suggested fix</summary><p className='mt-1'>{finding.solution}</p></details>}
         {evidence && <details className='mt-2 text-xs'><summary className='cursor-pointer text-ui-muted'>Scanner evidence{finding.observedInRun ? ` · observed ${formatDate(finding.observedInRun.observedAt)}` : ''}</summary><pre className='mt-1 whitespace-pre-wrap wrap-break-word'>{evidence}</pre></details>}
