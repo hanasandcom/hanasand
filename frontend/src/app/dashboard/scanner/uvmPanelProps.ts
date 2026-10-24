@@ -8,6 +8,7 @@ import type {
     UvmEngineSelection,
     UvmFinding,
     UvmFindingHistoryPage,
+    UvmFindingHistoryScope,
     UvmRun,
     UvmRunHistoryPage,
 } from '@/utils/monitoring/types'
@@ -19,7 +20,7 @@ export type UvmPanelProps = {
     getRunAction: (runId: string, engine: string) => Promise<UvmRun>
     getRunHistoryAction: (cursor: string | null) => Promise<UvmRunHistoryPage>
     assessmentHistoryAction: (cursor: string | null) => Promise<UvmAssessmentHistoryPage>
-    findingHistoryAction: (cursor: string | null) => Promise<UvmFindingHistoryPage>
+    findingHistoryAction: (cursor: string | null, scope?: UvmFindingHistoryScope) => Promise<UvmFindingHistoryPage>
     createAssetAction: (input: { hostname: string }) => Promise<{ asset: UvmAsset }>
     verifyAssetAction: (assetId: string) => Promise<{ asset: UvmAsset }>
     saveZapApiDefinitionAction: (assetId: string, path: string | null) => Promise<{ asset: UvmAsset }>

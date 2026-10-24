@@ -8,7 +8,7 @@ import { UvmPanelScannerSetup } from '../src/app/dashboard/scanner/uvmPanelScann
 import ScannerPauseNotice from '../src/app/dashboard/scanner/scannerPauseNotice'
 
 test('scanner page states that configured services are stopped pending disk expansion', () => {
-    const html = renderToStaticMarkup(<ScannerPauseNotice />)
+    const html = renderToStaticMarkup(<ScannerPauseNotice paused reason='pending_disk_expansion' />)
 
     expect(html).toContain('Scanner services are stopped pending disk expansion')
     expect(html).toContain('API, database, Nmap/Naabu, Greenbone, ZAP runner/proxy, testssl.sh, Nuclei, Nikto, SSLyze, Wapiti, WhatWeb, HTTPX, tlsx, Katana, and WAFW00F workers.')
@@ -25,7 +25,7 @@ test('paused Scanner exposes the searchable 50-product catalog and labels setup 
     expect(scannerSuiteCatalog).toHaveLength(50)
     expect(new Set(scannerSuiteCatalog.map(item => item.name)).size).toBe(scannerSuiteCatalog.length)
     expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(20)
-    expect(html).toContain('50 products · 20 wired · 0 running · stopped pending disk')
+    expect(html).toContain('50 products · 15 asset engines · 5 image tools · 0 running · stopped pending disk')
     expect(html).toContain('Filter scanners')
     expect(html).toContain('Nmap')
     expect(html).toContain('Naabu')
@@ -44,14 +44,15 @@ test('paused Scanner exposes the searchable 50-product catalog and labels setup 
     expect(html).toContain('Windows app · no API')
 })
 
-test('Angry IP is described as needing a GUI bridge, not CLI review', () => {
+test('catalog-only Angry IP is not offered as a runnable assessment engine', () => {
     const noop = () => undefined
     const html = renderToStaticMarkup(<UvmAssessmentEngineChoices data={emptyUvmDashboard} selectedEngines={[]}
         setSelectedEngines={noop} scanId='' setScanId={noop} nmapProfile='tcp-top-1000' setNmapProfile={noop}
         servicesPaused onSetup={noop}
     />)
 
-    expect(html).toContain('GUI bridge needed')
+    expect(html).not.toContain('Angry IP Scanner')
+    expect(html).not.toContain('GUI bridge needed')
     expect(html).not.toContain('CLI review needed')
 })
 
