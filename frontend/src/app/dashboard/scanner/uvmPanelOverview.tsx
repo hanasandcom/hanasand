@@ -4,8 +4,9 @@ import { UvmAssetEngineCoverageView } from './uvmPanelCoverageView'
 import { UvmAssessmentStarter } from './uvmPanelAssessmentStarter'
 import { UvmActivityAndSchedules } from './uvmPanelActivity'
 
-export function UvmOverview({ data, activeRunCount, openFindingCount, criticalOrHighCount, onManageAssets, onConfigureScanners, onStartAssessment, onViewRuns }: {
+export function UvmOverview({ data, servicesPaused = false, activeRunCount, openFindingCount, criticalOrHighCount, onManageAssets, onConfigureScanners, onStartAssessment, onViewRuns }: {
     data: UvmDashboard
+    servicesPaused?: boolean
     activeRunCount: number
     openFindingCount: number
     criticalOrHighCount: number
@@ -14,6 +15,11 @@ export function UvmOverview({ data, activeRunCount, openFindingCount, criticalOr
     onStartAssessment: () => void
     onViewRuns: () => void
 }) {
+    if (servicesPaused) return <section role='status' className='rounded-lg border border-ui-warning/40 bg-ui-warning/10 p-4'>
+        <h2 className='text-base font-semibold'>Overview unavailable</h2>
+        <p className='mt-1 text-sm text-ui-muted'>Live assessment data is unavailable while Scanner services are stopped.</p>
+    </section>
+
     const unavailable = Boolean(data.scannerError)
 
     return <section className='grid gap-4'>
