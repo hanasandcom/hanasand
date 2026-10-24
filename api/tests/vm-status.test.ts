@@ -110,6 +110,17 @@ test('a VM missing during local allocation resolves to an error when the host co
     }])
 })
 
+test('an isolated LXD project reports missing VMs locally without querying a host', async () => {
+    localLxdProject = 'hns-stage'
+    globalThis.fetch = (async () => new Response('Not found', { status: 404 })) as typeof fetch
+
+    const result = await withLiveVmStatus({ name: 'missing-staging-vm' })
+
+    expect(result.status).toBe('ERROR')
+    expect(result.status_reason).toBe('VM could not be found in its assigned LXD project. Contact Support if the problem persists.')
+    expect(remoteRequests).toEqual([])
+})
+
 test('local status keeps reporting service setup while the guest is already running', async () => {
     globalThis.fetch = (async () => Response.json({ metadata: { status: 'Running' } })) as typeof fetch
     hostWorkerStatus = { status: 'Provisioning', status_reason: 'Installing nodejs, postgresql…' }

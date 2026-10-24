@@ -12,6 +12,7 @@ const provisioningConfigKey = 'user.hanasand.provisioning_state'
 const missingSetupStatusReason = 'VM startup finished without reporting whether the selected services were installed. Contact Support if the problem persists.'
 const waitingForHostSetupStatusReason = 'Waiting for the VM host to confirm service setup.'
 const missingHostVmStatusReason = 'VM could not be found on its host. Contact Support if the problem persists.'
+const missingLocalVmStatusReason = 'VM could not be found in its assigned LXD project. Contact Support if the problem persists.'
 
 export function invalidateLiveVmStatus(name: string) {
     for (const key of checks.keys()) if (key.endsWith(':' + name)) checks.delete(key)
@@ -103,7 +104,16 @@ async function probe(name: string, host = config.vm_host_id): Promise<State> {
             if (config.lxd_project) {
                 const queued = getLocalProvisionState(name)
                 if (queued) return queued
-                return localVmStatus(name)
+                // A configured LXD project is an isolated local target (for example,
+                // staging). Never turn a local miss into a request to a production host.
+                try {
+                    return await localVmStatus(name)
+                } catch (error) {
+                    if (error instanceof Error && error.message === 'VM is unavailable on its host.') {
+                        return { status: 'Error', status_reason: missingLocalVmStatusReason }
+                    }
+                    throw error
+                }
             }
             try {
                 const state = await localVmStatus(name)
