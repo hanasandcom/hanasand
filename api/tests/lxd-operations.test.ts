@@ -22,6 +22,29 @@ test('operation waits accept LXD URLs, encode IDs, and skip missing operation re
     ])
 })
 
+test('operation waits keep polling while LXD is still creating an instance', async () => {
+    const paths: string[] = []
+    let waitCount = 0
+    const request = async <T>(path: string) => {
+        paths.push(path)
+        waitCount++
+        return response((waitCount === 1 ? { status: 'Running' } : { status: 'Success' }) as T)
+    }
+
+    await waitForLxdOperation(request, '/1.0/operations/create?project=hns-stage', 30)
+
+    expect(paths).toEqual([
+        '/1.0/operations/create/wait?project=hns-stage&timeout=30',
+        '/1.0/operations/create/wait?project=hns-stage&timeout=30',
+    ])
+})
+
+test('operation waits surface terminal LXD operation failures', async () => {
+    const request = async <T>() => response({ status: 'Failure', err: 'image unpack failed' } as T)
+
+    await expect(waitForLxdOperation(request, 'failed-op', 30)).rejects.toThrow('image unpack failed')
+})
+
 test('instance waits include matching create-like operations and ignore unrelated work', async () => {
     const paths: string[] = []
     let listCalls = 0

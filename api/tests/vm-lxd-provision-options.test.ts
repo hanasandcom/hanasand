@@ -89,6 +89,27 @@ test.serial('LXD applies a valid custom CPU and memory allocation to the instanc
     expect(body.devices.root.size).toBe('40GiB')
 })
 
+test.serial('LXD receives each resource preset without changing its CPU, memory, or disk allocation', async () => {
+    const presets = [
+        { cpu: '1', memory: '2GiB', disk: '10GiB' },
+        { cpu: '2', memory: '4GiB', disk: '20GiB' },
+        { cpu: '4', memory: '8GiB', disk: '40GiB' },
+    ]
+
+    for (const [index, resources] of presets.entries()) {
+        calls.length = 0
+        created = undefined
+        await provisionLocalLxdInstance(`preset-${index}`, { os: 'ubuntu-24.04', resources, services: [] })
+        const body = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as {
+            config: Record<string, string>
+            devices: Record<string, { size: string }>
+        }
+        expect(body.config['limits.cpu']).toBe(resources.cpu)
+        expect(body.config['limits.memory']).toBe(resources.memory)
+        expect(body.devices.root.size).toBe(resources.disk)
+    }
+})
+
 test.serial('empty AI package lists keep the existing setup hash stable', async () => {
     const options = { os: 'ubuntu-24.04' as const, resources: { cpu: '2' as const, memory: '4GiB' as const, disk: '20GiB' as const }, services: ['nodejs' as const, 'postgresql' as const] }
     const legacyHash = createHash('sha256').update(JSON.stringify({ ...options, services: [...options.services].sort() })).digest('hex')

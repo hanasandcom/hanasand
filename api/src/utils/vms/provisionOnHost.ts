@@ -5,7 +5,8 @@ type HostFetch = (host: string, path: string, options?: RequestInit) => Promise<
 type StatusResponse = { status?: unknown; error?: unknown; status_reason?: unknown }
 export type VmProvisionOptions = { os?: 'ubuntu-24.04' | 'ubuntu-26.04' | 'ubuntu-22.04' | 'ubuntu-24.04-desktop'; resources?: { cpu: string; memory: string; disk: string }; services?: SupportedVmSetupService[]; aptPackages?: string[]; minecraftEulaAccepted?: boolean; minecraftServerType?: 'PAPER' | 'VANILLA' | 'FABRIC' | 'QUILT' | 'FORGE' | 'NEOFORGE' | 'PURPUR' | 'FOLIA'; minecraftAddons?: string[]; websiteHtml?: string; nextjsProjectFiles?: import('./nextjsProject.ts').NextjsProjectFile[] }
 
-const provisionTimeoutMs = 150_000
+// Multi-service and desktop setups can include installers with 30-minute bounds.
+const provisionTimeoutMs = 45 * 60_000
 const statusPollIntervalMs = 2_000
 const retryableStatusCodes = new Set([404, 408, 425, 429, 500, 502, 503, 504])
 

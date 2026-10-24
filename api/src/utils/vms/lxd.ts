@@ -82,7 +82,7 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
                 },
             },
         })
-        await waitForLxdOperation(response.operation, 120)
+        await waitForLxdOperation(response.operation, 900)
     } else if (!existing.config?.['user.hanasand.setup_plan'] && hasNonDefaultSetup) {
         const message = 'This existing VM has no saved setup plan and cannot apply the selected services. Create a new VM to install them.'
         await updateLocalLxdConfig(name, {
@@ -188,7 +188,7 @@ async function requestStateTransition(name: string, action: 'start' | 'stop') {
                 throw error
             }
 
-            await waitForInstanceOperations(lxdRequest, name, 120)
+            await waitForInstanceOperations(lxdRequest, name, 900)
             await sleep(750)
         }
     }
