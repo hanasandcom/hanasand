@@ -54,17 +54,21 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
         || Boolean(options.websiteHtml)
     if (!existing) {
         const rootDiskPool = await localRootDiskPool()
+        // The isolated rehearsal must exercise the same LXD instance type as
+        // the VM lifecycle monitor. Keep the established production default
+        // unchanged until VM provisioning has been proven end to end there.
+        const instanceType = config.lxd_project === 'hns-stage' ? 'virtual-machine' : 'container'
         const response = await lxdRequest<unknown>('/1.0/instances', {
             method: 'POST',
             body: {
                 name,
-                type: 'container',
+                type: instanceType,
                 profiles: ['default'],
                 devices: { root: { type: 'disk', path: '/', pool: rootDiskPool, size: selectedResources.disk } },
                 config: {
                     'limits.cpu': selectedResources.cpu,
                     'limits.memory': selectedResources.memory,
-                    ...(selectedServices.includes('docker') ? {
+                    ...(instanceType === 'container' && selectedServices.includes('docker') ? {
                         'security.nesting': 'true',
                         'security.syscalls.intercept.mknod': 'true',
                         'security.syscalls.intercept.setxattr': 'true',

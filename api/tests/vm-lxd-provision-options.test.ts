@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto'
 
 const calls: Array<{ path: string, options?: { method?: string; body?: unknown } }> = []
 let created: Record<string, unknown> | undefined
-mock.module('../src/constants.ts', () => ({ default: { lxd_image_server: 'https://images.example', lxd_image_alias: '24.04', lxd_socket_path: '/tmp/lxd.sock' } }))
+const runtimeConfig = { lxd_project: '' }
+mock.module('../src/constants.ts', () => ({ default: { lxd_image_server: 'https://images.example', lxd_image_alias: '24.04', lxd_socket_path: '/tmp/lxd.sock', get lxd_project() { return runtimeConfig.lxd_project } } }))
 mock.module('../src/utils/db.ts', () => ({ default: async () => ({ rows: [] }) }))
 
 const { lxdProjectPath, provisionLocalLxdInstance, setLxdRequestForTest, setVmDetailsWriterForTest } = await import('../src/utils/vms/lxd.ts')
@@ -23,14 +24,14 @@ const resetRequest = setLxdRequestForTest(async (path, options) => {
     }
     if (path === '/1.0/instances' && options?.method === 'POST') {
         const body = options.body as Record<string, unknown>
-        created = { name: body.name, status: 'Running', config: body.config, devices: {}, profiles: ['default'], architecture: 'x86_64' }
+        created = { name: body.name, type: body.type, status: 'Running', config: body.config, devices: {}, profiles: ['default'], architecture: 'x86_64' }
         return { status_code: 202, status: 'Accepted', metadata: {}, operation: '/1.0/operations/create' }
     }
     if (path.includes('/1.0/operations/')) return { status_code: 200, status: 'Success', metadata: {} }
     return { status_code: 200, status: 'Success', metadata: { pending: [], running: [] } }
 })
 const resetWriter = setVmDetailsWriterForTest(async () => {})
-beforeEach(() => { calls.length = 0; created = undefined })
+beforeEach(() => { calls.length = 0; created = undefined; runtimeConfig.lxd_project = '' })
 afterAll(() => { resetRequest(); resetWriter() })
 
 test('LXD project scoping preserves other query parameters and replaces stale project values', () => {
@@ -57,7 +58,8 @@ test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Do
     })
 
     const create = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')
-    const body = create?.options?.body as { config: Record<string, string>; devices: Record<string, { pool: string; size: string }>; source: { alias: string } }
+    const body = create?.options?.body as { type: string; config: Record<string, string>; devices: Record<string, { pool: string; size: string }>; source: { alias: string } }
+    expect(body.type).toBe('container')
     expect(body.source.alias).toBe('26.04')
     expect(body.config['limits.cpu']).toBe('4')
     expect(body.config['limits.memory']).toBe('8GiB')
@@ -71,6 +73,25 @@ test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Do
     expect(body.config['cloud-init.user-data']).toContain('https://nodejs.org/dist/')
     expect(body.config['cloud-init.user-data']).toContain('SHASUMS256.txt')
     expect(body.config['cloud-init.user-data']).toContain('apt_packages+=( \'ripgrep\' )')
+})
+
+test.serial('hns-stage provisioning creates a virtual machine and omits container-only Docker settings', async () => {
+    runtimeConfig.lxd_project = 'hns-stage'
+
+    await provisionLocalLxdInstance('stage-vm', {
+        os: 'ubuntu-24.04',
+        resources: { cpu: '2', memory: '4GiB', disk: '20GiB' },
+        services: ['docker'],
+    })
+
+    const create = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')
+    const body = create?.options?.body as { type: string; config: Record<string, string> }
+    expect(body.type).toBe('virtual-machine')
+    expect(body.config['limits.cpu']).toBe('2')
+    expect(body.config['limits.memory']).toBe('4GiB')
+    expect(body.config['security.nesting']).toBeUndefined()
+    expect(body.config['security.syscalls.intercept.mknod']).toBeUndefined()
+    expect(body.config['security.syscalls.intercept.setxattr']).toBeUndefined()
 })
 
 test.serial('LXD applies a valid custom CPU and memory allocation to the instance limits', async () => {
