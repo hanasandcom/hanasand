@@ -1,4 +1,5 @@
 import { queryOnce, withTransaction } from '#db'
+import { directPool } from '../src/utils/db/runtimePools.ts'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { readFile, statfs } from 'node:fs/promises'
@@ -187,21 +188,17 @@ export function migrationTailVacuumArgs(containerName: string, databaseUser: str
         '-c', 'SET lock_timeout = \'1s\'', '-c', 'SET statement_timeout = \'20min\'', '-c', `VACUUM (TRUNCATE) public.${table}`]
 }
 
-export function runMigrationTailVacuum(table: 'events' | 'log_analyze_receipts') {
-    const containerName = process.env.LOGS_MIGRATION_HANASAND_DB_CONTAINER || 'hanasand_database'
-    const inspected = JSON.parse(execFileSync('docker', ['inspect', containerName], { encoding: 'utf8', timeout: 5000 })) as Array<{
-        Config?: { Env?: string[] }
-    }>
-    const environment = new Map((inspected[0]?.Config?.Env || []).flatMap(value => {
-        const separator = value.indexOf('=')
-        return separator > 0 ? [[value.slice(0, separator), value.slice(separator + 1)] as const] : []
-    }))
-    const databaseUser = environment.get('POSTGRES_USER')
-    const databaseName = environment.get('POSTGRES_DB')
-    if (!databaseUser || !databaseName) throw new Error('Migration vacuum paused: PostgreSQL identity could not be inspected.')
-    execFileSync('docker', migrationTailVacuumArgs(containerName, databaseUser, databaseName, table), {
-        encoding: 'utf8', timeout: 25 * 60_000, maxBuffer: 1024 * 1024,
-    })
+export async function runMigrationTailVacuum(table: 'events' | 'log_analyze_receipts') {
+    await assertMigrationStorageReserve()
+    const client = await directPool.connect()
+    try {
+        await client.query("SET lock_timeout = '1s'")
+        await client.query("SET statement_timeout = '20min'")
+        await client.query(`VACUUM (TRUNCATE) public.${table}`)
+    } finally {
+        await client.query('RESET lock_timeout; RESET statement_timeout').catch(() => {})
+        client.release()
+    }
 }
 
 const knownLogStateRelations = [
@@ -386,7 +383,7 @@ export async function migrateFindingsBeforeEvents(url: string, syncToken: string
 }
 
 export async function migrateReceiptKind(url: string, syncToken: string, kind: 'model_probe' | 'readiness_audit' | 'proxy' | 'analyze',
-    vacuumTail: (table: 'log_analyze_receipts') => void = runMigrationTailVacuum,
+    vacuumTail: (table: 'log_analyze_receipts') => void | Promise<void> = runMigrationTailVacuum,
     tailChunkBytes = analyzeReceiptTailChunkBytes, vacuumEveryBytes = tailVacuumEveryBytes) {
     const modelProbe = kind === 'model_probe'
     const readinessAudit = kind === 'readiness_audit'
@@ -466,7 +463,7 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                 analyzeBytesSinceVacuum += (range.upperBlock - range.lowerBlock) * analyzeBlockSize
                 const shouldVacuum = analyzeBytesSinceVacuum >= vacuumEveryBytes || range.lowerBlock === 0
                 if (shouldVacuum) {
-                    vacuumTail('log_analyze_receipts')
+                    await vacuumTail('log_analyze_receipts')
                     analyzeBytesSinceVacuum = 0
                 }
                 if (range.lowerBlock === 0) {
@@ -555,12 +552,13 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
         })
         if (deletion.rows.length !== batch.length) throw new Error(`A ${kind} receipt changed during migration; its delete transaction was rolled back.`)
         migrated += batch.length
+        if (analyze && migrated % batchLimit === 0) console.log(JSON.stringify({ migrated, scope: 'analysis receipts' }))
         if (!analyze) cursor = String(batch[batch.length - 1]![keyColumn])
     }
 }
 
 export async function migrateAnalysisReceipts(url: string, syncToken: string,
-    vacuumTail: (table: 'log_analyze_receipts') => void = runMigrationTailVacuum,
+    vacuumTail: (table: 'log_analyze_receipts') => void | Promise<void> = runMigrationTailVacuum,
     tailChunkBytes = analyzeReceiptTailChunkBytes) {
     const modelProbe = await migrateReceiptKind(url, syncToken, 'model_probe')
     const readinessAudit = await migrateReceiptKind(url, syncToken, 'readiness_audit')
@@ -1160,7 +1158,7 @@ export async function moveOneBatch(url: string, token: string, cursor = '', tail
 }
 
 export async function migrateEventsByPhysicalTail(url: string, token: string,
-    vacuumTail: (table: 'events' | 'log_analyze_receipts') => void = runMigrationTailVacuum,
+    vacuumTail: (table: 'events' | 'log_analyze_receipts') => void | Promise<void> = runMigrationTailVacuum,
     tailChunkBytes = eventTailChunkBytes, vacuumEveryBytes = tailVacuumEveryBytes,
     checkCollector = assertMigrationCollectorReady) {
     let moved = 0
@@ -1240,7 +1238,7 @@ export async function migrateEventsByPhysicalTail(url: string, token: string,
         if (rangeComplete) {
             bytesSinceVacuum += (range.upperBlock - range.lowerBlock) * blockSize
             if (bytesSinceVacuum >= vacuumEveryBytes || range.lowerBlock === 0) {
-                vacuumTail('events')
+                await vacuumTail('events')
                 bytesSinceVacuum = 0
             }
             upperBlock = range.lowerBlock
