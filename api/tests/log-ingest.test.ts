@@ -4,7 +4,8 @@ let stored: unknown[] = [], fail = false, failCommit = false
 let hold: Promise<void> | undefined
 const operations: string[] = []
 const transactionQuery = async () => ({ rows: [] })
-mock.module('#db', () => ({ isTransientDatabaseError: () => false, withTransaction: async (work: (query: typeof transactionQuery) => Promise<void>) => {
+const runQuery = async () => ({ rows: [] })
+mock.module('#db', () => ({ default: runQuery, isTransientDatabaseError: () => false, withTransaction: async (work: (query: typeof transactionQuery) => Promise<void>) => {
     operations.push('begin')
     const start = stored.length
     try {
@@ -16,17 +17,23 @@ mock.module('#db', () => ({ isTransientDatabaseError: () => false, withTransacti
 } }))
 const previousToken = process.env.LOG_INGEST_TOKEN
 const previousRemoteOnly = process.env.LOGS_OUTBOX_REMOTE_ONLY
+const previousDirect = process.env.LOGS_SERVICE_DIRECT
 const previousLogsUrl = process.env.LOGS_SERVICE_URL
 mock.module('#utils/auth/internalToken.ts', () => ({ default: (req: any) => req.headers.authorization === 'Bearer existing-internal-token' }))
-mock.module('#utils/logs/recordLog.ts', () => ({ recordLogBatch: async (events: unknown[], query: unknown) => { expect(query).toBe(transactionQuery); if (fail) throw new Error('Database unavailable'); stored.push(...events) } }))
+mock.module('#utils/logs/recordLog.ts', () => ({ recordLogBatch: async (events: unknown[], query: unknown) => {
+    expect(query).toBe(process.env.LOGS_SERVICE_DIRECT === '1' ? runQuery : transactionQuery)
+    if (fail) throw new Error('Database unavailable')
+    stored.push(...events)
+} }))
 const { default: ingestLog, hasLogIngestToken, logIngestCapacity } = await import('../src/handlers/logs/ingest.ts')
 const app = Fastify()
 app.post('/logs/ingest', ingestLog)
-beforeEach(() => { stored = []; fail = false; failCommit = false; operations.length = 0; process.env.LOG_INGEST_TOKEN = 'dedicated-log-token'; delete process.env.LOGS_OUTBOX_REMOTE_ONLY })
+beforeEach(() => { stored = []; fail = false; failCommit = false; operations.length = 0; process.env.LOG_INGEST_TOKEN = 'dedicated-log-token'; delete process.env.LOGS_OUTBOX_REMOTE_ONLY; delete process.env.LOGS_SERVICE_DIRECT })
 afterAll(async () => {
     await app.close()
     if (previousToken === undefined) delete process.env.LOG_INGEST_TOKEN; else process.env.LOG_INGEST_TOKEN = previousToken
     if (previousRemoteOnly === undefined) delete process.env.LOGS_OUTBOX_REMOTE_ONLY; else process.env.LOGS_OUTBOX_REMOTE_ONLY = previousRemoteOnly
+    if (previousDirect === undefined) delete process.env.LOGS_SERVICE_DIRECT; else process.env.LOGS_SERVICE_DIRECT = previousDirect
     if (previousLogsUrl === undefined) delete process.env.LOGS_SERVICE_URL; else process.env.LOGS_SERVICE_URL = previousLogsUrl
 })
 const payload = { service: 'audit', host: 'inspur', message: 'whoami', metadata: { process: { executable: '/usr/bin/whoami' } } }
@@ -48,6 +55,16 @@ test('remote-only mode durably accepts legacy senders into the Logs transfer out
     expect(response.json()).toEqual({ ok: true, accepted: 1 })
     expect(stored).toHaveLength(1)
     expect(operations).toEqual(['begin', 'commit'])
+})
+test('direct mode submits after validation without opening a Hanasand transaction', async () => {
+    process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
+    process.env.LOGS_SERVICE_DIRECT = '1'
+    process.env.LOGS_SERVICE_URL = 'https://logs.hanasand.com'
+    const response = await send('Bearer dedicated-log-token')
+    expect(response.statusCode).toBe(201)
+    expect(response.json()).toEqual({ ok: true, accepted: 1 })
+    expect(stored).toHaveLength(1)
+    expect(operations).toEqual([])
 })
 test('validates the full batch before storage and only acknowledges durable writes', async () => {
     expect((await send('Bearer dedicated-log-token', { events: [payload, { ...payload, metadata: 'bad' }] })).statusCode).toBe(400)

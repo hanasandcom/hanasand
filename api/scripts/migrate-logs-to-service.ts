@@ -1,17 +1,27 @@
 import { queryOnce, withTransaction } from '#db'
 import { createHash } from 'node:crypto'
-import { logsServiceConfiguration, logsOutboxEnabled, logsOutboxRemoteOnly } from '../src/utils/logs/logOutboxConfig.ts'
+import { execFileSync } from 'node:child_process'
+import { readFile, statfs } from 'node:fs/promises'
+import path from 'node:path'
+import { logsServiceConfiguration, logsOutboxEnabled, logsOutboxRemoteOnly, logsServiceDirect } from '../src/utils/logs/logOutboxConfig.ts'
 import { logMigrationEvent } from '../src/utils/logs/logMigrationEvent.ts'
 
-const batchSize = Math.max(1, Math.min(200, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 100))
+const batchSize = Math.max(1, Math.min(200, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 200))
 const receiptBatchSize = 100
 const analyzeReceiptBatchSize = 2000
+const analyzeReceiptTailChunkBytes = 4 * 1024 ** 3
+const eventTailChunkBytes = 4 * 1024 ** 3
+const tailVacuumEveryBytes = 16 * 1024 ** 3
 const findingScanSize = 10_000
 const apply = process.argv.includes('--apply')
 const maxPayloadBytes = 450_000
-const migrationCursorIndex = 'idx_events_logs_migration_cursor'
+const configuredMigrationFreeSpaceReserveBytes = Number(process.env.LOGS_MIGRATION_MIN_FREE_BYTES)
+const migrationFreeSpaceReserveBytes = Number.isSafeInteger(configuredMigrationFreeSpaceReserveBytes) && configuredMigrationFreeSpaceReserveBytes > 0
+    ? configuredMigrationFreeSpaceReserveBytes : 24 * 1024 ** 3
+const migrationCollectorHealthPath = '/var/lib/hanasand-log-collector/health.json'
+const migrationCollectorHealthMaxAgeMs = 120_000
 const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds))
-type MigrationBatchResult = { moved: number, remaining: boolean, retry: boolean }
+type MigrationBatchResult = { moved: number, remaining: boolean, retry: boolean, cursor?: string, tailCursor?: string, rangeComplete?: boolean }
 
 export function estimatedPlanRows(plan: unknown): number | null {
     const value = Array.isArray(plan) ? plan[0] : plan
@@ -20,6 +30,82 @@ export function estimatedPlanRows(plan: unknown): number | null {
     if (!root || typeof root !== 'object') return null
     const rows = Number((root as { 'Plan Rows'?: unknown })['Plan Rows'])
     return Number.isSafeInteger(rows) && rows >= 0 ? rows : null
+}
+
+export function migrationStoragePathsFromDockerInspect(containers: Array<{
+    Name: string
+    Config?: { Env?: string[] }
+    Mounts?: Array<{ Destination: string; Source: string }>
+}>, names: string[]) {
+    const paths: string[] = []
+    for (const name of names) {
+        const container = containers.find(item => item.Name.replace(/^\//, '') === name)
+        if (!container) throw new Error('Logs migration paused: a PostgreSQL container could not be inspected; no batch was sent.')
+        const pgData = container.Config?.Env?.find(value => value.startsWith('PGDATA='))?.slice('PGDATA='.length)
+            || '/var/lib/postgresql/data'
+        const mounts = container.Mounts || []
+        const dataMount = mounts.filter(mount => pgData === mount.Destination || pgData.startsWith(`${mount.Destination.replace(/\/$/, '')}/`))
+            .sort((left, right) => right.Destination.length - left.Destination.length)[0]
+        if (!dataMount?.Source || !path.isAbsolute(dataMount.Source)) {
+            throw new Error('Logs migration paused: PostgreSQL data volume is not mounted at a verifiable host path; no batch was sent.')
+        }
+        paths.push(dataMount.Source)
+        const walMount = mounts.find(mount => mount.Destination === `${pgData.replace(/\/$/, '')}/pg_wal`)
+        if (walMount?.Source && path.isAbsolute(walMount.Source)) paths.push(walMount.Source)
+    }
+    return [...new Set(paths)]
+}
+
+let migrationStoragePathsCache: Promise<string[]> | null = null
+
+export function resolveMigrationStoragePaths(
+    override: string | undefined,
+    names: string[],
+    inspectContainers: (names: string[]) => Array<{
+        Name: string
+        Config?: { Env?: string[] }
+        Mounts?: Array<{ Destination: string; Source: string }>
+    }>,
+) {
+    if (override) {
+        const paths = override.split(',').map(value => value.trim()).filter(Boolean)
+        if (!paths.length || paths.some(value => !path.isAbsolute(value))) {
+            throw new Error('Logs migration paused: LOGS_MIGRATION_STORAGE_PATH must list absolute PostgreSQL storage paths; no batch was sent.')
+        }
+        return paths
+    }
+    try {
+        return migrationStoragePathsFromDockerInspect(inspectContainers(names), names)
+    } catch (error) {
+        if (error instanceof Error && error.message.startsWith('Logs migration paused:')) throw error
+        throw new Error('Logs migration paused: Docker could not verify the Hanasand and Logs database volumes; no batch was sent.', { cause: error })
+    }
+}
+
+async function migrationStoragePaths() {
+    if (migrationStoragePathsCache) return migrationStoragePathsCache
+    migrationStoragePathsCache = (async () => {
+        const names = [process.env.LOGS_MIGRATION_HANASAND_DB_CONTAINER || 'hanasand_database',
+            process.env.LOGS_MIGRATION_LOGS_DB_CONTAINER || 'logs_database']
+        return resolveMigrationStoragePaths(process.env.LOGS_MIGRATION_STORAGE_PATH, names, containerNames =>
+            JSON.parse(execFileSync('docker', ['inspect', ...containerNames], { encoding: 'utf8', timeout: 5000 })))
+    })()
+    return migrationStoragePathsCache
+}
+
+export async function assertMigrationStorageReserve(getAvailableBytes = async (storagePath: string) => {
+    const filesystem = await statfs(storagePath)
+    return filesystem.bavail * filesystem.bsize
+}, minimumBytes = migrationFreeSpaceReserveBytes, storagePaths?: string[]) {
+    const checkedPaths = storagePaths || await migrationStoragePaths()
+    if (!checkedPaths.length) throw new Error('Logs migration paused: no PostgreSQL storage paths were verified; no batch was sent.')
+    for (const storagePath of checkedPaths) {
+        const availableBytes = await getAvailableBytes(storagePath)
+        if (!Number.isSafeInteger(availableBytes) || availableBytes < minimumBytes) {
+            throw new Error(`Logs migration paused: a PostgreSQL data/WAL filesystem is below the ${Math.ceil(minimumBytes / 1024 ** 3)} GiB reserve; no new batch was sent.`)
+        }
+    }
+    return checkedPaths
 }
 
 function permanentError(message: string) {
@@ -40,31 +126,93 @@ export function migrationPayloadHash(event: ReturnType<typeof logMigrationEvent>
     return createHash('sha256').update(stableJson(event)).digest('hex')
 }
 
-export async function ensureMigrationCursorIndex(query = queryOnce) {
-    const existing = await query(`SELECT i.indisvalid, i.indisready, pg_get_indexdef(i.indexrelid) AS definition
-        FROM pg_index i WHERE i.indexrelid=to_regclass($1)`, [migrationCursorIndex])
-    const index = existing.rows[0]
-    if (index && (!index.indisvalid || !index.indisready)) {
-        await query(`DROP INDEX CONCURRENTLY IF EXISTS ${migrationCursorIndex}`)
+export function migrationCollectorReady(health: unknown, now = Date.now(), maxAgeMs = migrationCollectorHealthMaxAgeMs) {
+    if (!health || typeof health !== 'object') return false
+    const snapshot = health as {
+        checkedAt?: unknown
+        collector_health?: Record<string, unknown>
+        source_status?: Record<string, { ok?: unknown; checkedAt?: unknown; lastAcknowledgedAt?: unknown; accepted?: unknown } | undefined>
     }
-    await query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS ${migrationCursorIndex}
-        ON public.events (received_at, id) WHERE ingestion_id='logs'`)
-    const verified = await query(`SELECT i.indisvalid, i.indisready, pg_get_indexdef(i.indexrelid) AS definition
-        FROM pg_index i WHERE i.indexrelid=to_regclass($1)`, [migrationCursorIndex])
-    const created = verified.rows[0]
-    if (!created?.indisvalid || !created?.indisready
-        || !String(created.definition).includes('(received_at, id)')
-        || !String(created.definition).includes('ingestion_id')
-        || !String(created.definition).includes('\'logs\'')) {
-        throw new Error('The temporary Logs migration cursor index is missing or invalid; no migration rows were deleted.')
+    const checkedAt = typeof snapshot.checkedAt === 'string' ? Date.parse(snapshot.checkedAt) : Number.NaN
+    if (!Number.isFinite(checkedAt) || now - checkedAt < 0 || now - checkedAt > maxAgeMs) return false
+    const collector = snapshot.collector_health
+    if (!collector || ['audit', 'journal', 'docker', 'docker_file_live', 'docker_file_history'].some(key => collector[key] !== true)) return false
+    const status = snapshot.source_status
+    const sourceStatuses = ['journal_live', 'audit_live', 'docker', 'docker_file_live', 'docker_file_history']
+    const isFresh = (value: unknown) => {
+        const timestamp = typeof value === 'string' ? Date.parse(value) : Number.NaN
+        return Number.isFinite(timestamp) && now - timestamp >= 0 && now - timestamp <= maxAgeMs
+    }
+    if (!status || sourceStatuses.some(key => status[key]?.ok !== true || !isFresh(status[key]?.checkedAt))) return false
+    const live = status.delivery_live
+    const lastAcknowledgedAt = typeof live?.lastAcknowledgedAt === 'string' ? Date.parse(live.lastAcknowledgedAt) : Number.NaN
+    return isFresh(live?.checkedAt) && Number.isFinite(lastAcknowledgedAt) && now - lastAcknowledgedAt >= 0 && now - lastAcknowledgedAt <= maxAgeMs
+        && Number.isSafeInteger(live?.accepted) && Number(live?.accepted) > 0
+}
+
+export async function assertMigrationCollectorReady(readHealth = async () => {
+    const contents = await readFile(migrationCollectorHealthPath, 'utf8').catch(() =>
+        execFileSync('sudo', ['-n', 'cat', migrationCollectorHealthPath], { encoding: 'utf8', timeout: 5000 }))
+    return contents
+}) {
+    let health: unknown
+    try {
+        health = JSON.parse(await readHealth())
+    } catch (error) {
+        throw new Error('Logs migration paused: Inspur collector health could not be read; no source rows were moved.', { cause: error })
+    }
+    if (!migrationCollectorReady(health)) {
+        throw new Error('Logs migration paused: Inspur collector sources or its recent live Logs acknowledgement are not healthy; no source rows were moved.')
     }
 }
 
-export async function dropMigrationCursorIndex(query = queryOnce) {
-    await query(`DROP INDEX CONCURRENTLY IF EXISTS ${migrationCursorIndex}`)
+export function migrationTailPageRange(relationBytes: number, blockSize: number, upperExclusiveBlock?: number,
+    chunkBytes = analyzeReceiptTailChunkBytes) {
+    if (!Number.isSafeInteger(relationBytes) || relationBytes < 0 || !Number.isSafeInteger(blockSize) || blockSize <= 0
+        || !Number.isSafeInteger(chunkBytes) || chunkBytes <= 0
+        || (upperExclusiveBlock !== undefined && (!Number.isSafeInteger(upperExclusiveBlock) || upperExclusiveBlock < 0))) {
+        throw new Error('Invalid PostgreSQL tail-range geometry.')
+    }
+    const pageCount = Math.ceil(relationBytes / blockSize)
+    const upper = upperExclusiveBlock === undefined ? pageCount : Math.min(upperExclusiveBlock, pageCount)
+    if (!upper) return null
+    const pagesPerChunk = Math.max(1, Math.floor(chunkBytes / blockSize))
+    return { lowerBlock: Math.max(0, upper - pagesPerChunk), upperBlock: upper }
 }
 
-const keepLogTables = ['log_delivery_outbox', 'log_organization_sync_outbox', 'log_organization_sync_cursor']
+export function migrationTailVacuumArgs(containerName: string, databaseUser: string, databaseName: string,
+    table: 'events' | 'log_analyze_receipts') {
+    if (!containerName || !databaseUser || !databaseName) throw new Error('Migration vacuum requires the inspected PostgreSQL container, user and database.')
+    return ['exec', containerName, 'psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-U', databaseUser, '-d', databaseName,
+        '-c', 'SET lock_timeout = \'1s\'', '-c', 'SET statement_timeout = \'20min\'', '-c', `VACUUM (TRUNCATE) public.${table}`]
+}
+
+export function runMigrationTailVacuum(table: 'events' | 'log_analyze_receipts') {
+    const containerName = process.env.LOGS_MIGRATION_HANASAND_DB_CONTAINER || 'hanasand_database'
+    const inspected = JSON.parse(execFileSync('docker', ['inspect', containerName], { encoding: 'utf8', timeout: 5000 })) as Array<{
+        Config?: { Env?: string[] }
+    }>
+    const environment = new Map((inspected[0]?.Config?.Env || []).flatMap(value => {
+        const separator = value.indexOf('=')
+        return separator > 0 ? [[value.slice(0, separator), value.slice(separator + 1)] as const] : []
+    }))
+    const databaseUser = environment.get('POSTGRES_USER')
+    const databaseName = environment.get('POSTGRES_DB')
+    if (!databaseUser || !databaseName) throw new Error('Migration vacuum paused: PostgreSQL identity could not be inspected.')
+    execFileSync('docker', migrationTailVacuumArgs(containerName, databaseUser, databaseName, table), {
+        encoding: 'utf8', timeout: 25 * 60_000, maxBuffer: 1024 * 1024,
+    })
+}
+
+const knownLogStateRelations = [
+    'log_access_counts', 'log_access_rule_windows', 'log_access_windows', 'log_analyze_event_linkage_archive',
+    'log_analyze_receipts', 'log_catchup_progress', 'log_counts', 'log_counts_state', 'log_delivery_outbox',
+    'log_dimensions', 'log_dimensions_state', 'log_ingest_access_ip_minutes', 'log_ingest_access_minute_batches',
+    'log_ingest_access_state', 'log_ingestion_canonical', 'log_ingestion_copies', 'log_model_probe_receipts',
+    'log_mongo_ping_counts', 'log_organization_sync_cursor', 'log_organization_sync_outbox',
+    'log_postgres_session_state', 'log_processing_cursors', 'log_proxy_counts', 'log_proxy_receipts',
+    'log_readiness_audit_receipts', 'log_routine_group_state', 'log_throughput_samples', 'log_tuning_snapshots',
+]
 
 export async function clearMigratedLogReceipts(transaction = withTransaction) {
     return transaction(async query => {
@@ -78,11 +226,12 @@ export async function clearMigratedLogReceipts(transaction = withTransaction) {
         if (remaining.rows[0]?.present) {
             throw new Error('Cannot reclaim receipt storage while source migration receipts remain.')
         }
-        const cleared = ['log_analyze_receipts', 'log_model_probe_receipts', 'log_readiness_audit_receipts',
-            'log_proxy_receipts', 'rule_hit_counts', 'rule_hit_count_deltas']
+        const cleared = ['log_analyze_receipts', 'log_model_probe_receipts', 'log_readiness_audit_receipts', 'log_proxy_receipts']
         await query(`TRUNCATE TABLE ${cleared.map(name => `public.${name}`).join(', ')} RESTART IDENTITY`)
-        await query(`INSERT INTO rule_hit_counts(organization_id,source,rule_id,hits)
-            SELECT organization_id,'findings',rule_id,count(*) FROM findings GROUP BY organization_id,rule_id`)
+        // These projections also serve findings. Keep pending finding deltas and
+        // finding totals intact; only receipt-derived counts leave with Logs.
+        await query('DELETE FROM rule_hit_count_deltas WHERE source=\'receipts\'')
+        await query('DELETE FROM rule_hit_counts WHERE source=\'receipts\'')
         return cleared
     })
 }
@@ -94,16 +243,27 @@ export async function clearMovedLogState(transaction = withTransaction) {
         await query('LOCK TABLE events, findings, rule_hit_counts, rule_hit_count_deltas, log_analyze_receipts, log_model_probe_receipts, log_readiness_audit_receipts, log_proxy_receipts IN SHARE ROW EXCLUSIVE MODE')
         const tables = await query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND c.relkind='r' AND left(c.relname,4)='log_'
-              AND NOT (c.relname=ANY($1::text[])) ORDER BY c.relname`, [keepLogTables])
-        const cleared = tables.rows.map(row => String(row.relname))
-        for (const name of cleared) {
-            if (!/^log_[a-z0-9_]+$/.test(name)) throw new Error('Unexpected log state relation name; cleanup stopped.')
-        }
+            ORDER BY c.relname`)
+        const discovered = tables.rows.map(row => String(row.relname))
+        const known = new Set(knownLogStateRelations)
+        const unexpected = discovered.filter(name => !known.has(name))
+        if (unexpected.length) throw new Error(`Unknown Hanasand Logs relation(s); cleanup stopped: ${unexpected.join(', ')}`)
+        const cleared = knownLogStateRelations.filter(name => discovered.includes(name))
         if (cleared.length) {
             // Hold an exclusive lock from the emptiness checks through TRUNCATE.
             // NOWAIT makes active readers/writers defer cleanup rather than wait
             // while this transaction owns locks on the shared Hanasand tables.
             await query(`LOCK TABLE ${cleared.map(name => `public.${name}`).join(', ')} IN ACCESS EXCLUSIVE MODE NOWAIT`)
+        }
+        const pendingOutboxes = ['log_delivery_outbox', 'log_organization_sync_outbox'].filter(name => discovered.includes(name))
+        if (pendingOutboxes.length) {
+            const checks = pendingOutboxes.map(name => name === 'log_organization_sync_outbox'
+                ? 'EXISTS(SELECT 1 FROM public.log_organization_sync_outbox WHERE delivered_at IS NULL OR lease_until IS NOT NULL)'
+                : 'EXISTS(SELECT 1 FROM public.log_delivery_outbox)')
+            const pending = await query(`SELECT ${checks.join(' OR ')} AS present`)
+            if (pending.rows[0]?.present) {
+                throw new Error('Cannot clear Hanasand Logs state while a transfer outbox still has rows.')
+            }
         }
         const remaining = await query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present')
         if (remaining.rows[0]?.present) {
@@ -184,6 +344,7 @@ export async function migrateFindings(url: string, syncToken: string, sourceEven
             batch.push(migrated[offset + batch.length])
         }
         if (!batch.length) throw permanentError('A source finding exceeds the Logs migration payload limit; its source data remains in Hanasand.')
+        await assertMigrationStorageReserve()
         const response = await fetch(`${url}/api/migration/findings`, {
             method: 'POST',
             headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
@@ -224,7 +385,9 @@ export async function migrateFindingsBeforeEvents(url: string, syncToken: string
     }
 }
 
-export async function migrateReceiptKind(url: string, syncToken: string, kind: 'model_probe' | 'readiness_audit' | 'proxy' | 'analyze') {
+export async function migrateReceiptKind(url: string, syncToken: string, kind: 'model_probe' | 'readiness_audit' | 'proxy' | 'analyze',
+    vacuumTail: (table: 'log_analyze_receipts') => void = runMigrationTailVacuum,
+    tailChunkBytes = analyzeReceiptTailChunkBytes, vacuumEveryBytes = tailVacuumEveryBytes) {
     const modelProbe = kind === 'model_probe'
     const readinessAudit = kind === 'readiness_audit'
     const analyze = kind === 'analyze'
@@ -233,22 +396,105 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
     const batchLimit = analyze ? analyzeReceiptBatchSize : receiptBatchSize
     let cursor = ''
     let migrated = 0
+    let analyzeUpperBlock: number | undefined
+    let analyzeBlockSize = 8192
+    let analyzeTailRange: { lowerBlock: number; upperBlock: number } | null = null
+    let analyzeAfterCtid: string | undefined
+    let analyzeBytesSinceVacuum = 0
+    let analyzeDone = false
     while (true) {
         const source = await withTransaction(async query => {
-            await query('SET LOCAL statement_timeout = \'20s\'')
             const fields = modelProbe
                 ? 'nonce,source_event_id,organization_id,original,original_encoding,created_at::text AS created_at'
                 : readinessAudit ? 'exec_id,organization_id,root_source_event_id,chain_digest,original,original_encoding,created_at::text AS created_at'
                     : analyze ? 'key,organization_id,rule_id,rule_version,created_at::text AS created_at'
                         : 'key,organization_id,connection_id::text AS connection_id,canonical_event_id,original,created_at::text AS created_at'
+            if (analyze) {
+                await query('SET LOCAL statement_timeout = \'5min\'')
+                analyzeTailRange = null
+                analyzeDone = false
+                if (analyzeUpperBlock === undefined) {
+                    const geometry = await query(`SELECT pg_relation_size('public.log_analyze_receipts')::bigint AS bytes,
+                        current_setting('block_size')::integer AS block_size`)
+                    const bytes = Number(geometry.rows[0]?.bytes)
+                    const blockSize = Number(geometry.rows[0]?.block_size)
+                    analyzeBlockSize = blockSize
+                    analyzeBytesSinceVacuum = 0
+                    analyzeAfterCtid = undefined
+                    const range = migrationTailPageRange(bytes, blockSize, undefined, tailChunkBytes)
+                    if (!range) {
+                        analyzeDone = true
+                        return { rows: [] }
+                    }
+                    analyzeUpperBlock = range.upperBlock
+                }
+                const currentUpperBlock = analyzeUpperBlock
+                if (currentUpperBlock === undefined) throw new Error('Migration paused: receipt table tail geometry was not initialized.')
+                const range = migrationTailPageRange(currentUpperBlock * analyzeBlockSize, analyzeBlockSize,
+                    currentUpperBlock, tailChunkBytes)
+                if (!range) {
+                    const remaining = await query('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts) AS present')
+                    if (!remaining.rows[0]?.present) {
+                        analyzeDone = true
+                        return { rows: [] }
+                    }
+                    analyzeUpperBlock = undefined
+                    return { rows: [] }
+                }
+                analyzeTailRange = range
+                const selected = await query(`SELECT ctid::text AS source_ctid, ${fields} FROM log_analyze_receipts
+                    WHERE ctid >= ('(' || $1::text || ',0)')::tid AND ctid < ('(' || $2::text || ',0)')::tid
+                        AND ($3::tid IS NULL OR ctid > $3::tid)
+                    ORDER BY ctid LIMIT $4`, [range.lowerBlock, range.upperBlock, analyzeAfterCtid || null, batchLimit])
+                return selected
+            }
+            await query('SET LOCAL statement_timeout = \'20s\'')
             return query(`SELECT ${fields} FROM ${table} WHERE ${keyColumn} > $1 ORDER BY ${keyColumn} LIMIT $2`, [cursor, batchLimit])
         })
-        if (!source.rows.length) return migrated
+        if (!source.rows.length) {
+            if (!analyze) return migrated
+            if (analyzeDone) return migrated
+            const range = analyzeTailRange
+            if (range) {
+                const remainingInRange = await withTransaction(async query => {
+                    await query('SET LOCAL statement_timeout = \'5min\'')
+                    return query(`SELECT EXISTS(SELECT 1 FROM log_analyze_receipts
+                        WHERE ctid >= ('(' || $1::text || ',0)')::tid AND ctid < ('(' || $2::text || ',0)')::tid) AS present`,
+                    [range.lowerBlock, range.upperBlock])
+                })
+                if (remainingInRange.rows[0]?.present) {
+                    analyzeAfterCtid = undefined
+                    continue
+                }
+                analyzeBytesSinceVacuum += (range.upperBlock - range.lowerBlock) * analyzeBlockSize
+                const shouldVacuum = analyzeBytesSinceVacuum >= vacuumEveryBytes || range.lowerBlock === 0
+                if (shouldVacuum) {
+                    vacuumTail('log_analyze_receipts')
+                    analyzeBytesSinceVacuum = 0
+                }
+                if (range.lowerBlock === 0) {
+                    const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts) AS present'))
+                    if (!remaining.rows[0]?.present) return migrated
+                    analyzeUpperBlock = undefined
+                    analyzeAfterCtid = undefined
+                } else {
+                    analyzeUpperBlock = range.lowerBlock
+                    analyzeAfterCtid = undefined
+                }
+                continue
+            }
+            // Geometry may have changed during the previous vacuum. Refresh from
+            // the physical tail and make one more pass for rows inserted late.
+            continue
+        }
 
         const batch: Array<Record<string, unknown>> = []
         for (const row of source.rows) {
-            const { original, ...fields } = row
-            const receipt = kind === 'proxy' || analyze ? row : { ...fields, original_base64: Buffer.from(original).toString('base64') }
+            const fields = { ...row }
+            const original = fields.original
+            delete fields.original
+            delete fields.source_ctid
+            const receipt = kind === 'proxy' ? row : analyze ? fields : { ...fields, original_base64: Buffer.from(original).toString('base64') }
             if (Buffer.byteLength(JSON.stringify({ kind, receipts: [...batch, receipt] })) > maxPayloadBytes) break
             batch.push(receipt)
         }
@@ -257,6 +503,7 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
         let acknowledged = false
         let retryDelay = 1000
         while (!acknowledged) {
+            await assertMigrationStorageReserve()
             const response = await fetch(`${url}/api/migration/receipts`, {
                 method: 'POST',
                 headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
@@ -308,15 +555,18 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
         })
         if (deletion.rows.length !== batch.length) throw new Error(`A ${kind} receipt changed during migration; its delete transaction was rolled back.`)
         migrated += batch.length
-        cursor = String(batch[batch.length - 1]![keyColumn])
+        if (analyze) analyzeAfterCtid = String(source.rows[batch.length - 1]!.source_ctid)
+        else cursor = String(batch[batch.length - 1]![keyColumn])
     }
 }
 
-export async function migrateAnalysisReceipts(url: string, syncToken: string) {
+export async function migrateAnalysisReceipts(url: string, syncToken: string,
+    vacuumTail: (table: 'log_analyze_receipts') => void = runMigrationTailVacuum,
+    tailChunkBytes = analyzeReceiptTailChunkBytes) {
     const modelProbe = await migrateReceiptKind(url, syncToken, 'model_probe')
     const readinessAudit = await migrateReceiptKind(url, syncToken, 'readiness_audit')
     const proxy = await migrateReceiptKind(url, syncToken, 'proxy')
-    const analyze = await migrateReceiptKind(url, syncToken, 'analyze')
+    const analyze = await migrateReceiptKind(url, syncToken, 'analyze', vacuumTail, tailChunkBytes)
     return { modelProbe, readinessAudit, proxy, analyze }
 }
 
@@ -346,6 +596,7 @@ export async function migrateLinkageArchive(url: string, syncToken: string) {
         let acknowledged = false
         let retryDelay = 1000
         while (!acknowledged) {
+            await assertMigrationStorageReserve()
             const response = await fetch(`${url}/api/migration/linkage-archive`, {
                 method: 'POST',
                 headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
@@ -394,6 +645,7 @@ type MigrationStateKind = 'throughput_samples' | 'tuning_snapshots' | 'log_acces
 async function sendMigrationState(url: string, syncToken: string, kind: MigrationStateKind, rows: Array<Record<string, unknown>>) {
     let retryDelay = 1000
     while (true) {
+        await assertMigrationStorageReserve()
         const response = await fetch(`${url}/api/migration/state`, {
             method: 'POST',
             headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
@@ -661,27 +913,99 @@ export async function migrateLogRuntimeState(url: string, syncToken: string) {
 }
 
 export async function serviceReady(url: string) {
+    const signingKey = process.env.LOGS_APPLICATION_LOG_HMAC_KEY
+    if (!signingKey || Buffer.byteLength(signingKey) < 32) return false
+    const expectedKeyId = createHash('sha256').update(signingKey).digest('hex').slice(0, 24)
     const response = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(5000) })
     if (!response.ok) return false
     const body = await response.json() as {
-        ok?: boolean, accepting?: boolean, release?: string, worker?: { ok?: boolean, release?: string | null }
+        ok?: boolean, accepting?: boolean, release?: string, applicationLogHmacReady?: boolean, applicationLogHmacKeyId?: string | null,
+        worker?: { ok?: boolean, release?: string | null }
     }
     return body.ok === true && body.accepting === true && body.worker?.ok === true
         && typeof body.release === 'string' && body.worker.release === body.release
+        && body.applicationLogHmacReady === true && body.applicationLogHmacKeyId === expectedKeyId
 }
 
-export async function moveOneBatch(url: string, token: string): Promise<MigrationBatchResult> {
+export async function customerLogsReadReady(logsServiceUrl: string) {
+    const readinessUrl = process.env.LOGS_FRONTEND_READINESS_URL || 'https://hanasand.com/api/health'
+    const apiBase = `${logsServiceUrl.replace(/\/+$/, '')}/api`
+    try {
+        const response = await fetch(readinessUrl, { cache: 'no-store', signal: AbortSignal.timeout(5000) })
+        if (!response.ok) return false
+        const body = await response.json() as { ok?: boolean, service?: string, logsReadBaseUrl?: string | null }
+        if (body.ok !== true || body.service !== 'frontend'
+            || body.logsReadBaseUrl?.trim().replace(/\/+$/, '') !== apiBase) return false
+
+        // These user-facing routes were absent from the previous Logs API
+        // release. The synthetic organization scopes rule-hit probes; a 401
+        // proves each handler exists without fetching customer data.
+        const routes = ['/logs/errors?organizationId=__readiness_probe__',
+            '/rules/hits?organizationId=__readiness_probe__',
+            '/rules/__readiness_probe__/hits?organizationId=__readiness_probe__',
+            '/rules/__readiness_probe__/storage-estimate?organizationId=__readiness_probe__']
+        const routeResponses = await Promise.all(routes.map(path => fetch(`${apiBase}${path}`, {
+            headers: { accept: 'application/json' },
+            signal: AbortSignal.timeout(5000),
+        })))
+        if (!routeResponses.every(route => route.status === 401)) return false
+
+        // Verify the proxy exposes every protected migration endpoint before
+        // the first transfer request can send any batch to Logs.
+        const migrationRoutes = ['/migration/findings', '/migration/receipts', '/migration/linkage-archive',
+            '/migration/state', '/migration/status']
+        const migrationResponses = await Promise.all(migrationRoutes.map(path => fetch(`${apiBase}${path}`, {
+            method: 'POST',
+            headers: { accept: 'application/json', authorization: `Bearer ${'0'.repeat(40)}`, 'content-type': 'application/json' },
+            body: '{}',
+            signal: AbortSignal.timeout(5000),
+        })))
+        return migrationResponses.every(route => route.status === 401)
+    } catch {
+        return false
+    }
+}
+
+type MigrationTailRange = { lowerBlock: number; upperBlock: number; afterCtid?: string }
+
+export async function moveOneBatch(url: string, token: string, cursor = '', tailRange?: MigrationTailRange): Promise<MigrationBatchResult> {
     const selected = await withTransaction(async query => {
         await query('SET LOCAL lock_timeout = \'1s\'')
-        await query('SET LOCAL statement_timeout = \'20s\'')
-        const selected = await query(`SELECT id, organization_id, event_timestamp::text AS event_timestamp, normalized
+        await query(`SET LOCAL statement_timeout = '${tailRange ? '5min' : '20s'}'`)
+        const selected = tailRange
+            ? await query(`SELECT ctid::text AS source_ctid, id, ingestion_id, organization_id, source_vendor, source_product,
+                event_timestamp::text AS event_timestamp, received_at::text AS received_at,
+                event_type, action, outcome, user_id, user_email, source_ip, source_country, source_city, device_id,
+                normalized, original, parser_version, processing_status
             FROM events WHERE ingestion_id = 'logs'
-            ORDER BY received_at, id LIMIT $1`, [batchSize])
+                AND ctid >= ('(' || $1::text || ',0)')::tid AND ctid < ('(' || $2::text || ',0)')::tid
+                AND ($3::tid IS NULL OR ctid > $3::tid)
+            ORDER BY ctid LIMIT $4`, [tailRange.lowerBlock, tailRange.upperBlock, tailRange.afterCtid || null, batchSize])
+            : await query(`SELECT id, ingestion_id, organization_id, source_vendor, source_product,
+                event_timestamp::text AS event_timestamp, received_at::text AS received_at,
+                event_type, action, outcome, user_id, user_email, source_ip, source_country, source_city, device_id,
+                normalized, original, parser_version, processing_status
+            FROM events WHERE ingestion_id = 'logs' AND id > $1
+            ORDER BY id LIMIT $2`, [cursor, batchSize])
         return selected.rows
     })
     if (!selected.length) {
+        if (tailRange) {
+            const remaining = await withTransaction(async query => {
+                await query('SET LOCAL statement_timeout = \'5min\'')
+                return query(`SELECT EXISTS(SELECT 1 FROM events
+                    WHERE ingestion_id='logs' AND ctid >= ('(' || $1::text || ',0)')::tid
+                        AND ctid < ('(' || $2::text || ',0)')::tid) AS present`, [tailRange.lowerBlock, tailRange.upperBlock])
+            })
+            return remaining.rows[0]?.present
+                ? { moved: 0, remaining: true, retry: true }
+                : { moved: 0, remaining: true, retry: false, rangeComplete: true }
+        }
         const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id = \'logs\') AS present'))
-        return { moved: 0, remaining: Boolean(remaining.rows[0]?.present), retry: false }
+        // Sweep from the beginning if a legacy writer inserted a row behind the
+        // current cursor. The final pass must observe an actually empty source.
+        return { moved: 0, remaining: Boolean(remaining.rows[0]?.present), retry: false,
+            ...(remaining.rows[0]?.present ? { cursor: '' } : {}) }
     }
 
     const events: Array<ReturnType<typeof logMigrationEvent>> = []
@@ -695,6 +1019,7 @@ export async function moveOneBatch(url: string, token: string): Promise<Migratio
     }
     if (!events.length) throw permanentError('The oldest source event exceeds the Logs API batch size; it remains in Hanasand for manual review.')
 
+    await assertMigrationStorageReserve()
     const response = await fetch(`${url}/api/ingest`, {
         method: 'POST',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
@@ -778,33 +1103,150 @@ export async function moveOneBatch(url: string, token: string): Promise<Migratio
             })) {
                 throw permanentError('Logs returned missing or mismatched source payload hashes; source rows remain in Hanasand.')
             }
-            if ([...statuses.values()].some(status => status === 'pending')) {
-                await sleep(1000)
-                continue
-            }
+            // A pending row is already durably stored in the Logs database and
+            // its payload hash matches this source row. Let the independent Logs
+            // worker process it asynchronously; waiting here serializes the
+            // entire source migration behind worker throughput and prevents the
+            // bounded pending-event admission limit from doing its job.
             break
         }
     }
 
     const ids = sourceRows.map(row => String(row.id))
-    const expectedRows = sourceRows.map(row => ({ id: String(row.id), organization_id: row.organization_id,
-        event_timestamp: String(row.event_timestamp), normalized: row.normalized }))
+    const expectedRows = sourceRows.map(row => ({
+        id: String(row.id), ingestion_id: row.ingestion_id, organization_id: row.organization_id,
+        source_vendor: row.source_vendor, source_product: row.source_product,
+        event_timestamp: String(row.event_timestamp), received_at: String(row.received_at),
+        event_type: row.event_type, action: row.action, outcome: row.outcome, user_id: row.user_id,
+        user_email: row.user_email, source_ip: row.source_ip, source_country: row.source_country,
+        source_city: row.source_city, device_id: row.device_id, normalized: row.normalized,
+        original: row.original, parser_version: row.parser_version, processing_status: row.processing_status,
+    }))
     await withTransaction(async query => {
         await query('SET LOCAL lock_timeout = \'1s\'')
         await query('SET LOCAL statement_timeout = \'20s\'')
         const result = await query(`DELETE FROM events AS source USING jsonb_to_recordset($1::jsonb) AS expected(
-                id text, organization_id text, event_timestamp timestamptz, normalized jsonb)
-            WHERE source.id=expected.id AND source.ingestion_id='logs'
+                id text, ingestion_id text, organization_id text, source_vendor text, source_product text,
+                event_timestamp timestamptz, received_at timestamptz, event_type text, action text, outcome text,
+                user_id text, user_email text, source_ip text, source_country text, source_city text, device_id text,
+                normalized jsonb, original jsonb, parser_version text, processing_status text)
+            WHERE source.id=expected.id AND source.ingestion_id='logs' AND expected.ingestion_id='logs'
               AND source.organization_id=expected.organization_id
+              AND source.source_vendor IS NOT DISTINCT FROM expected.source_vendor
+              AND source.source_product IS NOT DISTINCT FROM expected.source_product
               AND source.event_timestamp=expected.event_timestamp
+              AND source.received_at=expected.received_at
+              AND source.event_type IS NOT DISTINCT FROM expected.event_type
+              AND source.action IS NOT DISTINCT FROM expected.action
+              AND source.outcome IS NOT DISTINCT FROM expected.outcome
+              AND source.user_id IS NOT DISTINCT FROM expected.user_id
+              AND source.user_email IS NOT DISTINCT FROM expected.user_email
+              AND source.source_ip IS NOT DISTINCT FROM expected.source_ip
+              AND source.source_country IS NOT DISTINCT FROM expected.source_country
+              AND source.source_city IS NOT DISTINCT FROM expected.source_city
+              AND source.device_id IS NOT DISTINCT FROM expected.device_id
               AND source.normalized=expected.normalized
+              AND source.original IS NOT DISTINCT FROM expected.original
+              AND source.parser_version IS NOT DISTINCT FROM expected.parser_version
+              AND source.processing_status IS NOT DISTINCT FROM expected.processing_status
             RETURNING source.id`, [JSON.stringify(expectedRows)])
         if (result.rows.length !== ids.length) {
             throw new Error('The source event batch changed before it could be removed; no changed rows were deleted.')
         }
         return result
     })
-    return { moved: ids.length, remaining: true, retry: false }
+    return { moved: ids.length, remaining: true, retry: false,
+        ...(tailRange ? { tailCursor: String(sourceRows[sourceRows.length - 1]!.source_ctid) } : {}),
+        ...(!tailRange ? { cursor: String(sourceRows[sourceRows.length - 1]!.id) } : {}) }
+}
+
+export async function migrateEventsByPhysicalTail(url: string, token: string,
+    vacuumTail: (table: 'events' | 'log_analyze_receipts') => void = runMigrationTailVacuum,
+    tailChunkBytes = eventTailChunkBytes, vacuumEveryBytes = tailVacuumEveryBytes,
+    checkCollector = assertMigrationCollectorReady) {
+    let moved = 0
+    let retryDelay = 1000
+    let upperBlock: number | undefined
+    let blockSize = 8192
+    let bytesSinceVacuum = 0
+
+    while (true) {
+        if (upperBlock === undefined) {
+            const geometry = await withTransaction(query => query(`SELECT pg_relation_size('public.events')::bigint AS bytes,
+                current_setting('block_size')::integer AS block_size`))
+            const bytes = Number(geometry.rows[0]?.bytes)
+            blockSize = Number(geometry.rows[0]?.block_size)
+            const firstRange = migrationTailPageRange(bytes, blockSize, undefined, tailChunkBytes)
+            if (!firstRange) {
+                const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present'))
+                if (!remaining.rows[0]?.present) return moved
+                await sleep(retryDelay)
+                retryDelay = Math.min(30_000, retryDelay * 2)
+                continue
+            }
+            upperBlock = firstRange.upperBlock
+        }
+
+        const range = migrationTailPageRange(upperBlock * blockSize, blockSize, upperBlock, tailChunkBytes)
+        if (!range) {
+            const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present'))
+            if (!remaining.rows[0]?.present) return moved
+            // A late writer inserted into a previously visited physical range.
+            // Refresh the relation geometry and sweep again before final cleanup.
+            upperBlock = undefined
+            continue
+        }
+
+        let rangeComplete = false
+        let afterCtid: string | undefined
+        while (!rangeComplete) {
+            let result: MigrationBatchResult
+            try {
+                await checkCollector()
+                result = await moveOneBatch(url, token, '', { ...range, afterCtid })
+            } catch (error) {
+                if ((error as { migrationPermanent?: boolean }).migrationPermanent) throw error
+                const code = String((error as { code?: string }).code || '')
+                const name = String((error as { name?: string }).name || '')
+                if (!code.startsWith('08') && !['40001', '40P01', '55P03', '57014', 'DB_QUEUE_FULL'].includes(code)
+                    && !['AbortError', 'TimeoutError'].includes(name) && !(error instanceof TypeError)) throw error
+                console.warn('Migration batch was not removed from Hanasand; retrying.', error instanceof Error ? error.message : 'unknown error')
+                await sleep(retryDelay)
+                retryDelay = Math.min(30_000, retryDelay * 2)
+                continue
+            }
+            if (result.retry) {
+                afterCtid = undefined
+                await sleep(retryDelay)
+                retryDelay = Math.min(30_000, retryDelay * 2)
+                continue
+            }
+            retryDelay = 1000
+            if (result.moved) {
+                moved += result.moved
+                if (moved % 1000 === 0) console.log(JSON.stringify({ moved, scope: 'logs events' }))
+            }
+            if (result.tailCursor) afterCtid = result.tailCursor
+            rangeComplete = result.rangeComplete === true
+            if (!rangeComplete && result.moved === 0 && !result.remaining) {
+                // A concurrent writer may have changed the relation while the
+                // range was being walked. Check the whole table before restarting.
+                const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present'))
+                if (!remaining.rows[0]?.present) return moved
+                upperBlock = undefined
+                break
+            }
+        }
+
+        if (rangeComplete) {
+            bytesSinceVacuum += (range.upperBlock - range.lowerBlock) * blockSize
+            if (bytesSinceVacuum >= vacuumEveryBytes || range.lowerBlock === 0) {
+                vacuumTail('events')
+                bytesSinceVacuum = 0
+            }
+            upperBlock = range.lowerBlock
+        }
+    }
 }
 
 async function main() {
@@ -825,66 +1267,35 @@ async function main() {
             eventEstimateMethod: 'PostgreSQL planner estimate; verify with exact counts before deletion',
             eventRelationSizeIncludesOtherIngestions: true,
             relatedTableSizes: tables.rows, batchSize,
-            applyRequires: ['LOGS_OUTBOX_ENABLED=1', 'LOGS_OUTBOX_REMOTE_ONLY=1', 'healthy Logs API and worker'] }))
+            applyRequires: ['LOGS_OUTBOX_ENABLED=1', 'LOGS_OUTBOX_REMOTE_ONLY=1', 'LOGS_SERVICE_DIRECT=1 with a valid application-log HMAC key', 'live frontend Logs read cutover', 'healthy Logs API and worker'] }))
         return
     }
 
-    if (!logsOutboxEnabled() || !logsOutboxRemoteOnly()) {
-        throw new Error('Apply requires LOGS_OUTBOX_ENABLED=1 and LOGS_OUTBOX_REMOTE_ONLY=1 so new application logs continue directly to Logs.')
+    if (!logsOutboxEnabled() || !logsOutboxRemoteOnly() || !logsServiceDirect()) {
+        throw new Error('Apply requires enabled Logs outbox delivery, remote-only processing and direct signed collector output.')
     }
     const { url, ingestToken, syncToken } = logsServiceConfiguration()
     if (!url || !ingestToken || ingestToken.length < 32 || !syncToken || syncToken.length < 32) throw new Error('Apply requires LOGS_SERVICE_URL and valid Logs ingest and sync tokens.')
+    await assertMigrationCollectorReady()
+    if (!await customerLogsReadReady(url)) throw new Error('Apply requires the live Hanasand frontend to report Logs reads routed to the target Logs service and every direct read route to be active.')
     if (!await serviceReady(url)) throw new Error('Logs API or worker is not healthy; no source rows were moved.')
-    await ensureMigrationCursorIndex()
     const receipts = await migrateAnalysisReceipts(url, syncToken)
     const linkageArchiveRows = await migrateLinkageArchive(url, syncToken)
     const runtimeState = await migrateLogRuntimeState(url, syncToken)
     console.log(JSON.stringify({ migratedReceipts: receipts, linkageArchiveRows, runtimeState }))
     const findings = await migrateFindingsBeforeEvents(url, syncToken)
     console.log(JSON.stringify({ preparedFindings: findings, scope: 'logs findings' }))
+    if (!await customerLogsReadReady(url)) throw new Error('The live Hanasand frontend no longer routes Logs reads to this service; receipt storage remains in Hanasand.')
     const reclaimedReceiptTables = await clearMigratedLogReceipts()
     console.log(JSON.stringify({ reclaimedReceiptTables, scope: 'migrated Logs receipts and hit counts' }))
 
-    let moved = 0
-    let retryDelay = 1000
-    while (true) {
-        let result: Awaited<ReturnType<typeof moveOneBatch>>
-        try {
-            result = await moveOneBatch(url, ingestToken)
-        } catch (error) {
-            if ((error as { migrationPermanent?: boolean }).migrationPermanent) throw error
-            const code = String((error as { code?: string }).code || '')
-            const name = String((error as { name?: string }).name || '')
-            if (!code.startsWith('08') && !['40001', '40P01', '55P03', '57014', 'DB_QUEUE_FULL'].includes(code)
-                && !['AbortError', 'TimeoutError'].includes(name) && !(error instanceof TypeError)) throw error
-            // Source rows remain unless the acknowledged and processed batch was
-            // unchanged at the final conditional delete.
-            console.warn('Migration batch was not removed from Hanasand; retrying.', error instanceof Error ? error.message : 'unknown error')
-            await sleep(retryDelay)
-            retryDelay = Math.min(30_000, retryDelay * 2)
-            continue
-        }
-        if (result.retry) {
-            await sleep(retryDelay)
-            retryDelay = Math.min(30_000, retryDelay * 2)
-            continue
-        }
-        retryDelay = 1000
-        if (result.moved) {
-            moved += result.moved
-            if (moved % 1000 === 0) console.log(JSON.stringify({ moved, scope: 'logs events' }))
-        } else if (!result.remaining) {
-            if (!await serviceReady(url)) throw new Error('Logs API or worker became unhealthy before source cleanup; log state remains in Hanasand.')
-            const clearedTables = await clearMovedLogState()
-            await dropMigrationCursorIndex()
-            console.log(JSON.stringify({ complete: true, moved, scope: 'logs events', clearedTables,
-                physicalRewriteRequired: ['events', 'findings'].filter(table => !clearedTables.includes(table)) }))
-            return
-        } else {
-            // Another active worker or migration owns the remaining row locks.
-            await sleep(1000)
-        }
-    }
+    const moved = await migrateEventsByPhysicalTail(url, ingestToken)
+    await assertMigrationCollectorReady()
+    if (!await serviceReady(url)) throw new Error('Logs API or worker became unhealthy before source cleanup; log state remains in Hanasand.')
+    if (!await customerLogsReadReady(url)) throw new Error('The live Hanasand frontend no longer routes Logs reads to this service; source log state remains in Hanasand.')
+    const clearedTables = await clearMovedLogState()
+    console.log(JSON.stringify({ complete: true, moved, scope: 'logs events', clearedTables,
+        physicalRewriteRequired: ['events', 'findings'].filter(table => !clearedTables.includes(table)) }))
 }
 
 if (import.meta.main) {

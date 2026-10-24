@@ -4,9 +4,10 @@ import type { Organization } from './logOutboxTypes.ts'
 
 type Query = typeof run
 type SnapshotRule = Record<string, unknown> & { updated_at: Date | string }
+type OrganizationSnapshot = { id: string; source_updated_at: Date | string; payload: Record<string, unknown> }
 
-export async function enqueueOrganizationSnapshots(organizations: Organization[], query: Query) {
-    if (!organizations.length) return
+export async function buildOrganizationSnapshots(organizations: Organization[], query: Query): Promise<OrganizationSnapshot[]> {
+    if (!organizations.length) return []
     const rules = await query(`SELECT id, organization_id, rule_id, version, name, family, severity,
         explanation, definition, source, source_reference, enabled, created_by, created_at, updated_at
         FROM rules WHERE organization_id = ANY($1::text[]) ORDER BY organization_id, rule_id`, [organizations.filter(item => item.status !== 'deleted').map(item => item.id)])
@@ -18,7 +19,7 @@ export async function enqueueOrganizationSnapshots(organizations: Organization[]
         } as SnapshotRule])
     }
 
-    const organizationPayloads = organizations.map(organization => {
+    return organizations.map(organization => {
         const storedRules = rulesByOrganization.get(organization.id) || []
         const organizationRules = organization.status === 'active' ? storedRules : storedRules.map(rule => ({ ...rule, enabled: false }))
         const newestRule = organizationRules.reduce<Date | string | null>((latest, rule) => {
@@ -34,6 +35,11 @@ export async function enqueueOrganizationSnapshots(organizations: Organization[]
         }
         return { id: organization.id, source_updated_at: sourceUpdatedAt, payload }
     })
+}
+
+export async function enqueueOrganizationSnapshots(organizations: Organization[], query: Query) {
+    const organizationPayloads = await buildOrganizationSnapshots(organizations, query)
+    if (!organizationPayloads.length) return
     await query(`INSERT INTO log_organization_sync_outbox(organization_id, source_updated_at, payload)
             SELECT item.id, item.source_updated_at, item.payload FROM jsonb_to_recordset($1::jsonb) AS item(
                 id text, source_updated_at timestamptz, payload jsonb)
@@ -48,7 +54,7 @@ export async function enqueueOrganizationSnapshots(organizations: Organization[]
 
 export async function refreshLogsOrganizationSnapshotBatch(query: Query = run) {
     const config = logsServiceConfiguration()
-    if (!logsOutboxEnabled() || !config.url || !config.ingestToken || !config.syncToken) return 0
+    if (!logsOutboxEnabled() || !config.url || !config.syncToken) return 0
     const result = await query(`WITH cursor AS (
             SELECT COALESCE((SELECT organization_id FROM log_organization_sync_cursor WHERE id=TRUE), '') last_id
         ), selected AS (

@@ -14,6 +14,7 @@ export async function GET() {
             ok: true,
             service: 'frontend',
             release: process.env.HANASAND_RELEASE_COMMIT || 'unknown',
+            logsReadBaseUrl: process.env.FRONTEND_LOGS_API_URL?.trim().replace(/\/+$/, '') || null,
             api: await response.json(),
         }, { headers: { 'cache-control': 'no-store' } })
     } catch {

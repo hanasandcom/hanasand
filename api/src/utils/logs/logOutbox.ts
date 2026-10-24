@@ -2,10 +2,11 @@ export {
     assertRemoteLogsConfiguration,
     logsOutboxEnabled,
     logsOutboxRemoteOnly,
-    shouldRunLogsOutboxDelivery,
+    logsServiceDirect,
+    shouldRunLogsServiceBackgroundTasks,
     shouldRunLegacyLogProcessing,
 } from './logOutboxConfig.ts'
 export { ensureLogsOutboxSchema } from './logOutboxSchema.ts'
 export { refreshLogsOrganizationSnapshotBatch } from './logOutboxSnapshots.ts'
-export { enqueueLogsForIndependentService } from './logOutboxProducer.ts'
-export { deliverLogsOutboxBatch, startLogsOutboxDelivery } from './logOutboxDelivery.ts'
+export { publishLogsToIndependentService } from './logServiceProducer.ts'
+export { deliverLogsOutboxBatch, startLogsServiceBackgroundTasks } from './logOutboxDelivery.ts'

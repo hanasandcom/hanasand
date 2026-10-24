@@ -1,8 +1,10 @@
 import run from '#db'
+import { logsOutboxEnabled } from './logOutboxConfig.ts'
 
 type Query = typeof run
 
 export async function ensureLogsOutboxSchema(query: Query = run) {
+    if (!logsOutboxEnabled()) return
     await query(`CREATE TABLE IF NOT EXISTS log_organization_sync_outbox (
         organization_id TEXT PRIMARY KEY,
         source_updated_at TIMESTAMPTZ NOT NULL,
