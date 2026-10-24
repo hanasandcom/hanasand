@@ -123,9 +123,11 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                                         </>}
                                     </div>
                                     <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
-                                    <button type='button' onClick={() => setConfirmingDelete(true)} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
-                                        <Trash2 className='h-4 w-4' /> Delete VM
-                                    </button>
+                                    {vm.can_delete
+                                        ? <button type='button' onClick={() => setConfirmingDelete(true)} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
+                                            <Trash2 className='h-4 w-4' /> Delete VM
+                                        </button>
+                                        : <p className='px-2 py-1 text-xs leading-5 text-ui-muted'>Only Hanasand administrators can delete or restore VMs.</p>}
                                 </div>
                             </details>
                         </>}
@@ -155,7 +157,9 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                             ? 'Dashboard access is blocked. The host is retrying the shutdown.'
                             : 'The VM is disabled while scheduled for deletion.'}</p>
                     {vm.deletion_error && !instanceMissing && <p role='alert' className='mt-2 text-ui-text'>The host operation failed: {vm.deletion_error}</p>}
-                    {!instanceMissing && <button type='button' disabled={busy || expired} onClick={() => void handleRestore()} className={`${vmActionStyle} mt-3 bg-ui-raised px-3 text-ui-text hover:bg-ui-canvas`}>{busy ? 'Restoring…' : 'Restore VM'}</button>}
+                    {vm.can_delete
+                        ? !instanceMissing && <button type='button' disabled={busy || expired} onClick={() => void handleRestore()} className={`${vmActionStyle} mt-3 bg-ui-raised px-3 text-ui-text hover:bg-ui-canvas`}>{busy ? 'Restoring…' : 'Restore VM'}</button>
+                        : <p className='mt-3 text-xs leading-5 text-ui-muted'>Only Hanasand administrators can restore VMs.</p>}
                 </div>}
             </article>
             {confirmingDelete && <DeleteVmDialog name={name} busy={busy} onCancel={() => setConfirmingDelete(false)} onConfirm={confirmation => void handleDelete(confirmation)} />}

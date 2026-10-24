@@ -81,6 +81,7 @@ type VM = {
     organization_id?: string | null
     organization_name?: string | null
     can_assign_organization?: boolean
+    can_delete?: boolean
     access_users: string[]
     always_running_premium: boolean
     always_running_enabled: boolean

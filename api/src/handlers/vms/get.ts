@@ -41,7 +41,11 @@ export default async function getVM(req: FastifyRequest, res: FastifyReply) {
             return res.status(200).send([])
         }
 
-        const rows = (await withShareManagement(result.rows)).map(row => ({ ...row, can_assign_organization: !row.organization_id && !row.deleted_at && (viewer.admin || row.owner === viewer.id) }))
+        const rows = (await withShareManagement(result.rows)).map(row => ({
+            ...row,
+            can_assign_organization: !row.organization_id && !row.deleted_at && (viewer.admin || row.owner === viewer.id),
+            can_delete: viewer.admin,
+        }))
         return res.send(id
             ? [await withLiveVmStatus(rows[0])]
             : await withLiveVmStatuses(rows))

@@ -29,6 +29,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
         permissions: '0644',
         owner: `${name}:${name}`,
         encoding: 'b64',
+        defer: true,
         content: Buffer.from(file.content, 'utf8').toString('base64'),
     }))
     const minecraftAddons = options.minecraftAddons || []
@@ -372,9 +373,9 @@ PY
 fi
 if printf '%s' "$services" | grep -q '"docker"'; then
   set_stage 'Starting Docker'
-  systemctl enable --now docker
-  systemctl is-active --quiet docker
-  docker version --format '{{.Server.Version}}' >/dev/null
+  run_bounded 60 systemctl enable --now docker
+  set_stage 'Checking Docker daemon'
+  wait_for_ready Docker docker version --format '{{.Server.Version}}'
   docker compose version >/dev/null
   usermod -aG docker '${name}'
 fi
@@ -489,7 +490,7 @@ requested = json.loads(requested_json)
 if not isinstance(requested, list) or len(requested) > 6 or any(item not in projects for item in requested):
     raise SystemExit('Unsupported Minecraft add-on selection.')
 game_version = sys.argv[4]
-if not re.fullmatch(r'\d+(?:\.\d+){1,3}', game_version):
+if not re.fullmatch(r'[0-9]+(?:[.][0-9]+){1,3}', game_version):
     raise SystemExit('The Minecraft server returned an invalid game version.')
 headers = {'User-Agent': 'Hanasand VM Provisioner/1.0', 'Accept': 'application/json'}
 for slug in requested:

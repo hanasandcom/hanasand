@@ -123,7 +123,7 @@ test('cloud-init copies a validated Next.js project into the guest and builds it
         services: ['nodejs'],
         nextjsProjectFiles: files,
     })
-    const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ path: string, content: string, encoding?: string, owner?: string }> }
+    const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ path: string, content: string, encoding?: string, owner?: string, defer?: boolean }> }
     const projectPackage = config.write_files.find(file => file.path === '/home/builder-vm/project/package.json')
     const page = config.write_files.find(file => file.path === '/home/builder-vm/project/app/page.tsx')
     const unit = config.write_files.find(file => file.path === '/etc/systemd/system/hanasand-nextjs.service')
@@ -131,6 +131,7 @@ test('cloud-init copies a validated Next.js project into the guest and builds it
 
     expect(projectPackage?.encoding).toBe('b64')
     expect(projectPackage?.owner).toBe('builder-vm:builder-vm')
+    expect(projectPackage?.defer).toBe(true)
     expect(Buffer.from(projectPackage?.content || '', 'base64').toString()).toBe(files[0]?.content)
     expect(Buffer.from(page?.content || '', 'base64').toString()).toBe(files[1]?.content)
     expect(unit?.content).toContain('User=builder-vm')
@@ -165,6 +166,61 @@ test('cloud-init rejects unsafe Next.js project paths and setup scripts', () => 
         ],
     })).toThrow('valid bounded project manifest')
 })
+
+test('Docker setup bounds service startup and retries transient daemon readiness failures', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-docker-ready-'))
+    try {
+        const bin = join(directory, 'bin')
+        const statusPath = join(directory, 'status')
+        const daemonCountPath = join(directory, 'docker-count')
+        const serviceLog = join(directory, 'services.log')
+        mkdirSync(bin)
+        mkdirSync(join(directory, 'sources.list.d'))
+        writeFileSync(join(directory, 'os-release'), 'VERSION_CODENAME=noble\n')
+        writeFileSync(join(bin, 'apt-get'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'python3'), '#!/usr/bin/env bash\nprintf key > "${@: -1}"\n')
+        writeFileSync(join(bin, 'dpkg'), '#!/usr/bin/env bash\nprintf amd64\n')
+        writeFileSync(join(bin, 'systemctl'), `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${serviceLog}'\nexit 0\n`)
+        writeFileSync(join(bin, 'usermod'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'sleep'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'docker'), [
+            '#!/usr/bin/env bash',
+            'if [[ "$1" == version ]]; then',
+            `  count="$(cat '${daemonCountPath}' 2>/dev/null || printf 0)"`,
+            '  count=$((count + 1))',
+            `  printf '%s' "$count" > '${daemonCountPath}'`,
+            '  if [[ $count -ge 2 ]]; then exit 0; fi',
+            '  exit 1',
+            'fi',
+            'if [[ "$1" == compose && "$2" == version ]]; then exit 0; fi',
+            'exit 2',
+        ].join('\n'))
+        for (const executable of ['apt-get', 'python3', 'dpkg', 'systemctl', 'usermod', 'sleep', 'docker']) {
+            chmodSync(join(bin, executable), 0o755)
+        }
+
+        const cloudInit = vmSetupUserData('docker-vm', { services: ['docker'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content
+            .replaceAll('/var/lib/hanasand-vm-setup', directory)
+            .replaceAll('/etc/apt/keyrings', `${directory}/keyrings`)
+            .replaceAll('/etc/apt/sources.list.d', `${directory}/sources.list.d`)
+            .replace('. /etc/os-release', `. '${directory}/os-release'`)
+            .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
+            .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.01\n  done\n  update_apt_progress')
+        expect(script).toContain('run_bounded 60 systemctl enable --now docker')
+        expect(script).toContain('wait_for_ready Docker docker version --format')
+
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
+        if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)
+        expect(result.status).toBe(0)
+        expect(Number(readFileSync(daemonCountPath, 'utf8'))).toBeGreaterThanOrEqual(2)
+        expect(readFileSync(serviceLog, 'utf8')).toContain('enable --now docker')
+        expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
+}, 10_000)
 
 test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     const cloudInit = vmSetupUserData('hei', {
@@ -481,6 +537,7 @@ test('Minecraft setup resolves official server builds and starts a dedicated sys
     expect(script).toContain('api.modrinth.com/v2/project/')
     expect(script).toContain('cdn.modrinth.com')
     expect(script).toContain('hashlib.sha512')
+    expect(script).toContain('if not re.fullmatch(r\'[0-9]+(?:[.][0-9]+){1,3}\', game_version):')
     expect(script).toContain('/opt/minecraft/mods')
     execFileSync('bash', ['-n'], { input: script })
 })
