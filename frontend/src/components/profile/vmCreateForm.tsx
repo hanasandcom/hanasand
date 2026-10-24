@@ -1,6 +1,5 @@
 'use client'
 
-import postVM from '@/utils/vms/fetch/postVM'
 import suggestVmSetup, { type VmWebsitePlan } from '@/utils/vms/fetch/suggestVmSetup'
 import { useEffect, useId, useRef, useState } from 'react'
 import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceTabs, vmServices } from '@/utils/vms/createOptions'
@@ -12,6 +11,7 @@ import VmMinecraftAddonPicker from './vmMinecraftAddonPicker'
 import VmMinecraftServerPicker from './vmMinecraftServerPicker'
 import VmWebsiteEditor from './vmWebsiteEditor'
 import { getVmResourceAllocation, getVmResourceError } from '@/utils/vms/resourceAllocation'
+import { submitVmCreation } from './vmCreateSubmission'
 
 const starterWebsitePlan: VmWebsitePlan = {
     title: 'Make this space yours.',
@@ -66,50 +66,19 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
 
     useEffect(() => { if (visible) nameInput.current?.focus() }, [visible])
 
-    async function create(event: React.FormEvent) {
-        event.preventDefault()
-        setCreationError('')
-        if (!canCreate) {
-            const message = permissionMessage || 'An organization owner or admin must create VMs.'
-            setCreationError(message)
-            notify(message, 'error', 'vm-create')
-            return
-        }
-        if (resourceError) {
-            setCreationError(resourceError)
-            return
-        }
-        setCreating(true)
-        onCreating(true)
-        notify('Creating virtual machine…', 'progress', 'vm-create')
-        try {
-            const vmName = name.trim()
-            const result = await postVM({ name: vmName, os: operatingSystem, resources: currentResources, services: selectedServices, custom_apt_packages: customAptPackages, minecraft_eula_accepted: selectedServices.includes('minecraft-java'), minecraft_server_type: selectedServices.includes('minecraft-java') ? minecraftServerType : undefined, minecraft_addons: minecraftAddons, website: selectedServices.includes('website') ? websitePlan : null, project_files: projectFiles.length ? projectFiles : undefined, organization_id: organizationId || null })
-            if (result.status !== 201) {
-                setCreationError(result.message)
-                notify(result.message, 'error', 'vm-create')
-                return
-            }
-            notify(`${vmName} is queued. Follow setup in its terminal.`, 'success', 'vm-create')
-            setName('')
-            setCreationError('')
-            setSelectedServices([])
-            setCustomAptPackages([])
-            setMinecraftServerType('PAPER')
-            setMinecraftAddons([])
-            setSetupPrompt('')
-            setSetupSuggestion('')
-            setWebsitePlan(starterWebsitePlan)
-            setProjectFiles([])
-            setSuggestedSetupKey('')
-            onCreated(result.vm, vmName)
-        } catch {
-            setCreationError('Unable to create the virtual machine. Please try again.')
-            notify('Unable to create the virtual machine. Please try again.', 'error', 'vm-create')
-        } finally {
-            setCreating(false)
-            onCreating(false)
-        }
+    function create(event: React.FormEvent) {
+        return submitVmCreation(event, {
+            canCreate, permissionMessage, resourceError, notify, onCreating, onCreated,
+            name, operatingSystem, resources: currentResources, selectedServices, customAptPackages,
+            minecraftServerType, minecraftAddons, websitePlan, projectFiles, organizationId,
+            setCreationError, setCreating,
+            reset: () => {
+                setName(''); setSelectedServices([]); setCustomAptPackages([])
+                setMinecraftServerType('PAPER'); setMinecraftAddons([]); setSetupPrompt('')
+                setSetupSuggestion(''); setWebsitePlan(starterWebsitePlan); setProjectFiles([])
+                setSuggestedSetupKey('')
+            },
+        })
     }
 
     async function suggestSetup() {
