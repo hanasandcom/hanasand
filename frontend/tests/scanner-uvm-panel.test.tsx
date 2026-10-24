@@ -172,7 +172,7 @@ test('UDP profile is accepted and recent activity keeps ambiguous ports distinct
 test('manual assessment profile selector includes the bounded UDP option', () => {
     const noopSetter = (() => undefined) as never
     const html = renderToStaticMarkup(<UvmAssessmentEngineChoices data={data} selectedEngines={['nmap']}
-        setSelectedEngines={noopSetter} scanId='' setScanId={noopSetter} nmapProfile='udp-top-100'
+        setSelectedEngines={noopSetter} mode='manual' setMode={noopSetter} scanId='' setScanId={noopSetter} nmapProfile='udp-top-100'
         setNmapProfile={noopSetter} servicesPaused={false} onSetup={() => undefined} />)
     expect(html).toContain('UDP · top 100 ports')
     expect(html).toContain('UDP results may be open or open|filtered.')
