@@ -23,10 +23,10 @@ test('paused Scanner shows one searchable catalog category at a time', () => {
     const panelStart = html.indexOf('role="tabpanel"')
     const catalogHtml = html.slice(panelStart, html.indexOf('</section>', panelStart))
 
-    expect(scannerSuiteCatalog).toHaveLength(105)
+    expect(scannerSuiteCatalog).toHaveLength(126)
     expect(new Set(scannerSuiteCatalog.map(item => item.name)).size).toBe(scannerSuiteCatalog.length)
     expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(23)
-    expect(html).toContain('105 products · 17 asset engines · 5 image tools · 0 running')
+    expect(html).toContain('126 products · 17 asset engines · 5 image tools · 0 running')
     expect(html).toContain('Scanner categories')
     expect(html).toContain('role="tab" id="scanner-suite-category-panel-tab-web" aria-selected="true"')
     expect(html).toContain('role="tab" id="scanner-suite-category-panel-tab-discovery" aria-selected="false"')
@@ -44,14 +44,18 @@ test('paused Scanner shows one searchable catalog category at a time', () => {
     expect(html).not.toContain('Scanner services paused pending disk expansion.')
     expect(getScannerSuiteCategory(scannerSuiteCatalog.find(item => item.integration === 'tenable-vm')!)).toBe('discovery')
     expect(getScannerSuiteCategory(scannerSuiteCatalog.find(item => item.category === 'Cloud and code')!)).toBe('cloud')
-    expect(scannerSuiteCatalog.filter(item => getScannerSuiteCategory(item) === 'web')).toHaveLength(26)
-    expect(scannerSuiteCatalog.filter(item => getScannerSuiteCategory(item) === 'discovery')).toHaveLength(47)
-    expect(scannerSuiteCatalog.filter(item => getScannerSuiteCategory(item) === 'cloud')).toHaveLength(32)
+    expect(scannerSuiteCatalog.filter(item => getScannerSuiteCategory(item) === 'web')).toHaveLength(29)
+    expect(scannerSuiteCatalog.filter(item => getScannerSuiteCategory(item) === 'discovery')).toHaveLength(48)
+    expect(scannerSuiteCatalog.filter(item => getScannerSuiteCategory(item) === 'cloud')).toHaveLength(49)
     for (const id of [
         'bloodhound', 'sharphound', 'sqlmap', 'metasploit-framework', 'hashcat', 'john-the-ripper',
         'impacket', 'responder', 'crackmapexec', 'netexec', 'ffuf', 'commix', 'wfuzz', 'dirsearch',
         'mimikatz', 'rubeus', 'certipy', 'powersploit', 'powerup', 'cewl', 'medusa', 'aircrack-ng', 'wifite2',
         'schemathesis', 'burp-suite-professional', 'codeql', 'garak', 'aflplusplus',
+        'restler', 'apiclarity', '42crunch-api-security', 'dependency-track', 'sonarqube',
+        'openssf-scorecard', 'pip-audit', 'cargo-audit', 'kube-linter', 'cloudsplaining',
+        'jazzer', 'jazzer-js', 'aflnet', 'binwalk', 'falco', 'tetragon', 'honggfuzz',
+        'boofuzz', 'quark-engine', 'apkid', 'pmapper',
     ]) {
         expect(scannerSuiteCatalog.some(item => item.id === id)).toBe(true)
     }
