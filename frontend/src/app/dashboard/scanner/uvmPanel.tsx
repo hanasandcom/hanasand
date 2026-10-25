@@ -1,9 +1,9 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import type { NetworkScanProfile, NmapScanProfile, UvmAssessmentMode, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFindingGroup, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRun, UvmZapAuthenticationInput } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAssessmentMode, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRun, UvmZapAuthenticationInput } from '@/utils/monitoring/types'
 import type { UvmPanelProps } from './uvmPanelProps'
-import { filterAndSortUvmFindingGroups, filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
-import { buildUvmAssessmentEnginePlan, buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
+import { type UvmFindingFilters } from './uvmPanelHelpers'
+import { buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
 import { UvmAssetsView, UvmFindingsView } from './uvmPanelViews'
 import { UvmHelp } from './uvmPanelHelp'
 import { UvmOverview } from './uvmPanelOverview'
@@ -18,6 +18,8 @@ import { createUvmPanelFindingActions } from './uvmPanelFindingActions'
 import { removeUvmZapAuthentication, saveUvmAssetCriticality, saveUvmZapApiDefinition, saveUvmZapAuthentication } from './uvmPanelAssetActions'
 import { UvmPanelScannerSetup } from './uvmPanelScannerSetup'
 import { createUvmPanelTenableActions, type TenableRegion } from './uvmPanelTenableActions'
+import { deriveUvmPanelState } from './uvmPanelDerivedState'
+import { cancelUvmPanelRun } from './uvmPanelRunActions'
 export { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 export default function UvmPanel({
     initialData, servicesPaused = false, refreshAction, getRunAction, getRunHistoryAction,
@@ -61,31 +63,12 @@ export default function UvmPanel({
     const [view, setView] = useState<UvmPanelView>(servicesPaused ? 'scanners' : 'overview')
     const [selectedRun, setSelectedRun] = useState<UvmRun | null>(null)
     const [assessmentReport, setAssessmentReport] = useState<UvmAssessmentReport | null>(null)
-    const { loadOlderFindings, openAssessmentFindings, openAssessmentReport, openRun, retryAssessmentFindings, showAllFindings } = createUvmPanelHistoryActions({
-        data, findingScope, getRunAction, findingHistoryAction, findingGroupsAction, getAssessmentReportAction,
-        setBusy, setMessage, setSelectedRun, setAssessmentReport, setView, setData, setFindingScope, setFindingSyncState, setFindingFilters,
-    })
-    const dashboardUnavailable = servicesPaused || Boolean(data.scannerError)
-    const activeRuns = data.runs.filter(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status))
-    const activeAssessments = data.assessments.some(assessment => ['queued', 'running', 'cancelling'].includes(assessment.status))
-    const attentionFindings = data.findings.filter(finding => !['resolved', 'false_positive', 'accepted_risk'].includes(finding.status))
-    const actionableFindingCount = data.findingSummary?.actionable ?? attentionFindings.filter(finding => finding.status !== 'needs_review').length
-    const needsReviewFindingCount = data.findingSummary?.needsReview ?? attentionFindings.filter(finding => finding.status === 'needs_review').length
-    const attentionFindingCount = findingScope ? actionableFindingCount + needsReviewFindingCount
-        : data.findingGroupSummary ? data.findingGroupSummary.actionable + data.findingGroupSummary.needsReview : actionableFindingCount + needsReviewFindingCount
-    const criticalOrHighFindingCount = data.findingSummary?.criticalOrHigh ?? attentionFindings.filter(finding => finding.severity === 'critical' || finding.severity === 'high').length
-    const visibleFindings = filterAndSortUvmFindings(data.findings, findingFilters, data.assets, findingSort)
-    const findingGroups: UvmFindingGroup[] = data.findingGroups ?? data.findings.map(finding => ({
-        id: `finding:${finding.id}`, correlated: false, assetId: finding.assetId, asset: finding.asset, address: finding.address,
-        affectedLocation: finding.affectedLocation || null, cveIds: finding.cveIds, engines: [finding.engine], severity: finding.severity,
-        status: ['open', 'in_progress', 'pending_verification'].includes(finding.status) ? 'actionable'
-            : finding.status === 'needs_review' ? 'needs_review'
-                : finding.status === 'resolved' ? 'resolved'
-                    : finding.status === 'accepted_risk' ? 'accepted_risk'
-                        : finding.status === 'false_positive' ? 'false_positive' : 'mixed',
-        members: [finding],
-    }))
-    const visibleFindingGroups = filterAndSortUvmFindingGroups(findingGroups, findingFilters, data.assets, findingSort)
+    const { loadOlderFindings, openAssessmentFindings, openAssessmentReport, openRun, retryAssessmentFindings, showAllFindings } = createUvmPanelHistoryActions({ data, findingScope, getRunAction, findingHistoryAction, findingGroupsAction, getAssessmentReportAction,
+        setBusy, setMessage, setSelectedRun, setAssessmentReport, setView, setData, setFindingScope, setFindingSyncState, setFindingFilters })
+    const { dashboardUnavailable, activeRuns, activeAssessments, attentionFindings, actionableFindingCount, needsReviewFindingCount, attentionFindingCount,
+        criticalOrHighFindingCount, visibleFindings, visibleFindingGroups, selectableAssessmentEngines,
+        automaticPrerequisitesAvailable, plannedEngineCount } = deriveUvmPanelState({ data, servicesPaused, findingScope, findingFilters, findingSort,
+        assessmentEngines, assessmentScanId, assessmentNmapProfile, assessmentMode })
     const refresh = useCallback(async () => {
         const refreshed = await refreshAction()
         if (!findingScope) {
@@ -111,12 +94,6 @@ export default function UvmPanel({
         configure: configureTenableAction, disconnect: disconnectTenableAction, refresh,
         setAccessKey: setTenableAccessKey, setSecretKey: setTenableSecretKey, setBusy, setMessage,
     })
-    const selectableAssessmentEngines = assessmentEngines.filter(engine => {
-        const info = data.engines.find(item => item.id === engine)
-        return !servicesPaused && info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
-    })
-    const automaticPrerequisitesAvailable = !servicesPaused && ['nmap', 'httpx'].every(id => data.engines.some(engine => engine.id === id && engine.status === 'available'))
-    const plannedEngineCount = buildUvmAssessmentEnginePlan(selectableAssessmentEngines, assessmentScanId, assessmentNmapProfile, assessmentMode).length
     const { scan, scanWithNaabu, scanWithAngryIp, scanWithTenable, scanWithGvm, scanWithZap, scanWithTestssl, scanWithNuclei, scanWithNikto, scanWithSslyze, scanWithWapiti, scanWithWhatweb, scanWithHttpx, scanWithTlsx, scanWithKatana, scanWithWafw00f } = createUvmPanelScanActions({
         servicesPaused,
         authorization, assetNmapProfiles, tenableScanIds, defaultTenableScanId: data.tenableScans[0]?.id, setBusy, setMessage,
@@ -175,12 +152,7 @@ export default function UvmPanel({
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Schedule could not be saved.') }
         finally { setBusy('') }
     }
-    async function cancelRun(run: UvmRun) {
-        setBusy(`run:${run.id}`); setMessage('')
-        try { await cancelRunAction(run.id); await refresh(); setMessage(`Cancellation requested for ${run.target}.`) }
-        catch (error) { setMessage(error instanceof Error ? error.message : 'The scan could not be cancelled.') }
-        finally { setBusy('') }
-    }
+    const cancelRun = (run: UvmRun) => cancelUvmPanelRun({ run, cancelRunAction, refresh, setBusy, setMessage })
     return <div className='grid gap-4'>
         <UvmPanelNavigation view={view} setView={setView} unavailable={dashboardUnavailable} servicesPaused={servicesPaused} assessmentCount={data.assessments.length} findingCount={attentionFindingCount} />
         <fieldset disabled={dashboardUnavailable && view !== 'scanners'} className='m-0 grid min-w-0 gap-4 border-0 p-0'>
