@@ -54,15 +54,6 @@ export default function ReprocessRule({ rule, organizationId, disabled, defaultR
         } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not start reprocessing.') }
         finally { setBusy(false) }
     }
-    async function cancel() {
-        if (!job || busy) return
-        setBusy(true); setError('')
-        try {
-            const result = await requestJson<{ job: Job }>(endpoint, { method: 'POST', body: JSON.stringify({ action: 'cancel', jobId: job.id }) })
-            setJobs(previous => previous.map(item => item.id === result.job.id ? result.job : item)); setRefresh(value => value + 1)
-        } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not stop reprocessing.') }
-        finally { setBusy(false) }
-    }
     if (!loaded || (existing?.count === 0 && !jobs.length)) return null
     return <section aria-label='Reprocess existing logs' className='grid gap-4 rounded-xl border border-ui-border bg-ui-panel p-5 sm:p-6'>
         <div className='flex flex-wrap items-center justify-between gap-3'><div><h2 className='text-sm font-semibold'>Existing logs</h2><p className='mt-1 text-sm text-ui-muted'>{existing ? `${existing.count.toLocaleString()} matching logs in the preview.` : 'Log count unavailable. Preview the rule before applying it.'}</p>{existing && <p className='text-xs text-ui-muted'>{formatRuleStorageBytes(existing.bytes, { scaledUnit: '' })}</p>}</div>
@@ -77,7 +68,7 @@ export default function ReprocessRule({ rule, organizationId, disabled, defaultR
             <button type='button' disabled={!confirmed || !previewReady || busy || disabled} onClick={() => void start()} className='w-fit ui-button ui-button-primary px-4 py-2 text-sm disabled:opacity-50'>{busy ? 'Starting…' : 'Apply to existing logs'}</button>
         </div>}
         {job && <div role='status' className='grid gap-2 text-sm'>
-            <div className='flex flex-wrap items-center justify-between gap-3'><p className='capitalize'>{job.status} · version {job.rule_version}</p>{running && <button type='button' disabled={busy} onClick={() => void cancel()} className='rounded-md border border-ui-border px-3 py-1'>Stop reprocessing</button>}</div>
+            <p className='capitalize'>{job.status} · version {job.rule_version}</p>
             <p>{number(job.scanned)} checked · {removed(job.removed_events, 'event')} · {removed(job.removed_sources, 'original')} · {number(job.protected)} protected matches kept</p>
             {job.error && <p>{job.error}</p>}
             <p className='text-xs text-ui-muted'>Last updated {new Date(job.updated_at).toLocaleString()}</p>

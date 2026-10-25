@@ -6,6 +6,26 @@ import path from 'node:path'
 import postcss from 'postcss'
 import tailwind from '@tailwindcss/postcss'
 
+test('keeps an active stored-log reprocessing run visible without a stop control', async ({ page }) => {
+    const base = 'http://reprocess-ui.test'
+    const output = mkdtempSync(path.join(tmpdir(), 'rule-reprocess-active-ui-'))
+    try {
+        execFileSync('bun', ['build', 'tests/fixtures/rule-reprocess.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outdir', output])
+        const css = (await postcss([tailwind()]).process(readFileSync('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css
+        await page.addInitScript(() => sessionStorage.setItem('test-rule', JSON.stringify({ id: 'custom.test', name: 'Routine', version: '1', enabled: true,
+            definition: { stage: 'analyze', action: 'drop', conditions: [] } })))
+        await page.route(`${base}/fixture.js`, route => route.fulfill({ contentType: 'application/javascript', body: readFileSync(path.join(output, 'rule-reprocess.js'), 'utf8') }))
+        await page.route(`${base}/test-rules`, route => route.fulfill({ contentType: 'text/html', body: `<html class="dark"><head><style>${css}</style></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>` }))
+        await page.route(`${base}/api/backend/rules/custom.test/reprocess?organizationId=platform`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+            jobs: [{ id: 'active-job', rule_version: '1', status: 'running', scanned: '1', matched: '1', protected: '0', removed_events: '0', removed_sources: '0', error: null,
+                created_at: new Date().toISOString(), updated_at: new Date().toISOString() }], existing: { count: 1, bytes: 64 },
+        }) }))
+        await page.goto(`${base}/test-rules`)
+        await expect(page.getByText('running · version 1', { exact: true })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Stop reprocessing' })).toHaveCount(0)
+    } finally { rmSync(output, { recursive: true, force: true }) }
+})
+
 test('creates a drop rule and reprocesses actual stored matches without redeployment', async ({ page }) => {
     test.skip(!process.env.REPROCESS_INTEGRATION_URL, 'Run with the disposable PostgreSQL integration server.')
     const base = process.env.REPROCESS_INTEGRATION_URL!

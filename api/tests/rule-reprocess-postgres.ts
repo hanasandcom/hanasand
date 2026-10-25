@@ -178,8 +178,11 @@ try {
     assert.equal((await query('SELECT status FROM rule_reprocess_jobs WHERE id=$1', [changed.job.id])).rows[0].status, 'cancelled')
     await query('UPDATE rules SET enabled=true WHERE id=\'rule\'')
     const cancel = await postRuleReprocess(request(body), reply() as any)
-    await postRuleReprocess(request({ action: 'cancel', jobId: cancel.job.id }), reply() as any)
-    assert.equal(await processRuleReprocessJob(), false)
+    const deniedCancel = reply()
+    await postRuleReprocess(request({ action: 'cancel', jobId: cancel.job.id }), deniedCancel as any)
+    assert.equal(deniedCancel.statusCode, 409, 'API cancellation cannot stop a stored-log processing run')
+    assert.equal((await query('SELECT status FROM rule_reprocess_jobs WHERE id=$1', [cancel.job.id])).rows[0].status, 'queued')
+    assert.equal(await processRuleReprocessJob(), true, 'the active run continues after a rejected cancellation request')
     // A delete failure rolls back both source and indexed copies, and the cursor.
     await add('rollback')
     await query('CREATE FUNCTION reject_test_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION \'test delete rejected\'; END $$; CREATE TRIGGER reject_test_delete BEFORE DELETE ON service_logs FOR EACH ROW EXECUTE FUNCTION reject_test_delete()')
@@ -187,7 +190,7 @@ try {
     await processRuleReprocessJob()
     assert.equal((await query('SELECT status,scanned FROM rule_reprocess_jobs WHERE id=$1', [failed.job.id])).rows[0].status, 'failed')
     assert.equal((await query('SELECT count(*) FROM events WHERE id=\'rollback\'')).rows[0].count, '1')
-    console.log('PASS: persisted rules, matching, raw/indexed deletion, Store precedence, findings, tenant isolation, deduplication, cancellation, changed-rule stop and rollback.')
+    console.log('PASS: persisted rules, matching, raw/indexed deletion, Store precedence, findings, tenant isolation, deduplication, rejected cancellation, changed-rule stop and rollback.')
     if (process.argv.includes('--serve')) {
         const { postRule, postRulePreview, getEvents } = await import('../src/handlers/events.ts')
         await runRuleReprocessPostgresServer({
