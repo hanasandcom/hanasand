@@ -165,9 +165,9 @@ export default function UvmPanelImages({ data, servicesPaused, getReport, runSca
                 : selectedRun ? <p className='rounded-md border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>{selectedRun.error || 'This scan stored no image results.'}</p>
                     : selectedRunId ? null
                         : report?.images.length ? report.images.map(image => <ImageCard key={image.image} image={image} isExpanded={expandedImages.includes(image.image)} onToggle={() => toggleImage(image.image)} />)
-                : loading ? <p className='rounded-md border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>Loading image results…</p>
-                    : report ? <p className='rounded-md border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>{report.scanStatus.isRunning ? 'The scan is running; image results will appear as it completes.' : report.scanStatus.lastError || report.scanStatus.blocker || 'No image scan results yet.'}</p>
-                        : <p className='rounded-md border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>Image results are unavailable while the Scanner API is offline.</p>}
+                            : loading ? <p className='rounded-md border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>Loading image results…</p>
+                                : report ? <p className='rounded-md border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>{report.scanStatus.isRunning ? 'The scan is running; image results will appear as it completes.' : report.scanStatus.lastError || report.scanStatus.blocker || 'No image scan results yet.'}</p>
+                                    : <p className='rounded-md border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>Image results are unavailable while the Scanner API is offline.</p>}
         </section>
 
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
