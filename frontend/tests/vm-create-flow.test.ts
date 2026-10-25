@@ -76,7 +76,7 @@ test('successful creation opens the terminal without waiting for a VM status fet
     expect(submission).toContain('Follow setup in its terminal')
     expect(source).toContain('provisioning=1')
     expect(session).not.toContain('get(\'provisioning\') === \'1\'')
-    expect(progress).toContain("new URLSearchParams(window.location.search).get('provisioning') !== '1'")
+    expect(progress).toContain('new URLSearchParams(window.location.search).get(\'provisioning\') !== \'1\'')
     expect(progress).toContain('getVM(name, undefined, undefined, null)')
     expect(progress).toContain('status_reason')
     expect(progress).toContain('2500')
