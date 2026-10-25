@@ -215,7 +215,9 @@ if (( \${#apt_packages[@]} > 0 )); then
   apt_install_once() {
     apt_progress_file="$(mktemp /run/hanasand-apt-progress.XXXXXX)"
     # Database packages can take several minutes to unpack and configure on small LXD guests.
-    run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
+    # Ubuntu images can start unattended-upgrades while cloud-init starts this
+    # installer. Let apt wait for dpkg's lock instead of failing the VM setup.
+    run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=600 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
     apt_install_pid=$!
     last_apt_progress=''
     apt_install_started=$SECONDS
