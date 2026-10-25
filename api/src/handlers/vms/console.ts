@@ -9,14 +9,15 @@ import { recoveryReadOnly } from '#utils/recovery.ts'
 import { startConsoleSession } from '#utils/vms/consoleSession.ts'
 import { internalHostWebSocket, supportedHost } from '#utils/vms/hostTransport.ts'
 import { deviceProofFromWebSocket } from '#utils/auth/deviceProofRequest.ts'
+import { consumeVmConsoleWorkspaceTicket, verifyVmConsoleWorkspaceTicket, type VmConsoleWorkspaceTicket } from '#utils/vms/consoleWorkspaceTicket.ts'
 
-export async function consoleHost(name: string, id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, trustedInternal = false): Promise<string | false> {
+export async function consoleHost(name: string, id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, trustedInternal = false, workspace?: { organizationId: string | null }): Promise<string | false> {
     const session = await validateSession({ id, token, deviceProof, trustedInternal })
     if (!session) return false
-    const result = await run('SELECT primary_host, deleted_at FROM vms WHERE name = $1', [name])
+    const result = await run('SELECT primary_host, deleted_at, organization_id FROM vms WHERE name = $1', [name])
     const vm = result.rows[0]
     const organizationAdmin = await hasHanasandInternalPageAccess(session.user.id)
-    if (!vm || vm.deleted_at || (!organizationAdmin && !await hasVmAccess(name, session.user.id, true))) return false
+    if (!vm || vm.deleted_at || (workspace && (vm.organization_id || null) !== workspace.organizationId) || (!organizationAdmin && !await hasVmAccess(name, session.user.id, true))) return false
     const host = String(vm.primary_host || config.vm_host_id).toLowerCase()
     return supportedHost(host) ? host : false
 }
@@ -34,6 +35,7 @@ export default function registerVmConsole(fastify: FastifyInstance) {
         let authenticationDeadline: ReturnType<typeof setTimeout> | undefined
         let connectionDeadline: ReturnType<typeof setTimeout> | undefined
         let credentials: { id: string; token: string } | undefined
+        let workspaceTicket: VmConsoleWorkspaceTicket | undefined
         let recheck: ReturnType<typeof setInterval> | undefined
         let heartbeat: ReturnType<typeof setInterval> | undefined
         const send = (value: object) => {
@@ -74,11 +76,13 @@ export default function registerVmConsole(fastify: FastifyInstance) {
                     if (starting || message.type !== 'auth' || typeof message.id !== 'string' || typeof message.token !== 'string' || message.id.length > 200 || message.token.length > 512) return fail('Unable to read the console session. Reconnect to try again.')
                     starting = true
                     credentials = { id: message.id, token: message.token }
+                    workspaceTicket = verifyVmConsoleWorkspaceTicket(message.workspaceTicket, { vm: request.params.name, userId: credentials.id, sessionToken: credentials.token }) || undefined
+                    if (!workspaceTicket || !consumeVmConsoleWorkspaceTicket(workspaceTicket)) return fail('This VM is not available in the current workspace.')
                     clearTimeout(authenticationDeadline)
                     authenticationDeadline = undefined
                     connectionDeadline = setTimeout(() => fail('Unable to open the console. Check that the VM and its host are running.'), 30000)
                     if (recoveryReadOnly()) return fail('Console access is paused during recovery.')
-                    const host = await consoleHost(request.params.name, credentials.id, credentials.token, deviceProofFromWebSocket(request, message.dpop))
+                    const host = await consoleHost(request.params.name, credentials.id, credentials.token, deviceProofFromWebSocket(request, message.dpop), false, { organizationId: workspaceTicket.organizationId })
                     if (!host) return fail('You do not have access to this VM.')
                     if (socket.readyState !== WebSocket.OPEN) return
                     if (host.toLowerCase() !== String(config.vm_host_id).toLowerCase()) {
@@ -113,13 +117,18 @@ export default function registerVmConsole(fastify: FastifyInstance) {
                         if (checking || !credentials) return
                         checking = true
                         try {
-                            const currentHost = await consoleHost(request.params.name, credentials.id, credentials.token, undefined, true)
+                            if (!workspaceTicket || workspaceTicket.expiresAt <= Math.floor(Date.now() / 1000)) return fail('Your console access has ended. Sign in again or check your VM access.')
+                            const currentHost = await consoleHost(request.params.name, credentials.id, credentials.token, undefined, true, { organizationId: workspaceTicket.organizationId })
                             if (recoveryReadOnly() || !currentHost || currentHost !== (remoteHost || String(config.vm_host_id).toLowerCase())) fail('Your console access has ended. Sign in again or check your VM access.')
                         } catch { fail('Unable to verify console access.') } finally { checking = false }
-                    }, 30000)
+                    }, 10000)
                     return
                 }
-                if (message.type === 'input' && typeof message.data === 'string') {
+                if (message.type === 'workspace-auth' && typeof message.ticket === 'string' && credentials) {
+                    const refreshed = verifyVmConsoleWorkspaceTicket(message.ticket, { vm: request.params.name, userId: credentials.id, sessionToken: credentials.token })
+                    if (!refreshed || refreshed.organizationId !== workspaceTicket?.organizationId || !consumeVmConsoleWorkspaceTicket(refreshed)) return fail('This VM is not available in the current workspace.')
+                    workspaceTicket = refreshed
+                } else if (message.type === 'input' && typeof message.data === 'string') {
                     if (upstream) sendToUpstream(message)
                     else terminal?.write(message.data)
                 } else if (message.type === 'resize' && Number.isInteger(message.cols) && Number.isInteger(message.rows)) {

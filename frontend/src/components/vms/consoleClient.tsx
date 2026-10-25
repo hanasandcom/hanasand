@@ -5,18 +5,30 @@ import { AlertCircle, ArrowLeft, CheckCircle2, LoaderCircle, Maximize2, Minimize
 import { useConsoleViewport } from './useConsoleViewport'
 import { useVmConsoleSession } from './useVmConsoleSession'
 import VMAccessActions from './vmAccessActions'
+import { useWorkspace } from '@/components/organizations/workspaceProvider'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 type VmConsoleProps = {
     name?: string
     host?: 'inspur' | 'ovh'
     onHostChange?: (host: 'inspur' | 'ovh') => void
+    workspaceOrganizationId?: string
 }
 
-export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) {
+export default function VmConsole({ name, host, onHostChange, workspaceOrganizationId = '' }: VmConsoleProps) {
+    const router = useRouter()
+    const { organizationId, loading } = useWorkspace()
+    const workspaceMatches = host !== undefined || organizationId === workspaceOrganizationId
+    useEffect(() => {
+        if (!loading && !workspaceMatches) router.replace('/vms')
+    }, [loading, router, workspaceMatches])
     const consoleTarget = host === 'ovh' ? 'OVH' : host === 'inspur' ? 'Inspur' : name || 'Host'
-    const session = useVmConsoleSession(name, host)
+    const session = useVmConsoleSession(name, host, workspaceMatches && !loading)
     const viewport = useConsoleViewport(message => session.setStatus(message))
     const followBoot = session.boot.follow
+
+    if (name && (loading || !workspaceMatches)) return <div role='status' className='p-6 text-sm text-ui-muted'>Returning to virtual machines…</div>
 
     return (
         <section

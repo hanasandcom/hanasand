@@ -33,11 +33,11 @@ export function getVmProvisioningUnavailableFeedback(): VmProvisioningFeedback {
     }
 }
 
-export function useVmProvisioningStatus(name: string | undefined) {
+export function useVmProvisioningStatus(name: string | undefined, enabled = true) {
     const [feedback, setFeedback] = useState<VmProvisioningFeedback | null>(null)
 
     useEffect(() => {
-        if (!name || new URLSearchParams(window.location.search).get('provisioning') !== '1') {
+        if (!enabled || !name || new URLSearchParams(window.location.search).get('provisioning') !== '1') {
             setFeedback(null)
             return
         }
@@ -67,7 +67,7 @@ export function useVmProvisioningStatus(name: string | undefined) {
             active = false
             if (timer !== undefined) window.clearTimeout(timer)
         }
-    }, [name])
+    }, [name, enabled])
 
     return feedback
 }
