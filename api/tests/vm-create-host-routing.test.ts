@@ -153,6 +153,18 @@ test('VM creation forwards Debian and Enterprise Linux images to the configured 
     expect(debian.statusCode).toBe(201)
     expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'debian-13', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: [], minecraftEulaAccepted: false }))
 
+    const kali = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'kali-vm', os: 'kali', services: ['docker'] } })
+    expect(kali.statusCode).toBe(201)
+    expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'kali', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['docker'], minecraftEulaAccepted: false }))
+
+    const fedora = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'fedora-vm', os: 'fedora-44', services: ['nodejs', 'postgresql'] } })
+    expect(fedora.statusCode).toBe(201)
+    expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'fedora-44', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['nodejs', 'postgresql'], minecraftEulaAccepted: false }))
+
+    const alma = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'alma-vm', os: 'almalinux-9', services: ['nodejs', 'postgresql'] } })
+    expect(alma.statusCode).toBe(201)
+    expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'almalinux-9', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['nodejs', 'postgresql'], minecraftEulaAccepted: false }))
+
     const rocky = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'rocky-vm', os: 'rocky-9', services: ['nodejs', 'postgresql'] } })
     expect(rocky.statusCode).toBe(201)
     expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'rocky-9', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['nodejs', 'postgresql'], minecraftEulaAccepted: false }))

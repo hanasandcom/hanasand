@@ -47,6 +47,8 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('ruby --version; gem --version')
     expect(script).toContain('apt_packages+=(ca-certificates curl unzip)')
     expect(script).toContain('Installing Node.js 24 LTS')
+    expect(script).toContain('Node.js archive download failed after retries:')
+    expect(script).toContain('Incomplete Node.js archive:')
     expect(script).toContain('The downloaded Node.js archive failed its checksum check.')
     expect(script).toContain('tarfile.open(archive, mode="r:xz")')
     expect(script).toContain('The Node.js archive contains an unsafe path.')
@@ -61,6 +63,37 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('write_state Running \'Setup complete\'')
     expect(config.runcmd.at(-1)).toEqual(['/usr/local/sbin/hanasand-vm-setup'])
     execFileSync('bash', ['-n'], { input: script })
+})
+
+test('Debian Docker setup uses Debian repositories and Enterprise Linux accepts every catalog service', () => {
+    const debian = vmSetupUserData('debian-docker', { os: 'debian-13', services: ['docker'] })
+    const debianConfig = parse(debian.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+    const debianScript = debianConfig.write_files[0]?.content || ''
+    expect(debianScript).toContain('https://download.docker.com/linux/%s %s stable')
+    expect(debianScript).toContain('debian) docker_distro=debian ;;')
+
+    const kali = vmSetupUserData('kali-docker', { os: 'kali', services: ['docker'] })
+    const kaliConfig = parse(kali.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+    const kaliScript = kaliConfig.write_files[0]?.content || ''
+    expect(kaliScript).toContain('kali) docker_distro=debian; docker_release=trixie ;;')
+    execFileSync('bash', ['-n'], { input: kaliScript })
+
+    for (const os of ['fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'] as const) {
+        const cloudInit = vmSetupUserData('enterprise-linux', { os, services: [...supportedSetupServices] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content || ''
+        expect(script).toContain('dnf install -y "${packages[@]}"')
+        expect(script).toContain('postgresql-server postgresql-contrib')
+        expect(script).toContain('mariadb-server')
+        expect(script).toContain('java-21-openjdk-devel')
+        expect(script).toContain('systemctl enable --now mariadb')
+        expect(script).toContain('systemctl enable --now redis')
+        expect(script).toContain('Installing Composer')
+        expect(script).toContain('docker-ce docker-ce-cli containerd.io')
+        if (os === 'fedora-44') expect(script).toContain('https://download.docker.com/linux/$docker_rpm_release/docker-ce.repo')
+        expect(script).not.toContain('Unsupported Rocky Linux package')
+        execFileSync('bash', ['-n'], { input: script })
+    }
 })
 
 test('website HTML is base64 encoded before insertion into the root-owned installer', () => {
@@ -188,6 +221,70 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     expect(script.match(/run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
     expect(script).not.toContain('nodesource.com/setup_24.x')
     execFileSync('bash', ['-n'], { input: script })
+})
+
+test.serial('Node.js archive download retries an incomplete transfer and verifies the release checksum', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-node-download-'))
+    const payload = Buffer.from('bounded fixture for the Node.js archive downloader')
+    const digest = await Bun.CryptoHasher.hash('sha256', payload, 'hex')
+
+    try {
+        const cloudInit = vmSetupUserData('runtime-vm', { services: ['nodejs'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const setupScript = config.write_files[0]?.content || ''
+        const marker = 'run_bounded 300 python3 - <<\'PY\'\n'
+        const start = setupScript.indexOf(marker)
+        const end = setupScript.indexOf('\ntarget = pathlib.Path("/opt")', start)
+        expect(start).toBeGreaterThanOrEqual(0)
+        expect(end).toBeGreaterThan(start)
+        const fakeTransport = `
+import base64
+import io
+import json
+import platform
+import urllib.request
+
+platform.machine = lambda: "x86_64"
+fixture = base64.b64decode(${JSON.stringify(payload.toString('base64'))})
+fixture_checksum = ${JSON.stringify(digest)}
+download_requests = 0
+
+class FakeResponse(io.BytesIO):
+    def __init__(self, body, headers=None):
+        super().__init__(body)
+        self.headers = headers or {}
+    def __enter__(self): return self
+    def __exit__(self, *args): self.close()
+
+def fake_urlopen(url, timeout=0):
+    global download_requests
+    if url.endswith("index.json"):
+        return FakeResponse(json.dumps([{"version":"v24.1.0"}]).encode())
+    if url.endswith("SHASUMS256.txt"):
+        return FakeResponse((fixture_checksum + "  node-v24.1.0-linux-x64.tar.xz\\n").encode())
+    download_requests += 1
+    headers = {"Content-Length": str(len(fixture))}
+    return FakeResponse(fixture[:len(fixture)//2] if download_requests == 1 else fixture, headers)
+
+urllib.request.urlopen = fake_urlopen
+`
+        const downloader = setupScript.slice(start + marker.length, end)
+            .replace('import urllib.request', `import urllib.request${fakeTransport}`)
+            .replace('pathlib.Path("/tmp") / filename', `pathlib.Path(${JSON.stringify(directory)}) / filename`)
+            + '\nprint(f"DOWNLOAD_REQUESTS={download_requests};ARCHIVE_SIZE={archive.stat().st_size}")\n'
+        const result = await new Promise<{ status: number | null, stdout: string, stderr: string }>((resolve, reject) => {
+            const child = spawn('python3', ['-c', downloader])
+            let stdout = '', stderr = ''
+            child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk })
+            child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk })
+            child.on('error', reject)
+            child.on('close', status => resolve({ status, stdout, stderr }))
+        })
+        if (result.status !== 0) throw new Error(result.stderr || result.stdout || `Python exited ${result.status}`)
+        expect(result.stdout.trim()).toBe(`DOWNLOAD_REQUESTS=2;ARCHIVE_SIZE=${payload.length}`)
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
 })
 
 test('PostgreSQL readiness retries transient startup failures before completing setup', () => {

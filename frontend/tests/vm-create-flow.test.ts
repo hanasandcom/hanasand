@@ -16,7 +16,7 @@ const createRequest = new URL('../src/utils/vms/fetch/postVM.ts', import.meta.ur
 
 test('the VM create form offers locally bundled operating systems and installable services', async () => {
     const [source, submission, picker, resourcePickerSource, websiteEditor, minecraftAddonPicker] = await Promise.all([readFile(createForm, 'utf8'), readFile(createSubmission, 'utf8'), readFile(osPicker, 'utf8'), readFile(resourcePicker, 'utf8'), readFile(new URL('../src/components/profile/vmWebsiteEditor.tsx', import.meta.url), 'utf8'), readFile(new URL('../src/components/profile/vmMinecraftAddonPicker.tsx', import.meta.url), 'utf8')])
-    expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-24.04-desktop', 'ubuntu-26.04', 'ubuntu-22.04', 'debian-13', 'rocky-9', 'centos-stream-10'])
+    expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-24.04-desktop', 'ubuntu-26.04', 'ubuntu-22.04', 'debian-13', 'kali', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'])
     expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'go', 'php', 'rust', 'ruby', 'cpp', 'docker', 'postgresql', 'mysql', 'redis', 'sqlite', 'nginx', 'website', 'minecraft-java'])
     expect(vmServiceTabs).toEqual([
         { id: 'development', label: 'Development', groups: ['Development'] },
@@ -75,8 +75,8 @@ test('successful creation opens the terminal without waiting for a VM status fet
     const [source, submission, session, progress] = await Promise.all([readFile(components, 'utf8'), readFile(createSubmission, 'utf8'), readFile(consoleSession, 'utf8'), readFile(progressHook, 'utf8')])
     expect(submission).toContain('Follow setup in its terminal')
     expect(source).toContain('provisioning=1')
-    expect(session).toContain('get(\'provisioning\') === \'1\'')
-    expect(session).toContain('if (!host && !provisioning)')
+    expect(session).not.toContain('get(\'provisioning\') === \'1\'')
+    expect(progress).toContain("new URLSearchParams(window.location.search).get('provisioning') !== '1'")
     expect(progress).toContain('getVM(name, undefined, undefined, null)')
     expect(progress).toContain('status_reason')
     expect(progress).toContain('2500')

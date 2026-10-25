@@ -4,6 +4,9 @@ export const vmOperatingSystems = [
     { id: 'ubuntu-26.04', label: 'Ubuntu 26.04 LTS', description: 'Latest long-term support release' },
     { id: 'ubuntu-22.04', label: 'Ubuntu 22.04 LTS', description: 'For older software requirements' },
     { id: 'debian-13', label: 'Debian 13', description: 'Stable server release with a minimal base system' },
+    { id: 'kali', label: 'Kali Linux', description: 'Debian-based rolling distribution for security and testing' },
+    { id: 'fedora-44', label: 'Fedora Server 44', description: 'Current community Linux server release from the Red Hat ecosystem' },
+    { id: 'almalinux-9', label: 'AlmaLinux 9', description: 'Enterprise Linux compatible server release' },
     { id: 'rocky-9', label: 'Rocky Linux 9', description: 'Enterprise Linux compatible server release' },
     { id: 'centos-stream-10', label: 'CentOS Stream 10', description: 'Current CentOS Stream release for Enterprise Linux workloads' },
 ] as const

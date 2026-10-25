@@ -88,10 +88,29 @@ test.serial('Rocky Linux uses its supported image alias and installs Docker and 
     expect(body.source).toMatchObject({ server: 'https://images.lxd.canonical.com', alias: 'rockylinux/9/cloud' })
     expect(body.config['limits.cpu']).toBe('5')
     expect(body.config['limits.memory']).toBe('10GiB')
-    expect(body.config['cloud-init.user-data']).toContain('dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo')
+    expect(body.config['cloud-init.user-data']).toContain('docker_rpm_release=rhel')
+    expect(body.config['cloud-init.user-data']).toContain('docker_rpm_release=fedora')
     expect(body.config['cloud-init.user-data']).toContain('dnf install -y')
     expect(body.config['cloud-init.user-data']).toContain('/usr/share/nginx/html/index.html')
     expect(body.config['cloud-init.user-data']).toContain('if [[ \'true\' == \'true\' ]]')
+})
+
+test.serial('Kali, Fedora Server, and AlmaLinux use published cloud image aliases', async () => {
+    await provisionLocalLxdInstance('kali-vm', { os: 'kali', services: ['docker'] })
+    const kali = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as { source: { server: string; alias: string } }
+    expect(kali.source).toMatchObject({ server: 'https://images.lxd.canonical.com', alias: 'kali/current/cloud' })
+
+    calls.length = 0
+    created = undefined
+    await provisionLocalLxdInstance('fedora-vm', { os: 'fedora-44', services: ['docker'] })
+    const fedora = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as { source: { server: string; alias: string } }
+    expect(fedora.source).toMatchObject({ server: 'https://images.lxd.canonical.com', alias: 'fedora/44/cloud' })
+
+    calls.length = 0
+    created = undefined
+    await provisionLocalLxdInstance('alma-vm', { os: 'almalinux-9', services: ['postgresql'] })
+    const alma = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as { source: { server: string; alias: string } }
+    expect(alma.source).toMatchObject({ server: 'https://images.lxd.canonical.com', alias: 'almalinux/9/cloud' })
 })
 
 test.serial('LXD applies a valid custom CPU and memory allocation to the instance limits', async () => {

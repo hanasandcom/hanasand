@@ -19,6 +19,9 @@ function imageSource(os: NonNullable<VmProvisionOptions['os']>): { server: strin
         case 'ubuntu-26.04': return { server: config.lxd_image_server, alias: '26.04' }
         case 'ubuntu-24.04-desktop': return { server: lxdImageServer, alias: 'ubuntu/24.04/desktop' }
         case 'debian-13': return { server: lxdImageServer, alias: 'debian/13/cloud' }
+        case 'kali': return { server: lxdImageServer, alias: 'kali/current/cloud' }
+        case 'fedora-44': return { server: lxdImageServer, alias: 'fedora/44/cloud' }
+        case 'almalinux-9': return { server: lxdImageServer, alias: 'almalinux/9/cloud' }
         case 'rocky-9': return { server: lxdImageServer, alias: 'rockylinux/9/cloud' }
         case 'centos-stream-10': return { server: lxdImageServer, alias: 'centos/10-Stream/cloud' }
         default: throw new Error('Unsupported VM image.')

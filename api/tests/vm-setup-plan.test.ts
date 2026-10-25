@@ -101,6 +101,38 @@ test('CentOS Stream setup plans use supported services and reject Ubuntu package
     expect(unsupportedPackage.statusCode).toBe(422)
 })
 
+test('AlmaLinux setup plans use DNF services and reject Debian package names', async () => {
+    completion = JSON.stringify({ summary: 'Node and PostgreSQL on AlmaLinux', services: ['nodejs', 'postgresql'], packages: [], website: null, minecraftServerType: null })
+    const supported = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install Node and PostgreSQL', os: 'almalinux-9' } })
+    expect(supported.statusCode).toBe(200)
+    expect(supported.json().services).toEqual(['nodejs', 'postgresql'])
+    expect(completionMessages[0].content).toContain('Enterprise Linux distribution uses DNF')
+
+    completion = JSON.stringify({ summary: 'Custom package', services: [], packages: ['ripgrep'], website: null, minecraftServerType: null })
+    const unsupportedPackage = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install ripgrep', os: 'almalinux-9' } })
+    expect(unsupportedPackage.statusCode).toBe(422)
+})
+
+test('Kali setup plans use the Debian package catalog', async () => {
+    completion = JSON.stringify({ summary: 'Docker on Kali', services: ['docker'], packages: [], website: null, minecraftServerType: null })
+    const response = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install Docker', os: 'kali' } })
+    expect(response.statusCode).toBe(200)
+    expect(response.json().services).toEqual(['docker'])
+    expect(completionMessages[0].content).toContain('Use package names from the selected Ubuntu or Debian archive')
+})
+
+test('Fedora Server setup plans use DNF services and reject Debian package names', async () => {
+    completion = JSON.stringify({ summary: 'Node and PostgreSQL on Fedora', services: ['nodejs', 'postgresql'], packages: [], website: null, minecraftServerType: null })
+    const supported = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install Node and PostgreSQL', os: 'fedora-44' } })
+    expect(supported.statusCode).toBe(200)
+    expect(supported.json().services).toEqual(['nodejs', 'postgresql'])
+    expect(completionMessages[0].content).toContain('Enterprise Linux distribution uses DNF')
+
+    completion = JSON.stringify({ summary: 'Custom package', services: [], packages: ['ripgrep'], website: null, minecraftServerType: null })
+    const unsupportedPackage = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install ripgrep', os: 'fedora-44' } })
+    expect(unsupportedPackage.statusCode).toBe(422)
+})
+
 test('custom web app requests return validated source and a server-owned runtime manifest', async () => {
     completion = JSON.stringify({
         summary: 'A private task board that saves items in this browser.',

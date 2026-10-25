@@ -3,7 +3,7 @@ import type { SupportedVmSetupService } from './supportedSetupServices.ts'
 
 type HostFetch = (host: string, path: string, options?: RequestInit) => Promise<Response>
 type StatusResponse = { status?: unknown; error?: unknown; status_reason?: unknown }
-export type VmProvisionOptions = { os?: 'ubuntu-24.04' | 'ubuntu-26.04' | 'ubuntu-22.04' | 'ubuntu-24.04-desktop' | 'debian-13' | 'rocky-9' | 'centos-stream-10'; resources?: { cpu: string; memory: string; disk: string }; services?: SupportedVmSetupService[]; aptPackages?: string[]; minecraftEulaAccepted?: boolean; minecraftServerType?: 'PAPER' | 'VANILLA' | 'FABRIC' | 'QUILT' | 'FORGE' | 'NEOFORGE' | 'PURPUR' | 'FOLIA'; minecraftAddons?: string[]; websiteHtml?: string; nextjsProjectFiles?: import('./nextjsProject.ts').NextjsProjectFile[] }
+export type VmProvisionOptions = { os?: 'ubuntu-24.04' | 'ubuntu-26.04' | 'ubuntu-22.04' | 'ubuntu-24.04-desktop' | 'debian-13' | 'kali' | 'fedora-44' | 'almalinux-9' | 'rocky-9' | 'centos-stream-10'; resources?: { cpu: string; memory: string; disk: string }; services?: SupportedVmSetupService[]; aptPackages?: string[]; minecraftEulaAccepted?: boolean; minecraftServerType?: 'PAPER' | 'VANILLA' | 'FABRIC' | 'QUILT' | 'FORGE' | 'NEOFORGE' | 'PURPUR' | 'FOLIA'; minecraftAddons?: string[]; websiteHtml?: string; nextjsProjectFiles?: import('./nextjsProject.ts').NextjsProjectFile[] }
 
 const provisionTimeoutMs = 150_000
 const statusPollIntervalMs = 2_000

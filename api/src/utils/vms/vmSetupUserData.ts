@@ -8,14 +8,12 @@ const setupStatePath = '/var/lib/hanasand-vm-setup/status'
 export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     validateVmLoginName(name)
     const services = [...new Set(options.services || [])]
-    const isRhel = options.os === 'rocky-9' || options.os === 'centos-stream-10'
-    if (isRhel && services.some(service => !['docker', 'nginx', 'website'].includes(service))) {
-        throw new Error('Rocky Linux and CentOS currently support Docker, Nginx, and Website setup.')
-    }
+    const usesDnf = options.os === 'fedora-44' || options.os === 'almalinux-9' || options.os === 'rocky-9' || options.os === 'centos-stream-10'
     const aptPackages = normalizeUbuntuAptPackages(options.aptPackages)
     if (!aptPackages) {
         throw new Error('Custom Ubuntu package names must be valid Debian package identifiers, with no more than 12 packages.')
     }
+    if (usesDnf && aptPackages.length) throw new Error('Custom Debian package names are not available on DNF-based images.')
     const website = options.websiteHtml ? Buffer.from(options.websiteHtml).toString('base64') : ''
     const memoryGb = Number.parseInt(options.resources?.memory || '2', 10)
     const minecraftMemoryGb = Math.max(1, Math.floor(memoryGb * 0.75))
@@ -37,7 +35,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     }))
     const minecraftAddons = options.minecraftAddons || []
     if (minecraftAddons.length && !services.includes('minecraft-java')) throw new Error('Minecraft add-ons require the Minecraft Java service.')
-    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, isRhel)
+    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, usesDnf)
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -66,14 +64,14 @@ function yamlObject(value: Record<string, unknown>) {
     return JSON.stringify(value, null, 2)
 }
 
-function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, isRhel: boolean) {
+function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, usesDnf: boolean) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
     const minecraft = services.includes('minecraft-java')
         ? minecraftSetup(name, minecraftType, minecraftMemoryGb, minecraftAddons)
         : ''
-    const webRoot = isRhel ? '/usr/share/nginx/html' : '/var/www/html'
-    const webOwner = isRhel ? 'root:root' : 'www-data:www-data'
+    const webRoot = usesDnf ? '/usr/share/nginx/html' : '/var/www/html'
+    const webOwner = usesDnf ? 'root:root' : 'www-data:www-data'
     const website = websiteBase64
         ? `install -d -m 0755 '${webRoot}'\nprintf '%s' '${websiteBase64}' | base64 -d > '${webRoot}/index.html'\nchown ${webOwner} '${webRoot}/index.html'\n`
         : ''
@@ -143,30 +141,61 @@ if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep
 if printf '%s' "$services" | grep -q '"minecraft-java"'; then apt_packages+=(curl jq tar iproute2); fi
 ${installCustomPackages}
 if printf '%s' "$services" | grep -q '"docker"'; then
-  if [[ '${isRhel}' == 'true' ]]; then
+  if [[ '${usesDnf}' == 'true' ]]; then
     set_stage 'Preparing Docker repository'
     run_bounded 120 dnf install -y dnf-plugins-core
-    run_bounded 60 dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+    . /etc/os-release
+    docker_rpm_release=rhel
+    [[ "$ID" == fedora ]] && docker_rpm_release=fedora
+    run_bounded 60 dnf config-manager --add-repo "https://download.docker.com/linux/$docker_rpm_release/docker-ce.repo"
   else
   install -d -m 0755 /etc/apt/keyrings
   fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc
   chmod a+r /etc/apt/keyrings/docker.asc
   . /etc/os-release
-  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\\n' "$(dpkg --print-architecture)" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
+  docker_release="$VERSION_CODENAME"
+  case "$ID" in
+    ubuntu) docker_distro=ubuntu ;;
+    debian) docker_distro=debian ;;
+    kali) docker_distro=debian; docker_release=trixie ;;
+    *) printf 'Docker packages are not supported on %s.\\n' "$ID" >&2; exit 1 ;;
+  esac
+  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\\n' "$(dpkg --print-architecture)" "$docker_distro" "$docker_release" > /etc/apt/sources.list.d/docker.list
   fi
   apt_packages+=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
 fi
-if [[ '${isRhel}' == 'true' ]]; then
+if [[ '${usesDnf}' == 'true' ]]; then
   if (( \${#apt_packages[@]} > 0 )); then
-    set_stage 'Installing selected packages'
-    packages=()
-    for package in "\${apt_packages[@]}"; do
-      case "$package" in
-        ca-certificates|curl|unzip|nginx|docker-ce|docker-ce-cli|containerd.io|docker-buildx-plugin|docker-compose-plugin) packages+=("$package") ;;
-        *) printf 'Unsupported Rocky Linux package: %s\\n' "$package" >&2; exit 1 ;;
-      esac
-    done
+    set_stage 'Preparing Enterprise Linux packages'
+    packages=(ca-certificates curl unzip)
+    if printf '%s' "$services" | grep -Eq '"(nodejs|minecraft-java)"'; then packages+=(python3); fi
+    if printf '%s' "$services" | grep -q '"postgresql"'; then packages+=(postgresql-server postgresql-contrib); fi
+    if printf '%s' "$services" | grep -q '"mysql"'; then packages+=(mariadb-server); fi
+    if printf '%s' "$services" | grep -q '"redis"'; then packages+=(redis); fi
+    if printf '%s' "$services" | grep -q '"sqlite"'; then packages+=(sqlite); fi
+    if printf '%s' "$services" | grep -q '"python"'; then packages+=(python3 python3-pip); fi
+    if printf '%s' "$services" | grep -q '"rust"'; then packages+=(rust cargo); fi
+    if printf '%s' "$services" | grep -q '"ruby"'; then packages+=(ruby ruby-devel); fi
+    if printf '%s' "$services" | grep -q '"cpp"'; then packages+=(gcc gcc-c++ make); fi
+    if printf '%s' "$services" | grep -q '"go"'; then packages+=(golang); fi
+    if printf '%s' "$services" | grep -q '"php"'; then packages+=(php-cli php-common php-curl php-mbstring php-xml); fi
+    if printf '%s' "$services" | grep -q '"java"' && ! printf '%s' "$services" | grep -q '"minecraft-java"'; then packages+=(java-21-openjdk-devel); fi
+    if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep -q '"website"'; then packages+=(nginx); fi
+    if printf '%s' "$services" | grep -q '"minecraft-java"'; then packages+=(jq iproute); fi
+    if printf '%s' "$services" | grep -q '"docker"'; then packages+=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin); fi
     run_bounded 900 dnf install -y "\${packages[@]}"
+    if printf '%s' "$services" | grep -q '"postgresql"'; then
+      if [[ ! -s /var/lib/pgsql/data/PG_VERSION ]]; then postgresql-setup --initdb; fi
+    fi
+    if printf '%s' "$services" | grep -q '"php"'; then
+      set_stage 'Installing Composer'
+      composer_tmp="$(mktemp /usr/local/bin/composer.XXXXXX)"
+      curl -fsSL --retry 3 --retry-delay 2 https://getcomposer.org/download/latest-stable/composer.phar -o "$composer_tmp"
+      composer_checksum="$(curl -fsSL --retry 3 --retry-delay 2 https://getcomposer.org/download/latest-stable/composer.phar.sha256)"
+      printf '%s  %s\\n' "$composer_checksum" "$composer_tmp" | sha256sum --check --status
+      install -m 0755 "$composer_tmp" /usr/local/bin/composer
+      rm -f "$composer_tmp"
+    fi
   fi
 else
 if (( \${#apt_packages[@]} > 0 )); then
@@ -218,11 +247,14 @@ if printf '%s' "$services" | grep -q '"nodejs"'; then
   set_stage 'Installing Node.js 24 LTS'
   run_bounded 300 python3 - <<'PY'
 import hashlib
+import http.client
 import json
 import pathlib
 import platform
 import subprocess
 import tarfile
+import time
+import urllib.error
 import urllib.request
 
 base = "https://nodejs.org/dist/"
@@ -239,14 +271,41 @@ expected = next((line.split()[0] for line in checksums.splitlines() if line.spli
 if not expected:
     raise SystemExit("The Node.js release checksum was not published.")
 archive = pathlib.Path("/tmp") / filename
-with urllib.request.urlopen(base + version + "/" + filename, timeout=60) as response, archive.open("wb") as output:
-    digest = hashlib.sha256()
-    while chunk := response.read(1024 * 1024):
-        digest.update(chunk)
-        output.write(chunk)
-if digest.hexdigest() != expected:
-    archive.unlink(missing_ok=True)
-    raise SystemExit("The downloaded Node.js archive failed its checksum check.")
+partial = archive.with_suffix(archive.suffix + ".part")
+last_error = None
+for attempt in range(1, 5):
+    partial.unlink(missing_ok=True)
+    try:
+        digest = hashlib.sha256()
+        downloaded = 0
+        with urllib.request.urlopen(base + version + "/" + filename, timeout=45) as response:
+            raw_size = response.headers.get("Content-Length")
+            expected_size = int(raw_size) if raw_size and raw_size.isdigit() else None
+            if expected_size is not None and (expected_size < 1 or expected_size > 1_000_000_000):
+                raise SystemExit("The Node.js archive size is invalid.")
+            with partial.open("wb") as output:
+                while chunk := response.read(1024 * 1024):
+                    downloaded += len(chunk)
+                    if downloaded > 1_000_000_000 or (expected_size is not None and downloaded > expected_size):
+                        raise SystemExit("The Node.js archive exceeded its expected size.")
+                    digest.update(chunk)
+                    output.write(chunk)
+        if expected_size is not None and downloaded != expected_size:
+            raise RuntimeError(f"Incomplete Node.js archive: {downloaded} of {expected_size} bytes.")
+        if digest.hexdigest() != expected:
+            raise RuntimeError("The downloaded Node.js archive failed its checksum check.")
+        partial.replace(archive)
+        break
+    except SystemExit:
+        partial.unlink(missing_ok=True)
+        raise
+    except (OSError, http.client.HTTPException, urllib.error.URLError, RuntimeError) as error:
+        last_error = error
+        partial.unlink(missing_ok=True)
+        if attempt < 4:
+            time.sleep(attempt * 2)
+else:
+    raise SystemExit(f"Node.js archive download failed after retries: {last_error}")
 target = pathlib.Path("/opt") / f"node-{version}"
 target.mkdir(parents=True, exist_ok=True)
 prefix = f"node-{version}-linux-{architecture}/"
@@ -426,8 +485,16 @@ if printf '%s' "$services" | grep -q '"go"'; then go version; fi
 if printf '%s' "$services" | grep -q '"php"'; then php --version >/dev/null; composer --version >/dev/null; fi
 if printf '%s' "$services" | grep -q '"sqlite"'; then sqlite3 --version; fi
 if printf '%s' "$services" | grep -q '"postgresql"'; then set_stage 'Starting PostgreSQL'; systemctl enable --now postgresql; systemctl is-active --quiet postgresql; fi
-if printf '%s' "$services" | grep -q '"mysql"'; then set_stage 'Starting MySQL'; systemctl enable --now mysql; systemctl is-active --quiet mysql; fi
-if printf '%s' "$services" | grep -q '"redis"'; then set_stage 'Starting Redis'; systemctl enable --now redis-server; systemctl is-active --quiet redis-server; fi
+if printf '%s' "$services" | grep -q '"mysql"'; then
+  set_stage 'Starting MySQL'
+  if [[ '${usesDnf}' == 'true' ]]; then systemctl enable --now mariadb; systemctl is-active --quiet mariadb
+  else systemctl enable --now mysql; systemctl is-active --quiet mysql; fi
+fi
+if printf '%s' "$services" | grep -q '"redis"'; then
+  set_stage 'Starting Redis'
+  if [[ '${usesDnf}' == 'true' ]]; then systemctl enable --now redis; systemctl is-active --quiet redis
+  else systemctl enable --now redis-server; systemctl is-active --quiet redis-server; fi
+fi
 if printf '%s' "$services" | grep -Eq '"(nginx|website)"'; then set_stage 'Starting Nginx'; systemctl enable --now nginx; systemctl is-active --quiet nginx; nginx -t; fi
 if printf '%s' "$services" | grep -q '"postgresql"'; then set_stage 'Checking PostgreSQL'; wait_for_ready PostgreSQL pg_isready; fi
 if printf '%s' "$services" | grep -q '"mysql"'; then set_stage 'Checking MySQL'; wait_for_ready MySQL mysqladmin ping --silent; fi
