@@ -268,6 +268,8 @@ test('VM creation forwards each preset and the maximum custom allocation', async
         { cpu: '2', memory: '4GiB', disk: '40GiB' },
         { cpu: '3', memory: '16GiB', disk: '40GiB' },
         { cpu: '10', memory: '64GiB', disk: '40GiB' },
+        { cpu: '2', memory: '4GiB', disk: '20GiB' },
+        { cpu: '10', memory: '64GiB', disk: '100GiB' },
     ]
     for (const [index, resources] of allocations.entries()) {
         const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: `resource-${index}`, resources } })
@@ -282,7 +284,9 @@ test('VM creation rejects resource allocations outside the supported CPU, memory
         { cpu: '11', memory: '4GiB', disk: '40GiB' },
         { cpu: '2', memory: '0GiB', disk: '40GiB' },
         { cpu: '2', memory: '65GiB', disk: '40GiB' },
-        { cpu: '2', memory: '4GiB', disk: '41GiB' },
+        { cpu: '2', memory: '4GiB', disk: '19GiB' },
+        { cpu: '2', memory: '4GiB', disk: '101GiB' },
+        { cpu: '2', memory: '4GiB', disk: '20.5GiB' },
         { cpu: '2.5', memory: '4GiB', disk: '40GiB' },
     ]) {
         const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'invalid-resource', resources } })

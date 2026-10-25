@@ -318,7 +318,7 @@ function isSupportedResourceAllocation(value: unknown): value is NonNullable<VmP
     if (['1:2GiB:10GiB', '2:4GiB:20GiB', '4:8GiB:40GiB'].includes(key)) return true
     return /^(?:[1-9]|10)$/.test(resources.cpu)
         && /^(?:[1-9]|[1-5][0-9]|6[0-4])GiB$/.test(resources.memory)
-        && resources.disk === '40GiB'
+        && /^(?:2[0-9]|[3-9][0-9]|100)GiB$/.test(resources.disk)
 }
 
 async function recordVmProvisioningError(vmName: string, error: unknown, phase: string) {

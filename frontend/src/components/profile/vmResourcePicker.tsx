@@ -10,7 +10,7 @@ export default function VmResourcePicker({ value, onChange, disabled, availableO
     availableOptions?: ReadonlyArray<typeof vmResourceOptions[number]>
 }) {
     const describeOption = (option: VmPickerOption) => {
-        if (option.id === 'custom') return 'Set vCPU and memory up to 10 vCPU and 64 GB'
+        if (option.id === 'custom') return 'Set up to 10 vCPU, 64 GB memory and 100 GB disk'
         return option.label.split(' · ').slice(1).join(' · ')
     }
     return <VmOptionPicker value={value} onChange={onChange} disabled={disabled} label='Resources' menuLabel='Resource options' options={availableOptions} description={describeOption} />

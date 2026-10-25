@@ -39,6 +39,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const [resourcePlan, setResourcePlan] = useState<string>(vmResourceOptions[0].id)
     const [customCpu, setCustomCpu] = useState('2')
     const [customMemory, setCustomMemory] = useState('4')
+    const [customDisk, setCustomDisk] = useState('40')
     const [selectedServices, setSelectedServices] = useState<string[]>([])
     const [activeServiceTab, setActiveServiceTab] = useState<(typeof vmServiceTabs)[number]['id']>('development')
     const [customAptPackages, setCustomAptPackages] = useState<string[]>([])
@@ -58,8 +59,9 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         ? option.id === 'large'
         : !requiresFourGiB || option.memory !== '2GiB'))
     const minimumMemory = requiresLargePlan ? 8 : requiresFourGiB ? 4 : 1
-    const currentResources = getVmResourceAllocation(resourcePlan, customCpu, customMemory)
-    const resourceError = getVmResourceError(resourcePlan, customCpu, customMemory, minimumMemory)
+    const minimumDisk = requiresLargePlan ? 40 : requiresFourGiB ? 20 : 20
+    const currentResources = getVmResourceAllocation(resourcePlan, customCpu, customMemory, customDisk)
+    const resourceError = getVmResourceError(resourcePlan, customCpu, customMemory, customDisk, minimumMemory, minimumDisk)
     const currentSetupKey = `${operatingSystem}\n${setupPrompt.trim()}`
     const unresolvedSetupPrompt = setupPrompt.trim().length >= 5 && suggestedSetupKey !== currentSetupKey
         && selectedServices.length === 0 && customAptPackages.length === 0
@@ -129,7 +131,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             }} disabled={creating} />
             <VmResourcePicker value={resourcePlan} onChange={setResourcePlan} disabled={creating} availableOptions={availableResources} />
         </div>
-        {resourcePlan === 'custom' && <VmCustomResourceFields cpu={customCpu} memory={customMemory} minimumMemory={minimumMemory} disabled={creating} onCpuChange={setCustomCpu} onMemoryChange={setCustomMemory} />}
+        {resourcePlan === 'custom' && <VmCustomResourceFields cpu={customCpu} memory={customMemory} disk={customDisk} minimumMemory={minimumMemory} minimumDisk={minimumDisk} disabled={creating} onCpuChange={setCustomCpu} onMemoryChange={setCustomMemory} onDiskChange={setCustomDisk} />}
         {operatingSystem === 'ubuntu-24.04-desktop' && <p className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-xs leading-5 text-ui-muted'>After creation, open the VM's Access panel and use its SSH details with <code className='rounded bg-ui-raised px-1 py-0.5 text-ui-text'>-N -L 3389:127.0.0.1:3389</code> added. Then open Remote Desktop at <code className='rounded bg-ui-raised px-1 py-0.5 text-ui-text'>127.0.0.1:3389</code> and sign in with your VM username and password.</p>}
         <fieldset disabled={creating} className='grid gap-2'>
             <legend className='mb-1 text-sm font-medium text-ui-text'>Install services</legend>

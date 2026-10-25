@@ -76,7 +76,7 @@ test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Do
 test.serial('LXD applies a valid custom CPU and memory allocation to the instance limits', async () => {
     await provisionLocalLxdInstance('custom-vm', {
         os: 'ubuntu-24.04',
-        resources: { cpu: '10', memory: '64GiB', disk: '40GiB' },
+        resources: { cpu: '10', memory: '64GiB', disk: '100GiB' },
         services: [],
     })
 
@@ -86,7 +86,7 @@ test.serial('LXD applies a valid custom CPU and memory allocation to the instanc
     }
     expect(body.config['limits.cpu']).toBe('10')
     expect(body.config['limits.memory']).toBe('64GiB')
-    expect(body.devices.root.size).toBe('40GiB')
+    expect(body.devices.root.size).toBe('100GiB')
 })
 
 test.serial('empty AI package lists keep the existing setup hash stable', async () => {
