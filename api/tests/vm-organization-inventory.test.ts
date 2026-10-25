@@ -38,6 +38,7 @@ test('VM inventory in an organization workspace returns only that organizationâ€
     const response = await app.inject('/vms/cashflow-member')
 
     expect(response.statusCode).toBe(200)
+    expect(response.headers['cache-control']).toBe('private, no-store')
     expect(queries).toHaveLength(1)
     expect(queries[0]?.sql).toBe('getVmsByOrganization.sql')
     expect(queries[0]?.params).toEqual(['cashflow', 'cashflow-member'])
@@ -62,6 +63,7 @@ test('personal VM inventory limits results to VMs accessible to the user', async
     const response = await app.inject('/vms/cashflow-member')
 
     expect(response.statusCode).toBe(200)
+    expect(response.headers['cache-control']).toBe('private, no-store')
     expect(queries).toHaveLength(1)
     expect(queries[0]?.sql).toBe('getVmsByUser.sql')
     expect(queries[0]?.params).toEqual(['cashflow-member'])
@@ -80,6 +82,7 @@ test('personal accessible-VM endpoint excludes organization-owned VMs', async ()
     const response = await app.inject('/vms/access/cashflow-member')
 
     expect(response.statusCode).toBe(200)
+    expect(response.headers['cache-control']).toBe('private, no-store')
     expect(queries).toHaveLength(1)
     expect(queries[0]?.sql.replace(/\s+/g, ' ')).toContain('WHERE organization_id IS NULL AND vm_user_has_access(name, $1)')
     expect(queries[0]?.params).toEqual(['cashflow-member'])

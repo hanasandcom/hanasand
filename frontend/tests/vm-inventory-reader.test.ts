@@ -16,6 +16,26 @@ mock.module('@/utils/fetchWithRetry', () => ({
 
 const { default: getVMs } = await import('../src/utils/vms/fetch/getVMs')
 
+test('browser VM inventory requests bypass the HTTP cache across workspace changes', async () => {
+    requests.length = 0
+    const previousWindow = globalThis.window
+    const previousDocument = globalThis.document
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: {} })
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { cookie: '' } })
+    responseFactory = () => Response.json([])
+
+    try {
+        assert.deepEqual(await getVMs('user-1'), [])
+        assert.equal(String(requests[0]?.input), '/api/backend/vms/user-1')
+        assert.equal(requests[0]?.options?.cache, 'no-store')
+    } finally {
+        if (previousWindow === undefined) delete (globalThis as typeof globalThis & { window?: Window }).window
+        else Object.defineProperty(globalThis, 'window', { configurable: true, value: previousWindow })
+        if (previousDocument === undefined) delete (globalThis as typeof globalThis & { document?: Document }).document
+        else Object.defineProperty(globalThis, 'document', { configurable: true, value: previousDocument })
+    }
+})
+
 test('VM inventory uses the authenticated request and cancels a stalled response body', async () => {
     requests.length = 0
     const inventory = [{ id: 'vm-1', status: 'Running' }]
@@ -24,13 +44,13 @@ test('VM inventory uses the authenticated request and cancels a stalled response
     assert.deepEqual(await getVMs('organization-one', 'token%20value', 'user-1', 'impersonation', 'cashflow'), inventory)
     assert.equal(String(requests[0]?.input), `${config.url.api}/vms/organization-one`)
     assert.deepEqual(requests[0]?.options, {
+        cache: 'no-store',
         headers: {
             Authorization: 'Bearer token value',
             id: 'user-1',
             'x-impersonation-token': 'impersonation',
             'x-organization-id': 'cashflow',
         },
-        next: { revalidate: 5 },
         timeoutMs: config.abortTimeout,
         retries: 2,
     })

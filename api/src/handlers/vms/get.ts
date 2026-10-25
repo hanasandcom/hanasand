@@ -7,6 +7,7 @@ import { vmViewer, requireVmAccess } from '#utils/vms/access.ts'
 import { contentOrganizationAccess, requestedContentOrganization } from '#utils/contentOrganization.ts'
 
 export default async function getVM(req: FastifyRequest, res: FastifyReply) {
+    res.header('Cache-Control', 'private, no-store')
     const { id, user } = req.params as { id?: string; user?: string }
     const viewer = id ? await requireVmAccess(req, res, id, true) : await vmViewer(req, res)
     if (!viewer) return

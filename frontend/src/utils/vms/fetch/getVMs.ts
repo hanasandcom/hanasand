@@ -8,6 +8,7 @@ export default async function getVMs(id: string, tokenOverride?: string, userIdO
         const userId = userIdOverride ?? getCookie('id')
         const browserProxy = typeof window !== 'undefined'
         const response = await fetchWithRetry(browserProxy ? `/api/backend/vms/${id}` : `${config.url.api}/vms/${id}`, {
+            cache: 'no-store',
             headers: {
                 ...(browserProxy ? {} : {
                     'Authorization': `Bearer ${token}`,
@@ -16,7 +17,6 @@ export default async function getVMs(id: string, tokenOverride?: string, userIdO
                     ...(organizationId ? { 'x-organization-id': organizationId } : {}),
                 }),
             },
-            next: { revalidate: 5 },
             timeoutMs: config.abortTimeout,
             retries: 2,
         })
