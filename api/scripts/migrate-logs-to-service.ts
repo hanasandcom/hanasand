@@ -9,7 +9,7 @@ import { logMigrationEvent } from '../src/utils/logs/logMigrationEvent.ts'
 
 const batchSize = Math.max(1, Math.min(200, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 200))
 const receiptBatchSize = 100
-const analyzeReceiptBatchSize = 20_000
+const analyzeReceiptBatchSize = 2_000
 const analyzeReceiptTailChunkBytes = 4 * 1024 ** 3
 const eventTailChunkBytes = 4 * 1024 ** 3
 const defaultTailVacuumEveryBytes = 16 * 1024 ** 3
@@ -25,7 +25,7 @@ export function migrationTailVacuumInterval(configuredValue = process.env.LOGS_M
 const tailVacuumEveryBytes = migrationTailVacuumInterval()
 const findingScanSize = 10_000
 const apply = process.argv.includes('--apply')
-const maxPayloadBytes = 6_000_000
+const maxPayloadBytes = 400_000
 const configuredMigrationFreeSpaceReserveBytes = Number(process.env.LOGS_MIGRATION_MIN_FREE_BYTES)
 const migrationFreeSpaceReserveBytes = Number.isSafeInteger(configuredMigrationFreeSpaceReserveBytes) && configuredMigrationFreeSpaceReserveBytes > 0
     ? configuredMigrationFreeSpaceReserveBytes : 24 * 1024 ** 3

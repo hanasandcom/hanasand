@@ -667,12 +667,13 @@ test('transfers exact compressed model, readiness and general analysis receipts 
         .toEqual({ modelProbe: 1, readinessAudit: 1, proxy: 0, analyze: 1 })
     expect(statements.find(statement => statement.sql.startsWith('SELECT key,organization_id,rule_id,rule_version,created_at::text AS created_at FROM log_analyze_receipts')
         && statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))?.params)
-        .toEqual([0, 2, 20_000])
+        .toEqual([0, 2, 2_000])
     expect(vacuumed).toEqual(['log_analyze_receipts'])
     expect(sent.map(batch => batch.kind)).toEqual(['model_probe', 'readiness_audit', 'analyze'])
     expect(sent[0]?.receipts[0]?.original_base64).toBe(Buffer.from('model proof bytes').toString('base64'))
     expect(sent[1]?.receipts[0]?.original_base64).toBe(Buffer.from('readiness chain bytes').toString('base64'))
     expect(sent[2]?.receipts[0]).toEqual(analyzeReceipt)
+    expect(sent.every(batch => Buffer.byteLength(JSON.stringify(batch)) <= 400_000)).toBe(true)
     expect(sourceModelReceipts).toHaveLength(0)
     expect(sourceReadinessReceipts).toHaveLength(0)
     expect(sourceAnalyzeReceipts).toHaveLength(0)
@@ -743,9 +744,39 @@ test('moves receipt batches from the physical tail downward and vacuums only aft
 
     const selections = statements.filter(statement => statement.sql.startsWith('SELECT key,organization_id,rule_id,rule_version,created_at::text AS created_at FROM log_analyze_receipts')
         && statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))
-    expect(selections.map(statement => statement.params)).toEqual([[2, 4, 20_000], [2, 4, 20_000], [0, 2, 20_000], [0, 2, 20_000]])
+    expect(selections.map(statement => statement.params)).toEqual([[2, 4, 2_000], [2, 4, 2_000], [0, 2, 2_000], [0, 2, 2_000]])
     expect(selections.every(statement => !statement.sql.includes('ORDER BY ctid'))).toBe(true)
     expect(vacuumed).toEqual(['log_analyze_receipts', 'log_analyze_receipts'])
+    expect(sourceAnalyzeReceipts).toHaveLength(0)
+})
+
+test('keeps large analyze receipt requests below the Logs API body limit', async () => {
+    sourceAnalyzeRelationBytes = 16_384
+    sourceAnalyzeReceipts = Array.from({ length: 1_000 }, (_, index) => {
+        const receipt = {
+            key: index.toString(16).padStart(64, '0'),
+            organization_id: 'o'.repeat(256),
+            rule_id: 'r'.repeat(256),
+            rule_version: 'v'.repeat(128),
+            created_at: '2026-10-20T10:00:00.000Z',
+        }
+        sourceAnalyzeReceiptBlocks.set(receipt.key, 0)
+        return receipt
+    })
+    const payloadBytes: number[] = []
+    const receiptCounts: number[] = []
+    globalThis.fetch = (async (_input, init) => {
+        const body = String(init?.body)
+        payloadBytes.push(Buffer.byteLength(body))
+        const parsed = JSON.parse(body) as { receipts: Array<Record<string, unknown>> }
+        receiptCounts.push(parsed.receipts.length)
+        return new Response(JSON.stringify({ ok: true, accepted: parsed.receipts.length }), { status: 200 })
+    }) as typeof fetch
+
+    expect(await migrateReceiptKind('https://logs.hanasand.com', 's'.repeat(40), 'analyze', () => {}, 16_384, 16_384)).toBe(1_000)
+    expect(payloadBytes.length).toBeGreaterThan(1)
+    expect(Math.max(...payloadBytes)).toBeLessThanOrEqual(400_000)
+    expect(Math.max(...receiptCounts)).toBeLessThanOrEqual(2_000)
     expect(sourceAnalyzeReceipts).toHaveLength(0)
 })
 
