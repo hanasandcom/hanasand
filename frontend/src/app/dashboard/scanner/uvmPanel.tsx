@@ -123,9 +123,7 @@ export default function UvmPanel({
         catch (error) { setMessage(error instanceof Error ? error.message : 'Verification lookup failed.') }
         finally { setBusy('') }
     }
-    function updateAssetCriticality(asset: UvmAsset, criticality: UvmAssetCriticality) {
-        return saveUvmAssetCriticality({ asset, criticality, updateAction: updateAssetCriticalityAction, setBusy, setMessage, setData })
-    }
+    const updateAssetCriticality = (asset: UvmAsset, criticality: UvmAssetCriticality) => saveUvmAssetCriticality({ asset, criticality, updateAction: updateAssetCriticalityAction, setBusy, setMessage, setData })
     async function saveZapApiDefinition(asset: UvmAsset) {
         return saveUvmZapApiDefinition({ asset, path: zapApiDefinitionPaths[asset.id]?.trim() || null,
             updateAction: saveZapApiDefinitionAction, setBusy, setMessage, setData, setPaths: setZapApiDefinitionPaths })

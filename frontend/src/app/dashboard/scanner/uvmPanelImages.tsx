@@ -1,5 +1,4 @@
 'use client'
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { UvmDashboard, UvmImageReport, UvmImageScanHistoryEntry, UvmImageScanHistoryPage, UvmImageScanRun } from '@/utils/monitoring/types'
 import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
