@@ -34,6 +34,12 @@ test('VM inventory uses the authenticated request and cancels a stalled response
         timeoutMs: config.abortTimeout,
         retries: 2,
     })
+    responseFactory = () => Response.json([])
+    assert.deepEqual(await getVMs('organization-one', 'token', 'user-1'), [])
+
+    responseFactory = () => Response.json({ error: 'temporarily unavailable' }, { status: 503 })
+    assert.equal(await getVMs('organization-one', 'token', 'user-1'), null)
+
     const previousTimeout = config.abortTimeout
     config.abortTimeout = 20
     let canceled = false
@@ -48,7 +54,7 @@ test('VM inventory uses the authenticated request and cancels a stalled response
 
     const startedAt = Date.now()
     try {
-        assert.deepEqual(await getVMs('organization-one', 'token', 'user-1'), [])
+        assert.equal(await getVMs('organization-one', 'token', 'user-1'), null)
         assert.equal(canceled, true)
         assert.ok(Date.now() - startedAt < 1000)
     } finally {

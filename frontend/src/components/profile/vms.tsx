@@ -15,8 +15,9 @@ import VmCreateForm from './vmCreateForm'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import getLatestVMMetrics from '@/utils/vms/fetch/metrics/getLatestVMMetrics'
 
-export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initialNow: number }) {
-    const [vms, setVms] = useState<VM[]>(serverVMs || [])
+export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, initialNow: number }) {
+    const [vms, setVms] = useState<VM[]>(serverVMs ?? [])
+    const [inventoryUnavailable, setInventoryUnavailable] = useState(serverVMs === null)
     const [now, setNow] = useState(initialNow)
     const router = useRouter()
     const [showCreate, setShowCreate] = useState(false)
@@ -46,7 +47,12 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
         const impersonatingId = getCookie('impersonating_id')
         if (id) {
             const updatedVMs = await getVMs(impersonatingId || id, undefined, id, undefined, organizationId || undefined)
+            if (updatedVMs === null) {
+                setInventoryUnavailable(true)
+                return
+            }
             setVms(updatedVMs)
+            setInventoryUnavailable(false)
             window.dispatchEvent(new Event('vms-updated'))
         } else {
             router.push('/login?path=/profile')
@@ -89,7 +95,14 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
         setDiskState('idle')
     }, [organizationId])
 
-    useEffect(() => { setVms(serverVMs || []) }, [serverVMs])
+    useEffect(() => {
+        if (serverVMs === null) {
+            setInventoryUnavailable(true)
+            return
+        }
+        setVms(serverVMs)
+        setInventoryUnavailable(false)
+    }, [serverVMs])
 
     useEffect(() => {
         setNow(Date.now())
@@ -108,7 +121,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
             <div className='mb-1 flex items-center justify-between gap-3'>
                 <div>
                     <h2 className='text-base font-semibold text-ui-text'>Virtual machines</h2>
-                    <p className='mt-1 text-sm text-ui-muted'>{visibleVms.length === vms.length ? `${vms.length} virtual machine${vms.length === 1 ? '' : 's'}` : `${visibleVms.length} of ${vms.length} virtual machines`}</p>
+                    <p className='mt-1 text-sm text-ui-muted'>{inventoryUnavailable && vms.length === 0 ? 'Virtual machines unavailable' : visibleVms.length === vms.length ? `${vms.length} virtual machine${vms.length === 1 ? '' : 's'}` : `${visibleVms.length} of ${vms.length} virtual machines`}</p>
                 </div>
                 <div className='flex shrink-0 items-center gap-2'>
                     <VmFiltersButton filters={filters} onChange={setFilters} editors={editorOptions} diskState={diskState} onOpen={loadDiskMetrics} />
@@ -133,6 +146,10 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
                 setShowCreate(false)
                 router.push(`/vms/${encodeURIComponent(name)}/console?provisioning=1`)
             }} />
+            {inventoryUnavailable && <div role='status' className='flex flex-wrap items-center gap-x-2 text-sm text-ui-muted'>
+                <span>{vms.length > 0 ? 'Couldn’t refresh. Showing the last loaded list.' : 'Couldn’t load virtual machines.'}</span>
+                <button type='button' onClick={() => void update()} className='font-medium text-ui-primary hover:underline'>Try again</button>
+            </div>}
             {vms.length > 0 ? (
                 visibleVms.length > 0 ? <div className='grid gap-2'>
                     {visibleVms.map(vm => <VMRow update={update} key={vm.name} vm={vm} now={now} onFeedback={notify} />)}
