@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert'
 import test from 'node:test'
+import { mock } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import VMDetails from '../src/components/vms/vmDetails'
 import VMHardware from '../src/components/vms/vmHardware'
@@ -7,9 +8,16 @@ import VMMetrics from '../src/components/vms/vmMetrics'
 import VMNetwork from '../src/components/vms/vmNetwork'
 import VMOverview from '../src/components/vms/vmOverview'
 import VMAccess from '../src/components/vms/vmAccess'
-import VmConsole from '../src/components/vms/consoleClient'
 import manageVM from '../src/utils/vms/fetch/manage/manage'
 import { latestVMMetrics } from '../src/utils/vms/metricPresentation'
+
+mock.module('next/navigation', () => ({
+    usePathname: () => '/vms/test/console',
+    useRouter: () => ({ replace() {} }),
+    useSearchParams: () => new URLSearchParams(),
+}))
+mock.module('@/components/organizations/workspaceProvider', () => ({ useWorkspace: () => ({ organizationId: '', loading: false }) }))
+const { default: VmConsole } = await import('../src/components/vms/consoleClient')
 
 test('VM actions encode instance names and preserve plain-text API failures', async () => {
     Object.defineProperty(globalThis, 'document', {
