@@ -81,30 +81,25 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
     return (
         <>
             <article className='grid gap-3 rounded-lg border border-ui-border bg-ui-raised p-4 transition-colors hover:bg-ui-panel sm:gap-4'>
-                <div className='flex min-w-0 items-start justify-between gap-3'>
-                    <div className='min-w-0 flex-1'>
-                        <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                            <h3 className='min-w-0 wrap-break-word text-base font-semibold text-ui-text'>{name}</h3>
-                            {vm.managed === true && <span title='Provisioned through a share' className='rounded-md border border-ui-border bg-ui-canvas px-2 py-0.5 text-[0.68rem] font-semibold text-ui-muted'>Managed</span>}
-                            <span className={`rounded-md px-2 py-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] ${status === 'Running'
-                                ? 'border border-ui-success/30 bg-ui-success/10 text-ui-success'
-                                : status === 'Stopped'
-                                    ? 'border border-ui-border bg-ui-canvas text-ui-muted'
-                                    : 'border border-ui-warning/30 bg-ui-warning/10 text-ui-warning'
-                            }`}>{status}</span>
-                        </div>
-                        {statusNote && <p className='mt-1 text-xs leading-5 text-ui-muted'>{statusNote}</p>}
+                <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 sm:flex sm:flex-wrap sm:justify-between'>
+                    <div className='flex min-w-0 flex-wrap items-center gap-2 sm:flex-[1_1_15rem]'>
+                        <h3 title={name} className='min-w-0 max-w-full truncate text-base font-semibold text-ui-text'>{name}</h3>
+                        {vm.managed === true && <span title='Provisioned through a share' className='rounded-md border border-ui-border bg-ui-canvas px-2 py-0.5 text-[0.68rem] font-semibold text-ui-muted'>Managed</span>}
+                        <span className={`rounded-md px-2 py-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] ${status === 'Running'
+                            ? 'border border-ui-success/30 bg-ui-success/10 text-ui-success'
+                            : status === 'Stopped'
+                                ? 'border border-ui-border bg-ui-canvas text-ui-muted'
+                                : 'border border-ui-warning/30 bg-ui-warning/10 text-ui-warning'
+                        }`}>{status}</span>
                     </div>
-                    {!deleted && <div className='flex shrink-0 items-center xl:hidden'>
+                    {!deleted && <div className='col-start-2 row-start-1 sm:order-2 sm:flex sm:items-center'>
                         <FloatingActionMenu
                             label={`More actions for ${name}`}
                             buttonClassName={`${vmActionStyle} w-9 text-ui-muted`}
                             panelClassName='fixed z-[100] grid w-80 max-w-[calc(100vw_-_1rem)] gap-2 overflow-y-auto rounded-lg border border-ui-border bg-ui-panel p-2 shadow-xl'
                         >
-                            <div className='grid gap-2'>
-                                {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} w-full justify-start px-3 text-ui-text`} />}
-                                {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`} />}
-                            </div>
+                            {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} w-full justify-start px-3 text-ui-text`} />}
+                            {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`} />}
                             <div data-vm-menu-keep-open>
                                 <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
                             </div>
@@ -113,36 +108,17 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                             </button>
                         </FloatingActionMenu>
                     </div>}
+                    {!deleted && <div className='col-span-2 row-start-2 flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 sm:col-auto sm:row-auto sm:order-1'>
+                        <RestartButtons vm={vm} onFeedback={onFeedback} showLabels />
+                        <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} w-auto px-2.5 text-ui-primary`}>
+                            <TerminalSquare className='h-4 w-4' /> <span className='hidden sm:inline'>Console</span>
+                        </Link>
+                        <button type='button' onClick={openDetails} aria-label={`Open ${name} details`} className={`${vmActionStyle} px-2.5 text-ui-primary`} data-vm-primary-action>
+                            <span className='hidden sm:inline'>Open details</span> <ArrowRight className='h-4 w-4' />
+                        </button>
+                    </div>}
                 </div>
-                <div className='flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2'>
-                    <div className='flex min-w-0 max-w-full flex-1 flex-wrap items-center justify-end gap-2'>
-                        {!deleted && <>
-                            <RestartButtons vm={vm} onFeedback={onFeedback} showLabels />
-                            <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} w-auto px-2.5 text-ui-primary`}>
-                                <TerminalSquare className='h-4 w-4' /> <span>Console</span>
-                            </Link>
-                            <button type='button' onClick={openDetails} className={`${vmActionStyle} px-3 text-ui-primary`} data-vm-primary-action>
-                                Open details <ArrowRight className='h-4 w-4' />
-                            </button>
-                            {vm.name && <VMConnectLocally vmName={vm.name} className={`${vmActionStyle} max-xl:!hidden px-3 text-ui-text xl:!inline-flex`} />}
-                            {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} max-xl:!hidden px-3 text-ui-primary xl:!inline-flex`} />}
-                            <div className='hidden xl:flex'>
-                                <FloatingActionMenu
-                                    label={`More actions for ${name}`}
-                                    buttonClassName={`${vmActionStyle} w-9 text-ui-muted`}
-                                    panelClassName='fixed z-[100] grid w-80 max-w-[calc(100vw_-_1rem)] gap-2 overflow-y-auto rounded-lg border border-ui-border bg-ui-panel p-2 shadow-xl'
-                                >
-                                    <div data-vm-menu-keep-open>
-                                        <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
-                                    </div>
-                                    <button type='button' onClick={() => setConfirmingDelete(true)} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
-                                        <Trash2 className='h-4 w-4' /> Delete VM
-                                    </button>
-                                </FloatingActionMenu>
-                            </div>
-                        </>}
-                    </div>
-                </div>
+                {statusNote && <p className='-mt-1 text-xs leading-5 text-ui-muted'>{statusNote}</p>}
                 <div className='grid gap-x-4 gap-y-3 border-t border-ui-border pt-3 text-sm sm:grid-cols-2 xl:grid-cols-4'>
                     <div className='min-w-0'><p className='text-xs font-medium text-ui-muted'>IP address</p><p className='mt-1 wrap-break-word text-ui-text'>{ip}</p></div>
                     <div className='min-w-0'><p className='text-xs font-medium text-ui-muted'>{vm.organization_id ? 'Organization' : 'Owner'}</p><p className='mt-1 wrap-break-word text-ui-text'>{vm.organization_id ? vm.organization_name || 'Unknown' : vm.owner || vm.created_by || 'Unknown'}</p></div>

@@ -38,7 +38,7 @@ test('VM pages still require a signed-in session', async ({ page }) => {
     await expect(page).toHaveURL(/\/login\?path=/)
 })
 
-test('VM inventory keeps Start visible and moves secondary actions inline when they fit', async ({ context, page, baseURL }) => {
+test('VM inventory keeps primary actions inline and access actions in the menu at every width', async ({ context, page, baseURL }) => {
     test.skip(!process.env.VM_FIXTURE_API, 'Requires the VM fixture API')
     await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
     await context.addCookies(Object.entries({ id: 'dashboard-render-proof-user', access_token: 'local-dashboard-render-proof-token' }).map(([name, value]) => ({ name, value, url: baseURL! })))
@@ -122,8 +122,10 @@ test('VM inventory keeps Start visible and moves secondary actions inline when t
 
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(row.getByRole('link', { name: 'Open my-machine console' }).first()).toBeVisible()
-    await expect(row.getByRole('button', { name: 'Connect locally' }).first()).toBeVisible()
-    await expect(row.getByRole('button', { name: 'Show sudo password' }).first()).toBeVisible()
+    await more.click()
+    const wideMenu = page.getByRole('group', { name: 'More actions for my-machine' })
+    await expect(wideMenu.getByRole('button', { name: 'Connect locally' })).toBeVisible()
+    await expect(wideMenu.getByRole('button', { name: 'Show sudo password' })).toBeVisible()
 })
 
 test('VM inventory renders its empty state when the VM list is empty', async ({ context, page, baseURL }) => {
