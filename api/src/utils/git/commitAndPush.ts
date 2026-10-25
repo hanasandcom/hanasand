@@ -3,7 +3,7 @@ import { promisify } from 'node:util'
 import { mkdtemp, chmod, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import git, { LOCAL_REPO_PATH } from './git.ts'
+import git, { invalidateArticleTimestamps, LOCAL_REPO_PATH } from './git.ts'
 
 const execFileAsync = promisify(execFile)
 const askpassScript = `#!/bin/sh
@@ -18,6 +18,7 @@ export default async function commitAndPush(message: string) {
     await git('add -- articles')
     if (await git('diff --cached --name-only -- articles')) {
         await git(`commit -m '${message}' -- articles`)
+        invalidateArticleTimestamps()
     }
 
     // Always retry both mirrors, including after a partial publish failure.

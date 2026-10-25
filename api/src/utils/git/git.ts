@@ -17,12 +17,17 @@ export async function articleTimestamps(files: string[]) {
     await ensureRepo()
     const key = [...files].sort().join('\0')
     if (articleTimestampsCache?.key === key) return articleTimestampsCache.value
-    const value = loadArticleTimestamps(files).catch(error => {
-        if (articleTimestampsCache?.key === key) articleTimestampsCache = null
+    let value: Promise<Map<string, { created?: string, updated?: string }>>
+    value = loadArticleTimestamps(files).catch(error => {
+        if (articleTimestampsCache?.value === value) articleTimestampsCache = null
         throw error
     })
     articleTimestampsCache = { key, value }
     return value
+}
+
+export function invalidateArticleTimestamps() {
+    articleTimestampsCache = null
 }
 
 async function loadArticleTimestamps(files: string[]) {

@@ -39,7 +39,7 @@ test('article saves publish to both mirrors, retry partial publishes, and preser
         process.env.ARTICLES_FORGEJO_PUSH_URL = pathToFileURL(forgejoRemote).href
         for (const key of envKeys.slice(2)) delete process.env[key]
 
-        const { ensureRepo, ARTICLES_DIR } = await import('../src/utils/git/git.ts')
+        const { ensureRepo, ARTICLES_DIR, articleTimestamps } = await import('../src/utils/git/git.ts')
         const { default: refresh } = await import('../src/utils/git/ensureRepositoryUpToDate.ts')
         const { default: save } = await import('../src/utils/git/commitAndPush.ts')
         const { default: createdAt } = await import('../src/utils/git/createdAt.ts')
@@ -49,12 +49,16 @@ test('article saves publish to both mirrors, retry partial publishes, and preser
         expect(ARTICLES_DIR).toBe(join(directory, 'articles'))
         expect(await createdAt(file)).toContain('2025-01-01')
         expect(await updatedAt(file)).toContain('2025-01-01')
+        expect((await articleTimestamps(['example.md'])).get('example.md')?.created).toContain('2025-01-01')
 
         await writeFile(file, '# Updated')
         execFileSync('git', ['-C', directory, 'remote', 'add', 'origin', 'https://github.com/hanasandcom/articles.git'])
         await writeFile(join(directory, 'unrelated.md'), '# Keep staged')
         execFileSync('git', ['-C', directory, 'add', 'unrelated.md'])
         await save('Update article')
+        expect((await articleTimestamps(['example.md'])).get('example.md')?.updated).toBe(
+            execFileSync('git', ['-C', directory, 'log', '-1', '--format=%aI', '--', 'articles/example.md'], { encoding: 'utf8' }).trim(),
+        )
         const firstHead = execFileSync('git', ['-C', directory, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
         expect(execFileSync('git', ['--git-dir', githubRemote, 'rev-parse', 'refs/heads/main'], { encoding: 'utf8' }).trim()).toBe(firstHead)
         expect(execFileSync('git', ['--git-dir', forgejoRemote, 'rev-parse', 'refs/heads/main'], { encoding: 'utf8' }).trim()).toBe(firstHead)

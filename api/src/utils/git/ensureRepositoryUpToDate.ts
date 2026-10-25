@@ -1,6 +1,6 @@
 import { access } from 'fs/promises'
 import { join } from 'path'
-import git, { ensureRepo, LOCAL_REPO_PATH } from './git.ts'
+import git, { ensureRepo, invalidateArticleTimestamps, LOCAL_REPO_PATH } from './git.ts'
 
 const refreshIntervalMs = 300000
 let lastRefresh = 0
@@ -45,6 +45,7 @@ async function refreshRepository() {
     }
 
     await git('pull --rebase', 60000)
+    invalidateArticleTimestamps()
     lastRefresh = Date.now()
 }
 
