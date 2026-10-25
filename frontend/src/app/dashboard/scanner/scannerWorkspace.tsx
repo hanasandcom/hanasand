@@ -56,6 +56,7 @@ export default function ScannerWorkspace() {
             key={organizationId || 'personal-workspace'}
             initialData={data}
             servicesPaused={servicesPaused}
+            preparationStorageScope={organizationId || ''}
             refreshAction={refresh}
             getImageReportAction={client.getImageReport}
             runImageScanAction={client.runImageScan}

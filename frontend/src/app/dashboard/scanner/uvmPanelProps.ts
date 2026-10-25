@@ -25,6 +25,7 @@ import type {
 export type UvmPanelProps = {
     initialData: UvmDashboard
     servicesPaused?: boolean
+    preparationStorageScope?: string
     refreshAction: () => Promise<UvmDashboard>
     getImageReportAction: () => Promise<UvmImageReport>
     runImageScanAction: () => Promise<{ queued: boolean, started: boolean, jobId: string | null, report: UvmImageReport }>

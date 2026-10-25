@@ -23,7 +23,7 @@ import { cancelUvmPanelRun } from './uvmPanelRunActions'
 import UvmPanelImages from './uvmPanelImages'
 export { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 export default function UvmPanel({
-    initialData, servicesPaused = false, refreshAction, getImageReportAction, runImageScanAction, getImageHistoryAction, getImageHistoryRunAction, getRunAction, getRunHistoryAction,
+    initialData, servicesPaused = false, preparationStorageScope = '', refreshAction, getImageReportAction, runImageScanAction, getImageHistoryAction, getImageHistoryRunAction, getRunAction, getRunHistoryAction,
     assessmentHistoryAction, findingHistoryAction, findingGroupsAction, findingTriageHistoryAction, createAssetAction, verifyAssetAction,
     updateAssetCriticalityAction,
     saveZapApiDefinitionAction, configureZapAuthenticationAction, removeZapAuthenticationAction, runScanAction, runNaabuAction, runMasscanAction, runAngryIpAction, scheduleAction,
@@ -193,7 +193,7 @@ export default function UvmPanel({
                 onScanWithSslyze={asset => void scanWithSslyze(asset)} onScanWithWapiti={asset => void scanWithWapiti(asset)} onScanWithWhatweb={asset => void scanWithWhatweb(asset)}
                 onScanWithHttpx={asset => void scanWithHttpx(asset)} onScanWithTlsx={asset => void scanWithTlsx(asset)} onScanWithKatana={asset => void scanWithKatana(asset)}
                 onScanWithWafw00f={asset => void scanWithWafw00f(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
-            {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} servicesPaused={servicesPaused} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
+            {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} servicesPaused={servicesPaused} preparationStorageScope={preparationStorageScope} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
             {view === 'runs' && <UvmRunHistory key={selectedRun ? `${selectedRun.engine}:${selectedRun.id}` : 'recent'} data={data} unavailable={dashboardUnavailable} selectedRun={selectedRun} busy={busy} nextCursor={data.runsNextCursor || null} loadOlder={getRunHistoryAction} onCancel={cancelRun} />}
             {view === 'images' && <UvmPanelImages data={data} servicesPaused={servicesPaused} getReport={getImageReportAction} runScan={runImageScanAction} getHistory={getImageHistoryAction} getHistoryRun={getImageHistoryRunAction} />}
         </fieldset>
