@@ -105,6 +105,11 @@ export const scannerSuiteCatalog: ScannerCatalogEntry[] = [
     { id: 'hydra', name: 'THC Hydra', category: 'Vulnerability', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'ncrack', name: 'Ncrack', category: 'Vulnerability', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'bettercap', name: 'bettercap', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'schemathesis', name: 'Schemathesis', category: 'Web', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'burp-suite-professional', name: 'Burp Suite Professional', category: 'Web', integration: 'catalog-only', setup: 'license-and-adapter-needed' },
+    { id: 'codeql', name: 'CodeQL', category: 'Cloud and code', integration: 'catalog-only', setup: 'license-and-adapter-needed' },
+    { id: 'garak', name: 'garak', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'aflplusplus', name: 'AFL++', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
 ]
 
 export function getScannerSuiteCatalog(apiCatalog: UvmScannerCatalogEntry[] = []): ScannerCatalogEntry[] {
