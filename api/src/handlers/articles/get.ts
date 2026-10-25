@@ -1,4 +1,4 @@
-import { ARTICLES_DIR } from '#utils/git/git.ts'
+import { ARTICLES_DIR, articleTimestamps } from '#utils/git/git.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import fileExists from '#utils/git/fileExists.ts'
 import { readdir, stat, readFile } from 'fs/promises'
@@ -33,6 +33,9 @@ export default async function getArticles(req: FastifyRequest<{
     const files = await readdir(ARTICLES_DIR)
     const ownership = await run('SELECT id, organization_id FROM article_ownership')
     const organizationById = new Map(ownership.rows.map(row => [row.id, row.organization_id as string | null]))
+    const timestamps: Map<string, { created?: string, updated?: string }> = req.query.workspace === 'true'
+        ? new Map()
+        : await articleTimestamps(files).catch(() => new Map())
     const articles = []
     const old = []
 
@@ -48,8 +51,9 @@ export default async function getArticles(req: FastifyRequest<{
             // history per file spawns three Git processes and can time out for
             // larger workspaces; public feeds retain their commit dates.
             const workspace = req.query.workspace === 'true'
-            const created = workspace ? stats.birthtime.toISOString() : await createdAt(filePath)
-            const updated = workspace ? stats.mtime.toISOString() : await updatedAt(filePath)
+            const history = timestamps.get(file)
+            const created = workspace ? stats.birthtime.toISOString() : history?.created || stats.birthtime.toISOString()
+            const updated = workspace ? stats.mtime.toISOString() : history?.updated || stats.mtime.toISOString()
             const parsed = matter(fileContent)
             const content = parsed.content.trim()
             const readTime = estimateReadingTime(content)

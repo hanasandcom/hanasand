@@ -9,8 +9,50 @@ const execAsync = util.promisify(exec)
 const LOCAL_REPO_PATH = resolve(process.env.ARTICLES_REPO_PATH || (process.env.NODE_ENV === 'production' ? '/var/lib/hanasand/articles' : './articles'))
 const ARTICLES_DIR = join(LOCAL_REPO_PATH, 'articles')
 let ensureRepoPromise: Promise<void> | null = null
+let articleTimestampsCache: { key: string, value: Promise<Map<string, { created?: string, updated?: string }>> } | null = null
 
 export { ARTICLES_DIR, LOCAL_REPO_PATH, ensureRepo }
+
+export async function articleTimestamps(files: string[]) {
+    await ensureRepo()
+    const key = [...files].sort().join('\0')
+    if (articleTimestampsCache?.key === key) return articleTimestampsCache.value
+    const value = loadArticleTimestamps(files).catch(error => {
+        if (articleTimestampsCache?.key === key) articleTimestampsCache = null
+        throw error
+    })
+    articleTimestampsCache = { key, value }
+    return value
+}
+
+async function loadArticleTimestamps(files: string[]) {
+    const requested = new Set(files.map(file => `articles/${file}`))
+    const created = new Map<string, string>()
+    const updated = new Map<string, string>()
+
+    const [createdLog, updatedLog] = await Promise.all([
+        execAsync(`git -C '${LOCAL_REPO_PATH}' log --reverse --format='%aI' --name-only --diff-filter=A -- articles`, { timeout: 30000 }),
+        execAsync(`git -C '${LOCAL_REPO_PATH}' log --format='%aI' --name-only -- articles`, { timeout: 30000 }),
+    ])
+
+    const readLog = (output: string, target: Map<string, string>) => {
+        let timestamp = ''
+        for (const line of output.split('\n')) {
+            if (line.startsWith('articles/')) {
+                if (requested.has(line) && !target.has(line)) target.set(line, timestamp)
+            } else if (line) {
+                timestamp = line
+            }
+        }
+    }
+
+    readLog(createdLog.stdout, created)
+    readLog(updatedLog.stdout, updated)
+    return new Map(files.map(file => [file, {
+        created: created.get(`articles/${file}`),
+        updated: updated.get(`articles/${file}`),
+    }]))
+}
 
 export default async function git(cmd: string, timeout = 15000) {
     await ensureRepo()
