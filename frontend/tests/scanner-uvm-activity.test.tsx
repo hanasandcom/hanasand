@@ -21,7 +21,7 @@ test('upcoming schedules show cadence and next run for the configured asset', ()
     const html = renderToStaticMarkup(<UvmActivityAndSchedules data={data} onViewRuns={() => undefined} onManageAssets={() => undefined} />)
 
     expect(html).toContain('Upcoming schedules')
-    expect(html).toContain('Every 60 min · next')
+    expect(html).toContain('Manual · every 60 min · next')
     expect(html).toContain('example.com')
     expect(html).not.toContain('No recurring assessments enabled.')
 })
