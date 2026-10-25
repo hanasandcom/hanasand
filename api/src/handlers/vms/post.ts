@@ -81,7 +81,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
     const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.minecraft_addons, body.custom_apt_packages, body.website, body.project_files)
     if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
-    if (config.lxd_project && ['debian-13', 'rocky-9'].includes(provisionOptions.os || '')) {
+    if (config.lxd_project && ['debian-13', 'rocky-9', 'centos-stream-10'].includes(provisionOptions.os || '')) {
         return res.status(400).send({ error: 'This VM host does not support the selected operating system yet.' })
     }
 
@@ -269,13 +269,13 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
 class VmProvisionQueueError extends Error {}
 
 function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, minecraftAddonsInput: unknown, customAptPackages: unknown, website: unknown, projectFilesInput?: unknown): VmProvisionOptions | null {
-    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop', 'debian-13', 'rocky-9'])
+    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop', 'debian-13', 'rocky-9', 'centos-stream-10'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
     if (resources !== undefined && !isSupportedResourceAllocation(resources)) return null
     if (services !== undefined && (!Array.isArray(services) || services.length > supportedSetupServices.length || services.some(service => !isSupportedSetupService(service)))) return null
     const selectedAptPackages = normalizeUbuntuAptPackages(customAptPackages)
     if (!selectedAptPackages) return null
-    if (os === 'rocky-9' && selectedAptPackages.length) return null
+    if ((os === 'rocky-9' || os === 'centos-stream-10') && selectedAptPackages.length) return null
     const selectedServices = [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)]
     if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null
     const selectedResources = (resources || { cpu: '1', memory: '2GiB', disk: '10GiB' }) as NonNullable<VmProvisionOptions['resources']>

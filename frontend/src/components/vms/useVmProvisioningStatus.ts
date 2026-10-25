@@ -26,6 +26,13 @@ export function getVmProvisioningFeedback(status?: string, statusReason?: string
     return { state: 'provisioning', message: 'Starting your VM and selected services…' }
 }
 
+export function getVmProvisioningUnavailableFeedback(): VmProvisioningFeedback {
+    return {
+        state: 'provisioning',
+        message: 'Unable to refresh setup status. The VM may still be provisioning; this console will keep checking.',
+    }
+}
+
 export function useVmProvisioningStatus(name: string | undefined) {
     const [feedback, setFeedback] = useState<VmProvisioningFeedback | null>(null)
 
@@ -36,21 +43,30 @@ export function useVmProvisioningStatus(name: string | undefined) {
         }
 
         let active = true
+        let consecutiveUnavailableReads = 0
+        let timer: number | undefined
         const refresh = async () => {
             const vms = await getVM(name, undefined, undefined, null)
             if (!active) return
             const vm = vms?.[0]
-            if (!vm) return
-
-            const next = getVmProvisioningFeedback(vm.status, vm.status_reason)
-            setFeedback(next)
-            if (next.state !== 'provisioning') clearInterval(timer)
+            if (!vm) {
+                consecutiveUnavailableReads += 1
+                if (consecutiveUnavailableReads >= 1) setFeedback(getVmProvisioningUnavailableFeedback())
+            } else {
+                consecutiveUnavailableReads = 0
+                const next = getVmProvisioningFeedback(vm.status, vm.status_reason)
+                setFeedback(next)
+                if (next.state !== 'provisioning') return
+            }
+            if (active) timer = window.setTimeout(() => void refresh(), 2500)
         }
 
         setFeedback(getVmProvisioningFeedback())
         void refresh()
-        const timer = setInterval(() => void refresh(), 2500)
-        return () => { active = false; clearInterval(timer) }
+        return () => {
+            active = false
+            if (timer !== undefined) window.clearTimeout(timer)
+        }
     }, [name])
 
     return feedback

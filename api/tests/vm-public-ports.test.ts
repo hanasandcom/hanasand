@@ -81,6 +81,7 @@ test('public services reject unsafe names, unsupported protocols, invalid ports 
     expect((await app.inject({ method: 'POST', url: '/vm/hei/public-services', payload: { name: 'hei', type: 'tls', port: 443 } })).statusCode).toBe(409)
     hostnameTaken = false
     expect((await app.inject({ method: 'POST', url: '/vm/hei/public-services', payload: { name: 'www', type: 'tls', port: 443 } })).json().error).toContain('reserved')
+    expect((await app.inject({ method: 'POST', url: '/vm/hei/public-services', payload: { name: 'cobbleverse', type: 'minecraft-java', port: 25565 } })).json().error).toContain('reserved')
     expect((await app.inject({ method: 'POST', url: '/vm/hei/public-services', payload: { name: '25565-hei', type: 'tls', port: 443 } })).json().error).toContain('legacy VM port')
     expect(services).toHaveLength(0)
 })

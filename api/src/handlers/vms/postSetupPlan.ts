@@ -59,7 +59,7 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         return res.status(400).send({ error: 'Describe what you want to build in 5 to 1,200 characters.' })
     }
     const operatingSystem = body?.os === undefined ? 'ubuntu-24.04' : body.os
-    if (typeof operatingSystem !== 'string' || !['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-24.04-desktop', 'debian-13', 'rocky-9'].includes(operatingSystem)) {
+    if (typeof operatingSystem !== 'string' || !['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-24.04-desktop', 'debian-13', 'rocky-9', 'centos-stream-10'].includes(operatingSystem)) {
         return res.status(400).send({ error: 'Choose a supported operating system before generating a setup.' })
     }
 
@@ -69,8 +69,8 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
 
     try {
         const packageOs = operatingSystem === 'ubuntu-24.04-desktop' ? 'ubuntu-24.04' : operatingSystem
-        const packageGuidance = operatingSystem === 'rocky-9'
-            ? 'Rocky Linux uses DNF, so return an empty packages array and choose only supported services.'
+        const packageGuidance = operatingSystem === 'rocky-9' || operatingSystem === 'centos-stream-10'
+            ? 'This Enterprise Linux distribution uses DNF, so return an empty packages array and choose only supported services.'
             : 'Use package names from the selected Ubuntu or Debian archive.'
         const content = await requestAiCompletion([
             {
@@ -85,8 +85,8 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         if (content.length > 140_000) throw new Error('Generated setup plan is too large.')
         const plan = JSON.parse(content.slice(start, end + 1)) as { summary?: unknown, unsupportedReason?: unknown, services?: unknown, packages?: unknown, website?: unknown, minecraftServerType?: unknown, projectFiles?: unknown }
         const packages = normalizeUbuntuAptPackages(plan.packages)
-        if (operatingSystem === 'rocky-9' && packages?.length) {
-            return res.status(422).send({ error: 'Custom packages are not available for Rocky Linux yet. Choose an installable service instead.' })
+        if ((operatingSystem === 'rocky-9' || operatingSystem === 'centos-stream-10') && packages?.length) {
+            return res.status(422).send({ error: 'Custom packages are not available for this Enterprise Linux image yet. Choose an installable service instead.' })
         }
         const projectFiles = plan.projectFiles === undefined || plan.projectFiles === null
             ? null

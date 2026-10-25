@@ -5,6 +5,7 @@ export const vmOperatingSystems = [
     { id: 'ubuntu-22.04', label: 'Ubuntu 22.04 LTS', description: 'For older software requirements' },
     { id: 'debian-13', label: 'Debian 13', description: 'Stable server release with a minimal base system' },
     { id: 'rocky-9', label: 'Rocky Linux 9', description: 'Enterprise Linux compatible server release' },
+    { id: 'centos-stream-10', label: 'CentOS Stream 10', description: 'Current CentOS Stream release for Enterprise Linux workloads' },
 ] as const
 
 export const vmResourceOptions = [

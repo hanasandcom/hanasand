@@ -82,10 +82,22 @@ test('Rocky Linux setup plans use supported services and reject archive packages
     const supported = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install Node and PostgreSQL', os: 'rocky-9' } })
     expect(supported.statusCode).toBe(200)
     expect(supported.json().services).toEqual(['nodejs', 'postgresql'])
-    expect(completionMessages[0].content).toContain('Rocky Linux uses DNF')
+    expect(completionMessages[0].content).toContain('Enterprise Linux distribution uses DNF')
 
     completion = JSON.stringify({ summary: 'Custom package', services: [], packages: ['ripgrep'], website: null, minecraftServerType: null })
     const unsupportedPackage = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install ripgrep', os: 'rocky-9' } })
+    expect(unsupportedPackage.statusCode).toBe(422)
+})
+
+test('CentOS Stream setup plans use supported services and reject Ubuntu package names', async () => {
+    completion = JSON.stringify({ summary: 'Node and PostgreSQL on CentOS Stream', services: ['nodejs', 'postgresql'], packages: [], website: null, minecraftServerType: null })
+    const supported = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install Node and PostgreSQL', os: 'centos-stream-10' } })
+    expect(supported.statusCode).toBe(200)
+    expect(supported.json().services).toEqual(['nodejs', 'postgresql'])
+    expect(completionMessages[0].content).toContain('Enterprise Linux distribution uses DNF')
+
+    completion = JSON.stringify({ summary: 'Custom package', services: [], packages: ['ripgrep'], website: null, minecraftServerType: null })
+    const unsupportedPackage = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install ripgrep', os: 'centos-stream-10' } })
     expect(unsupportedPackage.statusCode).toBe(422)
 })
 

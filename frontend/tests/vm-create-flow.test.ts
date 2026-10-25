@@ -1,11 +1,12 @@
 import { expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceTabs, vmServices } from '../src/utils/vms/createOptions'
-import { getVmProvisioningFeedback } from '../src/components/vms/useVmProvisioningStatus'
+import { getVmProvisioningFeedback, getVmProvisioningUnavailableFeedback } from '../src/components/vms/useVmProvisioningStatus'
 import getVM from '../src/utils/vms/fetch/getVM'
 
 const components = new URL('../src/components/profile/vms.tsx', import.meta.url)
 const createForm = new URL('../src/components/profile/vmCreateForm.tsx', import.meta.url)
+const createSubmission = new URL('../src/components/profile/vmCreateSubmission.ts', import.meta.url)
 const consoleSession = new URL('../src/components/vms/useVmConsoleSession.ts', import.meta.url)
 const progressHook = new URL('../src/components/vms/useVmProvisioningStatus.ts', import.meta.url)
 const filters = new URL('../src/components/profile/vmFilters.tsx', import.meta.url)
@@ -14,8 +15,8 @@ const resourcePicker = new URL('../src/components/profile/vmResourcePicker.tsx',
 const createRequest = new URL('../src/utils/vms/fetch/postVM.ts', import.meta.url)
 
 test('the VM create form offers locally bundled operating systems and installable services', async () => {
-    const [source, picker, resourcePickerSource, websiteEditor, minecraftAddonPicker] = await Promise.all([readFile(createForm, 'utf8'), readFile(osPicker, 'utf8'), readFile(resourcePicker, 'utf8'), readFile(new URL('../src/components/profile/vmWebsiteEditor.tsx', import.meta.url), 'utf8'), readFile(new URL('../src/components/profile/vmMinecraftAddonPicker.tsx', import.meta.url), 'utf8')])
-    expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-24.04-desktop', 'ubuntu-26.04', 'ubuntu-22.04', 'debian-13', 'rocky-9'])
+    const [source, submission, picker, resourcePickerSource, websiteEditor, minecraftAddonPicker] = await Promise.all([readFile(createForm, 'utf8'), readFile(createSubmission, 'utf8'), readFile(osPicker, 'utf8'), readFile(resourcePicker, 'utf8'), readFile(new URL('../src/components/profile/vmWebsiteEditor.tsx', import.meta.url), 'utf8'), readFile(new URL('../src/components/profile/vmMinecraftAddonPicker.tsx', import.meta.url), 'utf8')])
+    expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-24.04-desktop', 'ubuntu-26.04', 'ubuntu-22.04', 'debian-13', 'rocky-9', 'centos-stream-10'])
     expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'go', 'php', 'rust', 'ruby', 'cpp', 'docker', 'postgresql', 'mysql', 'redis', 'sqlite', 'nginx', 'website', 'minecraft-java'])
     expect(vmServiceTabs).toEqual([
         { id: 'development', label: 'Development', groups: ['Development'] },
@@ -36,13 +37,13 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('setActiveServiceTab(tab.id)')
     expect(source).toContain('selectedServices')
     expect(source).toContain('resources: currentResources')
-    expect(source).toContain('minecraft_eula_accepted: selectedServices.includes(\'minecraft-java\')')
+    expect(submission).toContain('minecraft_eula_accepted: input.selectedServices.includes(\'minecraft-java\')')
     expect(source).not.toContain('I accept the')
-    expect(source).toContain('minecraft_addons: minecraftAddons')
+    expect(submission).toContain('minecraft_addons: input.minecraftAddons')
     expect(minecraftAddonPicker).toContain('Popular plugins')
     expect(minecraftAddonPicker).toContain('Popular mods')
     expect(minecraftAddonPicker).toContain('Matched to the latest Minecraft release')
-    expect(source).toContain('website: selectedServices.includes(\'website\') ? websitePlan : null')
+    expect(submission).toContain('website: input.selectedServices.includes(\'website\') ? input.websitePlan : null')
     expect(websiteEditor).toContain('aria-label=\'Website preview\'')
     expect(websiteEditor).toContain('Contact email')
     expect(websiteEditor).toContain('Gallery images')
@@ -55,15 +56,15 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('unresolvedSetupPrompt')
     expect(source).toContain('suggestedSetupKey !== currentSetupKey')
     expect(source).toContain('Generate a supported setup for this description, or clear it to create a blank VM.')
-    expect(source).toContain('custom_apt_packages: customAptPackages')
+    expect(submission).toContain('custom_apt_packages: input.customAptPackages')
     expect(source).toContain('Additional Ubuntu packages: {customAptPackages.join(\', \')}')
     expect(source).toContain('option.memory !== \'2GiB\'')
     expect(source).toContain('const requiresLargePlan = operatingSystem === \'ubuntu-24.04-desktop\'')
     expect(source).toContain('if (value === \'ubuntu-24.04-desktop\' && resourcePlan !== \'custom\') setResourcePlan(\'large\')')
-    expect(source).toContain('setCreationError(result.message)')
+    expect(submission).toContain('input.setCreationError(result.message)')
     expect(source).toContain('role=\'alert\' className=\'rounded-lg border border-ui-danger/25')
     expect(source).toContain('setProjectFiles(plan.projectFiles || [])')
-    expect(source).toContain('project_files: projectFiles.length ? projectFiles : undefined')
+    expect(submission).toContain('project_files: input.projectFiles.length ? input.projectFiles : undefined')
     expect(source).toContain('projectFiles.length > 0 || (selectedServices.includes(\'minecraft-java\') && [\'FABRIC\', \'QUILT\', \'FORGE\', \'NEOFORGE\', \'FOLIA\'].includes(minecraftServerType))')
     expect(source).toContain('if (plan.projectFiles?.length && resourcePlan === \'small\') setResourcePlan(\'standard\')')
     expect(source).toContain('a custom app')
@@ -71,8 +72,8 @@ test('the VM create form offers locally bundled operating systems and installabl
 })
 
 test('successful creation opens the terminal without waiting for a VM status fetch', async () => {
-    const [source, create, session, progress] = await Promise.all([readFile(components, 'utf8'), readFile(createForm, 'utf8'), readFile(consoleSession, 'utf8'), readFile(progressHook, 'utf8')])
-    expect(create).toContain('Follow setup in its terminal')
+    const [source, submission, session, progress] = await Promise.all([readFile(components, 'utf8'), readFile(createSubmission, 'utf8'), readFile(consoleSession, 'utf8'), readFile(progressHook, 'utf8')])
+    expect(submission).toContain('Follow setup in its terminal')
     expect(source).toContain('provisioning=1')
     expect(session).toContain('get(\'provisioning\') === \'1\'')
     expect(session).toContain('if (!host && !provisioning)')
@@ -93,6 +94,11 @@ test('the console reports real VM setup progress, completion, and failure separa
         state: 'error',
         message: 'Package installation failed.',
     })
+    expect(getVmProvisioningUnavailableFeedback()).toEqual({
+        state: 'provisioning',
+        message: 'Unable to refresh setup status. The VM may still be provisioning; this console will keep checking.',
+    })
+    expect(await readFile(progressHook, 'utf8')).toContain('consecutiveUnavailableReads >= 1')
     expect(consoleClient).toContain('session.provisioning &&')
     expect(consoleClient).toContain('role={session.provisioning.state === \'error\' ? \'alert\' : \'status\'}')
 })
@@ -116,7 +122,7 @@ test('provisioning status can fetch an accessible VM outside the selected worksp
 })
 
 test('organization VM creation enforces access without the owner/admin disclaimer', async () => {
-    const [inventory, form] = await Promise.all([readFile(components, 'utf8'), readFile(createForm, 'utf8')])
+    const [inventory, form, submission] = await Promise.all([readFile(components, 'utf8'), readFile(createForm, 'utf8'), readFile(createSubmission, 'utf8')])
     expect(inventory).toContain('[\'owner\', \'admin\'].includes(activeOrganization?.role || \'\')')
     expect(inventory).toContain('}, [organizationId, router])')
     expect(inventory).toContain('}, [update])')
@@ -124,8 +130,8 @@ test('organization VM creation enforces access without the owner/admin disclaime
     expect(inventory).toContain('!organizationsLoading && !organizationsUnavailable')
     expect(inventory).not.toContain('Only an owner or admin of')
     expect(form).toContain('{!canCreate && permissionMessage && <p role=\'status\'')
-    expect(form).toContain('if (!canCreate)')
-    expect(form).toContain('notify(message, \'error\', \'vm-create\')')
+    expect(submission).toContain('if (!input.canCreate)')
+    expect(submission).toContain('input.notify(message, \'error\', \'vm-create\')')
     expect(form).toContain('aria-disabled={!canCreate || undefined}')
     expect(form).toContain('disabled={creating || Boolean(permissionMessage) || unresolvedSetupPrompt}')
 })

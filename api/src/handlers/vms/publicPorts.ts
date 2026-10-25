@@ -6,7 +6,7 @@ import hasVmPortRouteToken from '#utils/auth/vmPortRouteToken.ts'
 
 const maxPortsPerVm = 1000
 const routeTypes = ['minecraft-java', 'tls', 'http'] as const
-const reservedServiceHostnames = ['api', 'api-browsers', 'browsers', 'cashflow', 'cdn', 'git', 'hanasand', 'idk', 'idk-api', 'identity', 'internal', 'logs', 'mail', 'name-pending', 'np', 'status', 'support', 'turn', 'www', '67']
+const reservedServiceHostnames = ['api', 'api-browsers', 'browsers', 'cashflow', 'cdn', 'cobbleverse', 'git', 'hanasand', 'idk', 'idk-api', 'identity', 'internal', 'logs', 'mail', 'name-pending', 'np', 'status', 'support', 'turn', 'www', '67']
 
 type RouteBody = { name?: unknown, type?: unknown, port?: unknown }
 
