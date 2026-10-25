@@ -34,7 +34,7 @@ export function deriveUvmPanelState({ data, servicesPaused, findingScope, findin
         return !servicesPaused && info?.status === 'available' && (engine !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled)))
     })
     return {
-        dashboardUnavailable: servicesPaused || Boolean(data.scannerError),
+        dashboardUnavailable: Boolean(data.scannerError),
         activeRuns: data.runs.filter(run => ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status)),
         activeAssessments: data.assessments.some(assessment => ['queued', 'running', 'cancelling'].includes(assessment.status)),
         attentionFindings,

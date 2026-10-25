@@ -23,6 +23,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
 }) {
     const [productQuery, setProductQuery] = useState('')
     const integration = data.tenableIntegration
+    const apiUnavailable = Boolean(data.scannerError)
     const productCatalog = getScannerSuiteCatalog(data.scannerCatalog)
     const assetEngineCount = productCatalog.filter(item => UVM_ASSET_ASSESSMENT_ENGINE_IDS.includes(item.integration as typeof UVM_ASSET_ASSESSMENT_ENGINE_IDS[number])).length
     const imageToolCount = productCatalog.filter(item => item.integration === 'image-worker' || item.integration === 'grype').length
@@ -53,7 +54,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
                 : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
                     : item.setup === 'adapter-needed' ? 'Adapter needed'
                         : imageWorkerProduct ? imageWorkerStatus
-                            : servicesPaused ? 'Stopped'
+                            : servicesPaused ? 'Configured · stopped pending disk expansion'
                                 : item.integration === 'zap-addon' ? 'Included in ZAP'
                                     : outputCheckPending && engine?.status === 'available' ? 'Ready · output check pending'
                                         : engine?.status || 'Unavailable'
@@ -85,13 +86,14 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
         </section>
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
             <div className='flex flex-wrap items-start justify-between gap-3'><div className='flex items-center gap-2'><h2 className='text-lg font-semibold'>Nessus via Tenable VM</h2><UvmHelp label='Tenable VM connection' text='This connects a Tenable cloud account and launches its enabled Nessus scan configurations. Standalone Nessus Pro hosts are not connected.' /></div><span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${integration?.configured ? 'bg-ui-success/15 text-ui-success' : 'bg-ui-warning/15 text-ui-warning'}`}>{servicesPaused && !integration?.configured ? 'Unavailable while stopped' : integration?.configured ? `Connected · ${integration.region}` : 'Not configured'}</span></div>
-            {servicesPaused && !integration?.configured ? null
-                : !integration?.configured ? <form onSubmit={onSave} className='mt-4 grid gap-3 sm:grid-cols-2'>
-                    <label className='grid gap-1 text-xs text-ui-muted'>Cloud region<select value={region} onChange={event => setRegion(event.target.value as TenableRegion)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text'><option value='us'>United States</option><option value='eu'>Europe</option><option value='de'>Germany</option><option value='au'>Australia</option><option value='ca'>Canada</option><option value='jp'>Japan</option></select></label><div />
-                    <label className='grid gap-1 text-xs text-ui-muted'>Access key<input autoComplete='off' value={accessKey} onChange={event => setAccessKey(event.target.value)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text' /></label>
-                    <label className='grid gap-1 text-xs text-ui-muted'>Secret key<input autoComplete='new-password' type='password' value={secretKey} onChange={event => setSecretKey(event.target.value)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text' /></label>
-                    <button disabled={busy === 'tenable' || !accessKey.trim() || !secretKey.trim()} className='h-10 w-fit rounded-md bg-ui-text px-4 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{busy === 'tenable' ? 'Checking…' : 'Connect Tenable'}</button>
-                </form> : <div className='mt-3 flex flex-wrap items-center gap-3 text-xs text-ui-muted'><span>Access key {integration.accessKeyHint || 'stored'}</span><span>Last checked {formatDate(integration.testedAt)}</span><button type='button' onClick={onDisconnect} disabled={servicesPaused || busy === 'tenable'} className='rounded-md border border-ui-border px-3 py-2 font-semibold text-ui-text disabled:opacity-50'>Disconnect</button></div>}
+            {!integration?.configured ? <form onSubmit={onSave} className='mt-4 grid gap-3 sm:grid-cols-2'>
+                <label className='grid gap-1 text-xs text-ui-muted'>Cloud region<select value={region} onChange={event => setRegion(event.target.value as TenableRegion)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text'><option value='us'>United States</option><option value='eu'>Europe</option><option value='de'>Germany</option><option value='au'>Australia</option><option value='ca'>Canada</option><option value='jp'>Japan</option></select></label><div />
+                <label className='grid gap-1 text-xs text-ui-muted'>Access key<input autoComplete='off' value={accessKey} onChange={event => setAccessKey(event.target.value)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text' /></label>
+                <label className='grid gap-1 text-xs text-ui-muted'>Secret key<input autoComplete='new-password' type='password' value={secretKey} onChange={event => setSecretKey(event.target.value)} className='h-10 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text' /></label>
+                <button disabled={apiUnavailable || busy === 'tenable' || !accessKey.trim() || !secretKey.trim()} className='h-10 w-fit rounded-md bg-ui-text px-4 text-sm font-semibold text-ui-canvas disabled:opacity-50'>{busy === 'tenable' ? 'Checking…' : 'Connect Tenable'}</button>
+            </form> : <div className='mt-3 flex flex-wrap items-center gap-3 text-xs text-ui-muted'><span>Access key {integration.accessKeyHint || 'stored'}</span><span>Last checked {formatDate(integration.testedAt)}</span><button type='button' onClick={onDisconnect} disabled={apiUnavailable || busy === 'tenable'} className='rounded-md border border-ui-border px-3 py-2 font-semibold text-ui-text disabled:opacity-50'>Disconnect</button></div>}
+            {apiUnavailable && <p role='status' className='mt-3 text-xs text-ui-warning'>Scanner API unavailable. Setup changes cannot be saved until the API and database are available.</p>}
+            {servicesPaused && <p className='mt-3 text-xs text-ui-warning'>With the Scanner API available, credentials and scan configuration can be prepared while execution stays stopped. No scans can launch until services resume.</p>}
             {integration?.error && <p className='mt-2 text-xs text-ui-warning'>{integration.error}</p>}
             {integration?.configured && !data.tenableScans.length && <p className='mt-3 text-sm text-ui-muted'>{data.scannerError || 'No Tenable scan templates are available.'}</p>}
         </section>

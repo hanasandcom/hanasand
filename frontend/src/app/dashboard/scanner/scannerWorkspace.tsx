@@ -8,7 +8,7 @@ import ScannerPauseNotice, { SCANNER_SERVICES_PAUSED } from './scannerPauseNotic
 import { createScannerClient, emptyUvmDashboard } from './scannerClient'
 
 const initialScannerDashboard = SCANNER_SERVICES_PAUSED
-    ? { ...emptyUvmDashboard, execution: { enabled: false, state: 'paused' as const, reason: 'pending_disk_expansion' }, scannerError: 'Scanner services are stopped.' }
+    ? { ...emptyUvmDashboard, execution: { enabled: false, state: 'paused' as const, reason: 'pending_disk_expansion' } }
     : emptyUvmDashboard
 
 export default function ScannerWorkspace() {
@@ -18,7 +18,7 @@ export default function ScannerWorkspace() {
     organizationRef.current = organizationId
     const [dataState, setDataState] = useState<{ organizationId: string | null, data: UvmDashboard }>({ organizationId, data: initialScannerDashboard })
     const data = dataState.organizationId === organizationId ? dataState.data : initialScannerDashboard
-    const servicesPaused = SCANNER_SERVICES_PAUSED || Boolean(data.scannerError) || data.execution?.enabled !== true
+    const servicesPaused = SCANNER_SERVICES_PAUSED || data.execution?.enabled !== true
     const setData = useCallback((next: UvmDashboard | ((current: UvmDashboard) => UvmDashboard)) => {
         const owner = organizationId
         if (organizationRef.current !== owner) return
@@ -28,11 +28,6 @@ export default function ScannerWorkspace() {
         })
     }, [organizationId])
     const refresh = useCallback(async () => {
-        if (SCANNER_SERVICES_PAUSED) {
-            const paused = { ...emptyUvmDashboard, execution: { enabled: false, state: 'paused' as const, reason: 'pending_disk_expansion' }, scannerError: 'Scanner services are stopped.' }
-            setData(paused)
-            return paused
-        }
         if (!organizationId) {
             const noOrganization = { ...emptyUvmDashboard, scannerError: 'Choose an organization from the workspace selector to use Scanner.' }
             setData(noOrganization)
