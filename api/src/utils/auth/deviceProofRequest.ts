@@ -21,7 +21,8 @@ const watchlistProofRoutes = new Set([
 
 function watchlistProofUrl(req: FastifyRequest) {
     const configured = process.env.NEXT_PUBLIC_API
-    const target = new URL(configured === undefined ? 'https://api.hanasand.com' : configured)
+    const configuredOrigin = configured?.trim()
+    const target = new URL(configuredOrigin || 'https://api.hanasand.com')
     if (target.protocol !== 'https:' || target.username || target.password || target.search || target.hash
         || configured?.includes('?') || configured?.includes('#')) {
         throw new Error('Invalid configured Watchlist proof origin.')

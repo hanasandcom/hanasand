@@ -54,6 +54,16 @@ test('all nine registered Watchlist pairs bind actual method and encoded raw pat
         expect(result).toEqual({ proof: 'synthetic-proof', method, url: 'https://api.hanasand.com'+path })
     }
 })
+test('an unset or blank API origin uses the canonical production API origin', () => {
+    const path = '/api/organizations/org/watchlists'
+    for (const origin of [undefined, '', '   ']) {
+        if (origin === undefined) delete process.env.NEXT_PUBLIC_API
+        else process.env.NEXT_PUBLIC_API = origin
+        expect(deviceProofFromRequest(proofRequest('GET', routes[0]![1]!, path))).toEqual({
+            proof: 'synthetic-proof', method: 'GET', url: 'https://api.hanasand.com'+path,
+        })
+    }
+})
 test('normal native same-value headers remain compatible and are not required', () => {
     process.env.NEXT_PUBLIC_API = 'https://configured.example:8443/api/'
     const path = '/api/organizations/org/watchlists/reconcile'
@@ -65,7 +75,7 @@ test('normal native same-value headers remain compatible and are not required', 
     }
 })
 test('invalid configured Watchlist origins fail closed without legacy header fallback', () => {
-    for (const origin of ['', 'not-a-url', 'http://api.hanasand.com', 'ftp://api.hanasand.com',
+    for (const origin of ['not-a-url', 'http://api.hanasand.com', 'ftp://api.hanasand.com',
         'https://user:secret@api.hanasand.com', 'https://api.hanasand.com/api?query=1', 'https://api.hanasand.com/#fragment', 'https://api.hanasand.com/api?', 'https://api.hanasand.com/#']) {
         process.env.NEXT_PUBLIC_API = origin
         expect(() => deviceProofFromRequest(proofRequest('POST', routes[3]![1]!, routes[3]![2]!, {
