@@ -56,6 +56,7 @@ export type DockerContainerResponse = {
 
 export type DockerInspectResponse = {
     Id?: string
+    Name?: string
     Created?: string
     Config?: { Env?: string[], Cmd?: string[], Labels?: Record<string, string> }
     HostConfig?: { NetworkMode?: string }

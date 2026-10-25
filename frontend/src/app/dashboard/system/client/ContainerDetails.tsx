@@ -6,6 +6,7 @@ import { containerCpuMetric, containerDisplayName, containerHealth, containerMem
 import { formatLogTime, logLevelClass } from './presentation'
 import { EmptyState, Fact, HealthPill, PortList } from './SystemUi'
 import { ContainerActionGroup } from './ContainerActionGroup'
+import { isProtectedLogsContainer } from './protectedLogsContainer'
 
 export function ContainerDetails({ container, globalReason, logs, logsReason, logsLoading, onRefreshLogs, onCopy, onRestart }: {
     container: DockerContainer | null
@@ -44,7 +45,7 @@ export function ContainerDetails({ container, globalReason, logs, logsReason, lo
         <div className='mt-3 rounded-md border border-ui-border bg-ui-raised p-3 text-sm text-ui-muted'>
             <p className='font-semibold text-ui-text'>Ports</p><PortList ports={container.ports} className='mt-1' />
         </div>
-        <ContainerActionGroup variant='full' leading={{ label: 'Logs', icon: <RefreshCcw className={`h-4 w-4 ${logsLoading ? 'animate-spin' : ''}`} />, onClick: onRefreshLogs }} onCopy={onCopy} onRestart={onRestart} />
+        <ContainerActionGroup variant='full' leading={{ label: 'Logs', icon: <RefreshCcw className={`h-4 w-4 ${logsLoading ? 'animate-spin' : ''}`} />, onClick: onRefreshLogs }} onCopy={onCopy} onRestart={onRestart} showRestart={!isProtectedLogsContainer(container.name)} />
         <div className='mt-4 overflow-hidden rounded-md border border-ui-border bg-ui-canvas' data-system-container-logs-disclosure>
             <div className='flex items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-ui-text'>
                 <span>Recent logs</span>

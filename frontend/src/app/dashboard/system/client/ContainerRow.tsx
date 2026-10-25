@@ -2,6 +2,7 @@ import { ExternalLink } from 'lucide-react'
 import { containerCpuMetric, containerDisplayName, containerHealth, containerMemoryMetric } from '../systemPresentation'
 import { HealthPill, MetricText, PortList } from './SystemUi'
 import { ContainerActionGroup } from './ContainerActionGroup'
+import { isProtectedLogsContainer } from './protectedLogsContainer'
 
 export function ContainerRow({ container, selected, globalReason, onSelect, onCopy, onRestart }: {
     container: DockerContainer
@@ -29,6 +30,6 @@ export function ContainerRow({ container, selected, globalReason, onSelect, onCo
         <td className='px-3 py-3'><PortList ports={container.ports} /></td>
         <td className='py-3 pl-3'><ContainerActionGroup variant='compact' displayName={displayName}
             leading={{ label: `Inspect ${displayName}`, icon: <ExternalLink className='h-4 w-4' />, onClick: onSelect }}
-            onCopy={onCopy} onRestart={onRestart} /></td>
+            onCopy={onCopy} onRestart={onRestart} showRestart={!isProtectedLogsContainer(container.name)} /></td>
     </tr>
 }
