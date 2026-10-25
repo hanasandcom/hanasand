@@ -10,6 +10,15 @@ export type UvmAssessmentEngineId = 'nmap' | 'naabu' | 'angry-ip-scanner' | 'gvm
 export const UVM_ASSET_ASSESSMENT_ENGINE_IDS: UvmAssessmentEngineId[] = ['nmap', 'naabu', 'angry-ip-scanner', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f']
 type NmapProfile = NetworkScanProfile
 
+export function getSafeReadyAssessmentEngines(data: UvmDashboard, servicesPaused: boolean): UvmAssessmentEngineId[] {
+    if (servicesPaused) return []
+    return UVM_ASSET_ASSESSMENT_ENGINE_IDS.filter(id => {
+        if (id === 'angry-ip-scanner') return false
+        const engine = data.engines.find(item => item.id === id)
+        return engine?.status === 'available' && engine.profiles.some(profile => profile.safe === true)
+    })
+}
+
 export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedEngines, mode, setMode, scanId, setScanId, nmapProfile, setNmapProfile, servicesPaused, onSetup }: {
     data: UvmDashboard
     selectedEngines: UvmAssessmentEngineId[]
@@ -68,8 +77,8 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
         <div className='flex items-center justify-between gap-3'><div role='group' aria-label='Assessment mode' className='flex gap-1'>
             <button type='button' aria-pressed={mode === 'automatic'} onClick={() => setMode('automatic')} className={`rounded border px-2 py-1 text-xs font-semibold ${mode === 'automatic' ? 'border-ui-primary text-ui-primary' : 'border-ui-border text-ui-muted'}`}>Automatic</button>
             <button type='button' aria-pressed={mode === 'manual'} onClick={() => setMode('manual')} className={`rounded border px-2 py-1 text-xs font-semibold ${mode === 'manual' ? 'border-ui-primary text-ui-primary' : 'border-ui-border text-ui-muted'}`}>Manual order</button>
-        </div><UvmHelp label='Assessment mode' text='Automatic orders selected scanners and runs web or TLS follow-ups only when scoped discovery evidence supports them. Manual order runs the selected sequence as entered.' /></div>
-        {mode === 'automatic' && <p className='text-xs text-ui-muted'>Automatic includes Nmap and an HTTPS probe. It keeps each run inside the authorized asset IPs.</p>}
+        </div><UvmHelp label='Assessment mode' text='Automatic starts with every ready scanner profile marked safe, then gates TLS and web follow-ups on discovery evidence. Nessus and profiles without a safe rating require explicit selection. Manual order runs the selected sequence as entered.' /></div>
+        {mode === 'automatic' && <p className='text-xs text-ui-muted'>Ready safe-profile scanners are preselected on load. Select Nessus or another unrated profile explicitly.</p>}
         <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{assessmentEngines.map(({ id: engineId, product: item }) => {
             const engine = data.engines.find(candidate => candidate.id === engineId)
             const tenableReady = engineId !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled))

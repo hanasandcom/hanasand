@@ -7,7 +7,7 @@ import { buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
 import { UvmAssetsView, UvmFindingsView } from './uvmPanelViews'
 import { UvmHelp } from './uvmPanelHelp'
 import { UvmOverview } from './uvmPanelOverview'
-import { UvmAssessmentEngineChoices, type UvmAssessmentEngineId } from './uvmPanelAssessmentControls'
+import { getSafeReadyAssessmentEngines, UvmAssessmentEngineChoices, type UvmAssessmentEngineId } from './uvmPanelAssessmentControls'
 import { createUvmPanelScanActions } from './uvmPanelScanActions'
 import { createUvmPanelAssessmentActions } from './uvmPanelAssessmentActions'
 import { UvmPanelNavigation, type UvmPanelView } from './uvmPanelNavigation'
@@ -44,9 +44,7 @@ export default function UvmPanel({
     const [tenableSecretKey, setTenableSecretKey] = useState('')
     const [tenableScanIds, setTenableScanIds] = useState<Record<string, string>>({})
     const [assessmentAssetIds, setAssessmentAssetIds] = useState<string[]>([])
-    const [assessmentEngines, setAssessmentEngines] = useState<UvmAssessmentEngineId[]>(
-        initialData.engines.some(engine => engine.id === 'nmap' && engine.status === 'available') ? ['nmap'] : [],
-    )
+    const [assessmentEngines, setAssessmentEngines] = useState<UvmAssessmentEngineId[]>(() => getSafeReadyAssessmentEngines(initialData, servicesPaused))
     const [assessmentMode, setAssessmentMode] = useState<UvmAssessmentMode>('automatic')
     const [assessmentScanId, setAssessmentScanId] = useState('')
     const [assessmentNmapProfile, setAssessmentNmapProfile] = useState<NetworkScanProfile>('tcp-top-1000')
