@@ -143,7 +143,7 @@ test('asset controls expose standard Nmap coverage and recurring Greenbone scans
     const html = renderToStaticMarkup(<UvmAssetsView
         data={{ ...data, engines: [...data.engines, { id: 'gvm', name: 'Greenbone', status: 'available', version: null, reason: null, profiles: [], coverage: [], notCovered: [] }] }}
         busy='' message='' hostname='' setHostname={noopSetter} authorization={{ 'asset-1': true }} setAuthorization={noopSetter}
-        intervals={{}} setIntervals={noopSetter} schedulePlans={{}} setSchedulePlans={noopSetter} scheduleProfiles={{}} setScheduleProfiles={noopSetter}
+        intervals={{}} setIntervals={noopSetter} schedulePlans={{}} setSchedulePlans={noopSetter} scheduleModes={{}} setScheduleModes={noopSetter} scheduleProfiles={{}} setScheduleProfiles={noopSetter}
         assetNmapProfiles={{}} setAssetNmapProfiles={noopSetter} zapApiDefinitionPaths={{}} setZapApiDefinitionPaths={noopSetter}
         zapAuthenticationProfiles={{}} setZapAuthenticationProfiles={noopSetter}
         onSaveZapApiDefinition={() => undefined} onSaveZapAuthentication={() => undefined} onRemoveZapAuthentication={() => undefined}
