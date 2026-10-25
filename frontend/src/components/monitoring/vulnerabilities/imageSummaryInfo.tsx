@@ -21,6 +21,9 @@ export default function ImageSummaryInfo({ image }: { image: ImageVulnerabilityR
                 <div className='mt-1 flex flex-wrap gap-1.5' aria-label='Image scanner results'>
                     <EngineBadge label='Trivy' engine={image.engines.trivy} />
                     <EngineBadge label='Docker Scout' engine={image.engines.dockerScout} />
+                    <EngineBadge label='Grype' engine={image.engines.grype} />
+                    <EngineBadge label='Syft' engine={image.engines.syft} />
+                    <EngineBadge label='OSV-Scanner' engine={image.engines.osvScanner} />
                 </div>
                 {image.scanError && (
                     <div className='mt-1 truncate rounded-md border border-ui-danger/35 bg-ui-raised/10 px-2 py-1 text-xs text-ui-text'>
@@ -34,7 +37,7 @@ export default function ImageSummaryInfo({ image }: { image: ImageVulnerabilityR
 
 function EngineBadge({ label, engine }: { label: string, engine: ImageVulnerabilityReport['engines']['trivy'] }) {
     const value = engine.status === 'success'
-        ? `${engine.totalVulnerabilities} found`
+        ? label === 'Syft' ? 'complete' : `${engine.totalVulnerabilities} found`
         : engine.status === 'error' ? 'unavailable' : 'not run'
     return (
         <span

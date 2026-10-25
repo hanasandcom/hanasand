@@ -20,9 +20,10 @@ import { UvmPanelScannerSetup } from './uvmPanelScannerSetup'
 import { createUvmPanelTenableActions, type TenableRegion } from './uvmPanelTenableActions'
 import { deriveUvmPanelState } from './uvmPanelDerivedState'
 import { cancelUvmPanelRun } from './uvmPanelRunActions'
+import UvmPanelImages from './uvmPanelImages'
 export { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 export default function UvmPanel({
-    initialData, servicesPaused = false, refreshAction, getRunAction, getRunHistoryAction,
+    initialData, servicesPaused = false, refreshAction, getImageReportAction, runImageScanAction, getImageHistoryAction, getImageHistoryRunAction, getRunAction, getRunHistoryAction,
     assessmentHistoryAction, findingHistoryAction, findingGroupsAction, findingTriageHistoryAction, createAssetAction, verifyAssetAction,
     updateAssetCriticalityAction,
     saveZapApiDefinitionAction, configureZapAuthenticationAction, removeZapAuthenticationAction, runScanAction, runNaabuAction, runAngryIpAction, scheduleAction,
@@ -155,7 +156,7 @@ export default function UvmPanel({
     const cancelRun = (run: UvmRun) => cancelUvmPanelRun({ run, cancelRunAction, refresh, setBusy, setMessage })
     return <div className='grid gap-4'>
         <UvmPanelNavigation view={view} setView={setView} unavailable={dashboardUnavailable} servicesPaused={servicesPaused} assessmentCount={data.assessments.length} findingCount={attentionFindingCount} />
-        <fieldset disabled={dashboardUnavailable && view !== 'scanners'} className='m-0 grid min-w-0 gap-4 border-0 p-0'>
+        <fieldset disabled={dashboardUnavailable && view !== 'scanners' && view !== 'images'} className='m-0 grid min-w-0 gap-4 border-0 p-0'>
             {view === 'overview' && <UvmOverview data={data} servicesPaused={servicesPaused} activeRunCount={activeRuns.length} openFindingCount={actionableFindingCount} needsReviewCount={needsReviewFindingCount} criticalOrHighCount={criticalOrHighFindingCount}
                 onManageAssets={() => setView('assets')} onConfigureScanners={() => setView('scanners')} onStartAssessment={() => setView('assessments')} onViewRuns={() => setView('runs')} />}
             {view === 'assessments' && <section className='grid gap-4'><section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
@@ -196,5 +197,6 @@ export default function UvmPanel({
                 onScanWithWafw00f={asset => void scanWithWafw00f(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
             {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} servicesPaused={servicesPaused} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
             {view === 'runs' && <UvmRunHistory key={selectedRun ? `${selectedRun.engine}:${selectedRun.id}` : 'recent'} data={data} unavailable={dashboardUnavailable} selectedRun={selectedRun} busy={busy} nextCursor={data.runsNextCursor || null} loadOlder={getRunHistoryAction} onCancel={cancelRun} />}
+            {view === 'images' && <UvmPanelImages data={data} servicesPaused={servicesPaused} getReport={getImageReportAction} runScan={runImageScanAction} getHistory={getImageHistoryAction} getHistoryRun={getImageHistoryRunAction} />}
         </fieldset>
     </div>}

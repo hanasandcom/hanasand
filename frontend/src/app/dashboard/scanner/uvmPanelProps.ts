@@ -13,6 +13,9 @@ import type {
     UvmFindingHistoryScope,
     UvmFindingTriageHistoryPage,
     UvmFindingUpdate,
+    UvmImageReport,
+    UvmImageScanHistoryPage,
+    UvmImageScanRun,
     UvmRun,
     UvmRunHistoryPage,
     UvmZapAuthenticationInput,
@@ -23,6 +26,10 @@ export type UvmPanelProps = {
     initialData: UvmDashboard
     servicesPaused?: boolean
     refreshAction: () => Promise<UvmDashboard>
+    getImageReportAction: () => Promise<UvmImageReport>
+    runImageScanAction: () => Promise<{ queued: boolean, started: boolean, jobId: string | null, report: UvmImageReport }>
+    getImageHistoryAction: (cursor: string | null) => Promise<UvmImageScanHistoryPage>
+    getImageHistoryRunAction: (runId: string) => Promise<{ run: UvmImageScanRun }>
     getRunAction: (runId: string, engine: string) => Promise<UvmRun>
     getRunHistoryAction: (cursor: string | null) => Promise<UvmRunHistoryPage>
     assessmentHistoryAction: (cursor: string | null) => Promise<UvmAssessmentHistoryPage>

@@ -103,6 +103,9 @@ function normalizeImageReport(image: Partial<ImageVulnerabilityReport>): ImageVu
         engines: {
             trivy: normalizeEngine(image.engines?.trivy),
             dockerScout: normalizeEngine(image.engines?.dockerScout),
+            grype: normalizeEngine(image.engines?.grype),
+            syft: normalizeEngine(image.engines?.syft),
+            osvScanner: normalizeEngine(image.engines?.osvScanner),
         },
     }
 }

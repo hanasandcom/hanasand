@@ -22,7 +22,7 @@ export type VulnerabilityDetail = {
     scanners: ScannerEngine[]
 }
 
-export type ScannerEngine = 'trivy' | 'dockerScout'
+export type ScannerEngine = 'trivy' | 'dockerScout' | 'grype' | 'syft' | 'osvScanner'
 
 export type EngineScanReport = {
     status: 'success' | 'error' | 'not_run'
@@ -79,6 +79,23 @@ export type GetVulnerabilities = {
     scanStatus: ImageScannerStatus
     legacyImportComplete?: boolean
 }
+
+export type UvmImageReport = GetVulnerabilities & {
+    execution: { enabled: boolean, state: 'enabled' | 'paused', reason: string | null }
+}
+
+export type UvmImageScanHistoryEntry = {
+    id: string
+    startedAt: string
+    finishedAt: string | null
+    status: string
+    imageCount: number
+    error: string | null
+}
+
+export type UvmImageScanRun = UvmImageScanHistoryEntry & { images: ImageVulnerabilityReport[] }
+
+export type UvmImageScanHistoryPage = { runs: UvmImageScanHistoryEntry[], nextCursor: string | null }
 export type {
     NmapScanProfile, NaabuScanProfile, NetworkScanProfile, UvmAsset, UvmAssetCriticality, UvmAssetEngineCoverage, UvmAssessment, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmAssessmentMode, UvmAssessmentDecision, UvmDashboard,
     UvmEngine, UvmEngineId, UvmEngineSelection, UvmFinding, UvmFindingUpdate, UvmFindingTriageHistoryEntry, UvmFindingTriageHistoryPage, UvmGvmFinding, UvmHost, UvmPort, UvmRun, UvmZapAuthenticationStatus, UvmZapAuthenticationInput,

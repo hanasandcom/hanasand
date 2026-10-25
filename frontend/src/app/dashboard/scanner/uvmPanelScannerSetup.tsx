@@ -36,21 +36,33 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
             ? data.engines.find(candidate => candidate.id === item.integration)
             : undefined
         const outputCheckPending = item.integration === 'angry-ip-scanner' && Boolean(engine?.reason)
+        const imageWorkerProduct = item.integration === 'image-worker' || item.integration === 'grype'
+        const isDockerScout = item.name.toLowerCase().includes('docker scout')
+        const imageWorker = data.imageWorker
+        const imageWorkerStatus = servicesPaused ? 'Worker stopped'
+            : imageWorker?.status === 'available'
+                ? isDockerScout && !imageWorker.scoutCredentialsPresent ? 'Scout credentials missing' : 'Worker ready'
+                : imageWorker?.status === 'unavailable' ? 'Worker unavailable' : 'Worker status unavailable'
+        const imageWorkerDetail = imageWorker?.reason || (isDockerScout
+            ? imageWorker?.scoutCredentialsPresent
+                ? 'Docker Scout credentials are present. A successful scan validates them.'
+                : 'Docker Scout credentials are not configured for the image worker.'
+            : 'The image worker has not reported readiness.')
         const status = item.setup === 'desktop-only' ? 'Windows app · no API'
             : item.setup === 'cli-review-needed' ? 'GUI bridge needed'
                 : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
                     : item.setup === 'adapter-needed' ? 'Adapter needed'
-                        : servicesPaused ? item.integration === 'image-worker' || item.integration === 'grype' ? 'Worker stopped' : 'Stopped'
-                            : item.integration === 'image-worker' || item.integration === 'grype' ? 'Integrated · image worker'
+                        : imageWorkerProduct ? imageWorkerStatus
+                            : servicesPaused ? 'Stopped'
                                 : item.integration === 'zap-addon' ? 'Included in ZAP'
                                     : outputCheckPending && engine?.status === 'available' ? 'Ready · output check pending'
                                         : engine?.status || 'Unavailable'
         const statusClass = item.setup !== 'configured' ? 'text-ui-muted'
             : servicesPaused ? 'text-ui-warning'
-                : (engine?.status === 'available' && !outputCheckPending)
-                    || item.integration === 'image-worker' || item.integration === 'grype' || item.integration === 'zap-addon' ? 'text-ui-success' : 'text-ui-warning'
+                : imageWorkerProduct ? imageWorker?.status === 'available' && (!isDockerScout || imageWorker.scoutCredentialsPresent) ? 'text-ui-success' : 'text-ui-warning'
+                    : (engine?.status === 'available' && !outputCheckPending) || item.integration === 'zap-addon' ? 'text-ui-success' : 'text-ui-warning'
         return <div key={item.id || item.name} className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-ui-border py-2 text-sm'>
-            <span className='flex items-center gap-2'><span className='font-medium'>{item.name}<span className='ml-2 text-xs font-normal text-ui-muted'>{item.category}</span></span>{item.integration === 'angry-ip-scanner' && <UvmHelp label='Angry IP Scanner' text='Confirms host reachability only. The first authorized run also checks its CSV output format.' />}</span>
+            <span className='flex items-center gap-2'><span className='font-medium'>{item.name}<span className='ml-2 text-xs font-normal text-ui-muted'>{item.category}</span></span>{item.integration === 'angry-ip-scanner' && <UvmHelp label='Angry IP Scanner' text='Confirms host reachability only. The first authorized run also checks its CSV output format.' />}{imageWorkerProduct && <UvmHelp label={`${item.name} status`} text={imageWorkerDetail} />}</span>
             <span className={`text-xs ${statusClass}`}>{status}</span>
         </div>
     })

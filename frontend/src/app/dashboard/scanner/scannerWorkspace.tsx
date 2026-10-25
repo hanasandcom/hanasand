@@ -62,6 +62,10 @@ export default function ScannerWorkspace() {
             initialData={data}
             servicesPaused={servicesPaused}
             refreshAction={refresh}
+            getImageReportAction={client.getImageReport}
+            runImageScanAction={client.runImageScan}
+            getImageHistoryAction={client.getImageHistory}
+            getImageHistoryRunAction={client.getImageHistoryRun}
             getRunAction={client.getRun}
             getRunHistoryAction={client.getRunHistory}
             assessmentHistoryAction={client.getAssessmentHistory}

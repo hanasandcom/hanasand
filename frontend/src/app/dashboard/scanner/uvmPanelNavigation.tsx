@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react'
 
-export type UvmPanelView = 'overview' | 'assessments' | 'assets' | 'scanners' | 'runs' | 'findings'
+export type UvmPanelView = 'overview' | 'assessments' | 'assets' | 'scanners' | 'runs' | 'findings' | 'images'
 
 export function UvmPanelNavigation({ view, setView, unavailable, servicesPaused, assessmentCount, findingCount }: {
     view: UvmPanelView
@@ -13,7 +13,7 @@ export function UvmPanelNavigation({ view, setView, unavailable, servicesPaused,
     const views: Array<[UvmPanelView, string]> = [
         ['overview', 'Overview'], ['assessments', `Assessments (${unavailable ? '—' : assessmentCount})`],
         ['assets', 'Assets'], ['scanners', 'Scanners'], ['runs', 'Scan history'],
-        ['findings', `Findings (${unavailable ? '—' : findingCount})`],
+        ['findings', `Findings (${unavailable ? '—' : findingCount})`], ['images', 'Images'],
     ]
 
     return <>

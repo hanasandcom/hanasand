@@ -1,7 +1,7 @@
 'use client'
 
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
-import type { NmapScanProfile, UvmAssetCriticality, UvmAssessmentHistoryPage, UvmAssessmentMode, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingGroupHistoryPage, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingTriageHistoryPage, UvmFindingUpdate, UvmRunHistoryPage, UvmZapAuthenticationInput, UvmZapAuthenticationStatus } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAssetCriticality, UvmAssessmentHistoryPage, UvmAssessmentMode, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingGroupHistoryPage, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingTriageHistoryPage, UvmFindingUpdate, UvmImageReport, UvmImageScanHistoryPage, UvmImageScanRun, UvmRunHistoryPage, UvmZapAuthenticationInput, UvmZapAuthenticationStatus } from '@/utils/monitoring/types'
 
 const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.hanasand.com/api').replace(/\/$/, '')
 
@@ -20,6 +20,10 @@ export function createScannerClient(organizationId: string) {
         getRun: (runId: string, engine: string) => request<UvmDashboard['runs'][number]>(`/v1/uvm/runs/${encodeURIComponent(runId)}?engine=${encodeURIComponent(engine)}`),
         getRunHistory: (cursor: string | null) => request<UvmRunHistoryPage>(`/v1/uvm/runs?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
         getAssessmentHistory: (cursor: string | null) => request<UvmAssessmentHistoryPage>(`/v1/uvm/assessments?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+        getImageReport: () => request<UvmImageReport>('/v1/uvm/images/report'),
+        runImageScan: () => request<{ queued: boolean, started: boolean, jobId: string | null, report: UvmImageReport }>('/v1/uvm/images/scan', { method: 'POST' }),
+        getImageHistory: (cursor: string | null) => request<UvmImageScanHistoryPage>(`/v1/uvm/images/history?limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+        getImageHistoryRun: (runId: string) => request<{ run: UvmImageScanRun }>(`/v1/uvm/images/history/${encodeURIComponent(runId)}`),
         getFindingHistory: (cursor: string | null, scope?: UvmFindingHistoryScope) => {
             const path = scope
                 ? `/v1/uvm/assessments/${encodeURIComponent(scope.assessmentId)}/steps/${encodeURIComponent(scope.stepId)}/findings`
