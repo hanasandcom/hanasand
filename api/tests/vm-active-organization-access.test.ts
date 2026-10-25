@@ -9,10 +9,9 @@ mock.module('../src/utils/contentOrganization.ts', () => ({
     contentOrganizationAccess: async () => organizationAccess,
 }))
 mock.module('../src/utils/db.ts', () => ({ default: async (sql: string) => {
-    if (sql.includes('SELECT name, owner, created_by, access_users, deleted_at FROM vms')) {
-        return { rows: [{ name: 'cashflow-vm', deleted_at: null }] }
+    if (sql.includes('SELECT name, owner, created_by, access_users, organization_id, deleted_at FROM vms')) {
+        return { rows: [{ name: vmOrganizationId ? 'cashflow-vm' : 'personal-vm', organization_id: vmOrganizationId, deleted_at: null }] }
     }
-    if (sql.includes('SELECT organization_id FROM vms')) return { rows: [{ organization_id: vmOrganizationId }] }
     if (sql.includes('vm_user_has_access')) return { rows: [{ allowed: true }] }
     throw new Error(`Unexpected query: ${sql}`)
 } }))
@@ -58,5 +57,34 @@ test('an active organization can access its own VM when the user has VM access',
     )
 
     expect(allowed).toEqual({ id: 'cashflow-member', admin: false, name: 'cashflow-vm' })
+    expect(response.reply.sent).toBe(false)
+})
+
+test('personal workspace cannot access an organization VM even when the user is a VM member', async () => {
+    vmOrganizationId = 'cashflow'
+    const response = responseRecorder()
+
+    const allowed = await requireVmAccess(
+        { headers: {} } as never,
+        response.reply as never,
+        'cashflow-vm'
+    )
+
+    expect(allowed).toBeNull()
+    expect(response.statusCode).toBe(404)
+    expect(response.body).toEqual({ error: 'VM not found.' })
+})
+
+test('personal workspace can access a personal VM', async () => {
+    vmOrganizationId = null
+    const response = responseRecorder()
+
+    const allowed = await requireVmAccess(
+        { headers: {} } as never,
+        response.reply as never,
+        'personal-vm'
+    )
+
+    expect(allowed).toEqual({ id: 'cashflow-member', admin: false, name: 'personal-vm' })
     expect(response.reply.sent).toBe(false)
 })

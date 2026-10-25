@@ -14,7 +14,7 @@ export async function vmViewer(req: FastifyRequest, res: FastifyReply) {
 export async function requireVmAccess(req: FastifyRequest, res: FastifyReply, name: string, allowDeleted = false, manage = false) {
     const viewer = await vmViewer(req, res)
     if (!viewer) return null
-    const result = await run('SELECT name, owner, created_by, access_users, deleted_at FROM vms WHERE LOWER(name) = LOWER($1) LIMIT 1', [name])
+    const result = await run('SELECT name, owner, created_by, access_users, organization_id, deleted_at FROM vms WHERE LOWER(name) = LOWER($1) LIMIT 1', [name])
     const vm = result.rows[0]
     if (!vm) {
         res.status(404).send({ error: 'VM not found.' }); return null
@@ -24,10 +24,9 @@ export async function requireVmAccess(req: FastifyRequest, res: FastifyReply, na
         if (!await contentOrganizationAccess(organizationId, viewer.id)) {
             res.status(403).send({ error: 'You do not have access to this organization’s content.' }); return null
         }
-        const organization = await run('SELECT organization_id FROM vms WHERE LOWER(name) = LOWER($1) LIMIT 1', [name])
-        if (organization.rows[0]?.organization_id !== organizationId) {
-            res.status(404).send({ error: 'VM not found.' }); return null
-        }
+    }
+    if ((vm.organization_id ?? null) !== organizationId) {
+        res.status(404).send({ error: 'VM not found.' }); return null
     }
     const canAccess = await canAccessVm(vm.name, viewer.id, { isAdmin: viewer.admin, manage })
     if (!canAccess) {

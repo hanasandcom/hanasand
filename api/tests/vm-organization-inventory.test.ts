@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'bun:test'
+import { readFile } from 'node:fs/promises'
 import Fastify from 'fastify'
 
 const queries: Array<{ sql: string, params: unknown[] }> = []
@@ -22,9 +23,11 @@ mock.module('#db', () => ({ default: async (sql: string, params: unknown[] = [])
 } }))
 
 const { default: getVM } = await import('../src/handlers/vms/get.ts')
+const { default: getAccessibleVMs } = await import('../src/handlers/vms/getAccessibleVMs.ts')
 
 const app = Fastify()
 app.get('/vms/:user', getVM)
+app.get('/vms/access/:user', getAccessibleVMs)
 app.get('/vm/:id', getVM)
 
 test('VM inventory in an organization workspace returns only that organization’s VMs', async () => {
@@ -51,7 +54,7 @@ test('VM inventory rejects an organization workspace the viewer cannot access', 
     expect(queries).toHaveLength(0)
 })
 
-test('personal VM inventory keeps the existing user access scope', async () => {
+test('personal VM inventory limits results to VMs accessible to the user', async () => {
     organizationId = null
     organizationMember = true
     queries.length = 0
@@ -61,6 +64,24 @@ test('personal VM inventory keeps the existing user access scope', async () => {
     expect(response.statusCode).toBe(200)
     expect(queries).toHaveLength(1)
     expect(queries[0]?.sql).toBe('getVmsByUser.sql')
+    expect(queries[0]?.params).toEqual(['cashflow-member'])
+})
+
+test('personal VM inventory query excludes organization-owned VMs', async () => {
+    const query = await readFile(new URL('../src/queries/getVmsByUser.sql', import.meta.url), 'utf8')
+
+    expect(query).toMatch(/WHERE\s+v\.organization_id\s+IS NULL\s+AND\s+vm_user_has_access\(v\.name,\s*\$1\)/)
+})
+
+test('personal accessible-VM endpoint excludes organization-owned VMs', async () => {
+    organizationId = null
+    queries.length = 0
+
+    const response = await app.inject('/vms/access/cashflow-member')
+
+    expect(response.statusCode).toBe(200)
+    expect(queries).toHaveLength(1)
+    expect(queries[0]?.sql.replace(/\s+/g, ' ')).toContain('WHERE organization_id IS NULL AND vm_user_has_access(name, $1)')
     expect(queries[0]?.params).toEqual(['cashflow-member'])
 })
 

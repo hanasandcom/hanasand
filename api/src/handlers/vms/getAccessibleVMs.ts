@@ -30,7 +30,8 @@ export default async function getAccessibleVMs(req: FastifyRequest, res: Fastify
             : await run(
                 `SELECT *
                  FROM vms
-                 WHERE vm_user_has_access(name, $1)`,
+                 WHERE organization_id IS NULL
+                   AND vm_user_has_access(name, $1)`,
                 [user]
             )
 

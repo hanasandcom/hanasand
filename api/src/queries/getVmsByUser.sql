@@ -28,4 +28,5 @@ SELECT
     d.last_checked
 FROM vms v
 LEFT JOIN vm_details d ON LOWER(d.name) = LOWER(v.name)
-WHERE vm_user_has_access(v.name, $1)
+WHERE v.organization_id IS NULL
+  AND vm_user_has_access(v.name, $1)
