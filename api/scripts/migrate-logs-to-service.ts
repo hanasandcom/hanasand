@@ -7,7 +7,7 @@ import path from 'node:path'
 import { logsServiceConfiguration, logsOutboxEnabled, logsOutboxRemoteOnly, logsServiceDirect } from '../src/utils/logs/logOutboxConfig.ts'
 import { logMigrationEvent } from '../src/utils/logs/logMigrationEvent.ts'
 
-const batchSize = Math.max(1, Math.min(200, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 200))
+const batchSize = Math.max(1, Math.min(300, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 300))
 const receiptBatchSize = 100
 const analyzeReceiptBatchSize = 20_000
 const analyzeReceiptTailChunkBytes = 4 * 1024 ** 3
@@ -26,6 +26,7 @@ const tailVacuumEveryBytes = migrationTailVacuumInterval()
 const findingScanSize = 10_000
 const apply = process.argv.includes('--apply')
 const maxPayloadBytes = 6_000_000
+const logsIngestMaxBodyBytes = 512_000
 const configuredMigrationFreeSpaceReserveBytes = Number(process.env.LOGS_MIGRATION_MIN_FREE_BYTES)
 const migrationFreeSpaceReserveBytes = Number.isSafeInteger(configuredMigrationFreeSpaceReserveBytes) && configuredMigrationFreeSpaceReserveBytes > 0
     ? configuredMigrationFreeSpaceReserveBytes : 24 * 1024 ** 3
@@ -406,6 +407,7 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
     let analyzeUpperBlock: number | undefined
     let analyzeBlockSize = 8192
     let analyzeTailRange: { lowerBlock: number; upperBlock: number } | null = null
+    let analyzeAfterCtid: string | null = null
     let analyzeBytesSinceVacuum = 0
     let analyzeDone = false
     while (true) {
@@ -426,6 +428,7 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                     const blockSize = Number(geometry.rows[0]?.block_size)
                     analyzeBlockSize = blockSize
                     analyzeBytesSinceVacuum = 0
+                    analyzeAfterCtid = null
                     const range = migrationTailPageRange(bytes, blockSize, undefined, tailChunkBytes)
                     if (!range) {
                         analyzeDone = true
@@ -444,13 +447,15 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                         return { rows: [] }
                     }
                     analyzeUpperBlock = undefined
+                    analyzeAfterCtid = null
                     return { rows: [] }
                 }
                 analyzeTailRange = range
-                // ACKed rows are deleted before the next query, so an unordered TID range scan advances without sorting millions of rows.
-                const selected = await query(`SELECT ${fields} FROM log_analyze_receipts
+                // Resume after the last ACKed/deleted tuple so each batch avoids rescanning this band's deleted prefix.
+                const selected = await query(`SELECT ctid::text AS source_ctid, ${fields} FROM log_analyze_receipts
                     WHERE ctid >= ('(' || $1::text || ',0)')::tid AND ctid < ('(' || $2::text || ',0)')::tid
-                    LIMIT $3`, [range.lowerBlock, range.upperBlock, batchLimit])
+                        AND ($3::tid IS NULL OR ctid > $3::tid)
+                    ORDER BY ctid LIMIT $4`, [range.lowerBlock, range.upperBlock, analyzeAfterCtid, batchLimit])
                 return selected
             }
             await query('SET LOCAL statement_timeout = \'20s\'')
@@ -480,8 +485,10 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                     const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts) AS present'))
                     if (!remaining.rows[0]?.present) return migrated
                     analyzeUpperBlock = undefined
+                    analyzeAfterCtid = null
                 } else {
                     analyzeUpperBlock = range.lowerBlock
+                    analyzeAfterCtid = null
                 }
                 continue
             }
@@ -491,10 +498,15 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
         }
 
         const batch: Array<Record<string, unknown>> = []
+        let analyzeBatchTailCtid: string | null = null
         let batchPayloadBytes = Buffer.byteLength(JSON.stringify({ kind, receipts: [] }))
         for (const row of source.rows) {
             const fields = { ...row }
             const original = fields.original
+            if (analyze) {
+                if (typeof fields.source_ctid !== 'string') throw new Error('An analyze receipt batch has no physical cursor; source rows remain in Hanasand.')
+                analyzeBatchTailCtid = fields.source_ctid
+            }
             delete fields.original
             delete fields.source_ctid
             const receipt = kind === 'proxy' ? row : analyze ? fields : { ...fields, original_base64: Buffer.from(original).toString('base64') }
@@ -561,6 +573,7 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
                 RETURNING source.key`, [JSON.stringify(batch)])
         })
         if (deletion.rows.length !== batch.length) throw new Error(`A ${kind} receipt changed during migration; its delete transaction was rolled back.`)
+        if (analyze) analyzeAfterCtid = analyzeBatchTailCtid
         migrated += batch.length
         if (analyze && migrated % batchLimit === 0) console.log(JSON.stringify({ migrated, scope: 'analysis receipts' }))
         if (!analyze) cursor = String(batch[batch.length - 1]![keyColumn])
@@ -1020,7 +1033,7 @@ export async function moveOneBatch(url: string, token: string, cursor = '', tail
     for (const row of selected) {
         const event = logMigrationEvent(row)
         const candidateEvents = [...events, event]
-        if (Buffer.byteLength(JSON.stringify({ events: candidateEvents })) > maxPayloadBytes) break
+        if (Buffer.byteLength(JSON.stringify({ events: candidateEvents })) > logsIngestMaxBodyBytes) break
         events.push(event)
         sourceRows.push(row)
     }

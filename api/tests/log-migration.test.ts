@@ -41,6 +41,7 @@ let sourceReadinessReceipts: Array<Record<string, unknown>> = []
 let sourceProxyReceipts: Array<Record<string, unknown>> = []
 let sourceAnalyzeReceipts: Array<Record<string, unknown>> = []
 let sourceAnalyzeReceiptBlocks = new Map<string, number>()
+let sourceAnalyzeReceiptCtids = new Map<string, string>()
 let sourceAnalyzeRelationBytes = 16_384
 let sourceAnalyzeBlockSize = 8192
 let sourceEventRelationBytes = 16_384
@@ -99,12 +100,16 @@ const query = async (sql: string, params: unknown[] = []) => {
             return block >= Number(params[0]) && block < Number(params[1])
         }) }] }
     }
-    if (sql.startsWith('SELECT key,organization_id,rule_id,rule_version,created_at::text AS created_at FROM log_analyze_receipts')
+    if (sql.startsWith('SELECT ctid::text AS source_ctid, key,organization_id,rule_id,rule_version,created_at::text AS created_at FROM log_analyze_receipts')
         && sql.includes('ctid >=')) {
         return { rows: sourceAnalyzeReceipts
+            .map(row => ({ ...row, source_ctid: sourceAnalyzeReceiptCtids.get(String(row.key))
+                ?? `(${sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0},1)` }))
             .filter(row => (sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0) >= Number(params[0])
-                && (sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0) < Number(params[1]))
-            .slice(0, Number(params[2])) }
+                && (sourceAnalyzeReceiptBlocks.get(String(row.key)) ?? 0) < Number(params[1])
+                && (!params[2] || compareCtids(row.source_ctid, String(params[2])) > 0))
+            .sort((left, right) => compareCtids(left.source_ctid, right.source_ctid))
+            .slice(0, Number(params[3])) }
     }
     if (sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && sql.includes('FROM events') && sql.includes('ctid >=')) {
         return { rows: physicalEventRowsOverride ?? [] }
@@ -252,6 +257,7 @@ beforeEach(() => {
     sourceProxyReceipts = []
     sourceAnalyzeReceipts = []
     sourceAnalyzeReceiptBlocks = new Map()
+    sourceAnalyzeReceiptCtids = new Map()
     sourceAnalyzeRelationBytes = 16_384
     sourceAnalyzeBlockSize = 8192
     sourceEventRelationBytes = 16_384
@@ -494,7 +500,7 @@ test('deletes source rows only after Logs durably stores and verifies every copi
     expect(selection?.sql).toContain('id > $1')
     expect(selection?.sql).toContain('ORDER BY id LIMIT $2')
     expect(selection?.sql).not.toContain('ORDER BY received_at')
-    expect(selection?.params).toEqual(['source-row-0', 200])
+    expect(selection?.params).toEqual(['source-row-0', 300])
     expect(JSON.parse(String(deletion?.params[0]))).toEqual([{
         ...sourceRows[0], event_timestamp: '2026-10-20T10:00:00.000Z',
     }])
@@ -505,6 +511,18 @@ test('deletes source rows only after Logs durably stores and verifies every copi
     }
     expect(deletion?.sql).toContain('source.received_at=expected.received_at')
     expect(deletion?.sql).toContain('source.normalized=expected.normalized')
+})
+
+test('keeps an event row in Hanasand when it exceeds the deployed Logs ingest body limit', async () => {
+    selectedRowsOverride = [{ ...sourceRows[0], normalized: { ...sourceRows[0].normalized, metadata: { payload: 'x'.repeat(520_000) } } }]
+    let requests = 0
+    globalThis.fetch = (async () => { requests++; return new Response('{}', { status: 201 }) }) as typeof fetch
+
+    await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
+        .rejects.toThrow('The oldest source event exceeds the Logs API batch size')
+
+    expect(requests).toBe(0)
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
 })
 
 test('selects event batches inside the requested physical tail range', async () => {
@@ -519,7 +537,7 @@ test('selects event batches inside the requested physical tail range', async () 
     const selection = statements.find(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && statement.sql.includes('ctid >='))
     expect(result).toMatchObject({ moved: 1, retry: false, tailCursor: '(8,3)' })
     expect(selection?.sql).toContain('ORDER BY ctid LIMIT $4')
-    expect(selection?.params).toEqual([8, 12, null, 200])
+    expect(selection?.params).toEqual([8, 12, null, 300])
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
 })
 
@@ -665,9 +683,9 @@ test('transfers exact compressed model, readiness and general analysis receipts 
     const vacuumed: string[] = []
     expect(await migrateAnalysisReceipts('https://logs.hanasand.com', 's'.repeat(40), table => vacuumed.push(table)))
         .toEqual({ modelProbe: 1, readinessAudit: 1, proxy: 0, analyze: 1 })
-    expect(statements.find(statement => statement.sql.startsWith('SELECT key,organization_id,rule_id,rule_version,created_at::text AS created_at FROM log_analyze_receipts')
-        && statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))?.params)
-        .toEqual([0, 2, 20_000])
+    expect(statements.find(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, key,organization_id,rule_id,rule_version,created_at::text AS created_at FROM log_analyze_receipts')
+        && statement.sql.includes('ctid >='))?.params)
+        .toEqual([0, 2, null, 20_000])
     expect(vacuumed).toEqual(['log_analyze_receipts'])
     expect(sent.map(batch => batch.kind)).toEqual(['model_probe', 'readiness_audit', 'analyze'])
     expect(sent[0]?.receipts[0]?.original_base64).toBe(Buffer.from('model proof bytes').toString('base64'))
@@ -713,7 +731,7 @@ test('walks empty event heap ranges from the tail down and vacuums each complete
         .toBe(0)
     expect(statements.filter(statement => statement.sql.includes('pg_relation_size(\'public.events\')'))).toHaveLength(1)
     expect(statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && statement.sql.includes('ctid >='))
-        .map(statement => statement.params)).toEqual([[4, 6, null, 200], [2, 4, null, 200], [0, 2, null, 200]])
+        .map(statement => statement.params)).toEqual([[4, 6, null, 300], [2, 4, null, 300], [0, 2, null, 300]])
     expect(vacuumed).toEqual(['events', 'events'])
 })
 
@@ -741,11 +759,34 @@ test('moves receipt batches from the physical tail downward and vacuums only aft
 
     expect(await migrateReceiptKind('https://logs.hanasand.com', 's'.repeat(40), 'analyze', table => vacuumed.push(table), 16_384, 16_384)).toBe(2)
 
-    const selections = statements.filter(statement => statement.sql.startsWith('SELECT key,organization_id,rule_id,rule_version,created_at::text AS created_at FROM log_analyze_receipts')
+    const selections = statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, key,organization_id,rule_id,rule_version,created_at::text AS created_at FROM log_analyze_receipts')
         && statement.sql.includes('FROM log_analyze_receipts') && statement.sql.includes('ctid >='))
-    expect(selections.map(statement => statement.params)).toEqual([[2, 4, 20_000], [2, 4, 20_000], [0, 2, 20_000], [0, 2, 20_000]])
-    expect(selections.every(statement => !statement.sql.includes('ORDER BY ctid'))).toBe(true)
+    expect(selections.map(statement => statement.params)).toEqual([[2, 4, null, 20_000], [2, 4, '(3,1)', 20_000], [0, 2, null, 20_000], [0, 2, '(0,1)', 20_000]])
+    expect(selections.every(statement => statement.sql.includes('AND ($3::tid IS NULL OR ctid > $3::tid)') && statement.sql.includes('ORDER BY ctid LIMIT $4'))).toBe(true)
     expect(vacuumed).toEqual(['log_analyze_receipts', 'log_analyze_receipts'])
+    expect(sourceAnalyzeReceipts).toHaveLength(0)
+})
+
+test('continues from the last acknowledged analyze CTID within a large physical band', async () => {
+    sourceAnalyzeRelationBytes = 16_384
+    sourceAnalyzeBlockSize = 8192
+    sourceAnalyzeReceipts = Array.from({ length: 20_001 }, (_, index) => {
+        const key = index.toString(16).padStart(64, '0')
+        sourceAnalyzeReceiptBlocks.set(key, 1)
+        sourceAnalyzeReceiptCtids.set(key, `(1,${index + 1})`)
+        return { key, organization_id: 'tenant-a', rule_id: 'drop.audit.v1', rule_version: 'v3', created_at: '2026-10-20T10:00:00Z' }
+    })
+    globalThis.fetch = (async (_input, init) => {
+        const body = JSON.parse(String(init?.body)) as { receipts: unknown[] }
+        return new Response(JSON.stringify({ ok: true, accepted: body.receipts.length }), { status: 200 })
+    }) as typeof fetch
+
+    expect(await migrateReceiptKind('https://logs.hanasand.com', 's'.repeat(40), 'analyze', async () => {}, 16_384, 16_384)).toBe(20_001)
+
+    const selections = statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, key,organization_id,rule_id,rule_version,created_at::text AS created_at FROM log_analyze_receipts'))
+    expect(selections.map(statement => statement.params)).toEqual([
+        [0, 2, null, 20_000], [0, 2, '(1,20000)', 20_000], [0, 2, '(1,20001)', 20_000],
+    ])
     expect(sourceAnalyzeReceipts).toHaveLength(0)
 })
 
