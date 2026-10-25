@@ -10,6 +10,7 @@ const checks = new Map<string, { expires: number; result: Promise<State> }>()
 let localInventory: { expires: number; result: Promise<Map<string, State>> } | undefined
 const provisioningConfigKey = 'user.hanasand.provisioning_state'
 const missingSetupStatusReason = 'VM startup finished without reporting whether the selected services were installed. Contact Support if the problem persists.'
+const cloudInitSetupFailureReason = 'VM setup failed during cloud-init. Contact Support if the problem persists.'
 const waitingForHostSetupStatusReason = 'Waiting for the VM host to confirm service setup.'
 const missingHostVmStatusReason = 'VM could not be found on its host. Contact Support if the problem persists.'
 
@@ -37,12 +38,19 @@ export async function localVmStatus(name: string, statusOptions: { allowHostWork
     const rawState = setupResponse?.ok ? await setupResponse.text().catch(() => '') : ''
     const [setupStatus, ...messageParts] = rawState.trim().split('\t')
     const setupMessage = messageParts.join('\t').slice(0, 300)
+    const cloudInitSetupFailed = setupStatus === 'Running' && await hasCloudInitSetupErrors(name)
     const persistedState = instance.config?.['user.hanasand.provisioning_state']
     const persistedSetupState = persistedState ? parsePersistedSetupState(persistedState) : undefined
     const cloudInitFinished = !setupResponse?.ok && await hasCloudInitFinished(name)
     const cloudInitUserData = instance.config?.['cloud-init.user-data']?.trim() || ''
     let state: State | undefined
-    if (setupStatus === 'Provisioning' || setupStatus === 'Error' || setupStatus === 'Running') {
+    if (cloudInitSetupFailed) {
+        // The guest marker is written by the setup script before cloud-init has
+        // recorded the final result. A later runcmd failure must take precedence
+        // over that optimistic marker so a partially configured VM is not shown
+        // as ready.
+        state = { status: 'Error', status_reason: cloudInitSetupFailureReason }
+    } else if (setupStatus === 'Provisioning' || setupStatus === 'Error' || setupStatus === 'Running') {
         state = { status: setupStatus, status_reason: setupMessage || undefined }
     } else if (cloudInitFinished && !cloudInitUserData && !config.lxd_project) {
         // Some host-worker VMs have no cloud-init payload. Ask the worker for queued or
@@ -91,6 +99,19 @@ async function hasCloudInitFinished(name: string) {
     const options: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
     const response = await fetch(`http://localhost${path}`, options).catch(() => null)
     return response?.ok === true
+}
+
+async function hasCloudInitSetupErrors(name: string) {
+    const path = lxdProjectPath(`/1.0/instances/${encodeURIComponent(name)}/files?path=${encodeURIComponent('/var/lib/cloud/data/result.json')}`, config.lxd_project)
+    const options: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
+    const response = await fetch(`http://localhost${path}`, options).catch(() => null)
+    if (!response?.ok) return false
+    try {
+        const result = await response.json() as { v1?: { errors?: unknown } }
+        return Array.isArray(result.v1?.errors) && result.v1.errors.length > 0
+    } catch {
+        return false
+    }
 }
 
 async function probe(name: string, host = config.vm_host_id): Promise<State> {

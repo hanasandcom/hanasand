@@ -132,6 +132,41 @@ test('local VM status reads completed cloud-init setup and persists its terminal
     expect(localConfigUpdates).toEqual([{ 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Running', status_reason: 'Setup complete' }) }])
 })
 
+test('cloud-init errors override the guest setup script success marker', async () => {
+    localConfig = { 'user.hanasand.setup_plan': 'setup-hash' }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        const path = new URL(String(input)).searchParams.get('path')
+        if (path === '/var/lib/hanasand-vm-setup/status') return new Response('Running\tSetup complete')
+        if (path === '/var/lib/cloud/data/result.json') {
+            return Response.json({ v1: { errors: ['scripts_user RuntimeError: package installation failed'] } })
+        }
+        return Response.json({ metadata: { status: 'Running' } })
+    }) as typeof fetch
+
+    expect(await localVmStatus('cloud-init-failed-setup-vm')).toEqual({
+        status: 'Error',
+        status_reason: 'VM setup failed during cloud-init. Contact Support if the problem persists.',
+    })
+    expect(localConfigUpdates).toEqual([{
+        'user.hanasand.provisioning_state': JSON.stringify({
+            status: 'Error',
+            status_reason: 'VM setup failed during cloud-init. Contact Support if the problem persists.',
+        }),
+    }])
+})
+
+test('cloud-init result with no errors keeps the guest setup success marker', async () => {
+    localConfig = { 'user.hanasand.setup_plan': 'setup-hash' }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        const path = new URL(String(input)).searchParams.get('path')
+        if (path === '/var/lib/hanasand-vm-setup/status') return new Response('Running\tSetup complete')
+        if (path === '/var/lib/cloud/data/result.json') return Response.json({ v1: { errors: [] } })
+        return Response.json({ metadata: { status: 'Running' } })
+    }) as typeof fetch
+
+    expect(await localVmStatus('cloud-init-successful-setup-vm')).toEqual({ status: 'Running', status_reason: 'Setup complete' })
+})
+
 test('completed Java setup uses its guest success marker without probing the host worker', async () => {
     localConfig = { 'user.hanasand.setup_plan': 'setup-hash', 'cloud-init.user-data': '' }
     globalThis.fetch = (async (input: string | URL | Request) => {
