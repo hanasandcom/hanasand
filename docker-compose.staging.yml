@@ -20,6 +20,7 @@ services:
       FRONTEND_IDENTITY_API: http://hanasand_identity_staging_primary:8081/api
       FRONTEND_LOGS_API_URL: http://logs_staging_api:8090/api
       HANASAND_STAGING_LOCAL_AUTH_UI: "1"
+      VM_API_TOKEN: ${VM_API_TOKEN:?set a staging-only VM_API_TOKEN}
       FRONTEND_INTERNAL_API: http://hanasand_app_staging_api:8080/api
       FRONTEND_INTERNAL_AI_API: http://172.31.254.6:19182/api
       NEXT_PUBLIC_API: http://localhost:3282/api
