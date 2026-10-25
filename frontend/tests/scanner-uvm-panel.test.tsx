@@ -73,7 +73,7 @@ test('unavailable Scanner API shows unknown state instead of empty-result counts
 test('paused Scanner keeps the product catalog searchable while other views stay disabled', () => {
     const html = renderToStaticMarkup(<UvmPanel initialData={{
         assets: [], coverage: [], engines: [], runs: [], assessments: [], findings: [], tenableScans: [],
-        scannerError: 'Scanner services are stopped pending disk expansion.', tenableIntegration: null,
+        scannerError: 'Scanner services are stopped.', tenableIntegration: null,
     }} servicesPaused updateAssetCriticalityAction={noop} />)
 
     expect(html).toContain('placeholder="Filter scanners"')
@@ -145,7 +145,9 @@ test('asset controls expose standard Nmap coverage and recurring Greenbone scans
         busy='' message='' hostname='' setHostname={noopSetter} authorization={{ 'asset-1': true }} setAuthorization={noopSetter}
         intervals={{}} setIntervals={noopSetter} schedulePlans={{}} setSchedulePlans={noopSetter} scheduleProfiles={{}} setScheduleProfiles={noopSetter}
         assetNmapProfiles={{}} setAssetNmapProfiles={noopSetter} zapApiDefinitionPaths={{}} setZapApiDefinitionPaths={noopSetter}
-        onSaveZapApiDefinition={() => undefined} scheduleScanIds={{}} setScheduleScanIds={noopSetter} tenableScanIds={{}} setTenableScanIds={noopSetter}
+        zapAuthenticationProfiles={{}} setZapAuthenticationProfiles={noopSetter}
+        onSaveZapApiDefinition={() => undefined} onSaveZapAuthentication={() => undefined} onRemoveZapAuthentication={() => undefined}
+        scheduleScanIds={{}} setScheduleScanIds={noopSetter} tenableScanIds={{}} setTenableScanIds={noopSetter}
         onRefresh={() => undefined} onAddAsset={() => undefined} onVerify={() => undefined} onScan={() => undefined}
         onScanWithTenable={() => undefined} onScanWithGvm={() => undefined} onScanWithZap={() => undefined} onSchedule={() => undefined}
     />)

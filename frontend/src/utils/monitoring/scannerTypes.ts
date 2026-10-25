@@ -75,7 +75,7 @@ export type UvmScannerCatalogEntry = {
     id: string
     name: string
     category: 'Discovery' | 'Vulnerability' | 'Web' | 'Cloud and code'
-    integration: 'nmap' | 'naabu' | 'angry-ip-scanner' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f' | 'grype' | 'image-worker' | 'catalog-only' | 'desktop-only' | 'cli-review'
+    integration: 'nmap' | 'naabu' | 'angry-ip-scanner' | 'tenable-vm' | 'gvm' | 'zap' | 'zap-addon' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f' | 'grype' | 'image-worker' | 'catalog-only' | 'desktop-only' | 'cli-review'
     setup: 'configured' | 'adapter-needed' | 'license-and-adapter-needed' | 'desktop-only' | 'cli-review-needed'
 }
 export type UvmScriptEvidence = { id: string, output: string, truncated: boolean }

@@ -23,15 +23,15 @@ test('paused Scanner exposes the searchable 50-product catalog and labels setup 
 
     expect(scannerSuiteCatalog).toHaveLength(50)
     expect(new Set(scannerSuiteCatalog.map(item => item.name)).size).toBe(scannerSuiteCatalog.length)
-    expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(21)
+    expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(22)
     expect(html).toContain('50 products · 16 asset engines · 5 image tools · 0 running')
-    expect(html).toContain('Other catalog products (29)')
-    expect(html).toContain('Other catalog products (29)</summary>')
+    expect(html).toContain('Other catalog products (28)')
+    expect(html).toContain('Other catalog products (28)</summary>')
     expect(html).toContain('Angry IP Scanner')
-    expect(html).toContain('Integrated tools (21)')
-    const otherCatalogSummary = html.indexOf('Other catalog products (29)</summary>')
+    expect(html).toContain('Integrated tools (22)')
+    const otherCatalogSummary = html.indexOf('Other catalog products (28)</summary>')
     const otherCatalogStart = html.lastIndexOf('<details', otherCatalogSummary)
-    expect(otherCatalogStart).toBeGreaterThan(html.indexOf('Integrated tools (21)'))
+    expect(otherCatalogStart).toBeGreaterThan(html.indexOf('Integrated tools (22)'))
     expect(html.slice(0, otherCatalogStart)).not.toContain('Masscan')
     expect(html.slice(otherCatalogStart)).toContain('Masscan')
     expect(html).toContain('Filter scanners')
@@ -39,9 +39,10 @@ test('paused Scanner exposes the searchable 50-product catalog and labels setup 
     expect(html).toContain('Naabu')
     expect(html).toContain('Stopped')
     expect(html).toContain('Worker stopped')
-    expect(html).not.toContain('Stopped · pending disk')
+    expect(html).not.toContain('pending disk')
     expect(html).not.toContain('Scanner services paused pending disk expansion.')
     expect(html).toContain('testssl.sh')
+    expect(html).toContain('Retire.js')
     expect(html).toContain('Angry IP Scanner')
     expect(html).toContain('Advanced IP Scanner')
     expect(html).toContain('Prowler')
@@ -51,6 +52,18 @@ test('paused Scanner exposes the searchable 50-product catalog and labels setup 
     expect(html).toContain('License + adapter needed')
     expect(html).not.toContain('GUI bridge needed')
     expect(html).toContain('Windows app · no API')
+})
+
+test('Retire.js is listed as a ZAP add-on, not a separate asset engine', () => {
+    const noop = () => undefined
+    const html = renderToStaticMarkup(<UvmPanelScannerSetup data={emptyUvmDashboard} busy='' region='us'
+        setRegion={noop} accessKey='' setAccessKey={noop} secretKey='' setSecretKey={noop}
+        servicesPaused={false} onSave={noop} onDisconnect={noop}
+    />)
+
+    expect(html).toContain('Retire.js')
+    expect(html).toContain('Included in ZAP')
+    expect(scannerSuiteCatalog.filter(item => item.integration === 'zap-addon')).toHaveLength(1)
 })
 
 test('configured Angry IP is offered as an assessment engine', () => {
@@ -63,6 +76,8 @@ test('configured Angry IP is offered as an assessment engine', () => {
     expect(html).toContain('Angry IP Scanner')
     expect(html).not.toContain('GUI bridge needed')
     expect(html).not.toContain('CLI review needed')
+    expect(html).toContain('Stopped')
+    expect(html).not.toContain('pending disk')
 })
 
 test('partial older API catalogs do not hide products or downgrade staged setup metadata', () => {

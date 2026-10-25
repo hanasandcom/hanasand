@@ -41,7 +41,7 @@ export function TenableScanControl({ asset, props }: { asset: UvmAsset, props: A
                 {data.tenableScans.map(scan => <option key={scan.id} value={scan.id}>{scan.name}{scan.enabled ? '' : ' (disabled)'}</option>)}
             </select>
         </label>
-        <button type='button' onClick={() => props.onScanWithTenable(asset)} disabled={props.servicesPaused === true || busy === `${asset.id}:tenable` || !enabled || (!asset.scanAuthorizedAt && authorization[asset.id] !== true)} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>{props.servicesPaused ? 'Nessus · stopped pending disk' : 'Run Nessus scan via Tenable VM'}</button>
+        <button type='button' onClick={() => props.onScanWithTenable(asset)} disabled={props.servicesPaused === true || busy === `${asset.id}:tenable` || !enabled || (!asset.scanAuthorizedAt && authorization[asset.id] !== true)} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>{props.servicesPaused ? 'Nessus · stopped' : 'Run Nessus scan via Tenable VM'}</button>
     </>
 }
 
@@ -90,7 +90,7 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
                 const unavailable = !available
                 const stopped = props.servicesPaused === true
                 return <label key={option.id} className='flex items-center gap-1.5'>
-                    <input type='checkbox' checked={checked} disabled={unavailable && !checked} onChange={event => toggleEngine(option.id, event.target.checked)} className='accent-ui-primary' />{option.label}{unavailable && <span className='text-ui-warning'>{stopped ? ' · Stopped · pending disk' : ' · Unavailable'}</span>}
+                    <input type='checkbox' checked={checked} disabled={unavailable && !checked} onChange={event => toggleEngine(option.id, event.target.checked)} className='accent-ui-primary' />{option.label}{unavailable && <span className='text-ui-warning'>{stopped ? ' · Stopped' : ' · Unavailable'}</span>}
                 </label>
             })}</div>
             {schedulePlan.map((choice, index) => <div key={choice.engine} className='flex flex-wrap items-end gap-2 rounded border border-ui-border bg-ui-raised p-2'>

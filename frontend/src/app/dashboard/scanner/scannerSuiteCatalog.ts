@@ -48,7 +48,7 @@ export const scannerSuiteCatalog: ScannerCatalogEntry[] = [
     { id: 'gosec', name: 'gosec', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'brakeman', name: 'Brakeman', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'owasp-dependency-check', name: 'OWASP Dependency-Check', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
-    { id: 'retire-js', name: 'Retire.js', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'retire-js', name: 'Retire.js', category: 'Web', integration: 'zap-addon', setup: 'configured' },
     { id: 'dockle', name: 'Dockle', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'clair', name: 'Clair', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'kics', name: 'KICS', category: 'Cloud and code', integration: 'catalog-only', setup: 'adapter-needed' },

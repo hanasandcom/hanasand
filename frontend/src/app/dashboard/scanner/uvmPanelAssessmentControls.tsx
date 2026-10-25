@@ -80,8 +80,8 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
                 : item.setup === 'cli-review-needed' ? 'GUI bridge needed'
                     : item.setup === 'license-and-adapter-needed' ? 'License + adapter needed'
                         : item.setup === 'adapter-needed' ? 'Adapter needed'
-                            : item.integration === 'image-worker' || item.integration === 'grype' ? servicesPaused ? 'Image worker stopped · pending disk' : 'Image assets only'
-                                : servicesPaused ? item.integration === 'tenable-vm' && !tenableReady ? 'Credentials + disk required' : 'Stopped · pending disk'
+                            : item.integration === 'image-worker' || item.integration === 'grype' ? servicesPaused ? 'Worker stopped' : 'Image assets only'
+                                : servicesPaused ? 'Stopped'
                                     : engine?.status === 'available' && !tenableReady ? 'Connect Tenable and enable a scan configuration'
                                         : engine?.status || 'Unavailable'
             return <label key={item.id || item.name} className={`grid gap-1 rounded-md border border-ui-border p-3 text-sm ${ready ? 'cursor-pointer' : 'opacity-75'}`}>

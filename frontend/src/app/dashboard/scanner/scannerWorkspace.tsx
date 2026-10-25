@@ -8,7 +8,7 @@ import ScannerPauseNotice, { SCANNER_SERVICES_PAUSED } from './scannerPauseNotic
 import { createScannerClient, emptyUvmDashboard } from './scannerClient'
 
 const initialScannerDashboard = SCANNER_SERVICES_PAUSED
-    ? { ...emptyUvmDashboard, execution: { enabled: false, state: 'paused' as const, reason: 'pending_disk_expansion' }, scannerError: 'Scanner services are stopped pending disk expansion.' }
+    ? { ...emptyUvmDashboard, execution: { enabled: false, state: 'paused' as const, reason: 'pending_disk_expansion' }, scannerError: 'Scanner services are stopped.' }
     : emptyUvmDashboard
 
 export default function ScannerWorkspace() {
@@ -29,7 +29,7 @@ export default function ScannerWorkspace() {
     }, [organizationId])
     const refresh = useCallback(async () => {
         if (SCANNER_SERVICES_PAUSED) {
-            const paused = { ...emptyUvmDashboard, execution: { enabled: false, state: 'paused' as const, reason: 'pending_disk_expansion' }, scannerError: 'Scanner services are stopped pending disk expansion.' }
+            const paused = { ...emptyUvmDashboard, execution: { enabled: false, state: 'paused' as const, reason: 'pending_disk_expansion' }, scannerError: 'Scanner services are stopped.' }
             setData(paused)
             return paused
         }
