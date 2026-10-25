@@ -1,5 +1,6 @@
 import { queryOnce, withTransaction } from '#db'
 import { directPool } from '../src/utils/db/runtimePools.ts'
+import { closeDatabase } from '../src/utils/db/runtimePoolAccess.ts'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { readFile, statfs } from 'node:fs/promises'
@@ -10,9 +11,10 @@ import { logMigrationEvent } from '../src/utils/logs/logMigrationEvent.ts'
 const batchSize = Math.max(1, Math.min(300, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 300))
 const receiptBatchSize = 100
 const analyzeReceiptBatchSize = 20_000
-const analyzeReceiptTailChunkBytes = 4 * 1024 ** 3
-const eventTailChunkBytes = 4 * 1024 ** 3
-const defaultTailVacuumEveryBytes = 16 * 1024 ** 3
+const analyzeReceiptBatchPauseMs = 1_000
+const analyzeReceiptTailChunkBytes = 512 * 1024 ** 2
+const eventTailChunkBytes = 512 * 1024 ** 2
+const defaultTailVacuumEveryBytes = 512 * 1024 ** 2
 const minimumTailVacuumEveryBytes = Math.min(analyzeReceiptTailChunkBytes, eventTailChunkBytes)
 export function migrationTailVacuumInterval(configuredValue = process.env.LOGS_MIGRATION_TAIL_VACUUM_EVERY_BYTES) {
     if (configuredValue === undefined || configuredValue === '') return defaultTailVacuumEveryBytes
@@ -523,14 +525,25 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
         let retryDelay = 1000
         while (!acknowledged) {
             await assertMigrationStorageReserve()
-            const response = await fetch(`${url}/api/migration/receipts`, {
-                method: 'POST',
-                headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
-                body: JSON.stringify({ kind, receipts: batch }),
-                signal: AbortSignal.timeout(5 * 60_000),
-            })
+            let response: Response
+            try {
+                response = await fetch(`${url}/api/migration/receipts`, {
+                    method: 'POST',
+                    headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
+                    body: JSON.stringify({ kind, receipts: batch }),
+                    signal: AbortSignal.timeout(5 * 60_000),
+                })
+            } catch {
+                // The Logs receipt endpoint is idempotent and verifies the
+                // saved payload, so retrying an unknown response is safe.
+                // Do not delete source rows until a response is verified.
+                await sleep(retryDelay)
+                retryDelay = Math.min(30_000, retryDelay * 2)
+                continue
+            }
             const body = await response.json().catch(() => ({})) as { ok?: boolean, accepted?: number, error?: string }
-            if (response.status === 429 || response.status === 503) {
+            if (response.status === 429 || response.status === 503 || response.status === 504
+                || (response.status === 500 && body.error === 'Receipt migration is unavailable.')) {
                 await sleep(retryDelay)
                 retryDelay = Math.min(30_000, retryDelay * 2)
                 continue
@@ -544,38 +557,59 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
         const deletion = await withTransaction(async query => {
             await query('SET LOCAL lock_timeout = \'1s\'')
             await query('SET LOCAL statement_timeout = \'20s\'')
+            const verifyDeletion = async (result: { rows: unknown[] }) => {
+                if (result.rows.length !== batch.length) {
+                    throw new Error(`A ${kind} receipt changed during migration; its delete transaction was rolled back.`)
+                }
+                return result
+            }
             if (modelProbe) {
-                return query(`DELETE FROM log_model_probe_receipts AS source USING jsonb_to_recordset($1::jsonb) AS expected(
+                return verifyDeletion(await query(`DELETE FROM log_model_probe_receipts AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                     nonce text,source_event_id text,organization_id text,original_encoding text,created_at timestamptz,original_base64 text)
                     WHERE source.nonce=expected.nonce AND source.source_event_id=expected.source_event_id
                       AND source.organization_id=expected.organization_id AND source.original=decode(expected.original_base64,'base64')
                       AND source.original_encoding=expected.original_encoding AND source.created_at=expected.created_at
-                    RETURNING source.nonce`, [JSON.stringify(batch)])
+                    RETURNING source.nonce`, [JSON.stringify(batch)]))
             }
-            if (readinessAudit) return query(`DELETE FROM log_readiness_audit_receipts AS source USING jsonb_to_recordset($1::jsonb) AS expected(
+            if (readinessAudit) return verifyDeletion(await query(`DELETE FROM log_readiness_audit_receipts AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                 exec_id text,organization_id text,root_source_event_id text,chain_digest text,original_encoding text,created_at timestamptz,original_base64 text)
                 WHERE source.exec_id=expected.exec_id AND source.organization_id=expected.organization_id
                   AND source.root_source_event_id=expected.root_source_event_id AND source.chain_digest=expected.chain_digest
                   AND source.original=decode(expected.original_base64,'base64')
                   AND source.original_encoding=expected.original_encoding AND source.created_at=expected.created_at
-                RETURNING source.exec_id`, [JSON.stringify(batch)])
+                RETURNING source.exec_id`, [JSON.stringify(batch)]))
             if (analyze) return query(`DELETE FROM log_analyze_receipts AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                     key text,organization_id text,rule_id text,rule_version text,created_at timestamptz)
                 WHERE source.key=expected.key AND source.organization_id=expected.organization_id
                   AND source.rule_id=expected.rule_id AND source.rule_version=expected.rule_version
                   AND source.created_at=expected.created_at
                 RETURNING source.key`, [JSON.stringify(batch)])
-            return query(`DELETE FROM log_proxy_receipts AS source USING jsonb_to_recordset($1::jsonb) AS expected(
+            return verifyDeletion(await query(`DELETE FROM log_proxy_receipts AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                     key text,organization_id text,connection_id uuid,canonical_event_id text,original jsonb,created_at timestamptz)
                 WHERE source.key=expected.key AND source.organization_id=expected.organization_id
                   AND source.connection_id=expected.connection_id AND source.canonical_event_id=expected.canonical_event_id
                   AND source.original=expected.original AND source.created_at=expected.created_at
-                RETURNING source.key`, [JSON.stringify(batch)])
+                RETURNING source.key`, [JSON.stringify(batch)]))
         })
-        if (deletion.rows.length !== batch.length) throw new Error(`A ${kind} receipt changed during migration; its delete transaction was rolled back.`)
+        if (deletion.rows.length !== batch.length) {
+            if (!analyze) throw new Error(`A ${kind} receipt changed during migration; its delete transaction was rolled back.`)
+            // The Logs API has durably acknowledged every row in this batch
+            // before source cleanup. A receipt deleted concurrently is covered
+            // by that ACK. Keep the strict value-checked DELETE above; if any
+            // key still exists, it changed and must remain for retry.
+            const remaining = await withTransaction(async query => {
+                await query('SET LOCAL statement_timeout = \'20s\'')
+                return query(`SELECT EXISTS(SELECT 1 FROM log_analyze_receipts WHERE key=ANY($1::text[])) AS present`,
+                    [batch.map(row => String(row.key))])
+            })
+            if (remaining.rows[0]?.present) {
+                throw new Error('An analyze receipt changed during migration; changed source rows were retained for a safe retry.')
+            }
+        }
         if (analyze) analyzeAfterCtid = analyzeBatchTailCtid
         migrated += batch.length
         if (analyze && migrated % batchLimit === 0) console.log(JSON.stringify({ migrated, scope: 'analysis receipts' }))
+        if (analyze) await sleep(analyzeReceiptBatchPauseMs)
         if (!analyze) cursor = String(batch[batch.length - 1]![keyColumn])
     }
 }
@@ -1319,7 +1353,13 @@ async function main() {
 }
 
 if (import.meta.main) {
-    main().catch(error => {
+    main().catch(async error => {
+        try {
+            await closeDatabase()
+        } catch (closeError) {
+            console.error('Failed to close database pools after Logs migration error:',
+                closeError instanceof Error ? closeError.message : 'unknown error')
+        }
         console.error('Logs migration stopped without deleting an unacknowledged batch:', error instanceof Error ? error.message : 'unknown error')
         process.exitCode = 1
     })

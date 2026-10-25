@@ -701,9 +701,10 @@ test('transfers exact compressed model, readiness and general analysis receipts 
 
 test('selects descending bounded physical tail ranges and builds lock-bounded vacuum commands', async () => {
     const { migrationTailPageRange, migrationTailVacuumArgs, migrationTailVacuumInterval } = await import('../scripts/migrate-logs-to-service.ts')
-    expect(migrationTailVacuumInterval(undefined)).toBe(16 * 1024 ** 3)
-    expect(migrationTailVacuumInterval(String(4 * 1024 ** 3))).toBe(4 * 1024 ** 3)
-    expect(() => migrationTailVacuumInterval(String(1024 ** 3))).toThrow('must be an integer of at least')
+    expect(migrationTailVacuumInterval(undefined)).toBe(512 * 1024 ** 2)
+    expect(migrationTailVacuumInterval(String(512 * 1024 ** 2))).toBe(512 * 1024 ** 2)
+    expect(() => migrationTailVacuumInterval(String(256 * 1024 ** 2))).toThrow('must be an integer of at least')
+    expect(migrationTailPageRange(1024 ** 3, 8192)).toEqual({ lowerBlock: 65_536, upperBlock: 131_072 })
     expect(migrationTailPageRange(64 * 1024, 8192, undefined, 16 * 1024)).toEqual({ lowerBlock: 6, upperBlock: 8 })
     expect(migrationTailPageRange(64 * 1024, 8192, 6, 16 * 1024)).toEqual({ lowerBlock: 4, upperBlock: 6 })
     expect(migrationTailPageRange(64 * 1024, 8192, 2, 16 * 1024)).toEqual({ lowerBlock: 0, upperBlock: 2 })
