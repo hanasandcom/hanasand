@@ -6,7 +6,6 @@ import { useConsoleViewport } from './useConsoleViewport'
 import { useVmConsoleSession } from './useVmConsoleSession'
 import VMAccessActions from './vmAccessActions'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
-import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
 type VmConsoleProps = {
@@ -17,18 +16,17 @@ type VmConsoleProps = {
 }
 
 export default function VmConsole({ name, host, onHostChange, workspaceOrganizationId = '' }: VmConsoleProps) {
-    const router = useRouter()
-    const { organizationId, loading } = useWorkspace()
-    const workspaceMatches = host !== undefined || organizationId === workspaceOrganizationId
+    const { organizationId, loading, switching } = useWorkspace()
+    const workspaceMatches = host !== undefined || (!switching && organizationId === workspaceOrganizationId)
     useEffect(() => {
-        if (!loading && !workspaceMatches) router.replace('/vms')
-    }, [loading, router, workspaceMatches])
+        if (switching || (!loading && !workspaceMatches)) window.location.replace('/vms')
+    }, [loading, switching, workspaceMatches])
     const consoleTarget = host === 'ovh' ? 'OVH' : host === 'inspur' ? 'Inspur' : name || 'Host'
     const session = useVmConsoleSession(name, host, workspaceMatches && !loading)
     const viewport = useConsoleViewport(message => session.setStatus(message))
     const followBoot = session.boot.follow
 
-    if (name && (loading || !workspaceMatches)) return <div role='status' className='p-6 text-sm text-ui-muted'>Returning to virtual machines…</div>
+    if (name && !loading && !workspaceMatches) return <div role='status' className='p-6 text-sm text-ui-muted'>Returning to virtual machines…</div>
 
     return (
         <section
