@@ -117,6 +117,17 @@ fetch_apt_key() {
   done
   return 1
 }
+refresh_apt_metadata() {
+  local attempt
+  for attempt in 1 2 3 4; do
+    if run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 --error-on=any update -qq; then return 0; fi
+    if (( attempt < 4 )); then
+      set_stage "Package repository unavailable; retrying metadata refresh ($((attempt + 1))/4)"
+      sleep "$((attempt * 3))"
+    fi
+  done
+  return 1
+}
 set_stage 'Preparing selected services'
 services="$(printf '%s' '${selectedBase64}' | base64 -d)"
 apt_packages=()
@@ -200,46 +211,56 @@ if [[ '${usesDnf}' == 'true' ]]; then
 else
 if (( \${#apt_packages[@]} > 0 )); then
   set_stage 'Installing selected packages'
-  run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
-  apt_progress_file="$(mktemp /run/hanasand-apt-progress.XXXXXX)"
-  # Database packages can take several minutes to unpack and configure on small LXD guests.
-  run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
-  apt_install_pid=$!
-  last_apt_progress=''
-  apt_install_started=$SECONDS
-  apt_last_status=$SECONDS
-  update_apt_progress() {
-    local progress_line apt_progress_percent apt_progress
-    progress_line="$(tail -n 1 "$apt_progress_file" 2>/dev/null || true)"
-    if [[ "$progress_line" =~ ^pmstatus:([a-zA-Z0-9.+-]+):([0-9]{1,3})([.][0-9]+)?: ]]; then
-      apt_progress_percent=$((BASH_REMATCH[2] / 10 * 10))
-      apt_progress="\${BASH_REMATCH[1]} \${apt_progress_percent}%"
-      if [[ "$apt_progress" != "$last_apt_progress" ]]; then
-        set_stage "Installing \${apt_progress}"
-        last_apt_progress=$apt_progress
+  refresh_apt_metadata
+  apt_install_once() {
+    apt_progress_file="$(mktemp /run/hanasand-apt-progress.XXXXXX)"
+    # Database packages can take several minutes to unpack and configure on small LXD guests.
+    run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
+    apt_install_pid=$!
+    last_apt_progress=''
+    apt_install_started=$SECONDS
+    apt_last_status=$SECONDS
+    update_apt_progress() {
+      local progress_line apt_progress_percent apt_progress
+      progress_line="$(tail -n 1 "$apt_progress_file" 2>/dev/null || true)"
+      if [[ "$progress_line" =~ ^pmstatus:([a-zA-Z0-9.+-]+):([0-9]{1,3})([.][0-9]+)?: ]]; then
+        apt_progress_percent=$((BASH_REMATCH[2] / 10 * 10))
+        apt_progress="\${BASH_REMATCH[1]} \${apt_progress_percent}%"
+        if [[ "$apt_progress" != "$last_apt_progress" ]]; then
+          set_stage "Installing \${apt_progress}"
+          last_apt_progress=$apt_progress
+          apt_last_status=$SECONDS
+        fi
+      fi
+    }
+    while kill -0 "$apt_install_pid" 2>/dev/null; do
+      update_apt_progress
+      if (( SECONDS - apt_last_status >= 15 )); then
+        apt_elapsed=$((SECONDS - apt_install_started))
+        apt_minutes=$((apt_elapsed / 60))
+        apt_seconds=$((apt_elapsed % 60))
+        set_stage "Installing selected packages (\${apt_minutes}m \${apt_seconds}s elapsed)"
         apt_last_status=$SECONDS
       fi
+      sleep 2
+    done
+    update_apt_progress
+    if wait "$apt_install_pid"; then
+      rm -f "$apt_progress_file"
+      return 0
+    else
+      apt_status=$?
+      rm -f "$apt_progress_file"
+      return "$apt_status"
     fi
   }
-  while kill -0 "$apt_install_pid" 2>/dev/null; do
-    update_apt_progress
-    if (( SECONDS - apt_last_status >= 15 )); then
-      apt_elapsed=$((SECONDS - apt_install_started))
-      apt_minutes=$((apt_elapsed / 60))
-      apt_seconds=$((apt_elapsed % 60))
-      set_stage "Installing selected packages (\${apt_minutes}m \${apt_seconds}s elapsed)"
-      apt_last_status=$SECONDS
-    fi
-    sleep 2
-  done
-  update_apt_progress
-  if wait "$apt_install_pid"; then
-    rm -f "$apt_progress_file"
+  if apt_install_once; then
+    :
   else
     apt_status=$?
-    rm -f "$apt_progress_file"
-    report_setup_error "$LINENO"
-    exit "$apt_status"
+    set_stage 'Package download failed; refreshing metadata before retrying'
+    refresh_apt_metadata
+    apt_install_once || { apt_status=$?; report_setup_error "$LINENO"; exit "$apt_status"; }
   fi
 fi
 fi

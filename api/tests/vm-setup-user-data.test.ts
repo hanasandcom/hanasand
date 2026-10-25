@@ -55,7 +55,7 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('docker.asc')
     expect(script).toContain('fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc')
     expect(script).toContain('urlopen(sys.argv[1], timeout=30)')
-    expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
+    expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 --error-on=any update -qq')
     expect(script).toContain('Dpkg::Progress-Fd=3 install -y --no-install-recommends')
     expect(script).toContain('set_stage "Installing ${apt_progress}"')
     expect(script).toContain('while kill -0 "$apt_install_pid"')
@@ -217,7 +217,7 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     expect(script).toContain('systemctl enable --now postgresql')
     expect(script).toContain('node --version; npm --version')
     expect(script).toContain('wait_for_ready PostgreSQL pg_isready')
-    expect(script.match(/run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq/g)).toHaveLength(1)
+    expect(script.match(/run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 --error-on=any update -qq/g)).toHaveLength(1)
     expect(script.match(/run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
     expect(script).not.toContain('nodesource.com/setup_24.x')
     execFileSync('bash', ['-n'], { input: script })
@@ -311,7 +311,7 @@ test('PostgreSQL readiness retries transient startup failures before completing 
             .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
             .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
             .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
-            .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.01\n  done\n  update_apt_progress')
+            .replaceAll('sleep 2', 'sleep 0.01')
             .replace('    sleep 1\n  done', '    sleep 0.01\n  done')
 
         const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
@@ -352,8 +352,8 @@ test('MySQL and Redis readiness retry transient startup failures', () => {
                 .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
                 .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
                 .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
-                .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.01\n  done\n  update_apt_progress')
-                .replace('    sleep 1\n  done', '    sleep 0.01\n  done')
+                .replaceAll('sleep 2', 'sleep 0.01')
+                .replaceAll('sleep 1', 'sleep 0.01')
             const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
             if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)
             expect(readFileSync(readyCountPath, 'utf8')).toBe('3')
@@ -388,7 +388,7 @@ test('apt package installation writes meaningful progress to the VM status file'
             .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
             .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
             .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
-            .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.1\n  done\n  update_apt_progress')
+            .replaceAll('sleep 2', 'sleep 0.1')
             .replace('set_stage() { setup_stage=$1; write_state Provisioning "$1"; }', `set_stage() { setup_stage=$1; write_state Provisioning "$1"; printf '%s\\n' "$1" >> '${progressLog}'; }`)
 
         const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
@@ -433,13 +433,62 @@ test('apt status reports elapsed time when package configuration emits no progre
     }
 })
 
+test('APT metadata and package downloads retry transient repository failures and finish setup', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-apt-retry-'))
+    try {
+        const bin = join(directory, 'bin')
+        const statusPath = join(directory, 'status')
+        const progressLog = join(directory, 'progress.log')
+        const updateCount = join(directory, 'update-count')
+        const installCount = join(directory, 'install-count')
+        mkdirSync(bin)
+        const fakeAptGet = join(bin, 'apt-get')
+        writeFileSync(fakeAptGet, [
+            '#!/usr/bin/env bash',
+            'if [[ " $* " == *" update "* ]]; then',
+            `  count=$(cat '${updateCount}' 2>/dev/null || printf 0)`,
+            '  count=$((count + 1))',
+            `  printf '%s' "$count" > '${updateCount}'`,
+            '  if (( count == 1 )); then printf "Temporary failure resolving repository\\n" >&2; exit 100; fi',
+            '  exit 0',
+            'fi',
+            `count=$(cat '${installCount}' 2>/dev/null || printf 0)`,
+            'count=$((count + 1))',
+            `printf '%s' "$count" > '${installCount}'`,
+            'if (( count == 1 )); then printf "Temporary failure resolving package mirror\\n" >&2; exit 100; fi',
+            'exit 0',
+        ].join('\n'))
+        chmodSync(fakeAptGet, 0o755)
+
+        const cloudInit = vmSetupUserData('apt-retry-vm', { aptPackages: ['ripgrep'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content
+            .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
+            .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
+            .replace('sleep "$((attempt * 3))"', 'sleep 0')
+            .replaceAll('sleep 2', 'sleep 0.01')
+            .replace('set_stage() { setup_stage=$1; write_state Provisioning "$1"; }', `set_stage() { setup_stage=$1; write_state Provisioning "$1"; printf '%s\\n' "$1" >> '${progressLog}'; }`)
+
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
+        if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)
+        expect(readFileSync(updateCount, 'utf8')).toBe('3')
+        expect(readFileSync(installCount, 'utf8')).toBe('2')
+        expect(readFileSync(progressLog, 'utf8')).toContain('Package repository unavailable; retrying metadata refresh (2/4)')
+        expect(readFileSync(progressLog, 'utf8')).toContain('Package download failed; refreshing metadata before retrying')
+        expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
+})
+
 test('AI-selected Ubuntu packages are installed as package names, never shell commands', () => {
     const cloudInit = vmSetupUserData('custom-vm', { services: [], aptPackages: ['ruby-full', 'ripgrep'] })
     const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
     const script = config.write_files[0]?.content || ''
 
     expect(script).toContain('apt_packages+=( \'ripgrep\' \'ruby-full\' )')
-    expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
+    expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 --error-on=any update -qq')
     expect(script).toContain('Dpkg::Progress-Fd=3 install -y --no-install-recommends "${apt_packages[@]}"')
     expect(() => vmSetupUserData('custom-vm', { services: [], aptPackages: ['curl;touch /tmp/pwned'] })).toThrow('valid Debian package identifiers')
     execFileSync('bash', ['-n'], { input: script })
@@ -482,14 +531,14 @@ test('a stalled package install hits its deadline and reports a visible setup er
         const script = config.write_files[0]?.content
             .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${directory}/status'`)
             .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
-            .replace('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq', 'run_bounded 1 sleep 0')
+            .replace('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 --error-on=any update -qq', 'run_bounded 1 sleep 0')
             .replace('run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "${apt_packages[@]}" 3>"$apt_progress_file" &', 'run_bounded 1 sleep 3 &')
 
         const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8' })
         expect(result.status).not.toBe(0)
         const [state, message] = readFileSync(join(directory, 'status'), 'utf8').trim().split('\t')
         expect(state).toBe('Error')
-        expect(message).toMatch(/^Service setup failed during Installing selected packages\./)
+        expect(message).toMatch(/^Service setup failed during Package download failed; refreshing metadata before retrying\./)
     } finally {
         rmSync(directory, { recursive: true, force: true })
     }
