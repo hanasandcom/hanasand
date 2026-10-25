@@ -26,12 +26,12 @@ export default async function getVM(req: FastifyRequest, res: FastifyReply) {
         } else if (organizationId) {
             const query = await loadSQL('getVmsByOrganization.sql')
             result = await run(query, [organizationId, viewer.id])
-        } else if (user || !viewer.admin) {
+        } else {
+            // A request without organization context represents the viewer's
+            // personal workspace. Never fall back to the global inventory for
+            // administrators: that list includes organization-owned VMs.
             const query = await loadSQL('getVmsByUser.sql')
             result = await run(query, [user || viewer.id])
-        } else {
-            const query = await loadSQL('getFullVmList.sql')
-            result = await run(query)
         }
 
         if (result.rows.length === 0) {
