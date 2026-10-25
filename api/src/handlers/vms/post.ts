@@ -81,10 +81,6 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
     const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.minecraft_addons, body.custom_apt_packages, body.website, body.project_files)
     if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
-    if (config.lxd_project && provisionOptions.os === 'debian-13') {
-        return res.status(400).send({ error: 'This VM host does not support the selected operating system yet.' })
-    }
-
     if (!canAssignOwner && !/^[a-z][a-z0-9-]{0,61}[a-z0-9]$/.test(name)) return res.status(400).send({ error: 'Use 2–63 lowercase letters, numbers or hyphens, starting with a letter.' })
 
     try {

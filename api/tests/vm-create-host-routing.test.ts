@@ -4,7 +4,9 @@ import { resolveVmHostId } from '../src/utils/vms/hostConfig.ts'
 
 const calls: Array<{ host: string; path: string; method?: string; body?: BodyInit | null }> = []
 const databaseCalls: Array<{ sql: string; params: unknown[] }> = []
+const localProvisionCalls: Array<{ name: string; options: unknown }> = []
 let existingVm: Record<string, unknown> | undefined
+let lxdProject: string | undefined
 let failedProvisionRequests = 0
 let queuedProvisionResponses: Response[] = []
 let queuedStatusResponses: Response[] = []
@@ -13,7 +15,7 @@ let releaseStatusResponse: (() => void) | undefined
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: any) => ({ valid: Boolean(req.headers.id), id: req.headers.id }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async (req: any) => ({ valid: req.headers.id === 'admin' }) }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false }))
-mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
+mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur', get lxd_project() { return lxdProject } } }))
 mock.module('../src/utils/db.ts', () => ({
     withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work(),
     default: async (sql: string, params: unknown[] = []) => {
@@ -53,7 +55,7 @@ mock.module('../src/utils/vms/hostTransport.ts', () => ({
 }))
 mock.module('../src/utils/vms/lxd.ts', () => ({
     canUseLocalLxd: async () => { throw new Error('Remote creation must not use this API host LXD socket.') },
-    provisionLocalLxdInstance: async () => { throw new Error('Remote creation must not use this API host LXD socket.') },
+    provisionLocalLxdInstance: async (name: string, options: unknown) => { localProvisionCalls.push({ name, options }); return { name } },
 }))
 mock.module('../src/utils/vms/syncUserCertificatesToVm.ts', () => ({ default: async () => {} }))
 mock.module('../src/utils/logs/recordLog.ts', () => ({ default: async () => {} }))
@@ -62,7 +64,7 @@ mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () 
 const { default: postVM } = await import('../src/handlers/vms/post.ts')
 const app = Fastify()
 app.post('/vm', postVM)
-beforeEach(() => { calls.length = 0; databaseCalls.length = 0; existingVm = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = []; deferStatusResponse = false; releaseStatusResponse = undefined })
+beforeEach(() => { calls.length = 0; databaseCalls.length = 0; localProvisionCalls.length = 0; existingVm = undefined; lxdProject = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = []; deferStatusResponse = false; releaseStatusResponse = undefined })
 afterAll(async () => { await app.close() })
 async function waitFor(check: () => boolean) {
     for (let attempt = 0; attempt < 100 && !check(); attempt++) await Bun.sleep(2)
@@ -172,6 +174,23 @@ test('VM creation forwards Debian and Enterprise Linux images to the configured 
     const centos = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'centos-vm', os: 'centos-stream-10', services: ['nodejs', 'postgresql'] } })
     expect(centos.statusCode).toBe(201)
     expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'centos-stream-10', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['nodejs', 'postgresql'], minecraftEulaAccepted: false }))
+})
+
+test('VM creation allows Debian 13 on a host with a configured local LXD project', async () => {
+    lxdProject = 'hns-stage'
+    const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'debian-stage-vm', os: 'debian-13' } })
+
+    expect(response.statusCode).toBe(201)
+    expect(localProvisionCalls).toEqual([{
+        name: 'debian-stage-vm',
+        options: {
+            os: 'debian-13',
+            resources: { cpu: '1', memory: '2GiB', disk: '10GiB' },
+            services: [],
+            minecraftEulaAccepted: false,
+        },
+    }])
+    expect(calls).toHaveLength(0)
 })
 
 test('VM creation forwards Ubuntu Desktop and requires the large resource plan', async () => {
