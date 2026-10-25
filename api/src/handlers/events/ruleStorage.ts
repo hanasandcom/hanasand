@@ -8,7 +8,7 @@ import { eventConditionEvidence } from './sigma.ts'
 import { BUILTIN_RULES, builtinDefinition, defaultRuleDefinition, platformRetentionRuleIds } from './ruleCatalog.ts'
 import type { Rule } from './types.ts'
 
-export class RuleConflict extends Error { constructor() { super('This rule changed since you opened it. Reload the rule before saving again.') } }
+export class RuleConflict extends Error { constructor(message = 'This rule changed since you opened it. Reload the rule before saving again.') { super(message) } }
 
 export async function saveRule(req: FastifyRequest, access: { organizationId: string, userId: string }, rule: Rule, action: string, expectedVersion?: string, preserveEnabled = false) {
     const saved = await withTransaction(async query => {
@@ -16,6 +16,9 @@ export async function saveRule(req: FastifyRequest, access: { organizationId: st
         await query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`event-rule:${access.organizationId}:${rule.id}`])
         const existing = await query('SELECT * FROM rules WHERE organization_id = $1 AND rule_id = $2 FOR UPDATE', [access.organizationId, rule.id])
         const row = existing.rows[0]
+        const activeReprocess = await query(`SELECT 1 FROM rule_reprocess_jobs WHERE organization_id=$1 AND rule_id=$2
+            AND status IN ('queued','running') LIMIT 1`, [access.organizationId, rule.id])
+        if (activeReprocess.rows.length) throw new RuleConflict('This rule cannot be changed while stored-log processing is active. It will be editable after the run completes.')
         const builtin = BUILTIN_RULES.find(item => item.id === rule.id)
         const version = String(row?.version || builtin?.version || '0')
         if (expectedVersion !== undefined && expectedVersion !== version) throw new RuleConflict()

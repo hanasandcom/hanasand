@@ -4,10 +4,12 @@ import { eventProtectionRule, eventProtectionDefinition } from '../../src/utils/
 export const state = {
     role: 'owner', valid: true, auditFailure: false, systemAdmin: false,
     rows: [] as any[], audits: [] as any[], findings: [] as any[], events: [] as any[],
+    activeReprocessRules: new Set<string>(),
 }
 const query = async (sql: string, p: any[] = []): Promise<any> => {
     if (sql.includes('FROM organizations')) return { rows: p[0] === 'org-a' ? [{ role: state.role }] : [] }
     if (sql.includes('pg_advisory_xact_lock')) return { rows: [] }
+    if (sql.includes('FROM rule_reprocess_jobs')) return { rows: state.activeReprocessRules.has(`${p[0]}:${p[1]}`) ? [{ '?column?': 1 }] : [] }
     if (sql.includes('FROM rules')) return { rows: state.rows.filter(row => row.organization_id === p[0] && (!sql.includes('rule_id = $2') || row.rule_id === p[1])) }
     if (sql.includes('INSERT INTO rules')) {
         const row = { id: p[0], organization_id: p[1], rule_id: p[2], version: p[3], name: p[4], family: p[5], severity: p[6], explanation: p[7], definition: JSON.parse(p[8]), source: p[9], source_reference: p[10], enabled: p[11] }
@@ -65,6 +67,7 @@ beforeEach(() => {
     state.valid = true
     state.auditFailure = false
     state.systemAdmin = false
+    state.activeReprocessRules.clear()
 })
 export { eventProtectionRule, eventProtectionDefinition }
 export const builtin = 'network.signature_alert.v1'

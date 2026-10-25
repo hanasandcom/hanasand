@@ -69,6 +69,23 @@ test('rejects stale edits and never commits a rule without its audit event', asy
     expect(state.audits).toHaveLength(1)
 })
 
+test('rejects UI and API rule changes while stored-log processing is active', async () => {
+    state.systemAdmin = true
+    state.rows = [{ id: 'custom-rule', organization_id: 'org-a', rule_id: 'custom.log_drop.v1', version: '1', name: 'Drop old logs', family: 'Custom', severity: 'low', explanation: 'Drop routine stored log records.', source: 'owned', enabled: true, definition: { match: 'all', stage: 'analyze', action: 'drop', conditions: [{ path: 'message', operator: 'equals', value: 'noise' }] } }]
+    state.activeReprocessRules.add('org-a:custom.log_drop.v1')
+
+    const disabled = reply()
+    await postRuleAction(request('custom.log_drop.v1', { action: 'disable' }), disabled as any)
+    expect(disabled.statusCode).toBe(409)
+    expect(state.rows[0].enabled).toBe(true)
+
+    const edited = reply()
+    await putRule(request('custom.log_drop.v1', { ...edit, version: '1', conditions: [{ path: 'message', operator: 'equals', value: 'other' }], action: 'drop' }), edited as any)
+    expect(edited.statusCode).toBe(409)
+    expect(state.rows[0].version).toBe('1')
+    expect(state.rows[0].definition.conditions[0].value).toBe('noise')
+})
+
 test('membership is required for detail/history, and only owner/admin may edit', async () => {
     for (const handler of [getRule, putRule]) {
         const forbidden = reply()
