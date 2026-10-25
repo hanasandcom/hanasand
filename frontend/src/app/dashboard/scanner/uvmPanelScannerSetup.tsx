@@ -43,8 +43,8 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
                         : servicesPaused ? item.integration === 'image-worker' || item.integration === 'grype' ? 'Worker stopped' : 'Stopped'
                             : item.integration === 'image-worker' || item.integration === 'grype' ? 'Integrated · image worker'
                                 : item.integration === 'zap-addon' ? 'Included in ZAP'
-                                : outputCheckPending && engine?.status === 'available' ? 'Ready · output check pending'
-                                    : engine?.status || 'Unavailable'
+                                    : outputCheckPending && engine?.status === 'available' ? 'Ready · output check pending'
+                                        : engine?.status || 'Unavailable'
         const statusClass = item.setup !== 'configured' ? 'text-ui-muted'
             : servicesPaused ? 'text-ui-warning'
                 : (engine?.status === 'available' && !outputCheckPending)
