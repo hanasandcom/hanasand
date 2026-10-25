@@ -7,6 +7,21 @@ import { writeVmDetails, type VmDetails } from './vmDetails.ts'
 import { vmSetupUserData } from './vmSetupUserData.ts'
 import type { VmProvisionOptions } from './provisionOnHost.ts'
 
+const linuxContainersImageServer = 'https://images.linuxcontainers.org'
+
+function imageSource(os: NonNullable<VmProvisionOptions['os']>): { server: string; alias: string } {
+    switch (os) {
+        case 'ubuntu-22.04': return { server: config.lxd_image_server, alias: '22.04' }
+        case 'ubuntu-24.04': return { server: config.lxd_image_server, alias: '24.04' }
+        case 'ubuntu-26.04': return { server: config.lxd_image_server, alias: '26.04' }
+        case 'ubuntu-24.04-desktop': return { server: linuxContainersImageServer, alias: 'ubuntu/24.04/desktop' }
+        case 'debian-13': return { server: linuxContainersImageServer, alias: 'debian/13/cloud' }
+        case 'rocky-9': return { server: linuxContainersImageServer, alias: 'rockylinux/9/cloud' }
+        case 'centos-stream-10': return { server: linuxContainersImageServer, alias: 'centos/10-Stream/cloud' }
+        default: throw new Error('Unsupported VM image.')
+    }
+}
+
 type LxdRequest = <T>(path: string, options?: LxdRequestOptions) => Promise<LxdResponse<T>>
 type VmDetailsWriter = (details: VmDetails) => Promise<unknown>
 
@@ -39,6 +54,7 @@ export async function canUseLocalLxd() {
 export async function provisionLocalLxdInstance(name: string, options: VmProvisionOptions = {}) {
     const existing = await getLocalLxdInstance(name).catch(() => null)
     const selectedOs = options.os || 'ubuntu-24.04'
+    const selectedImage = imageSource(selectedOs)
     const selectedResources = options.resources || { cpu: '1', memory: '2GiB', disk: '10GiB' }
     const selectedServices = [...new Set(options.services || [])].sort()
     const selectedAptPackages = [...new Set(options.aptPackages || [])].sort()
@@ -76,9 +92,9 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
                 source: {
                     type: 'image',
                     mode: 'pull',
-                    server: config.lxd_image_server,
+                    server: selectedImage.server,
                     protocol: 'simplestreams',
-                    alias: selectedOs.replace('ubuntu-', ''),
+                    alias: selectedImage.alias,
                 },
             },
         })

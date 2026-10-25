@@ -8,6 +8,10 @@ const setupStatePath = '/var/lib/hanasand-vm-setup/status'
 export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     validateVmLoginName(name)
     const services = [...new Set(options.services || [])]
+    const isRhel = options.os === 'rocky-9' || options.os === 'centos-stream-10'
+    if (isRhel && services.some(service => !['docker', 'nginx', 'website'].includes(service))) {
+        throw new Error('Rocky Linux and CentOS currently support Docker, Nginx, and Website setup.')
+    }
     const aptPackages = normalizeUbuntuAptPackages(options.aptPackages)
     if (!aptPackages) {
         throw new Error('Custom Ubuntu package names must be valid Debian package identifiers, with no more than 12 packages.')
@@ -33,7 +37,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     }))
     const minecraftAddons = options.minecraftAddons || []
     if (minecraftAddons.length && !services.includes('minecraft-java')) throw new Error('Minecraft add-ons require the Minecraft Java service.')
-    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages)
+    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, isRhel)
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -62,14 +66,16 @@ function yamlObject(value: Record<string, unknown>) {
     return JSON.stringify(value, null, 2)
 }
 
-function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string) {
+function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, isRhel: boolean) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
     const minecraft = services.includes('minecraft-java')
         ? minecraftSetup(name, minecraftType, minecraftMemoryGb, minecraftAddons)
         : ''
+    const webRoot = isRhel ? '/usr/share/nginx/html' : '/var/www/html'
+    const webOwner = isRhel ? 'root:root' : 'www-data:www-data'
     const website = websiteBase64
-        ? `install -d -m 0755 /var/www/html\nprintf '%s' '${websiteBase64}' | base64 -d > /var/www/html/index.html\nchown www-data:www-data /var/www/html/index.html\n`
+        ? `install -d -m 0755 '${webRoot}'\nprintf '%s' '${websiteBase64}' | base64 -d > '${webRoot}/index.html'\nchown ${webOwner} '${webRoot}/index.html'\n`
         : ''
     const installCustomPackages = customAptPackages.length ? `apt_packages+=( ${customAptPackages.map(packageName => `'${packageName}'`).join(' ')} )` : ''
     return `#!/usr/bin/env bash
@@ -137,13 +143,32 @@ if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep
 if printf '%s' "$services" | grep -q '"minecraft-java"'; then apt_packages+=(curl jq tar iproute2); fi
 ${installCustomPackages}
 if printf '%s' "$services" | grep -q '"docker"'; then
+  if [[ '${isRhel}' == 'true' ]]; then
+    set_stage 'Preparing Docker repository'
+    run_bounded 120 dnf install -y dnf-plugins-core
+    run_bounded 60 dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+  else
   install -d -m 0755 /etc/apt/keyrings
   fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc
   chmod a+r /etc/apt/keyrings/docker.asc
   . /etc/os-release
   printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\\n' "$(dpkg --print-architecture)" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
+  fi
   apt_packages+=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
 fi
+if [[ '${isRhel}' == 'true' ]]; then
+  if (( \${#apt_packages[@]} > 0 )); then
+    set_stage 'Installing selected packages'
+    packages=()
+    for package in "\${apt_packages[@]}"; do
+      case "$package" in
+        ca-certificates|curl|unzip|nginx|docker-ce|docker-ce-cli|containerd.io|docker-buildx-plugin|docker-compose-plugin) packages+=("$package") ;;
+        *) printf 'Unsupported Rocky Linux package: %s\\n' "$package" >&2; exit 1 ;;
+      esac
+    done
+    run_bounded 900 dnf install -y "\${packages[@]}"
+  fi
+else
 if (( \${#apt_packages[@]} > 0 )); then
   set_stage 'Installing selected packages'
   run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
@@ -187,6 +212,7 @@ if (( \${#apt_packages[@]} > 0 )); then
     report_setup_error "$LINENO"
     exit "$apt_status"
   fi
+fi
 fi
 if printf '%s' "$services" | grep -q '"nodejs"'; then
   set_stage 'Installing Node.js 24 LTS'

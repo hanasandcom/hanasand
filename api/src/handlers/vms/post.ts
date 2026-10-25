@@ -81,7 +81,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
     const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.minecraft_addons, body.custom_apt_packages, body.website, body.project_files)
     if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
-    if (config.lxd_project && ['debian-13', 'rocky-9', 'centos-stream-10'].includes(provisionOptions.os || '')) {
+    if (config.lxd_project && provisionOptions.os === 'debian-13') {
         return res.status(400).send({ error: 'This VM host does not support the selected operating system yet.' })
     }
 
@@ -277,6 +277,8 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     if (!selectedAptPackages) return null
     if ((os === 'rocky-9' || os === 'centos-stream-10') && selectedAptPackages.length) return null
     const selectedServices = [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)]
+    if ((os === 'rocky-9' || os === 'centos-stream-10')
+        && selectedServices.some(service => !['docker', 'nginx', 'website'].includes(service))) return null
     if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null
     const selectedResources = (resources || { cpu: '1', memory: '2GiB', disk: '10GiB' }) as NonNullable<VmProvisionOptions['resources']>
     const selectedMinecraftType = (minecraftServerType || 'PAPER') as NonNullable<VmProvisionOptions['minecraftServerType']>

@@ -73,6 +73,27 @@ test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Do
     expect(body.config['cloud-init.user-data']).toContain('apt_packages+=( \'ripgrep\' )')
 })
 
+test.serial('Rocky Linux uses its supported image alias and installs Docker and Nginx with DNF', async () => {
+    await provisionLocalLxdInstance('rocky-vm', {
+        os: 'rocky-9',
+        resources: { cpu: '5', memory: '10GiB', disk: '40GiB' },
+        services: ['docker', 'nginx', 'website'],
+        websiteHtml: '<!doctype html><title>Hei</title>',
+    })
+
+    const body = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as {
+        config: Record<string, string>
+        source: { server: string; alias: string }
+    }
+    expect(body.source).toMatchObject({ server: 'https://images.linuxcontainers.org', alias: 'rockylinux/9/cloud' })
+    expect(body.config['limits.cpu']).toBe('5')
+    expect(body.config['limits.memory']).toBe('10GiB')
+    expect(body.config['cloud-init.user-data']).toContain('dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo')
+    expect(body.config['cloud-init.user-data']).toContain('dnf install -y')
+    expect(body.config['cloud-init.user-data']).toContain('/usr/share/nginx/html/index.html')
+    expect(body.config['cloud-init.user-data']).toContain('if [[ \'true\' == \'true\' ]]')
+})
+
 test.serial('LXD applies a valid custom CPU and memory allocation to the instance limits', async () => {
     await provisionLocalLxdInstance('custom-vm', {
         os: 'ubuntu-24.04',
