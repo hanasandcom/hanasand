@@ -48,6 +48,7 @@ export type AssetViewProps = {
     onRemoveZapAuthentication: (asset: UvmAsset) => void
     onScan: (asset: UvmAsset) => void
     onScanWithNaabu: (asset: UvmAsset) => void
+    onScanWithMasscan: (asset: UvmAsset) => void
     onScanWithAngryIp: (asset: UvmAsset) => void
     onScanWithTenable: (asset: UvmAsset) => void
     onScanWithGvm: (asset: UvmAsset) => void
@@ -96,6 +97,7 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
     const tenableReady = data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.id === scheduleScanId && scan.enabled)
     const canScan = props.servicesPaused !== true && asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'nmap' && engine.status === 'available')
     const canNaabu = props.servicesPaused !== true && asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'naabu' && engine.status === 'available')
+    const canMasscan = props.servicesPaused !== true && asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'masscan' && engine.status === 'available')
     const canAngryIp = props.servicesPaused !== true && asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'angry-ip-scanner' && engine.status === 'available')
     const autoScheduleReady = scheduleMode !== 'automatic' || (
         schedulePlan.some(choice => choice.engine === 'tenable-vm' || choice.engine === 'gvm')
@@ -167,6 +169,7 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
                 {props.assetNmapProfiles[asset.id] === 'tcp-top-1000-safe-vuln' && <UvmHelp label='Nmap NSE checks' text='Runs scripts tagged both safe and vuln. Nmap cannot guarantee no adverse effects. Results are heuristic evidence and do not confirm exploitability.' />}
                 <button type='button' onClick={() => props.onScan(asset)} disabled={busy === asset.id || !canScan || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md bg-ui-text px-3 py-2 text-xs font-semibold text-ui-canvas disabled:opacity-50'>Run Nmap</button>
                 {data.engines.some(engine => engine.id === 'naabu') && <button type='button' onClick={() => props.onScanWithNaabu(asset)} disabled={busy === `${asset.id}:naabu` || !canNaabu || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{props.servicesPaused ? 'Naabu · stopped' : busy === `${asset.id}:naabu` ? 'Queueing…' : 'Run Naabu'}</button>}
+                {data.engines.some(engine => engine.id === 'masscan') && <button type='button' onClick={() => props.onScanWithMasscan(asset)} disabled={busy === `${asset.id}:masscan` || !canMasscan || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{props.servicesPaused ? 'Masscan · stopped' : busy === `${asset.id}:masscan` ? 'Queueing…' : 'Run Masscan · bounded SYN inventory'}</button>}
                 {data.engines.some(engine => engine.id === 'angry-ip-scanner') && <button type='button' onClick={() => props.onScanWithAngryIp(asset)} disabled={busy === `${asset.id}:angry-ip-scanner` || !canAngryIp || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{props.servicesPaused ? 'Angry IP · stopped' : busy === `${asset.id}:angry-ip-scanner` ? 'Queueing…' : 'Run Angry IP reachability'}</button>}
                 {data.tenableIntegration?.configured && data.tenableScans.length > 0 && <TenableScanControl asset={asset} props={props} />}
                 {data.engines.some(engine => engine.id === 'gvm' && engine.status === 'available') && <button type='button' onClick={() => props.onScanWithGvm(asset)} disabled={props.servicesPaused === true || busy === `${asset.id}:gvm` || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{props.servicesPaused ? 'Greenbone · stopped' : busy === `${asset.id}:gvm` ? 'Queueing…' : 'Run Greenbone scan'}</button>}

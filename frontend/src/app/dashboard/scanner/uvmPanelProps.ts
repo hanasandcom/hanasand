@@ -44,6 +44,7 @@ export type UvmPanelProps = {
     removeZapAuthenticationAction: (assetId: string) => Promise<{ authentication: UvmZapAuthenticationStatus }>
     runScanAction: (assetId: string, authorized: boolean, profile: NmapScanProfile) => Promise<{ run: UvmRun }>
     runNaabuAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runMasscanAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runAngryIpAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     scheduleAction: (assetId: string, input: { enabled: boolean, intervalMinutes: number, authorized: boolean, engines: UvmEngineSelection[], mode: UvmAssessmentMode }) => Promise<{ asset: UvmAsset }>
     configureTenableAction: (input: { region: 'us' | 'eu' | 'de' | 'au' | 'ca' | 'jp', accessKey: string, secretKey: string }) => Promise<{ integration: NonNullable<UvmDashboard['tenableIntegration']> }>

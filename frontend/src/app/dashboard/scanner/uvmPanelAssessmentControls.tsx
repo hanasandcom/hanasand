@@ -6,8 +6,8 @@ import { UvmHelp } from './uvmPanelHelp'
 import { buildUvmAssessmentEnginePlan } from './uvmPanelEnginePlans'
 import { getScannerSuiteCatalog } from './scannerSuiteCatalog'
 
-export type UvmAssessmentEngineId = 'nmap' | 'naabu' | 'angry-ip-scanner' | 'gvm' | 'tenable-vm' | 'zap' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f'
-export const UVM_ASSET_ASSESSMENT_ENGINE_IDS: UvmAssessmentEngineId[] = ['nmap', 'naabu', 'angry-ip-scanner', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f']
+export type UvmAssessmentEngineId = 'nmap' | 'naabu' | 'masscan' | 'angry-ip-scanner' | 'gvm' | 'tenable-vm' | 'zap' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f'
+export const UVM_ASSET_ASSESSMENT_ENGINE_IDS: UvmAssessmentEngineId[] = ['nmap', 'naabu', 'masscan', 'angry-ip-scanner', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f']
 type NmapProfile = NetworkScanProfile
 
 export function getSafeReadyAssessmentEngines(data: UvmDashboard, servicesPaused: boolean): UvmAssessmentEngineId[] {
@@ -44,8 +44,8 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
     const automaticPlan = buildUvmAssessmentEnginePlan(selectedReadyEngines, scanId, nmapProfile, 'automatic')
     const sequence = (mode === 'automatic' ? automaticPlan.map(choice => choice.engine) : selectedReadyEngines) as UvmAssessmentEngineId[]
     const autoReady = !servicesPaused && ['nmap', 'httpx'].every(id => data.engines.some(engine => engine.id === id && engine.status === 'available'))
-    const engineLabel = (id: UvmAssessmentEngineId) => id === 'nmap' ? 'Nmap' : id === 'naabu' ? 'Naabu' : id === 'angry-ip-scanner' ? 'Angry IP Scanner' : id === 'gvm' ? 'Greenbone' : id === 'zap' ? 'OWASP ZAP' : id === 'testssl' ? 'testssl.sh' : id === 'nuclei' ? 'Nuclei' : id === 'nikto' ? 'Nikto' : id === 'sslyze' ? 'SSLyze' : id === 'wapiti' ? 'Wapiti' : id === 'whatweb' ? 'WhatWeb' : id === 'httpx' ? 'httpx' : id === 'tlsx' ? 'tlsx' : id === 'katana' ? 'Katana' : id === 'wafw00f' ? 'WAFW00F' : 'Nessus via Tenable VM'
-    const engineProfile = (id: UvmAssessmentEngineId) => id === 'angry-ip-scanner' ? 'authorized IPv4 reachability' : id === 'naabu' ? 'top 100 TCP ports · 25 probes/second' : id === 'nmap'
+    const engineLabel = (id: UvmAssessmentEngineId) => id === 'nmap' ? 'Nmap' : id === 'naabu' ? 'Naabu' : id === 'masscan' ? 'Masscan' : id === 'angry-ip-scanner' ? 'Angry IP Scanner' : id === 'gvm' ? 'Greenbone' : id === 'zap' ? 'OWASP ZAP' : id === 'testssl' ? 'testssl.sh' : id === 'nuclei' ? 'Nuclei' : id === 'nikto' ? 'Nikto' : id === 'sslyze' ? 'SSLyze' : id === 'wapiti' ? 'Wapiti' : id === 'whatweb' ? 'WhatWeb' : id === 'httpx' ? 'httpx' : id === 'tlsx' ? 'tlsx' : id === 'katana' ? 'Katana' : id === 'wafw00f' ? 'WAFW00F' : 'Nessus via Tenable VM'
+    const engineProfile = (id: UvmAssessmentEngineId) => id === 'masscan' ? 'SYN · 22 TCP ports · 10 packets/second' : id === 'angry-ip-scanner' ? 'authorized IPv4 reachability' : id === 'naabu' ? 'top 100 TCP ports · 25 probes/second' : id === 'nmap'
         ? nmapProfile === 'udp-top-100' ? 'top 100 UDP ports' : nmapProfile === 'tcp-all' ? 'all TCP ports' : nmapProfile === 'tcp-top-100' ? 'top 100 TCP ports' : nmapProfile === 'tcp-top-1000-safe-vuln' ? 'top 1,000 TCP ports + NSE checks' : 'top 1,000 TCP ports'
         : id === 'gvm' ? 'Full and Fast'
             : id === 'zap' ? 'same-origin web assessment'

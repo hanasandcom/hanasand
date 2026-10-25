@@ -1,8 +1,9 @@
 export type NmapScanProfile = 'tcp-top-100' | 'tcp-top-1000' | 'tcp-top-1000-safe-vuln' | 'tcp-all' | 'udp-top-100'
 export type NaabuScanProfile = 'naabu-top-100'
 export type AngryIpScanProfile = 'angry-ip-reachability-v1'
-export type NetworkScanProfile = NmapScanProfile | NaabuScanProfile | AngryIpScanProfile
-export type UvmEngineId = 'nmap' | 'naabu' | 'angry-ip-scanner' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f'
+export type MasscanScanProfile = 'masscan-tcp-approved-v1'
+export type NetworkScanProfile = NmapScanProfile | NaabuScanProfile | AngryIpScanProfile | MasscanScanProfile
+export type UvmEngineId = 'nmap' | 'naabu' | 'masscan' | 'angry-ip-scanner' | 'tenable-vm' | 'gvm' | 'zap' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f'
 export type UvmEngineProfile = NetworkScanProfile | 'bounded-web-dast-v1' | 'tls-default-v1' | 'safe-http-v1' | 'nikto-safe-web-v1' | 'sslyze-tls-safe-v1' | 'wapiti-passive-web-v1' | 'whatweb-stealthy-host-v1' | 'httpx-root-probe-v1' | 'tlsx-certificate-metadata-v1' | 'katana-same-origin-crawl-v1' | 'wafw00f-exact-origin-detection-v1'
 export type UvmEngineSelection = { engine: UvmEngineId, scanId?: string, profile?: UvmEngineProfile }
 export type UvmAssessmentMode = 'manual' | 'automatic'
@@ -76,7 +77,7 @@ export type UvmScannerCatalogEntry = {
     id: string
     name: string
     category: 'Discovery' | 'Vulnerability' | 'Web' | 'Cloud and code'
-    integration: 'nmap' | 'naabu' | 'angry-ip-scanner' | 'tenable-vm' | 'gvm' | 'zap' | 'zap-addon' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f' | 'grype' | 'image-worker' | 'catalog-only' | 'desktop-only' | 'cli-review'
+    integration: 'nmap' | 'naabu' | 'masscan' | 'angry-ip-scanner' | 'tenable-vm' | 'gvm' | 'zap' | 'zap-addon' | 'testssl' | 'nuclei' | 'nikto' | 'sslyze' | 'wapiti' | 'whatweb' | 'httpx' | 'tlsx' | 'katana' | 'wafw00f' | 'grype' | 'image-worker' | 'catalog-only' | 'desktop-only' | 'cli-review'
     setup: 'configured' | 'adapter-needed' | 'license-and-adapter-needed' | 'desktop-only' | 'cli-review-needed'
 }
 export type UvmScriptEvidence = { id: string, output: string, truncated: boolean }

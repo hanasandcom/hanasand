@@ -11,6 +11,7 @@ export function createUvmPanelScanActions(input: {
     refresh: () => Promise<UvmDashboard>
     runNmap: (assetId: string, authorized: boolean, profile: NmapScanProfile) => Promise<{ run: UvmRun }>
     runNaabu: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
+    runMasscan: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runAngryIp: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runTenable: (assetId: string, scanId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runGvm: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
@@ -46,6 +47,8 @@ export function createUvmPanelScanActions(input: {
         )),
         scanWithNaabu: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
             : run(asset, 'naabu', 'Naabu', () => input.runNaabu(asset.id, input.authorization[asset.id] === true)),
+        scanWithMasscan: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
+            : run(asset, 'masscan', 'Masscan', () => input.runMasscan(asset.id, input.authorization[asset.id] === true)),
         scanWithAngryIp: (asset: UvmAsset) => input.servicesPaused ? Promise.resolve()
             : run(asset, 'angry-ip-scanner', 'Angry IP reachability', () => input.runAngryIp(asset.id, input.authorization[asset.id] === true)),
         scanWithTenable: (asset: UvmAsset) => {

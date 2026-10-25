@@ -80,6 +80,7 @@ export default function ScannerWorkspace() {
             removeZapAuthenticationAction={client.removeZapAuthentication}
             runScanAction={client.runAsset}
             runNaabuAction={client.runNaabu}
+            runMasscanAction={client.runMasscan}
             runAngryIpAction={client.runAngryIp}
             scheduleAction={client.scheduleAsset}
             configureTenableAction={client.configureTenable}

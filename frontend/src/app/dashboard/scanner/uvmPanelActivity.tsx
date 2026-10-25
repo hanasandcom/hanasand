@@ -9,17 +9,18 @@ function runResult(run: UvmRun) {
         const total = run.coverage?.requestedAddresses ?? hosts.length
         return `${reachable}/${total} reachable${unknown ? ` · ${unknown} unknown` : ''} · no port checks`
     }
-    if (run.engine === 'nmap' || run.engine === 'naabu') {
+    if (run.engine === 'nmap' || run.engine === 'naabu' || run.engine === 'masscan') {
         const observations = (run.hosts || []).flatMap(host => host.ports)
         const confirmedOpenPorts = observations.filter(port => port.state === 'open').length
         const ambiguousUdpPorts = observations.filter(port => port.protocol === 'udp' && port.state === 'open|filtered').length
-        const ports = run.engine === 'naabu' ? `${confirmedOpenPorts} open TCP ports`
+        const ports = run.engine === 'masscan' ? `${confirmedOpenPorts} open TCP ports`
+            : run.engine === 'naabu' ? `${confirmedOpenPorts} open TCP ports`
             : run.profile === 'udp-top-100'
                 ? `${confirmedOpenPorts} open · ${ambiguousUdpPorts} open|filtered UDP`
                 : `${confirmedOpenPorts} open TCP port${confirmedOpenPorts === 1 ? '' : 's'}`
         const total = run.coverage?.requestedAddresses ?? run.coverage?.attemptedAddresses
         const coverage = total === undefined ? '' : `Address coverage ${run.coverage?.completedAddresses}/${total} · `
-        return `${coverage}${ports}${run.engine === 'naabu' ? ' · port discovery only' : run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : run.profile === 'udp-top-100' ? ' · UDP inventory' : ' · service inventory only'}`
+        return `${coverage}${ports}${run.engine === 'masscan' ? ' · bounded SYN inventory' : run.engine === 'naabu' ? ' · port discovery only' : run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : run.profile === 'udp-top-100' ? ' · UDP inventory' : ' · service inventory only'}`
     }
     if (run.engine === 'testssl') {
         const testsslObservations = run.observations?.filter(isTestsslObservation) || []

@@ -58,6 +58,14 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
                         </details>)}</div>
                         {job.run.rawOutputSha256 && <p className='mt-2 break-all text-xs text-ui-muted'>Raw output SHA-256: {job.run.rawOutputSha256}</p>}
                     </>}
+                    {job.engine === 'masscan' && <>
+                        <p className='mt-2 text-xs text-ui-muted'>Masscan SYN inventory · 22 fixed TCP ports · 10 packets/second · {job.run.hosts?.reduce((sum, host) => sum + host.ports.filter(port => port.state === 'open').length, 0) ?? 0} open ports</p>
+                        <div className='mt-2 grid gap-2'>{job.run.hosts?.map(host => <details key={host.address} className='rounded border border-ui-border px-3 py-2'>
+                            <summary className='cursor-pointer text-xs font-medium'>{host.address} · {host.ports.length} open ports</summary>
+                            <ul className='mt-2 grid gap-1 text-xs text-ui-muted'>{host.ports.map(port => <li key={`${port.protocol}:${port.port}`}>{port.protocol}/{port.port} · {port.state}</li>)}{!host.ports.length && <li>No open ports reported in the selected profile.</li>}</ul>
+                        </details>)}</div>
+                        {job.run.rawOutputSha256 && <p className='mt-2 break-all text-xs text-ui-muted'>Raw output SHA-256: {job.run.rawOutputSha256}</p>}
+                    </>}
                     {job.engine === 'angry-ip-scanner' && <>
                         <p className='mt-2 text-xs text-ui-muted'>Angry IP reachability · {job.run.hosts?.filter(host => host.status === 'up').length ?? 0} reachable · {job.run.hosts?.filter(host => host.status === 'unknown').length ?? 0} unknown · no port checks</p>
                         <ul className='mt-2 grid gap-1 text-xs text-ui-muted'>{job.run.hosts?.map(host => <li key={host.address}>{host.address} · {host.timedOut ? 'timeout' : host.status}</li>)}</ul>
@@ -95,7 +103,7 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
                             <button type='button' onClick={() => onOpenFindings(job.id, job.assetId, job.engine)} disabled={busy === `assessment-findings:${job.id}`} className='rounded border border-ui-border px-2 py-1 text-xs font-semibold disabled:opacity-50'>{busy === `assessment-findings:${job.id}` ? 'Loading triage…' : 'Review in triage'}</button>
                         </div> : null}
                         {job.run.findings?.map(finding => <RunFinding key={finding.findingId} finding={finding} />)}
-                        {!['nmap', 'testssl', 'angry-ip-scanner'].includes(job.engine) && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
+                        {!['nmap', 'masscan', 'testssl', 'angry-ip-scanner'].includes(job.engine) && !job.run.findings?.length && job.status === 'succeeded' && <p className='border-t border-ui-border pt-2 text-xs text-ui-muted'>No findings returned by this stage. Review coverage before treating this as a clean result.</p>}
                     </div>
                 </> : null}
             </article>)}

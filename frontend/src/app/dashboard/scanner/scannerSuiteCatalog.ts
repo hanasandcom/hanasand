@@ -13,7 +13,7 @@ export const scannerSuiteCatalog: ScannerCatalogEntry[] = [
     { id: 'docker-scout', name: 'Docker Scout', category: 'Cloud and code', integration: 'image-worker', setup: 'configured' },
     { id: 'angry-ip-scanner', name: 'Angry IP Scanner', category: 'Discovery', integration: 'angry-ip-scanner', setup: 'configured' },
     { id: 'advanced-ip-scanner', name: 'Advanced IP Scanner', category: 'Discovery', integration: 'desktop-only', setup: 'desktop-only' },
-    { id: 'masscan', name: 'Masscan', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
+    { id: 'masscan', name: 'Masscan', category: 'Discovery', integration: 'masscan', setup: 'configured' },
     { id: 'rustscan', name: 'RustScan', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'zmap', name: 'ZMap', category: 'Discovery', integration: 'catalog-only', setup: 'adapter-needed' },
     { id: 'naabu', name: 'Naabu', category: 'Discovery', integration: 'naabu', setup: 'configured' },

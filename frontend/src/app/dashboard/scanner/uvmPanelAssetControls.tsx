@@ -55,7 +55,7 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
 }) {
     const { data, busy, authorization } = props
     const engineOptions: Array<{ id: UvmEngineSelection['engine'], label: string }> = [
-        { id: 'nmap', label: 'Nmap inventory' }, { id: 'naabu', label: 'Naabu · top 100 TCP' }, { id: 'angry-ip-scanner', label: 'Angry IP · reachability' }, { id: 'tenable-vm', label: 'Nessus via Tenable VM' },
+        { id: 'nmap', label: 'Nmap inventory' }, { id: 'naabu', label: 'Naabu · top 100 TCP' }, { id: 'masscan', label: 'Masscan · bounded SYN inventory' }, { id: 'angry-ip-scanner', label: 'Angry IP · reachability' }, { id: 'tenable-vm', label: 'Nessus via Tenable VM' },
         { id: 'gvm', label: 'Greenbone' }, { id: 'zap', label: 'OWASP ZAP' }, { id: 'testssl', label: 'testssl.sh TLS checks' }, { id: 'sslyze', label: 'SSLyze TLS checks' }, { id: 'nuclei', label: 'Nuclei safe HTTP checks' }, { id: 'nikto', label: 'Nikto safe web checks' }, { id: 'wapiti', label: 'Wapiti passive web checks' }, { id: 'whatweb', label: 'WhatWeb technology fingerprint' }, { id: 'httpx', label: 'ProjectDiscovery httpx · root probe' }, { id: 'tlsx', label: 'ProjectDiscovery tlsx · TLS metadata' }, { id: 'katana', label: 'Katana same-origin crawl' }, { id: 'wafw00f', label: 'WAFW00F origin detection' },
     ]
     function engineAvailable(id: UvmEngineSelection['engine']) {
@@ -66,7 +66,7 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
         props.setSchedulePlans(current => {
             const selected = current[asset.id] || schedulePlan
             return { ...current, [asset.id]: checked
-                ? [...selected, ...(engine === 'nmap' ? [{ engine, profile: 'tcp-top-1000' as const }] : engine === 'naabu' ? [{ engine, profile: 'naabu-top-100' as const }] : engine === 'angry-ip-scanner' ? [{ engine, profile: 'angry-ip-reachability-v1' as const }] : engine === 'nikto' ? [{ engine, profile: 'nikto-safe-web-v1' as const }] : engine === 'wapiti' ? [{ engine, profile: 'wapiti-passive-web-v1' as const }] : engine === 'whatweb' ? [{ engine, profile: 'whatweb-stealthy-host-v1' as const }] : engine === 'httpx' ? [{ engine, profile: 'httpx-root-probe-v1' as const }] : engine === 'tlsx' ? [{ engine, profile: 'tlsx-certificate-metadata-v1' as const }] : engine === 'katana' ? [{ engine, profile: 'katana-same-origin-crawl-v1' as const }] : engine === 'wafw00f' ? [{ engine, profile: 'wafw00f-exact-origin-detection-v1' as const }] : [{ engine }])]
+                ? [...selected, ...(engine === 'nmap' ? [{ engine, profile: 'tcp-top-1000' as const }] : engine === 'naabu' ? [{ engine, profile: 'naabu-top-100' as const }] : engine === 'masscan' ? [{ engine, profile: 'masscan-tcp-approved-v1' as const }] : engine === 'angry-ip-scanner' ? [{ engine, profile: 'angry-ip-reachability-v1' as const }] : engine === 'nikto' ? [{ engine, profile: 'nikto-safe-web-v1' as const }] : engine === 'wapiti' ? [{ engine, profile: 'wapiti-passive-web-v1' as const }] : engine === 'whatweb' ? [{ engine, profile: 'whatweb-stealthy-host-v1' as const }] : engine === 'httpx' ? [{ engine, profile: 'httpx-root-probe-v1' as const }] : engine === 'tlsx' ? [{ engine, profile: 'tlsx-certificate-metadata-v1' as const }] : engine === 'katana' ? [{ engine, profile: 'katana-same-origin-crawl-v1' as const }] : engine === 'wafw00f' ? [{ engine, profile: 'wafw00f-exact-origin-detection-v1' as const }] : [{ engine }])]
                 : selected.filter(choice => choice.engine !== engine) }
         })
     }
@@ -109,6 +109,7 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
                     {props.scheduleProfiles[asset.id] === 'tcp-top-1000-safe-vuln' && <UvmHelp label='Nmap NSE checks' text='Runs scripts tagged both safe and vuln. Nmap cannot guarantee no adverse effects. Results are heuristic evidence and do not confirm exploitability.' />}
                 </label>}
                 {choice.engine === 'naabu' && <span className='pb-2 text-xs text-ui-muted'>Top 100 TCP ports · 25 probes/second</span>}
+                {choice.engine === 'masscan' && <span className='pb-2 text-xs text-ui-muted'>Fixed 22-port SYN inventory · maximum 10 packets/second</span>}
                 {choice.engine === 'angry-ip-scanner' && <span className='pb-2 text-xs text-ui-muted'>Reachability only · up to five authorized IPv4 addresses</span>}
                 {choice.engine === 'nikto' && <span className='pb-2 text-xs text-ui-muted'>Safe web checks · nikto-safe-web-v1</span>}
                 {choice.engine === 'wapiti' && <span className='pb-2 text-xs text-ui-muted'>Passive web checks · wapiti-passive-web-v1</span>}

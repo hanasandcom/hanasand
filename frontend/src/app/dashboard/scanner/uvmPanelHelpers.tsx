@@ -23,7 +23,7 @@ export function SummaryCard({ label, value, detail }: { label: string, value: st
 
 export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRun, defaultOpen: boolean, cancelBusy: boolean, onCancel: () => void }) {
     const [open, setOpen] = useState(defaultOpen)
-    const canCancel = ['nmap', 'naabu', 'angry-ip-scanner'].includes(run.engine) ? ['queued', 'running'].includes(run.status) : ['tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb'].includes(run.engine) && ['queued', 'launching', 'running', 'cancelling'].includes(run.status)
+    const canCancel = ['nmap', 'naabu', 'masscan', 'angry-ip-scanner'].includes(run.engine) ? ['queued', 'running'].includes(run.status) : ['tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb'].includes(run.engine) && ['queued', 'launching', 'running', 'cancelling'].includes(run.status)
     const observedPorts = (run.hosts || []).flatMap(host => host.ports.map(port => ({ host, port })))
     const confirmedOpenPorts = observedPorts.filter(({ port }) => port.state === 'open')
     const ambiguousUdpPorts = observedPorts.filter(({ port }) => port.protocol === 'udp' && port.state === 'open|filtered')
@@ -48,6 +48,7 @@ export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRu
                     {run.coverage?.completedAddressList?.length ? <p className='sm:col-span-2'>Completed host results: {run.coverage.completedAddressList.join(', ')}</p> : null}
                     {run.engine === 'nmap' && <><p>{run.profile === 'udp-top-100' ? `Open UDP ports: ${confirmedOpenPorts.length} · open|filtered: ${ambiguousUdpPorts.length}` : `Open TCP ports: ${run.coverage?.openPorts ?? confirmedOpenPorts.length}`}</p><p>Raw Nmap XML SHA-256: <code className='break-all'>{run.rawXmlSha256 || 'pending'}</code></p></>}
                     {run.engine === 'naabu' && <><p>Open TCP ports: {run.coverage?.openPorts ?? confirmedOpenPorts.length}</p><p>Raw Naabu output SHA-256: <code className='break-all'>{run.rawOutputSha256 || 'pending'}</code></p></>}
+                    {run.engine === 'masscan' && <><p>Open TCP ports: {confirmedOpenPorts.length} · fixed 22-port SYN profile · maximum 10 packets/second</p><p>Raw Masscan output SHA-256: <code className='break-all'>{run.rawOutputSha256 || 'pending'}</code></p></>}
                     {run.engine === 'gvm' && <p>Raw Greenbone report SHA-256: <code className='break-all'>{run.rawXmlSha256 || 'pending'}</code></p>}
                     {run.engine === 'testssl' && <><p>TLS addresses attempted: {run.attemptedAddresses?.length ?? 'unknown'}</p><p>TLS addresses completed: {run.completedAddresses?.length ?? 'unknown'}</p></>}
                 </>}

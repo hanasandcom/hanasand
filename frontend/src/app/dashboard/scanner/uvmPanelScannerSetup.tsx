@@ -32,7 +32,7 @@ export function UvmPanelScannerSetup({ data, busy, region, setRegion, accessKey,
     const filteredProducts = productCatalog.filter(item => `${item.name} ${item.category}`.toLowerCase().includes(query))
     const visibleProducts = query ? filteredProducts : integratedProducts
     const renderProducts = (products: typeof productCatalog) => products.map(item => {
-        const engine = ['nmap', 'naabu', 'angry-ip-scanner', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(item.integration)
+        const engine = ['nmap', 'naabu', 'masscan', 'angry-ip-scanner', 'tenable-vm', 'gvm', 'zap', 'testssl', 'nuclei', 'nikto', 'sslyze', 'wapiti', 'whatweb', 'httpx', 'tlsx', 'katana', 'wafw00f'].includes(item.integration)
             ? data.engines.find(candidate => candidate.id === item.integration)
             : undefined
         const outputCheckPending = item.integration === 'angry-ip-scanner' && Boolean(engine?.reason)

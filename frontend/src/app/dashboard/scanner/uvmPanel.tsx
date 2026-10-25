@@ -26,7 +26,7 @@ export default function UvmPanel({
     initialData, servicesPaused = false, refreshAction, getImageReportAction, runImageScanAction, getImageHistoryAction, getImageHistoryRunAction, getRunAction, getRunHistoryAction,
     assessmentHistoryAction, findingHistoryAction, findingGroupsAction, findingTriageHistoryAction, createAssetAction, verifyAssetAction,
     updateAssetCriticalityAction,
-    saveZapApiDefinitionAction, configureZapAuthenticationAction, removeZapAuthenticationAction, runScanAction, runNaabuAction, runAngryIpAction, scheduleAction,
+    saveZapApiDefinitionAction, configureZapAuthenticationAction, removeZapAuthenticationAction, runScanAction, runNaabuAction, runMasscanAction, runAngryIpAction, scheduleAction,
     configureTenableAction, disconnectTenableAction, runTenableScanAction, runGvmScanAction,
     runZapScanAction, runTestsslAction, runNucleiAction, runNiktoAction, runSslyzeAction,
     runWapitiAction, runWhatwebAction, runHttpxAction, runTlsxAction, runKatanaAction,
@@ -94,11 +94,11 @@ export default function UvmPanel({
         configure: configureTenableAction, disconnect: disconnectTenableAction, refresh,
         setAccessKey: setTenableAccessKey, setSecretKey: setTenableSecretKey, setBusy, setMessage,
     })
-    const { scan, scanWithNaabu, scanWithAngryIp, scanWithTenable, scanWithGvm, scanWithZap, scanWithTestssl, scanWithNuclei, scanWithNikto, scanWithSslyze, scanWithWapiti, scanWithWhatweb, scanWithHttpx, scanWithTlsx, scanWithKatana, scanWithWafw00f } = createUvmPanelScanActions({
+    const { scan, scanWithNaabu, scanWithMasscan, scanWithAngryIp, scanWithTenable, scanWithGvm, scanWithZap, scanWithTestssl, scanWithNuclei, scanWithNikto, scanWithSslyze, scanWithWapiti, scanWithWhatweb, scanWithHttpx, scanWithTlsx, scanWithKatana, scanWithWafw00f } = createUvmPanelScanActions({
         servicesPaused,
         authorization, assetNmapProfiles, tenableScanIds, defaultTenableScanId: data.tenableScans[0]?.id, setBusy, setMessage,
         refresh,
-        runNmap: runScanAction, runNaabu: runNaabuAction, runAngryIp: runAngryIpAction, runTenable: runTenableScanAction, runGvm: runGvmScanAction, runZap: runZapScanAction, runTestssl: runTestsslAction, runNuclei: runNucleiAction, runNikto: runNiktoAction, runSslyze: runSslyzeAction, runWapiti: runWapitiAction, runWhatweb: runWhatwebAction, runHttpx: runHttpxAction, runTlsx: runTlsxAction, runKatana: runKatanaAction, runWafw00f: runWafw00fAction,
+        runNmap: runScanAction, runNaabu: runNaabuAction, runMasscan: runMasscanAction, runAngryIp: runAngryIpAction, runTenable: runTenableScanAction, runGvm: runGvmScanAction, runZap: runZapScanAction, runTestssl: runTestsslAction, runNuclei: runNucleiAction, runNikto: runNiktoAction, runSslyze: runSslyzeAction, runWapiti: runWapitiAction, runWhatweb: runWhatwebAction, runHttpx: runHttpxAction, runTlsx: runTlsxAction, runKatana: runKatanaAction, runWafw00f: runWafw00fAction,
     })
     const { cancelAssessment, startAssessment } = createUvmPanelAssessmentActions({
         cancelAssessmentAction, startAssessmentAction, assetIds: assessmentAssetIds, engines: selectableAssessmentEngines,
@@ -187,7 +187,7 @@ export default function UvmPanel({
                 scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds}
                 tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds}
                 onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)}
-                onScan={asset => void scan(asset)} onScanWithNaabu={asset => void scanWithNaabu(asset)} onScanWithAngryIp={asset => void scanWithAngryIp(asset)}
+                onScan={asset => void scan(asset)} onScanWithNaabu={asset => void scanWithNaabu(asset)} onScanWithMasscan={asset => void scanWithMasscan(asset)} onScanWithAngryIp={asset => void scanWithAngryIp(asset)}
                 onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)}
                 onScanWithTestssl={asset => void scanWithTestssl(asset)} onScanWithNuclei={asset => void scanWithNuclei(asset)} onScanWithNikto={asset => void scanWithNikto(asset)}
                 onScanWithSslyze={asset => void scanWithSslyze(asset)} onScanWithWapiti={asset => void scanWithWapiti(asset)} onScanWithWhatweb={asset => void scanWithWhatweb(asset)}
