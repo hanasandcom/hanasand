@@ -36,6 +36,8 @@ services:
     build:
       context: .
       dockerfile: ./frontend/Dockerfile
+      additional_contexts:
+        articles: ${ARTICLES_SOURCE_CONTEXT:-../articles}
       args:
         HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
         FRONTEND_INTERNAL_API: ${FRONTEND_INTERNAL_API:-http://api:8080/api}

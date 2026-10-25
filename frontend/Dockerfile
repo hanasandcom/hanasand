@@ -22,8 +22,6 @@ ARG NEXT_PUBLIC_BROWSER_API_URL=
 ARG NEXT_PUBLIC_BROWSER_WS=
 ARG NEXT_PUBLIC_SCANNER_API_URL=https://scanner.hanasand.com/api
 ARG NEXT_PUBLIC_SCANNER_SERVICES_PAUSED=true
-ARG ARTICLES_REPO_URL=https://github.com/hanasandcom/articles.git
-ARG ARTICLES_REPO_BRANCH=main
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV FRONTEND_INTERNAL_API=$FRONTEND_INTERNAL_API
@@ -38,7 +36,9 @@ ENV HANASAND_REPO_ROOT=/workspace
 ENV ARTICLES_SOURCE_REPO_PATH=/articles-source
 ENV NEXT_PUBLIC_HANASAND_RELEASE_COMMIT=$HANASAND_RELEASE_COMMIT
 
-RUN git clone --branch "$ARTICLES_REPO_BRANCH" "$ARTICLES_REPO_URL" "$ARTICLES_SOURCE_REPO_PATH"
+# The deploy host supplies this repository as a named build context. Fetching it
+# here depends on BuildKit network access and can stall otherwise valid builds.
+COPY --from=articles / "$ARTICLES_SOURCE_REPO_PATH"/
 
 # The deploy test index intentionally checks a few cross-package contracts
 # before building. Keep the Docker build context at the repository root so
