@@ -41,7 +41,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
         const product = productCatalog.find(item => item.integration === id)
         const engine = data.engines.find(item => item.id === id)
         const tenableReady = id !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled))
-        return product?.setup === 'configured' && tenableReady && (servicesPaused || engine?.status === 'available')
+        return product?.setup === 'configured' && Boolean(engine) && tenableReady && (servicesPaused || engine?.status === 'available')
     })
     const automaticPlan = buildUvmAssessmentEnginePlan(selectedReadyEngines, scanId, nmapProfile, 'automatic')
     const sequence = (mode === 'automatic' ? automaticPlan.map(choice => choice.engine) : selectedReadyEngines) as UvmAssessmentEngineId[]
@@ -84,7 +84,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
         <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{assessmentEngines.map(({ id: engineId, product: item }) => {
             const engine = data.engines.find(candidate => candidate.id === engineId)
             const tenableReady = engineId !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled))
-            const ready = Boolean(item.setup === 'configured' && tenableReady && (servicesPaused || engine?.status === 'available'))
+            const ready = Boolean(item.setup === 'configured' && engine && tenableReady && (servicesPaused || engine.status === 'available'))
             const outputCheckPending = engineId === 'angry-ip-scanner' && Boolean(engine?.reason)
             const selected = ready && selectedEngines.includes(engineId)
             const reason = item.setup === 'desktop-only' ? 'Desktop app'
