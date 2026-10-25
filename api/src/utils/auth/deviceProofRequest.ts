@@ -20,11 +20,12 @@ const watchlistProofRoutes = new Set([
 ])
 
 function watchlistProofUrl(req: FastifyRequest) {
-    const configured = process.env.NEXT_PUBLIC_API
-    const configuredOrigin = configured?.trim()
-    const target = new URL(configuredOrigin || 'https://api.hanasand.com')
-    if (target.protocol !== 'https:' || target.username || target.password || target.search || target.hash
-        || configured?.includes('?') || configured?.includes('#')) {
+    const configured = process.env.NEXT_PUBLIC_API?.trim()
+    let target: URL
+    try { target = new URL(configured || 'https://api.hanasand.com') }
+    catch { throw new Error('Invalid configured Watchlist proof origin.') }
+    if (target.username || target.password || target.search || target.hash
+        || configured?.includes('?') || configured?.includes('#') || (target.protocol !== 'https:' && target.protocol !== 'http:')) {
         throw new Error('Invalid configured Watchlist proof origin.')
     }
     const pathname = (req.raw?.url || req.url).split('?')[0]
@@ -33,7 +34,24 @@ function watchlistProofUrl(req: FastifyRequest) {
     if (!pathname.startsWith('/') || pathname.startsWith('//') || invalidCharacter) {
         throw new Error('Invalid Watchlist request target.')
     }
-    return `${target.origin}${pathname}`
+    const proofUrl = headerValue(req.headers['x-device-proof-url'])
+    if (proofUrl) {
+        let asserted: URL
+        try { asserted = new URL(proofUrl) }
+        catch { throw new Error('Invalid Watchlist proof target.') }
+        const allowedOrigins = new Set(['https://hanasand.com', 'https://www.hanasand.com', 'https://api.hanasand.com'])
+        if (target.protocol === 'https:') allowedOrigins.add(target.origin)
+        if (asserted.protocol !== 'https:' || asserted.username || asserted.password || asserted.search || asserted.hash
+            || asserted.pathname !== pathname || !allowedOrigins.has(asserted.origin)) {
+            throw new Error('Invalid Watchlist proof target.')
+        }
+        const assertedMethod = headerValue(req.headers['x-device-proof-method'])
+        if (assertedMethod && assertedMethod !== req.method.toUpperCase()) throw new Error('Invalid Watchlist proof target.')
+        return `${asserted.origin}${pathname}`
+    }
+    // API containers can use an internal HTTP URL for server-to-server calls.
+    // Device proofs always use the public HTTPS API origin.
+    return `${target.protocol === 'https:' ? target.origin : 'https://api.hanasand.com'}${pathname}`
 }
 
 export function deviceProofFromRequest(req: FastifyRequest) {

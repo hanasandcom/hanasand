@@ -48,7 +48,6 @@ test('all nine registered Watchlist pairs bind actual method and encoded raw pat
     delete process.env.NEXT_PUBLIC_API
     for (const [method, route, path] of routes) {
         const result = deviceProofFromRequest(proofRequest(method!, route!, path!+'?search=excluded', {
-            'x-device-proof-method': 'GET', 'x-device-proof-url': 'https://foreign.invalid/api/unrelated',
             'x-forwarded-host': 'foreign.invalid', 'x-forwarded-proto': 'http',
         }))
         expect(result).toEqual({ proof: 'synthetic-proof', method, url: 'https://api.hanasand.com'+path })
@@ -64,6 +63,17 @@ test('an unset or blank API origin uses the canonical production API origin', ()
         })
     }
 })
+test('native Watchlist proofs can use a canonical public API origin behind an internal HTTP API URL', () => {
+    process.env.NEXT_PUBLIC_API = 'http://api:8080/api'
+    const path = '/api/organizations/org/watchlists'
+    expect(deviceProofFromRequest(proofRequest('GET', routes[0]![1]!, path, {
+        'x-device-proof-url': `https://hanasand.com${path}`,
+        'x-device-proof-method': 'GET',
+    }))).toEqual({ proof: 'synthetic-proof', method: 'GET', url: `https://hanasand.com${path}` })
+    expect(deviceProofFromRequest(proofRequest('GET', routes[0]![1]!, path))).toEqual({
+        proof: 'synthetic-proof', method: 'GET', url: `https://api.hanasand.com${path}`,
+    })
+})
 test('normal native same-value headers remain compatible and are not required', () => {
     process.env.NEXT_PUBLIC_API = 'https://configured.example:8443/api/'
     const path = '/api/organizations/org/watchlists/reconcile'
@@ -75,7 +85,7 @@ test('normal native same-value headers remain compatible and are not required', 
     }
 })
 test('invalid configured Watchlist origins fail closed without legacy header fallback', () => {
-    for (const origin of ['not-a-url', 'http://api.hanasand.com', 'ftp://api.hanasand.com',
+    for (const origin of ['not-a-url', 'ftp://api.hanasand.com',
         'https://user:secret@api.hanasand.com', 'https://api.hanasand.com/api?query=1', 'https://api.hanasand.com/#fragment', 'https://api.hanasand.com/api?', 'https://api.hanasand.com/#']) {
         process.env.NEXT_PUBLIC_API = origin
         expect(() => deviceProofFromRequest(proofRequest('POST', routes[3]![1]!, routes[3]![2]!, {
