@@ -1,25 +1,36 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import type { NetworkScanProfile, UvmAssessmentMode, UvmEngineId } from '@/utils/monitoring/types'
 import { buildUvmAssessmentEnginePlan } from './uvmPanelEnginePlans'
 import { getScannerSuiteCatalog } from './scannerSuiteCatalog'
 import { UVM_ASSET_ASSESSMENT_ENGINE_IDS } from './uvmPanelAssessmentControls'
 import { UvmHelp } from './uvmPanelHelp'
 
-type PreparationDraft = { targets: string, mode: UvmAssessmentMode, engines: UvmEngineId[], nmapProfile: NetworkScanProfile }
+export type PreparationDraft = { targets: string, mode: UvmAssessmentMode, engines: UvmEngineId[], nmapProfile: NetworkScanProfile }
 const emptyDraft: PreparationDraft = { targets: '', mode: 'automatic', engines: ['tenable-vm'], nmapProfile: 'tcp-top-1000' }
 const supportedEngines = new Set<string>(UVM_ASSET_ASSESSMENT_ENGINE_IDS)
 
-export default function UvmOfflinePreparation({ storageScope }: { storageScope: string }) {
+export default function UvmOfflinePreparation({ storageScope, apiAvailable, onRegisterAsset, onAssetsRegistered, onDraftChange }: {
+    storageScope: string
+    apiAvailable: boolean
+    onRegisterAsset: (input: { hostname: string }) => Promise<unknown>
+    onAssetsRegistered: () => Promise<void>
+    onDraftChange: (draft: PreparationDraft) => void
+}) {
     const storageKey = `scanner-offline-preparation-v1:${encodeURIComponent(storageScope || 'no-organization')}`
     const [draft, setDraft] = useState(emptyDraft)
     const [hydrated, setHydrated] = useState(false)
     const [authorized, setAuthorized] = useState(false)
+    const [busy, setBusy] = useState(false)
+    const [message, setMessage] = useState('')
+    const draftChangeRef = useRef(onDraftChange)
     const catalog = useMemo(() => getScannerSuiteCatalog().filter(item => item.setup === 'configured' && supportedEngines.has(item.integration)), [])
     const plan = buildUvmAssessmentEnginePlan(draft.engines, '', draft.nmapProfile, draft.mode)
     const targetNames = draft.targets.split('\n').map(target => target.trim()).filter(Boolean)
     const automaticVulnerabilityEngine = draft.engines.some(engine => engine === 'tenable-vm' || engine === 'gvm')
+
+    useEffect(() => { draftChangeRef.current = onDraftChange }, [onDraftChange])
 
     useEffect(() => {
         try {
@@ -41,7 +52,54 @@ export default function UvmOfflinePreparation({ storageScope }: { storageScope: 
         if (!hydrated) return
         try { window.localStorage.setItem(storageKey, JSON.stringify(draft)) }
         catch { /* The export button remains available when browser storage is full. */ }
+        draftChangeRef.current(draft)
     }, [draft, hydrated, storageKey])
+
+    async function importDraft(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0]
+        event.target.value = ''
+        if (!file) return
+        setMessage('')
+        try {
+            const payload = JSON.parse(await file.text()) as Record<string, unknown>
+            if (payload.schema !== 'hanasand-scanner-preparation-v1' || payload.organizationScope !== (storageScope || null)) {
+                throw new Error('This draft belongs to a different organization or has an unsupported format.')
+            }
+            const targets = Array.isArray(payload.targets) ? payload.targets.filter((target): target is string => typeof target === 'string' && target.trim().length <= 253).map(target => target.trim()).filter(Boolean) : []
+            const engines = Array.isArray(payload.engines) ? [...new Set(payload.engines.flatMap(choice => {
+                if (!choice || typeof choice !== 'object' || !('engine' in choice)) return []
+                const engine = (choice as { engine: unknown }).engine
+                return typeof engine === 'string' && supportedEngines.has(engine) ? [engine as UvmEngineId] : []
+            }))] : emptyDraft.engines
+            if (targets.length > 25) throw new Error('A preparation draft can contain at most 25 targets.')
+            const nmap = Array.isArray(payload.engines) ? payload.engines.find(choice => choice && typeof choice === 'object' && 'engine' in choice && (choice as { engine?: unknown }).engine === 'nmap') as { profile?: unknown } | undefined : undefined
+            const profile = nmap?.profile
+            setDraft({
+                targets: targets.join('\n'), mode: payload.mode === 'manual' ? 'manual' : 'automatic', engines,
+                nmapProfile: typeof profile === 'string' && ['tcp-top-100', 'tcp-top-1000', 'tcp-top-1000-safe-vuln', 'tcp-all', 'udp-top-100'].includes(profile) ? profile as NetworkScanProfile : 'tcp-top-1000',
+            })
+            setAuthorized(false)
+            setMessage('Preparation restored. Confirm authorization again before exporting or registering targets.')
+        } catch (error) { setMessage(error instanceof Error ? error.message : 'Draft could not be loaded.') }
+    }
+
+    async function registerTargets() {
+        const targets = [...new Map(targetNames.map(target => [target.toLowerCase(), target])).values()]
+        if (!apiAvailable || !authorized || !targets.length || targets.length > 25 || busy) return
+        setBusy(true); setMessage('')
+        let created = 0
+        const errors: string[] = []
+        for (const hostname of targets) {
+            try { await onRegisterAsset({ hostname }); created += 1 }
+            catch (error) { errors.push(`${hostname}: ${error instanceof Error ? error.message : 'could not be registered'}`) }
+        }
+        if (created) {
+            try { await onAssetsRegistered() }
+            catch { errors.push('Asset list could not be refreshed.') }
+        }
+        setMessage(errors.length ? `${created} pending asset${created === 1 ? '' : 's'} registered. ${errors.join(' · ')}` : `${created} pending asset${created === 1 ? '' : 's'} registered. Verify each DNS TXT record before scheduling or scanning.`)
+        setBusy(false)
+    }
 
     function exportDraft() {
         const payload = {
@@ -66,9 +124,9 @@ export default function UvmOfflinePreparation({ storageScope }: { storageScope: 
     return <section className='rounded-lg border border-ui-border bg-ui-panel p-4'>
         <div className='flex items-center justify-between gap-3'>
             <h2 className='text-lg font-semibold'>Assessment plan draft</h2>
-            <UvmHelp label='Offline preparation' text='This draft stays in this browser and does not contact Scanner. It cannot register assets, verify DNS, save credentials, queue jobs, or launch scans.' />
+            <UvmHelp label='Preparation draft' text='The draft stays in this browser. Registering targets creates pending assets only; verification and execution stay separate.' />
         </div>
-        <p className='mt-1 text-xs text-ui-muted'>Saved locally for this organization · no scans sent</p>
+        <p className='mt-1 text-xs text-ui-muted'>{apiAvailable ? 'API ready · execution remains stopped' : 'Saved locally for this organization · no scans sent'}</p>
         <div className='mt-4 grid gap-4'>
             <label className='grid gap-1 text-sm font-medium'>Targets to prepare<textarea value={draft.targets} onChange={event => setDraft(current => ({ ...current, targets: event.target.value }))} rows={3} placeholder='example.com' className='rounded-md border border-ui-border bg-ui-canvas px-3 py-2 text-sm font-normal text-ui-text' /><small className='text-xs font-normal text-ui-muted'>One hostname per line. The live service will require DNS verification and a fresh scope check.</small></label>
             <fieldset className='grid gap-2'>
@@ -96,9 +154,12 @@ export default function UvmOfflinePreparation({ storageScope }: { storageScope: 
             </div>
             <label className='flex items-start gap-2 text-xs text-ui-muted'><input type='checkbox' checked={authorized} onChange={event => setAuthorized(event.target.checked)} className='mt-0.5 accent-ui-primary' /><span>I confirm I’m authorized to assess every listed target.</span></label>
             <div className='flex flex-wrap items-center gap-3'>
-                <button type='button' onClick={exportDraft} disabled={!targetNames.length || !authorized} className='rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>Download draft</button>
-                <span className='text-xs text-ui-warning'>Export only · live setup and scans require the Scanner API and database.</span>
+                <button type='button' onClick={exportDraft} disabled={!targetNames.length || targetNames.length > 25 || !authorized} className='rounded-md bg-ui-text px-4 py-2 text-sm font-semibold text-ui-canvas disabled:opacity-50'>Download draft</button>
+                <label className='cursor-pointer rounded-md border border-ui-border px-4 py-2 text-sm font-semibold'>Load draft<input type='file' accept='application/json,.json' onChange={event => void importDraft(event)} className='sr-only' /></label>
+                {apiAvailable && <button type='button' onClick={() => void registerTargets()} disabled={busy || !authorized || !targetNames.length || targetNames.length > 25} className='rounded-md border border-ui-border px-4 py-2 text-sm font-semibold disabled:opacity-50'>{busy ? 'Registering…' : 'Register pending assets'}</button>}
+                <span className='text-xs text-ui-warning'>{apiAvailable ? 'Registering creates pending assets only; DNS verification is still required.' : 'Import and export only · live setup requires the Scanner API and database.'}</span>
             </div>
+            {message && <p role='status' className='text-xs text-ui-muted'>{message}</p>}
         </div>
     </section>
 }

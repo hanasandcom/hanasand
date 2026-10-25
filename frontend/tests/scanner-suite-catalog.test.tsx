@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { emptyUvmDashboard } from '../src/app/dashboard/scanner/scannerClient'
 import { getScannerSuiteCatalog, scannerSuiteCatalog } from '../src/app/dashboard/scanner/scannerSuiteCatalog'
 import { UvmAssessmentEngineChoices } from '../src/app/dashboard/scanner/uvmPanelAssessmentControls'
-import { UvmPanelScannerSetup } from '../src/app/dashboard/scanner/uvmPanelScannerSetup'
+import { getScannerSuiteCategory, UvmPanelScannerSetup } from '../src/app/dashboard/scanner/uvmPanelScannerSetup'
 import ScannerPauseNotice from '../src/app/dashboard/scanner/scannerPauseNotice'
 
 test('scanner page states that configured services are stopped pending disk expansion', () => {
@@ -14,44 +14,39 @@ test('scanner page states that configured services are stopped pending disk expa
     expect(html).toContain('Scanner API, database, Nmap/Naabu, Angry IP Scanner, Greenbone, ZAP runner/proxy, testssl.sh, Nuclei, Nikto, SSLyze, Wapiti, WhatWeb, HTTPX, tlsx, Katana, WAFW00F, and image worker are stopped pending disk expansion.')
 })
 
-test('paused Scanner exposes the searchable 50-product catalog and labels setup state', () => {
+test('paused Scanner shows one searchable catalog category at a time', () => {
     const noop = () => undefined
     const html = renderToStaticMarkup(<UvmPanelScannerSetup data={emptyUvmDashboard} busy='' region='us'
         setRegion={noop} accessKey='' setAccessKey={noop} secretKey='' setSecretKey={noop}
         servicesPaused onSave={noop} onDisconnect={noop}
     />)
+    const panelStart = html.indexOf('role="tabpanel"')
+    const catalogHtml = html.slice(panelStart, html.indexOf('</section>', panelStart))
 
     expect(scannerSuiteCatalog).toHaveLength(50)
     expect(new Set(scannerSuiteCatalog.map(item => item.name)).size).toBe(scannerSuiteCatalog.length)
     expect(scannerSuiteCatalog.filter(item => item.setup === 'configured')).toHaveLength(23)
     expect(html).toContain('50 products · 17 asset engines · 5 image tools · 0 running')
-    expect(html).toContain('Other catalog products (27)')
-    expect(html).toContain('Other catalog products (27)</summary>')
-    expect(html).toContain('Angry IP Scanner')
-    expect(html).toContain('Integrated tools (23)')
-    const otherCatalogSummary = html.indexOf('Other catalog products (27)</summary>')
-    const otherCatalogStart = html.lastIndexOf('<details', otherCatalogSummary)
-    expect(otherCatalogStart).toBeGreaterThan(html.indexOf('Integrated tools (23)'))
-    expect(html.slice(0, otherCatalogStart)).toContain('Masscan')
-    expect(html.slice(otherCatalogStart)).not.toContain('Masscan')
+    expect(html).toContain('Scanner categories')
+    expect(html).toContain('role="tab" id="scanner-suite-category-panel-tab-web" aria-selected="true"')
+    expect(html).toContain('role="tab" id="scanner-suite-category-panel-tab-discovery" aria-selected="false"')
+    expect(html).toContain('role="tab" id="scanner-suite-category-panel-tab-cloud" aria-selected="false"')
+    expect(html).toContain('role="tabpanel" id="scanner-suite-category-panel"')
+    expect(html).not.toContain('Other catalog products')
+    expect(html).not.toContain('Integrated tools')
     expect(html).toContain('Filter scanners')
-    expect(html).toContain('Nmap')
-    expect(html).toContain('Naabu')
+    expect(html).toContain('OWASP ZAP')
+    expect(catalogHtml).not.toContain('Nmap')
+    expect(catalogHtml).not.toContain('Tenable Vulnerability Management')
+    expect(html).not.toContain('Configure</button>')
     expect(html).toContain('Stopped')
-    expect(html).toContain('Worker stopped')
     expect(html).not.toContain('pending disk')
     expect(html).not.toContain('Scanner services paused pending disk expansion.')
-    expect(html).toContain('testssl.sh')
-    expect(html).toContain('Retire.js')
-    expect(html).toContain('Angry IP Scanner')
-    expect(html).toContain('Advanced IP Scanner')
-    expect(html).toContain('Prowler')
-    expect(html).toContain('Kubescape')
-    expect(html).toContain('Snyk')
-    expect(html).toContain('Adapter needed')
-    expect(html).toContain('License + adapter needed')
-    expect(html).not.toContain('GUI bridge needed')
-    expect(html).toContain('Windows app · no API')
+    expect(getScannerSuiteCategory(scannerSuiteCatalog.find(item => item.integration === 'tenable-vm')!)).toBe('discovery')
+    expect(getScannerSuiteCategory(scannerSuiteCatalog.find(item => item.category === 'Cloud and code')!)).toBe('cloud')
+    expect(scannerSuiteCatalog.filter(item => getScannerSuiteCategory(item) === 'web')).toHaveLength(12)
+    expect(scannerSuiteCatalog.filter(item => getScannerSuiteCategory(item) === 'discovery')).toHaveLength(15)
+    expect(scannerSuiteCatalog.filter(item => getScannerSuiteCategory(item) === 'cloud')).toHaveLength(23)
 })
 
 test('Retire.js is listed as a ZAP add-on, not a separate asset engine', () => {
