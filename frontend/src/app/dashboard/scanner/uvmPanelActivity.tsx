@@ -55,7 +55,7 @@ function RecentActivity({ data, unavailable, onViewRuns }: { data: UvmDashboard,
     </section>
 }
 
-function ScheduledAssessments({ data, unavailable, onManageAssets }: { data: UvmDashboard, unavailable: boolean, onManageAssets: () => void }) {
+function ScheduledAssessments({ data, unavailable, servicesPaused, onManageAssets }: { data: UvmDashboard, unavailable: boolean, servicesPaused: boolean, onManageAssets: () => void }) {
     const scheduled = data.assets.filter(asset => asset.scheduleEnabled)
         .sort((left, right) => (Date.parse(left.nextRunAt || '') || Number.MAX_SAFE_INTEGER) - (Date.parse(right.nextRunAt || '') || Number.MAX_SAFE_INTEGER))
     const coverageFor = (assetId: string, engine: UvmAssetEngineCoverage['engine']) =>
@@ -70,7 +70,7 @@ function ScheduledAssessments({ data, unavailable, onManageAssets }: { data: Uvm
                     const coverage = plan.map(choice => ({ engine: choice.engine, coverage: coverageFor(asset.id, choice.engine) }))
                     return <li key={asset.id} className='rounded-md border border-ui-border bg-ui-raised p-3'>
                         <div className='flex flex-wrap items-center justify-between gap-2'><strong className='text-sm'>{asset.hostname}</strong><span className='text-xs text-ui-muted'>{plan.map(choice => choice.engine).join(' → ')}</span></div>
-                        <p className='mt-1 text-xs text-ui-muted'>{asset.scheduleMode === 'automatic' ? 'Automatic' : 'Manual'} · every {asset.intervalMinutes} min · next {formatDate(asset.nextRunAt)}</p>
+                        <p className='mt-1 text-xs text-ui-muted'>{asset.scheduleMode === 'automatic' ? 'Automatic' : 'Manual'} · every {asset.intervalMinutes} min{servicesPaused ? ' · paused while Scanner is stopped' : ` · next ${formatDate(asset.nextRunAt)}`}</p>
                         {coverage.map(item => <p key={item.engine} className='mt-1 text-xs text-ui-muted'>{item.engine} last complete: {item.coverage?.lastCompleteRun ? `${item.coverage.freshness} · ${formatDate(item.coverage.lastCompleteRun.at)}` : 'none recorded'}</p>)}
                     </li>
                 })}
@@ -78,14 +78,15 @@ function ScheduledAssessments({ data, unavailable, onManageAssets }: { data: Uvm
     </section>
 }
 
-export function UvmActivityAndSchedules({ data, onViewRuns, onManageAssets }: {
+export function UvmActivityAndSchedules({ data, servicesPaused = false, onViewRuns, onManageAssets }: {
     data: UvmDashboard
+    servicesPaused?: boolean
     onViewRuns: () => void
     onManageAssets: () => void
 }) {
     const unavailable = Boolean(data.scannerError)
     return <div className='grid gap-4 lg:grid-cols-2'>
         <RecentActivity data={data} unavailable={unavailable} onViewRuns={onViewRuns} />
-        <ScheduledAssessments data={data} unavailable={unavailable} onManageAssets={onManageAssets} />
+        <ScheduledAssessments data={data} unavailable={unavailable} servicesPaused={servicesPaused} onManageAssets={onManageAssets} />
     </div>
 }

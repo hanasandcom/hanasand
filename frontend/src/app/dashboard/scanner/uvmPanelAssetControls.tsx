@@ -126,7 +126,8 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
         </fieldset>
         <button type='button' onClick={() => props.onSchedule(asset, true)} disabled={busy === asset.id || !canSchedule || (!asset.scanAuthorizedAt && authorization[asset.id] !== true)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>Enable schedule</button>
         {asset.scheduleEnabled && <button type='button' onClick={() => props.onSchedule(asset, false)} disabled={busy === asset.id} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold'>Pause schedule</button>}
-        {asset.scheduleEnabled && asset.nextRunAt && <span className='text-xs text-ui-muted'>Next run {formatDate(asset.nextRunAt)}</span>}
+        {asset.scheduleEnabled && props.servicesPaused && <span className='text-xs text-ui-warning'>Saved schedule · paused while Scanner is stopped</span>}
+        {asset.scheduleEnabled && props.servicesPaused !== true && asset.nextRunAt && <span className='text-xs text-ui-muted'>Next run {formatDate(asset.nextRunAt)}</span>}
     </>
 }
 
