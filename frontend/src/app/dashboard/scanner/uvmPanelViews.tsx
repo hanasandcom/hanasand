@@ -1,12 +1,16 @@
 'use client'
 
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
-import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmDashboard, UvmEngineSelection } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmDashboard, UvmEngineSelection, UvmZapAuthenticationInput } from '@/utils/monitoring/types'
 import { formatDate } from './uvmPanelHelpers'
 import { AssetCriticalityControl, DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
 import { UvmHelp } from './uvmPanelHelp'
 export { UvmHelp } from './uvmPanelHelp'
 export { UvmAssessmentStarter } from './uvmPanelAssessmentStarter'
+
+function emptyZapAuthenticationProfile(): UvmZapAuthenticationInput {
+    return { loginPath: '/login', verificationPath: '/account', loggedInText: '', loggedOutText: '', username: '', password: '' }
+}
 
 export type AssetViewProps = {
     data: UvmDashboard
@@ -27,6 +31,8 @@ export type AssetViewProps = {
     setAssetNmapProfiles: Dispatch<SetStateAction<Record<string, NmapScanProfile>>>
     zapApiDefinitionPaths: Record<string, string>
     setZapApiDefinitionPaths: Dispatch<SetStateAction<Record<string, string>>>
+    zapAuthenticationProfiles: Record<string, UvmZapAuthenticationInput>
+    setZapAuthenticationProfiles: Dispatch<SetStateAction<Record<string, UvmZapAuthenticationInput>>>
     onSaveCriticality: (asset: UvmAsset, criticality: UvmAssetCriticality) => void
     scheduleScanIds: Record<string, string>
     setScheduleScanIds: Dispatch<SetStateAction<Record<string, string>>>
@@ -36,6 +42,8 @@ export type AssetViewProps = {
     onAddAsset: (event: FormEvent<HTMLFormElement>) => void
     onVerify: (assetId: string) => void
     onSaveZapApiDefinition: (asset: UvmAsset) => void
+    onSaveZapAuthentication: (asset: UvmAsset) => void
+    onRemoveZapAuthentication: (asset: UvmAsset) => void
     onScan: (asset: UvmAsset) => void
     onScanWithNaabu: (asset: UvmAsset) => void
     onScanWithAngryIp: (asset: UvmAsset) => void
@@ -117,6 +125,35 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
                 <UvmHelp label='OpenAPI definition' text='Use a root-relative path on this verified asset, such as /openapi.json. ZAP imports it through the same authorized origin and uses the definition for the web scan.' />
                 <button type='button' onClick={() => props.onSaveZapApiDefinition(asset)} disabled={busy === `${asset.id}:zap-api`} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `${asset.id}:zap-api` ? 'Saving…' : 'Save API path'}</button>
             </div>
+            <section className='mt-4 border-t border-ui-border pt-3'>
+                <div className='mb-2 flex items-center gap-2'>
+                    <h4 className='text-sm font-medium'>ZAP login</h4>
+                    <span className='text-xs text-ui-muted'>{asset.zapAuthentication?.configured ? 'Configured · credentials hidden' : 'Not configured'}</span>
+                    <UvmHelp label='Authenticated ZAP scan' text='Set a login page and a URL plus text that only appears after login. ZAP checks that session before scanning; an unverified login leaves coverage incomplete.' />
+                </div>
+                {(() => {
+                    const profile = props.zapAuthenticationProfiles[asset.id] || emptyZapAuthenticationProfile()
+                    const update = (key: keyof UvmZapAuthenticationInput, value: string) => props.setZapAuthenticationProfiles(current => ({
+                        ...current, [asset.id]: { ...(current[asset.id] || emptyZapAuthenticationProfile()), [key]: value },
+                    }))
+                    const canSave = profile.loginPath.trim() && profile.verificationPath.trim() && profile.loggedInText.trim() && profile.username.trim() && profile.password
+                    return <>
+                        <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>
+                            <label className='grid gap-1 text-xs text-ui-muted'>Login path<input value={profile.loginPath} onChange={event => update('loginPath', event.target.value)} placeholder='/login' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text' /></label>
+                            <label className='grid gap-1 text-xs text-ui-muted'>Signed-in check path<input value={profile.verificationPath} onChange={event => update('verificationPath', event.target.value)} placeholder='/account' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text' /></label>
+                            <label className='grid gap-1 text-xs text-ui-muted'>Text shown when signed in<input value={profile.loggedInText} onChange={event => update('loggedInText', event.target.value)} placeholder='Sign out' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text' /></label>
+                            <label className='grid gap-1 text-xs text-ui-muted'>Text shown when signed out<input value={profile.loggedOutText || ''} onChange={event => update('loggedOutText', event.target.value)} placeholder='Sign in (optional)' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text' /></label>
+                            <label className='grid gap-1 text-xs text-ui-muted'>Username<input value={profile.username} onChange={event => update('username', event.target.value)} autoComplete='username' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text' /></label>
+                            <label className='grid gap-1 text-xs text-ui-muted'>Password<input type='password' value={profile.password} onChange={event => update('password', event.target.value)} autoComplete='new-password' className='h-9 rounded-md border border-ui-border bg-ui-canvas px-2 text-sm text-ui-text' /></label>
+                        </div>
+                        <div className='mt-2 flex flex-wrap gap-2'>
+                            <button type='button' onClick={() => props.onSaveZapAuthentication(asset)} disabled={props.servicesPaused === true || busy === `${asset.id}:zap-auth` || !canSave} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{busy === `${asset.id}:zap-auth` ? 'Saving…' : 'Save login'}</button>
+                            {asset.zapAuthentication?.configured && <button type='button' onClick={() => props.onRemoveZapAuthentication(asset)} disabled={props.servicesPaused === true || busy === `${asset.id}:zap-auth`} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>Remove login</button>}
+                            {props.servicesPaused && <span className='self-center text-xs text-ui-muted'>Scanner services are paused.</span>}
+                        </div>
+                    </>
+                })()}
+            </section>
             <div className='mt-3 flex flex-wrap items-end gap-3'>
                 <label className='flex items-start gap-2 text-xs text-ui-muted'><input type='checkbox' checked={authorized} onChange={event => setAuthorization(current => ({ ...current, [asset.id]: event.target.checked }))} className='mt-0.5 accent-ui-primary' /><span>I authorize scans of this asset and its current public IPs.</span><UvmHelp label='Scan authorization' text='Confirm you have permission for this asset and every IP address returned by DNS. Scanner rechecks public IP scope when each scan starts.' /></label>
                 <label className='grid gap-1 text-[11px] text-ui-muted'>Nmap profile<select aria-label={`Nmap profile for ${asset.hostname}`} value={props.assetNmapProfiles[asset.id] || 'tcp-top-1000'} onChange={event => props.setAssetNmapProfiles(current => ({ ...current, [asset.id]: event.target.value as NmapScanProfile }))} className='h-8 rounded-md border border-ui-border bg-ui-canvas px-2 text-xs text-ui-text'><option value='tcp-top-1000'>Standard · top 1,000 TCP</option><option value='tcp-top-100'>Quick · top 100 TCP</option><option value='tcp-top-1000-safe-vuln'>NSE checks · top 1,000 TCP</option><option value='tcp-all'>Thorough · all 65,535 TCP</option><option value='udp-top-100'>UDP · top 100</option></select>{props.assetNmapProfiles[asset.id] === 'tcp-all' && <small className='text-ui-warning'>Full sweep · up to 20 min/address.</small>}{props.assetNmapProfiles[asset.id] === 'udp-top-100' && <small className='text-ui-warning'>Includes ambiguous open|filtered results.</small>}</label>

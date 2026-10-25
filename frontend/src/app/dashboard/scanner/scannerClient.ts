@@ -1,7 +1,7 @@
 'use client'
 
 import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
-import type { NmapScanProfile, UvmAssetCriticality, UvmAssessmentHistoryPage, UvmAssessmentMode, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingGroupHistoryPage, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingTriageHistoryPage, UvmFindingUpdate, UvmRunHistoryPage } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAssetCriticality, UvmAssessmentHistoryPage, UvmAssessmentMode, UvmAssessmentReport, UvmDashboard, UvmEngineId, UvmEngineProfile, UvmFindingGroupHistoryPage, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingTriageHistoryPage, UvmFindingUpdate, UvmRunHistoryPage, UvmZapAuthenticationInput, UvmZapAuthenticationStatus } from '@/utils/monitoring/types'
 
 const scannerUrl = (process.env.NEXT_PUBLIC_SCANNER_API_URL || 'https://scanner.hanasand.com/api').replace(/\/$/, '')
 
@@ -36,6 +36,8 @@ export function createScannerClient(organizationId: string) {
         updateAssetCriticality: (assetId: string, criticality: UvmAssetCriticality) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/criticality`, { method: 'PUT', body: { criticality } }),
         verifyAsset: (assetId: string) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/verify`, { method: 'POST', body: {} }),
         saveZapApiDefinition: (assetId: string, path: string | null) => request<{ asset: UvmDashboard['assets'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-api-definition`, { method: 'PUT', body: { path } }),
+        configureZapAuthentication: (assetId: string, input: UvmZapAuthenticationInput) => request<{ authentication: UvmZapAuthenticationStatus }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-authentication`, { method: 'PUT', body: input }),
+        removeZapAuthentication: (assetId: string) => request<{ authentication: UvmZapAuthenticationStatus }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/zap-authentication`, { method: 'DELETE', body: {} }),
         runAsset: (assetId: string, authorized: boolean, profile: NmapScanProfile = 'tcp-top-1000') => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized, profile } }),
         runNaabu: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/naabu-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized } }),
         runAngryIp: (assetId: string, authorized: boolean) => request<{ run: UvmDashboard['runs'][number] }>(`/v1/uvm/assets/${encodeURIComponent(assetId)}/angry-ip-scans`, { method: 'POST', body: { requestId: crypto.randomUUID(), authorized, profile: 'angry-ip-reachability-v1' } }),

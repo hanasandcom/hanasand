@@ -81,7 +81,7 @@ export type GetVulnerabilities = {
 }
 export type {
     NmapScanProfile, NaabuScanProfile, NetworkScanProfile, UvmAsset, UvmAssetCriticality, UvmAssetEngineCoverage, UvmAssessment, UvmAssessmentHistoryPage, UvmAssessmentReport, UvmAssessmentMode, UvmAssessmentDecision, UvmDashboard,
-    UvmEngine, UvmEngineId, UvmEngineSelection, UvmFinding, UvmFindingUpdate, UvmFindingTriageHistoryEntry, UvmFindingTriageHistoryPage, UvmGvmFinding, UvmHost, UvmPort, UvmRun,
+    UvmEngine, UvmEngineId, UvmEngineSelection, UvmFinding, UvmFindingUpdate, UvmFindingTriageHistoryEntry, UvmFindingTriageHistoryPage, UvmGvmFinding, UvmHost, UvmPort, UvmRun, UvmZapAuthenticationStatus, UvmZapAuthenticationInput,
     UvmNucleiFinding, UvmNiktoFinding, UvmSslyzeFinding, UvmWapitiFinding, UvmWhatwebFinding, UvmHttpxObservation, UvmTlsxObservation, UvmKatanaObservation, UvmWafw00fObservation, UvmHttpxFinding, UvmTlsxFinding, UvmKatanaFinding, UvmWafw00fFinding, UvmTenableFinding, UvmTenableIntegration, UvmTenableScan, UvmScannerCatalogEntry, UvmTestsslObservation, UvmZapFinding, UvmRunHistoryPage, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingGroup, UvmFindingGroupHistoryPage, UvmEngineProfile,
 } from './scannerTypes'
 

@@ -15,6 +15,8 @@ import type {
     UvmFindingUpdate,
     UvmRun,
     UvmRunHistoryPage,
+    UvmZapAuthenticationInput,
+    UvmZapAuthenticationStatus,
 } from '@/utils/monitoring/types'
 
 export type UvmPanelProps = {
@@ -31,6 +33,8 @@ export type UvmPanelProps = {
     updateAssetCriticalityAction: (assetId: string, criticality: UvmAssetCriticality) => Promise<{ asset: UvmAsset }>
     verifyAssetAction: (assetId: string) => Promise<{ asset: UvmAsset }>
     saveZapApiDefinitionAction: (assetId: string, path: string | null) => Promise<{ asset: UvmAsset }>
+    configureZapAuthenticationAction: (assetId: string, input: UvmZapAuthenticationInput) => Promise<{ authentication: UvmZapAuthenticationStatus }>
+    removeZapAuthenticationAction: (assetId: string) => Promise<{ authentication: UvmZapAuthenticationStatus }>
     runScanAction: (assetId: string, authorized: boolean, profile: NmapScanProfile) => Promise<{ run: UvmRun }>
     runNaabuAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>
     runAngryIpAction: (assetId: string, authorized: boolean) => Promise<{ run: UvmRun }>

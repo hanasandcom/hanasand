@@ -15,9 +15,14 @@ function isCurrent(coverage: UvmAssetEngineCoverage | undefined) {
 
 function engineCoverage(coverage: UvmAssetEngineCoverage | undefined) {
     if (!coverage) return 'Unknown'
-    if (coverage.engine === 'zap') return coverage.webCoverage?.complete
-        ? `${coverage.webCoverage.acceptedInstances} findings · ${coverage.webCoverage.urlsDiscovered ?? 'URL count unavailable'} traditional URLs · ${coverage.webCoverage.clientUrlsDiscovered ?? 'browser URL count unavailable'} browser routes`
-        : 'Findings unavailable · URL count unavailable · browser URL count unavailable'
+    if (coverage.engine === 'zap') {
+        const web = coverage.webCoverage
+        if (!web) return 'Findings unavailable · URL count unavailable · browser URL count unavailable'
+        const login = web.authenticationConfigured ? ` · login ${web.authenticationVerified ? 'verified' : 'unverified'}` : ''
+        return web.complete
+            ? `${web.acceptedInstances} findings · ${web.urlsDiscovered ?? 'URL count unavailable'} traditional URLs · ${web.clientUrlsDiscovered ?? 'browser URL count unavailable'} browser routes${login}`
+            : `Web coverage incomplete · ${web.acceptedInstances} findings${login}`
+    }
     if (coverage.coverageKnown && coverage.completedAddresses !== null) {
         return `${coverage.completedAddresses}/${coverage.requestedAddresses.length} addresses`
     }

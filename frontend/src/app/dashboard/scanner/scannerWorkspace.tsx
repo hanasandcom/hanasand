@@ -72,6 +72,8 @@ export default function ScannerWorkspace() {
             updateAssetCriticalityAction={client.updateAssetCriticality}
             verifyAssetAction={client.verifyAsset}
             saveZapApiDefinitionAction={client.saveZapApiDefinition}
+            configureZapAuthenticationAction={client.configureZapAuthentication}
+            removeZapAuthenticationAction={client.removeZapAuthentication}
             runScanAction={client.runAsset}
             runNaabuAction={client.runNaabu}
             runAngryIpAction={client.runAngryIp}

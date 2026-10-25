@@ -38,6 +38,7 @@ export function RunCard({ run, defaultOpen, cancelBusy, onCancel }: { run: UvmRu
                     {(run.seededUrlCount || 0) > 0 && <p className='sm:col-span-2'>Katana seed URLs: {run.seededUrlCount} · source run <code className='break-all'>{run.seedSourceRunId}</code></p>}
                     <p>Traditional URLs: {run.coverage?.urlsDiscovered ?? 'not reported'} · {run.coverage?.traditionalSpiderComplete === undefined ? 'completion unknown' : run.coverage.traditionalSpiderComplete ? 'complete' : 'incomplete'}</p>
                     <p>Browser routes: {run.coverage?.clientUrlsDiscovered ?? 'not reported'} · {run.coverage?.clientSpiderComplete === undefined ? 'completion unknown' : run.coverage.clientSpiderComplete ? 'complete' : 'incomplete'}</p>
+                    {run.authenticationConfigured && <p>Login: {run.coverage?.authenticationVerified === undefined ? 'verification pending' : run.coverage.authenticationVerified ? 'verified' : 'unverified'}</p>}
                     <p>Report complete: {run.coverage?.complete ? 'yes' : run.status === 'running' || run.status === 'queued' ? 'pending' : 'no'}</p>
                 </> : <>
                     <p>Host results: {run.engine === 'nmap' && run.coverage?.known === false ? 'historical invocation coverage unavailable' : run.coverage ? `${run.coverage.completedAddresses ?? 'unknown'}/${run.coverage.attemptedAddresses ?? 'unknown'} attempted addresses` : ['queued', 'launching', 'running', 'exporting', 'cancelling'].includes(run.status) ? 'pending' : 'not reported'}</p>

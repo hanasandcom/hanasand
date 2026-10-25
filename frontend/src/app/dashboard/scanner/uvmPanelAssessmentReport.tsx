@@ -78,6 +78,7 @@ export function UvmAssessmentReportView({ assessment, busy = '', onClose, onOpen
                         {job.engine === 'zap' && <span>{job.run.coverage.urlsVisited == null ? 'URLs visited not reported' : `${job.run.coverage.urlsVisited} URLs visited`}</span>}
                         {job.engine === 'zap' && <span>{job.run.coverage.urlsDiscovered ?? 'not reported'} traditional URLs</span>}
                         {job.engine === 'zap' && <span>{job.run.coverage.clientUrlsDiscovered ?? 'not reported'} browser routes</span>}
+                        {job.engine === 'zap' && job.run.authenticationConfigured && <span>Login {job.run.coverage.authenticationVerified === undefined ? 'verification pending' : job.run.coverage.authenticationVerified ? 'verified' : 'unverified'}</span>}
                         {job.engine === 'zap' && job.run.coverage.traditionalSpiderComplete !== undefined && <span>Traditional crawl {job.run.coverage.traditionalSpiderComplete ? 'complete' : 'incomplete'}</span>}
                         {job.engine === 'zap' && job.run.coverage.clientSpiderComplete !== undefined && <span>Browser crawl {job.run.coverage.clientSpiderComplete ? 'complete' : 'incomplete'}</span>}
                         {job.run.coverage.crawlComplete !== undefined && <span>Crawl {job.run.coverage.crawlComplete ? 'complete' : 'incomplete'}</span>}

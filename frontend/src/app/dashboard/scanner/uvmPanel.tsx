@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import type { NetworkScanProfile, NmapScanProfile, UvmAssessmentMode, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFindingGroup, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRun } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAssessmentMode, UvmAsset, UvmAssetCriticality, UvmAssessmentReport, UvmEngineSelection, UvmFindingGroup, UvmFindingHistoryPage, UvmFindingHistoryScope, UvmFindingUpdate, UvmRun, UvmZapAuthenticationInput } from '@/utils/monitoring/types'
 import type { UvmPanelProps } from './uvmPanelProps'
 import { filterAndSortUvmFindingGroups, filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
 import { buildUvmAssessmentEnginePlan, buildUvmScheduleEnginePlan } from './uvmPanelEnginePlans'
@@ -15,7 +15,7 @@ import { UvmAssessmentReportView } from './uvmPanelAssessmentReport'
 import { UvmAssessmentHistory, UvmRunHistory } from './uvmPanelHistory'
 import { createUvmPanelHistoryActions } from './uvmPanelHistoryActions'
 import { createUvmPanelFindingActions } from './uvmPanelFindingActions'
-import { saveUvmAssetCriticality, saveUvmZapApiDefinition } from './uvmPanelAssetActions'
+import { removeUvmZapAuthentication, saveUvmAssetCriticality, saveUvmZapApiDefinition, saveUvmZapAuthentication } from './uvmPanelAssetActions'
 import { UvmPanelScannerSetup } from './uvmPanelScannerSetup'
 import { createUvmPanelTenableActions, type TenableRegion } from './uvmPanelTenableActions'
 export { filterAndSortUvmFindings, type UvmFindingFilters } from './uvmPanelHelpers'
@@ -23,7 +23,7 @@ export default function UvmPanel({
     initialData, servicesPaused = false, refreshAction, getRunAction, getRunHistoryAction,
     assessmentHistoryAction, findingHistoryAction, findingGroupsAction, findingTriageHistoryAction, createAssetAction, verifyAssetAction,
     updateAssetCriticalityAction,
-    saveZapApiDefinitionAction, runScanAction, runNaabuAction, runAngryIpAction, scheduleAction,
+    saveZapApiDefinitionAction, configureZapAuthenticationAction, removeZapAuthenticationAction, runScanAction, runNaabuAction, runAngryIpAction, scheduleAction,
     configureTenableAction, disconnectTenableAction, runTenableScanAction, runGvmScanAction,
     runZapScanAction, runTestsslAction, runNucleiAction, runNiktoAction, runSslyzeAction,
     runWapitiAction, runWhatwebAction, runHttpxAction, runTlsxAction, runKatanaAction,
@@ -50,6 +50,7 @@ export default function UvmPanel({
     const [assessmentNmapProfile, setAssessmentNmapProfile] = useState<NetworkScanProfile>('tcp-top-1000')
     const [assetNmapProfiles, setAssetNmapProfiles] = useState<Record<string, NmapScanProfile>>({})
     const [zapApiDefinitionPaths, setZapApiDefinitionPaths] = useState<Record<string, string>>({})
+    const [zapAuthenticationProfiles, setZapAuthenticationProfiles] = useState<Record<string, UvmZapAuthenticationInput>>({})
     const [findingUpdates, setFindingUpdates] = useState<Record<string, UvmFindingUpdate>>({})
     const [findingFilters, setFindingFilters] = useState<UvmFindingFilters>({ query: '', engine: 'all', severity: 'all', status: 'needs_attention', asset: 'all' })
     const [findingSort, setFindingSort] = useState<'severity' | 'criticality' | 'due-date'>('severity')
@@ -152,6 +153,16 @@ export default function UvmPanel({
         return saveUvmZapApiDefinition({ asset, path: zapApiDefinitionPaths[asset.id]?.trim() || null,
             updateAction: saveZapApiDefinitionAction, setBusy, setMessage, setData, setPaths: setZapApiDefinitionPaths })
     }
+    function saveZapAuthentication(asset: UvmAsset) {
+        const profile = zapAuthenticationProfiles[asset.id]
+        if (!profile) return
+        return saveUvmZapAuthentication({ asset, profile, updateAction: configureZapAuthenticationAction,
+            setBusy, setMessage, setData, setProfiles: setZapAuthenticationProfiles })
+    }
+    function removeZapAuthentication(asset: UvmAsset) {
+        return removeUvmZapAuthentication({ asset, removeAction: removeZapAuthenticationAction,
+            setBusy, setMessage, setData, setProfiles: setZapAuthenticationProfiles })
+    }
     async function schedule(asset: UvmAsset, enabled: boolean) {
         setBusy(asset.id); setMessage('')
         try {
@@ -191,7 +202,26 @@ export default function UvmPanel({
             {assessmentReport && <UvmAssessmentReportView assessment={assessmentReport} busy={busy} onClose={() => setAssessmentReport(null)} onOpenFindings={(stepId, assetId, engine) => void openAssessmentFindings(assessmentReport.id, stepId, assetId, engine)} onOpenRun={(runId, engine) => void openRun(runId, engine)} />}
             </section>}
             {view === 'findings' && <UvmFindingsView data={data} attentionCount={findingScope ? attentionFindings.length : attentionFindingCount} busy={busy} filters={findingFilters} setFilters={setFindingFilters} sort={findingSort} setSort={setFindingSort} visibleFindings={visibleFindings} visibleGroups={visibleFindingGroups} findingUpdates={findingUpdates} setFindingUpdates={setFindingUpdates} nextCursor={findingScope ? data.findingsNextCursor || null : data.findingGroupsNextCursor || null} loadOlder={loadOlderFindings} findingTriageHistoryAction={findingTriageHistoryAction} onViewRun={(runId, engine) => void openRun(runId, engine)} onUpdate={finding => void updateFinding(finding)} syncState={findingSyncState} scoped={findingScope !== null} onShowAll={() => void showAllFindings()} onRetryScoped={() => void retryAssessmentFindings()} />}
-            {view === 'assets' && <UvmAssetsView data={data} servicesPaused={servicesPaused} busy={busy} message={message} hostname={hostname} setHostname={setHostname} authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals} schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles} assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles} zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths} onSaveCriticality={(asset, criticality) => void updateAssetCriticality(asset, criticality)} onSaveZapApiDefinition={asset => void saveZapApiDefinition(asset)} scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds} tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds} onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)} onScan={asset => void scan(asset)} onScanWithNaabu={asset => void scanWithNaabu(asset)} onScanWithAngryIp={asset => void scanWithAngryIp(asset)} onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)} onScanWithTestssl={asset => void scanWithTestssl(asset)} onScanWithNuclei={asset => void scanWithNuclei(asset)} onScanWithNikto={asset => void scanWithNikto(asset)} onScanWithSslyze={asset => void scanWithSslyze(asset)} onScanWithWapiti={asset => void scanWithWapiti(asset)} onScanWithWhatweb={asset => void scanWithWhatweb(asset)} onScanWithHttpx={asset => void scanWithHttpx(asset)} onScanWithTlsx={asset => void scanWithTlsx(asset)} onScanWithKatana={asset => void scanWithKatana(asset)} onScanWithWafw00f={asset => void scanWithWafw00f(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
+            {view === 'assets' && <UvmAssetsView
+                data={data} servicesPaused={servicesPaused} busy={busy} message={message} hostname={hostname} setHostname={setHostname}
+                authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals}
+                schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles}
+                assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles}
+                zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths}
+                zapAuthenticationProfiles={zapAuthenticationProfiles} setZapAuthenticationProfiles={setZapAuthenticationProfiles}
+                onSaveCriticality={(asset, criticality) => void updateAssetCriticality(asset, criticality)}
+                onSaveZapApiDefinition={asset => void saveZapApiDefinition(asset)}
+                onSaveZapAuthentication={asset => void saveZapAuthentication(asset)}
+                onRemoveZapAuthentication={asset => void removeZapAuthentication(asset)}
+                scheduleScanIds={scheduleScanIds} setScheduleScanIds={setScheduleScanIds}
+                tenableScanIds={tenableScanIds} setTenableScanIds={setTenableScanIds}
+                onRefresh={() => void refresh()} onAddAsset={event => void addAsset(event)} onVerify={assetId => void verify(assetId)}
+                onScan={asset => void scan(asset)} onScanWithNaabu={asset => void scanWithNaabu(asset)} onScanWithAngryIp={asset => void scanWithAngryIp(asset)}
+                onScanWithTenable={asset => void scanWithTenable(asset)} onScanWithGvm={asset => void scanWithGvm(asset)} onScanWithZap={asset => void scanWithZap(asset)}
+                onScanWithTestssl={asset => void scanWithTestssl(asset)} onScanWithNuclei={asset => void scanWithNuclei(asset)} onScanWithNikto={asset => void scanWithNikto(asset)}
+                onScanWithSslyze={asset => void scanWithSslyze(asset)} onScanWithWapiti={asset => void scanWithWapiti(asset)} onScanWithWhatweb={asset => void scanWithWhatweb(asset)}
+                onScanWithHttpx={asset => void scanWithHttpx(asset)} onScanWithTlsx={asset => void scanWithTlsx(asset)} onScanWithKatana={asset => void scanWithKatana(asset)}
+                onScanWithWafw00f={asset => void scanWithWafw00f(asset)} onSchedule={(asset, enabled) => void schedule(asset, enabled)} />}
             {view === 'scanners' && <UvmPanelScannerSetup data={data} busy={busy} region={tenableRegion} setRegion={setTenableRegion} accessKey={tenableAccessKey} setAccessKey={setTenableAccessKey} secretKey={tenableSecretKey} setSecretKey={setTenableSecretKey} servicesPaused={servicesPaused} onSave={event => void saveTenable(event)} onDisconnect={() => void disconnectTenable()} />}
             {view === 'runs' && <UvmRunHistory key={selectedRun ? `${selectedRun.engine}:${selectedRun.id}` : 'recent'} data={data} unavailable={dashboardUnavailable} selectedRun={selectedRun} busy={busy} nextCursor={data.runsNextCursor || null} loadOlder={getRunHistoryAction} onCancel={cancelRun} />}
         </fieldset>
