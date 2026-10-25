@@ -15,9 +15,9 @@ function runResult(run: UvmRun) {
         const ambiguousUdpPorts = observations.filter(port => port.protocol === 'udp' && port.state === 'open|filtered').length
         const ports = run.engine === 'masscan' ? `${confirmedOpenPorts} open TCP ports`
             : run.engine === 'naabu' ? `${confirmedOpenPorts} open TCP ports`
-            : run.profile === 'udp-top-100'
-                ? `${confirmedOpenPorts} open · ${ambiguousUdpPorts} open|filtered UDP`
-                : `${confirmedOpenPorts} open TCP port${confirmedOpenPorts === 1 ? '' : 's'}`
+                : run.profile === 'udp-top-100'
+                    ? `${confirmedOpenPorts} open · ${ambiguousUdpPorts} open|filtered UDP`
+                    : `${confirmedOpenPorts} open TCP port${confirmedOpenPorts === 1 ? '' : 's'}`
         const total = run.coverage?.requestedAddresses ?? run.coverage?.attemptedAddresses
         const coverage = total === undefined ? '' : `Address coverage ${run.coverage?.completedAddresses}/${total} · `
         return `${coverage}${ports}${run.engine === 'masscan' ? ' · bounded SYN inventory' : run.engine === 'naabu' ? ' · port discovery only' : run.profile === 'tcp-top-1000-safe-vuln' ? ' · NSE checks' : run.profile === 'udp-top-100' ? ' · UDP inventory' : ' · service inventory only'}`
