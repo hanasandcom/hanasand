@@ -85,7 +85,7 @@ test.serial('Rocky Linux uses its supported image alias and installs Docker and 
         config: Record<string, string>
         source: { server: string; alias: string }
     }
-    expect(body.source).toMatchObject({ server: 'https://images.linuxcontainers.org', alias: 'rockylinux/9/cloud' })
+    expect(body.source).toMatchObject({ server: 'https://images.lxd.canonical.com', alias: 'rockylinux/9/cloud' })
     expect(body.config['limits.cpu']).toBe('5')
     expect(body.config['limits.memory']).toBe('10GiB')
     expect(body.config['cloud-init.user-data']).toContain('dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo')

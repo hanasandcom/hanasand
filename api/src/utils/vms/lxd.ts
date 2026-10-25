@@ -7,17 +7,20 @@ import { writeVmDetails, type VmDetails } from './vmDetails.ts'
 import { vmSetupUserData } from './vmSetupUserData.ts'
 import type { VmProvisionOptions } from './provisionOnHost.ts'
 
-const linuxContainersImageServer = 'https://images.linuxcontainers.org'
+// Match Inspur's configured `images` remote. The old linuxcontainers.org
+// endpoint does not publish these aliases and LXD treats the alias as a
+// fingerprint when it cannot resolve it.
+const lxdImageServer = 'https://images.lxd.canonical.com'
 
 function imageSource(os: NonNullable<VmProvisionOptions['os']>): { server: string; alias: string } {
     switch (os) {
         case 'ubuntu-22.04': return { server: config.lxd_image_server, alias: '22.04' }
         case 'ubuntu-24.04': return { server: config.lxd_image_server, alias: '24.04' }
         case 'ubuntu-26.04': return { server: config.lxd_image_server, alias: '26.04' }
-        case 'ubuntu-24.04-desktop': return { server: linuxContainersImageServer, alias: 'ubuntu/24.04/desktop' }
-        case 'debian-13': return { server: linuxContainersImageServer, alias: 'debian/13/cloud' }
-        case 'rocky-9': return { server: linuxContainersImageServer, alias: 'rockylinux/9/cloud' }
-        case 'centos-stream-10': return { server: linuxContainersImageServer, alias: 'centos/10-Stream/cloud' }
+        case 'ubuntu-24.04-desktop': return { server: lxdImageServer, alias: 'ubuntu/24.04/desktop' }
+        case 'debian-13': return { server: lxdImageServer, alias: 'debian/13/cloud' }
+        case 'rocky-9': return { server: lxdImageServer, alias: 'rockylinux/9/cloud' }
+        case 'centos-stream-10': return { server: lxdImageServer, alias: 'centos/10-Stream/cloud' }
         default: throw new Error('Unsupported VM image.')
     }
 }
