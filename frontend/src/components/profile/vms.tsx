@@ -14,9 +14,11 @@ import { useVmActionFeedback, VmActionFeedback } from '@/components/vms/vmAction
 import VmCreateForm from './vmCreateForm'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import getLatestVMMetrics from '@/utils/vms/fetch/metrics/getLatestVMMetrics'
+import { scopeVmInventory } from '@/utils/vms/workspaceScope'
 
 export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, initialNow: number }) {
-    const [vms, setVms] = useState<VM[]>(serverVMs ?? [])
+    const { organizationId, organizations, loading: organizationsLoading, unavailable: organizationsUnavailable, organizationName } = useWorkspace()
+    const [vms, setVms] = useState<VM[]>(() => scopeVmInventory(serverVMs ?? [], organizationId))
     const [inventoryUnavailable, setInventoryUnavailable] = useState(serverVMs === null)
     const [now, setNow] = useState(initialNow)
     const router = useRouter()
@@ -30,7 +32,6 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, 
     const diskMetricsLoading = useRef(false)
     const diskMetricsGeneration = useRef(0)
     const { items, notify, dismiss } = useVmActionFeedback()
-    const { organizationId, organizations, loading: organizationsLoading, unavailable: organizationsUnavailable, organizationName } = useWorkspace()
     const activeOrganization = organizations.find(organization => organization.id === organizationId)
     const hasOrganizationContext = Boolean(organizationId || organizationName)
     const canCreateInWorkspace = !hasOrganizationContext || (!organizationsLoading && !organizationsUnavailable && ['owner', 'admin'].includes(activeOrganization?.role || ''))
@@ -51,7 +52,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, 
                 setInventoryUnavailable(true)
                 return
             }
-            setVms(updatedVMs)
+            setVms(scopeVmInventory(updatedVMs, organizationId))
             setInventoryUnavailable(false)
             window.dispatchEvent(new Event('vms-updated'))
         } else {
@@ -100,9 +101,9 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, 
             setInventoryUnavailable(true)
             return
         }
-        setVms(serverVMs)
+        setVms(scopeVmInventory(serverVMs, organizationId))
         setInventoryUnavailable(false)
-    }, [serverVMs])
+    }, [serverVMs, organizationId])
 
     useEffect(() => {
         setNow(Date.now())
