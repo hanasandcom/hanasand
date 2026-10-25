@@ -77,8 +77,8 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
         <div className='flex items-center justify-between gap-3'><div role='group' aria-label='Assessment mode' className='flex gap-1'>
             <button type='button' aria-pressed={mode === 'automatic'} onClick={() => setMode('automatic')} className={`rounded border px-2 py-1 text-xs font-semibold ${mode === 'automatic' ? 'border-ui-primary text-ui-primary' : 'border-ui-border text-ui-muted'}`}>Automatic</button>
             <button type='button' aria-pressed={mode === 'manual'} onClick={() => setMode('manual')} className={`rounded border px-2 py-1 text-xs font-semibold ${mode === 'manual' ? 'border-ui-primary text-ui-primary' : 'border-ui-border text-ui-muted'}`}>Manual order</button>
-        </div><UvmHelp label='Assessment mode' text='Automatic starts with every ready scanner profile marked safe, then gates TLS and web follow-ups on discovery evidence. Nessus and profiles without a safe rating require explicit selection. Manual order runs the selected sequence as entered.' /></div>
-        {mode === 'automatic' && <p className='text-xs text-ui-muted'>Ready safe-profile scanners are preselected on load. Select Nessus or another unrated profile explicitly.</p>}
+        </div><UvmHelp label='Assessment mode' text='Automatic includes ready safe-profile engines and requires Nessus or Greenbone for vulnerability analysis. TLS and web checks follow discovery evidence. Manual order can run discovery-only scans.' /></div>
+        {mode === 'automatic' && <p className='text-xs text-ui-muted'>Select Nessus with an enabled scan configuration or Greenbone. Choose Manual order for Nmap/HTTPX discovery only.</p>}
         <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-3'>{assessmentEngines.map(({ id: engineId, product: item }) => {
             const engine = data.engines.find(candidate => candidate.id === engineId)
             const tenableReady = engineId !== 'tenable-vm' || (data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.enabled))
@@ -103,7 +103,7 @@ export function UvmAssessmentEngineChoices({ data, selectedEngines, setSelectedE
             </label>
         })}</div>
         {sequence.length > 0 && <div className='grid gap-2 rounded-md border border-ui-border bg-ui-raised p-3'>
-            <div><h3 className='text-sm font-semibold'>{mode === 'automatic' ? 'Automatic sequence' : 'Run sequence'}</h3>{mode === 'automatic' && <small className='text-xs text-ui-muted'>{autoReady ? 'Conditional follow-ups' : 'Nmap + HTTPS probe unavailable'}</small>}</div>
+            <div><h3 className='text-sm font-semibold'>{mode === 'automatic' ? 'Automatic sequence' : 'Run sequence'}</h3>{mode === 'automatic' && <small className='text-xs text-ui-muted'>{!autoReady ? 'Nmap + HTTPS probe unavailable' : !selectedReadyEngines.some(id => id === 'tenable-vm' || id === 'gvm') ? 'Add Nessus or Greenbone' : 'Conditional follow-ups'}</small>}</div>
             <ol aria-label='Assessment run sequence' className='grid gap-1'>
                 {sequence.map((id, index) => {
                     const sourceHttpx = ['wafw00f', 'whatweb', 'katana', 'zap', 'nuclei', 'nikto', 'wapiti'].includes(id)

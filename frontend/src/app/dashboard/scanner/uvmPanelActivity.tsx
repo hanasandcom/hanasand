@@ -70,7 +70,7 @@ function ScheduledAssessments({ data, unavailable, onManageAssets }: { data: Uvm
                     const coverage = plan.map(choice => ({ engine: choice.engine, coverage: coverageFor(asset.id, choice.engine) }))
                     return <li key={asset.id} className='rounded-md border border-ui-border bg-ui-raised p-3'>
                         <div className='flex flex-wrap items-center justify-between gap-2'><strong className='text-sm'>{asset.hostname}</strong><span className='text-xs text-ui-muted'>{plan.map(choice => choice.engine).join(' → ')}</span></div>
-                        <p className='mt-1 text-xs text-ui-muted'>Every {asset.intervalMinutes} min · next {formatDate(asset.nextRunAt)}</p>
+                        <p className='mt-1 text-xs text-ui-muted'>{asset.scheduleMode === 'automatic' ? 'Automatic' : 'Manual'} · every {asset.intervalMinutes} min · next {formatDate(asset.nextRunAt)}</p>
                         {coverage.map(item => <p key={item.engine} className='mt-1 text-xs text-ui-muted'>{item.engine} last complete: {item.coverage?.lastCompleteRun ? `${item.coverage.freshness} · ${formatDate(item.coverage.lastCompleteRun.at)}` : 'none recorded'}</p>)}
                     </li>
                 })}

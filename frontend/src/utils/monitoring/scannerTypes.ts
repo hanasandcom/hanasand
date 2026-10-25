@@ -23,6 +23,7 @@ export type UvmAsset = {
     scanAuthorizedAt: string | null
     authorizedAddresses: string[]
     scheduleEnabled: boolean
+    scheduleMode: UvmAssessmentMode
     schedulePlan: UvmEngineSelection[]
     scheduleEngine: UvmEngineId
     scheduleScanId: string | null

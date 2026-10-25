@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-import type { NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmEngineSelection } from '@/utils/monitoring/types'
+import type { NmapScanProfile, UvmAssessmentMode, UvmAsset, UvmAssetCriticality, UvmEngineSelection } from '@/utils/monitoring/types'
 import { formatDate, isNmapScanProfile } from './uvmPanelHelpers'
 import type { AssetViewProps } from './uvmPanelViews'
 import { UvmHelp } from './uvmPanelHelp'
@@ -45,12 +45,13 @@ export function TenableScanControl({ asset, props }: { asset: UvmAsset, props: A
     </>
 }
 
-export function ScheduleControl({ asset, props, canSchedule, schedulePlan, scheduleScanId }: {
+export function ScheduleControl({ asset, props, canSchedule, schedulePlan, scheduleScanId, mode }: {
     asset: UvmAsset
     props: AssetViewProps
     canSchedule: boolean
     schedulePlan: UvmEngineSelection[]
     scheduleScanId: string
+    mode: UvmAssessmentMode
 }) {
     const { data, busy, authorization } = props
     const engineOptions: Array<{ id: UvmEngineSelection['engine'], label: string }> = [
@@ -84,13 +85,18 @@ export function ScheduleControl({ asset, props, canSchedule, schedulePlan, sched
         </label>
         <fieldset className='grid gap-2 text-[11px] text-ui-muted'>
             <legend>Recurring engines · run in order</legend>
+            <div role='group' aria-label='Recurring assessment mode' className='flex gap-2'>
+                {(['automatic', 'manual'] as const).map(value => <button key={value} type='button' aria-pressed={mode === value} onClick={() => props.setScheduleModes(current => ({ ...current, [asset.id]: value }))} className={`rounded border px-2 py-1 font-semibold ${mode === value ? 'border-ui-primary text-ui-primary' : 'border-ui-border text-ui-muted'}`}>{value === 'automatic' ? 'Automatic assessment' : 'Manual order'}</button>)}
+            </div>
+            {mode === 'automatic' && <p>Automatic adds Nmap and HTTPX, then gates TLS and web checks on their evidence. Select Nessus or Greenbone for vulnerability analysis.</p>}
             <div className='flex flex-wrap gap-3'>{engineOptions.map(option => {
-                const checked = schedulePlan.some(choice => choice.engine === option.id)
+                const requiredBaseline = mode === 'automatic' && (option.id === 'nmap' || option.id === 'httpx')
+                const checked = requiredBaseline || schedulePlan.some(choice => choice.engine === option.id)
                 const available = engineAvailable(option.id)
                 const unavailable = !available
                 const stopped = props.servicesPaused === true
                 return <label key={option.id} className='flex items-center gap-1.5'>
-                    <input type='checkbox' checked={checked} disabled={unavailable && !checked} onChange={event => toggleEngine(option.id, event.target.checked)} className='accent-ui-primary' />{option.label}{unavailable && <span className='text-ui-warning'>{stopped ? ' · Stopped' : ' · Unavailable'}</span>}
+                    <input type='checkbox' checked={checked} disabled={requiredBaseline || unavailable && !checked} onChange={event => toggleEngine(option.id, event.target.checked)} className='accent-ui-primary' />{option.label}{requiredBaseline && <span> · Required</span>}{unavailable && <span className='text-ui-warning'>{stopped ? ' · Stopped' : ' · Unavailable'}</span>}
                 </label>
             })}</div>
             {schedulePlan.map((choice, index) => <div key={choice.engine} className='flex flex-wrap items-end gap-2 rounded border border-ui-border bg-ui-raised p-2'>

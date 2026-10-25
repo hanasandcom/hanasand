@@ -45,7 +45,9 @@ export function deriveUvmPanelState({ data, servicesPaused, findingScope, findin
         visibleFindings: filterAndSortUvmFindings(data.findings, findingFilters, data.assets, findingSort),
         visibleFindingGroups: filterAndSortUvmFindingGroups(findingGroups, findingFilters, data.assets, findingSort),
         selectableAssessmentEngines,
-        automaticPrerequisitesAvailable: !servicesPaused && ['nmap', 'httpx'].every(id => data.engines.some(engine => engine.id === id && engine.status === 'available')),
+        automaticPrerequisitesAvailable: !servicesPaused
+            && ['nmap', 'httpx'].every(id => data.engines.some(engine => engine.id === id && engine.status === 'available'))
+            && selectableAssessmentEngines.some(engine => engine === 'tenable-vm' || engine === 'gvm'),
         plannedEngineCount: buildUvmAssessmentEnginePlan(selectableAssessmentEngines, assessmentScanId, assessmentNmapProfile, assessmentMode).length,
     }
 }

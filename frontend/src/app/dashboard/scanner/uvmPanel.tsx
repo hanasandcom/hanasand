@@ -37,6 +37,7 @@ export default function UvmPanel({
     const [authorization, setAuthorization] = useState<Record<string, boolean>>({})
     const [intervals, setIntervals] = useState<Record<string, string>>({})
     const [schedulePlans, setSchedulePlans] = useState<Record<string, UvmEngineSelection[]>>({})
+    const [scheduleModes, setScheduleModes] = useState<Record<string, UvmAssessmentMode>>({})
     const [scheduleProfiles, setScheduleProfiles] = useState<Record<string, NetworkScanProfile>>({})
     const [scheduleScanIds, setScheduleScanIds] = useState<Record<string, string>>({})
     const [tenableRegion, setTenableRegion] = useState<TenableRegion>('us')
@@ -143,8 +144,9 @@ export default function UvmPanel({
         try {
             const intervalMinutes = Number(intervals[asset.id] || asset.intervalMinutes)
             const currentPlan = schedulePlans[asset.id] || asset.schedulePlan || [{ engine: asset.scheduleEngine || 'nmap' }]
-            const engines = buildUvmScheduleEnginePlan(currentPlan, scheduleProfiles[asset.id], scheduleScanIds[asset.id] || data.tenableScans.find(scan => scan.enabled)?.id || '')
-            const result = await scheduleAction(asset.id, { enabled, intervalMinutes, authorized: authorization[asset.id] === true, engines })
+            const mode = scheduleModes[asset.id] || asset.scheduleMode || 'manual'
+            const engines = buildUvmScheduleEnginePlan(currentPlan, scheduleProfiles[asset.id], scheduleScanIds[asset.id] || data.tenableScans.find(scan => scan.enabled)?.id || '', mode)
+            const result = await scheduleAction(asset.id, { enabled, intervalMinutes, authorized: authorization[asset.id] === true, engines, mode })
             setData(current => ({ ...current, assets: current.assets.map(item => item.id === asset.id ? result.asset : item) }))
             setMessage(enabled ? `Schedule enabled for ${asset.hostname}.` : `Schedule paused for ${asset.hostname}.`)
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Schedule could not be saved.') }
@@ -175,7 +177,7 @@ export default function UvmPanel({
             {view === 'assets' && <UvmAssetsView
                 data={data} servicesPaused={servicesPaused} busy={busy} message={message} hostname={hostname} setHostname={setHostname}
                 authorization={authorization} setAuthorization={setAuthorization} intervals={intervals} setIntervals={setIntervals}
-                schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles}
+                schedulePlans={schedulePlans} setSchedulePlans={setSchedulePlans} scheduleModes={scheduleModes} setScheduleModes={setScheduleModes} scheduleProfiles={scheduleProfiles} setScheduleProfiles={setScheduleProfiles}
                 assetNmapProfiles={assetNmapProfiles} setAssetNmapProfiles={setAssetNmapProfiles}
                 zapApiDefinitionPaths={zapApiDefinitionPaths} setZapApiDefinitionPaths={setZapApiDefinitionPaths}
                 zapAuthenticationProfiles={zapAuthenticationProfiles} setZapAuthenticationProfiles={setZapAuthenticationProfiles}

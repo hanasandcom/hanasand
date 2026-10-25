@@ -6,7 +6,8 @@ function isNmapProfile(profile: UvmEngineProfile | undefined): profile is NmapSc
     return profile !== undefined && ['tcp-top-100', 'tcp-top-1000', 'tcp-top-1000-safe-vuln', 'tcp-all', 'udp-top-100'].includes(profile)
 }
 
-export function buildUvmScheduleEnginePlan(plan: UvmEngineSelection[], profile: UvmEngineProfile | undefined, tenableScanId: string): UvmEngineSelection[] {
+export function buildUvmScheduleEnginePlan(plan: UvmEngineSelection[], profile: UvmEngineProfile | undefined, tenableScanId: string, mode: UvmAssessmentMode = 'manual'): UvmEngineSelection[] {
+    if (mode === 'automatic') return buildUvmAssessmentEnginePlan(plan.map(choice => choice.engine), tenableScanId, isNmapProfile(profile) ? profile : 'tcp-top-1000', mode)
     return plan.map(choice => choice.engine === 'nmap'
         ? { engine: choice.engine, profile: isNmapProfile(profile) ? profile : isNmapProfile(choice.profile) ? choice.profile : 'tcp-top-1000' }
         : choice.engine === 'naabu' ? { engine: choice.engine, profile: 'naabu-top-100' }

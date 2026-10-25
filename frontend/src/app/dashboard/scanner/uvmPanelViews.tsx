@@ -1,7 +1,7 @@
 'use client'
 
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
-import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmDashboard, UvmEngineSelection, UvmZapAuthenticationInput } from '@/utils/monitoring/types'
+import type { NetworkScanProfile, NmapScanProfile, UvmAsset, UvmAssetCriticality, UvmAssessmentMode, UvmDashboard, UvmEngineSelection, UvmZapAuthenticationInput } from '@/utils/monitoring/types'
 import { formatDate } from './uvmPanelHelpers'
 import { AssetCriticalityControl, DnsRecord, ScheduleControl, TenableScanControl } from './uvmPanelAssetControls'
 import { UvmHelp } from './uvmPanelHelp'
@@ -25,6 +25,8 @@ export type AssetViewProps = {
     setIntervals: Dispatch<SetStateAction<Record<string, string>>>
     schedulePlans: Record<string, UvmEngineSelection[]>
     setSchedulePlans: Dispatch<SetStateAction<Record<string, UvmEngineSelection[]>>>
+    scheduleModes: Record<string, UvmAssessmentMode>
+    setScheduleModes: Dispatch<SetStateAction<Record<string, UvmAssessmentMode>>>
     scheduleProfiles: Record<string, NetworkScanProfile>
     setScheduleProfiles: Dispatch<SetStateAction<Record<string, NetworkScanProfile>>>
     assetNmapProfiles: Record<string, NmapScanProfile>
@@ -89,12 +91,17 @@ export function UvmAssetsView(props: AssetViewProps) {
 function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps }) {
     const { data, busy, authorization, setAuthorization } = props
     const schedulePlan = props.schedulePlans[asset.id] || asset.schedulePlan || [{ engine: asset.scheduleEngine || 'nmap' }]
+    const scheduleMode = props.scheduleModes[asset.id] || asset.scheduleMode || 'manual'
     const scheduleScanId = props.scheduleScanIds[asset.id] || schedulePlan.find(choice => choice.engine === 'tenable-vm')?.scanId || data.tenableScans.find(scan => scan.enabled)?.id || ''
     const tenableReady = data.tenableIntegration?.configured === true && data.tenableScans.some(scan => scan.id === scheduleScanId && scan.enabled)
     const canScan = props.servicesPaused !== true && asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'nmap' && engine.status === 'available')
     const canNaabu = props.servicesPaused !== true && asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'naabu' && engine.status === 'available')
     const canAngryIp = props.servicesPaused !== true && asset.verificationStatus === 'verified' && data.engines.some(engine => engine.id === 'angry-ip-scanner' && engine.status === 'available')
-    const canSchedule = props.servicesPaused !== true && schedulePlan.length > 0 && schedulePlan.every(choice => choice.engine === 'nmap'
+    const autoScheduleReady = scheduleMode !== 'automatic' || (
+        schedulePlan.some(choice => choice.engine === 'tenable-vm' || choice.engine === 'gvm')
+        && ['nmap', 'httpx'].every(id => data.engines.some(engine => engine.id === id && engine.status === 'available'))
+    )
+    const canSchedule = props.servicesPaused !== true && autoScheduleReady && schedulePlan.length > 0 && schedulePlan.every(choice => choice.engine === 'nmap'
         ? canScan
         : choice.engine === 'naabu'
             ? canNaabu
@@ -174,7 +181,7 @@ function AssetCard({ asset, props }: { asset: UvmAsset, props: AssetViewProps })
                 {data.engines.some(engine => engine.id === 'tlsx') && <button type='button' onClick={() => props.onScanWithTlsx(asset)} disabled={props.servicesPaused || busy === `${asset.id}:tlsx` || data.engines.find(engine => engine.id === 'tlsx')?.status !== 'available' || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{props.servicesPaused ? 'tlsx · stopped' : busy === `${asset.id}:tlsx` ? 'Queueing…' : 'Run tlsx TLS metadata'}</button>}
                 {data.engines.some(engine => engine.id === 'katana') && <button type='button' onClick={() => props.onScanWithKatana(asset)} disabled={props.servicesPaused || busy === `${asset.id}:katana` || data.engines.find(engine => engine.id === 'katana')?.status !== 'available' || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{props.servicesPaused ? 'Katana · stopped' : busy === `${asset.id}:katana` ? 'Queueing…' : 'Run Katana crawl'}</button>}
                 {data.engines.some(engine => engine.id === 'wafw00f') && <button type='button' onClick={() => props.onScanWithWafw00f(asset)} disabled={props.servicesPaused || busy === `${asset.id}:wafw00f` || data.engines.find(engine => engine.id === 'wafw00f')?.status !== 'available' || asset.verificationStatus !== 'verified' || (!asset.scanAuthorizedAt && !authorized)} className='rounded-md border border-ui-border px-3 py-2 text-xs font-semibold disabled:opacity-50'>{props.servicesPaused ? 'WAFW00F · stopped' : busy === `${asset.id}:wafw00f` ? 'Queueing…' : 'Run WAFW00F detection'}</button>}
-                <ScheduleControl asset={asset} props={props} canSchedule={canSchedule} schedulePlan={schedulePlan} scheduleScanId={scheduleScanId} />
+                <ScheduleControl asset={asset} props={props} canSchedule={canSchedule} schedulePlan={schedulePlan} scheduleScanId={scheduleScanId} mode={scheduleMode} />
             </div>
         </details>
     </article>
