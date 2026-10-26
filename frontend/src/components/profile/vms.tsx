@@ -28,9 +28,14 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, 
     const [filters, setFilters] = useState<VmFilters>(defaultVmFilters)
     const [diskState, setDiskState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
     const [diskTotalsMb, setDiskTotalsMb] = useState<Map<string, number | null>>(new Map())
+    const [checkingEmptyInventory, setCheckingEmptyInventory] = useState(serverVMs?.length === 0)
     const diskMetricsLoaded = useRef(false)
     const diskMetricsLoading = useRef(false)
     const diskMetricsGeneration = useRef(0)
+    const inventoryGeneration = useRef(0)
+    const inventoryRef = useRef(vms)
+    const pendingEmptyWorkspace = useRef<string | null>(null)
+    const emptyInventoryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const { items, notify, dismiss } = useVmActionFeedback()
     const activeOrganization = organizations.find(organization => organization.id === organizationId)
     const hasOrganizationContext = Boolean(organizationId || organizationName)
@@ -43,15 +48,36 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, 
     const visibleVms = filterVms(vms, filters, diskTotalsMb)
     const editorOptions = Array.from(new Set(vms.flatMap(vm => vm.access_users || []))).sort((a, b) => a.localeCompare(b))
 
+    inventoryRef.current = vms
+
     const update = useCallback(async () => {
         const id = getCookie('id')
         const impersonatingId = getCookie('impersonating_id')
         if (id) {
+            const generation = inventoryGeneration.current
+            const workspaceKey = `${impersonatingId || id}:${organizationId || 'personal'}`
             const updatedVMs = await getVMs(impersonatingId || id, undefined, id, undefined, organizationId || undefined)
+            if (generation !== inventoryGeneration.current) return
             if (updatedVMs === null) {
+                pendingEmptyWorkspace.current = null
                 setInventoryUnavailable(true)
+                setCheckingEmptyInventory(false)
                 return
             }
+            if (updatedVMs.length === 0 && (inventoryRef.current.length > 0 || pendingEmptyWorkspace.current !== workspaceKey)) {
+                if (pendingEmptyWorkspace.current !== workspaceKey) {
+                    pendingEmptyWorkspace.current = workspaceKey
+                    setCheckingEmptyInventory(true)
+                    if (emptyInventoryTimer.current) clearTimeout(emptyInventoryTimer.current)
+                    emptyInventoryTimer.current = setTimeout(() => {
+                        emptyInventoryTimer.current = null
+                        void update()
+                    }, 1500)
+                    return
+                }
+            }
+            pendingEmptyWorkspace.current = null
+            setCheckingEmptyInventory(false)
             setVms(scopeVmInventory(updatedVMs, organizationId))
             setInventoryUnavailable(false)
             window.dispatchEvent(new Event('vms-updated'))
@@ -89,6 +115,20 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, 
     }, [organizationId])
 
     useEffect(() => {
+        inventoryGeneration.current++
+        pendingEmptyWorkspace.current = null
+        setCheckingEmptyInventory(false)
+        if (emptyInventoryTimer.current) {
+            clearTimeout(emptyInventoryTimer.current)
+            emptyInventoryTimer.current = null
+        }
+        return () => {
+            if (emptyInventoryTimer.current) clearTimeout(emptyInventoryTimer.current)
+            emptyInventoryTimer.current = null
+        }
+    }, [organizationId])
+
+    useEffect(() => {
         diskMetricsGeneration.current++
         diskMetricsLoaded.current = false
         diskMetricsLoading.current = false
@@ -101,9 +141,27 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, 
             setInventoryUnavailable(true)
             return
         }
-        setVms(scopeVmInventory(serverVMs, organizationId))
+        const workspaceKey = `${getCookie('impersonating_id') || getCookie('id') || ''}:${organizationId || 'personal'}`
+        const scopedServerVMs = scopeVmInventory(serverVMs, organizationId)
+        const currentWorkspaceVMs = scopeVmInventory(inventoryRef.current, organizationId)
+        if (scopedServerVMs.length === 0) {
+            if (currentWorkspaceVMs.length === 0 || pendingEmptyWorkspace.current === workspaceKey) return
+            if (pendingEmptyWorkspace.current !== workspaceKey) {
+                pendingEmptyWorkspace.current = workspaceKey
+                setCheckingEmptyInventory(true)
+                if (emptyInventoryTimer.current) clearTimeout(emptyInventoryTimer.current)
+                emptyInventoryTimer.current = setTimeout(() => {
+                    emptyInventoryTimer.current = null
+                    void update()
+                }, 1500)
+                return
+            }
+        }
+        pendingEmptyWorkspace.current = null
+        setCheckingEmptyInventory(false)
+        setVms(scopedServerVMs)
         setInventoryUnavailable(false)
-    }, [serverVMs, organizationId])
+    }, [serverVMs, organizationId, update])
 
     useEffect(() => {
         setNow(Date.now())
@@ -122,7 +180,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, 
             <div className='mb-1 flex items-center justify-between gap-3'>
                 <div>
                     <h2 className='text-base font-semibold text-ui-text'>Virtual machines</h2>
-                    <p className='mt-1 text-sm text-ui-muted'>{inventoryUnavailable && vms.length === 0 ? 'Virtual machines unavailable' : visibleVms.length === vms.length ? `${vms.length} virtual machine${vms.length === 1 ? '' : 's'}` : `${visibleVms.length} of ${vms.length} virtual machines`}</p>
+                    <p className='mt-1 text-sm text-ui-muted'>{checkingEmptyInventory ? 'Checking VM inventory…' : inventoryUnavailable && vms.length === 0 ? 'Virtual machines unavailable' : visibleVms.length === vms.length ? `${vms.length} virtual machine${vms.length === 1 ? '' : 's'}` : `${visibleVms.length} of ${vms.length} virtual machines`}</p>
                 </div>
                 <div className='flex shrink-0 items-center gap-2'>
                     <VmFiltersButton filters={filters} onChange={setFilters} editors={editorOptions} diskState={diskState} onOpen={loadDiskMetrics} />
@@ -151,6 +209,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[] | null, 
                 <span>{vms.length > 0 ? 'Couldn’t refresh. Showing the last loaded list.' : 'Couldn’t load virtual machines.'}</span>
                 <button type='button' onClick={() => void update()} className='font-medium text-ui-primary hover:underline'>Try again</button>
             </div>}
+            {checkingEmptyInventory && <p role='status' className='text-sm text-ui-muted'>Refreshing the VM inventory…</p>}
             {vms.length > 0 ? (
                 visibleVms.length > 0 ? <div className='grid gap-2'>
                     {visibleVms.map(vm => <VMRow update={update} key={vm.name} vm={vm} now={now} onFeedback={notify} />)}
