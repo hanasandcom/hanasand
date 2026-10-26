@@ -26,7 +26,6 @@ export default function WorkspaceProvider({ initial, enabled: authenticated, ser
     const [pendingWorkspace, setPendingWorkspace] = useState<Workspace | null>(null)
     const attempted = useRef('')
     const inFlight = useRef(false)
-    const linkedSwitch = useRef(false)
     const organizationId = initial?.organizationId || ''
     const switchOrganization = useCallback(async (org: string) => {
         if (serviceAccount || inFlight.current) return
@@ -92,14 +91,13 @@ export default function WorkspaceProvider({ initial, enabled: authenticated, ser
         if (attempted.current === key) return
         attempted.current = key
         if (requested === organizationId) { window.history.replaceState(window.history.state, '', cleanWorkspaceUrl(window.location.href)); return }
-        linkedSwitch.current = true
         void switchOrganization(requested)
     }, [enabled, requested, pathname, params, switchOrganization, organizationId, serviceAccount])
     useEffect(() => {
         if (pendingWorkspace && organizationId === pendingWorkspace.organizationId) {
             setSwitching(false); setPendingWorkspace(null)
             setNotice(current => current ? { ...current, name: pendingWorkspace.name, complete: true } : null)
-            inFlight.current = false; linkedSwitch.current = false
+            inFlight.current = false
         }
     }, [pendingWorkspace, organizationId])
     useEffect(() => {
@@ -119,7 +117,7 @@ export default function WorkspaceProvider({ initial, enabled: authenticated, ser
     }, [enabled, organizationId, switching, requested, serviceAccount])
     return <WorkspaceContext.Provider value={{ organizationId, organizationName: initial?.name || '', organizations, loading, unavailable: Boolean(organizationError), switching, serviceAccount, canSwitchOrganization: !serviceAccount, switchOrganization }}>
         {enabled && notice && <WorkspaceSwitchNotice notice={notice} onDismiss={() => setNotice(null)} />}
-        {enabled && !serviceAccount && (switching && linkedSwitch.current || requested && requested !== organizationId) ? <main className='fixed inset-0 z-[1200] flex min-h-dvh flex-col overflow-auto bg-ui-canvas text-ui-text'>
+        {enabled && !serviceAccount && (switching || requested && requested !== organizationId) ? <main className='fixed inset-0 z-[1200] flex min-h-dvh flex-col overflow-auto bg-ui-canvas text-ui-text'>
             <header className='flex h-20 shrink-0 items-center border-b border-ui-border bg-ui-panel px-6 sm:px-10'><BrandLogo /></header>
             <div className='flex flex-1 items-center justify-center px-6 py-12'>
                 <section aria-busy={!error} className='w-full max-w-md rounded-2xl border border-ui-border bg-ui-panel p-8 text-center shadow-sm sm:p-10'>
