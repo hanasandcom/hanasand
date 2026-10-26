@@ -158,11 +158,17 @@ ${installCustomPackages}
 if printf '%s' "$services" | grep -q '"docker"'; then
   if [[ '${usesDnf}' == 'true' ]]; then
     set_stage 'Preparing Docker repository'
-    run_bounded 120 dnf install -y dnf-plugins-core
     . /etc/os-release
     docker_rpm_release=rhel
     [[ "$ID" == fedora ]] && docker_rpm_release=fedora
-    run_bounded 60 dnf config-manager --add-repo "https://download.docker.com/linux/$docker_rpm_release/docker-ce.repo"
+    docker_repo_url="https://download.docker.com/linux/$docker_rpm_release/docker-ce.repo"
+    if [[ "$ID" == fedora ]]; then
+      run_bounded 120 dnf install -y dnf5-plugins
+      run_bounded 60 dnf config-manager addrepo --from-repofile="$docker_repo_url"
+    else
+      run_bounded 120 dnf install -y dnf-plugins-core
+      run_bounded 60 dnf config-manager --add-repo "$docker_repo_url"
+    fi
   else
   install -d -m 0755 /etc/apt/keyrings
   fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc

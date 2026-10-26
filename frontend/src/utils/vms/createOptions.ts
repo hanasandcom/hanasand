@@ -30,7 +30,7 @@ export const vmServices = [
     { id: 'cpp', group: 'Development', label: 'C / C++', description: 'GCC compiler and standard build tools' },
     { id: 'docker', group: 'Development', label: 'Docker', description: 'Docker Engine and Compose' },
     { id: 'postgresql', group: 'Data', label: 'PostgreSQL', description: 'PostgreSQL database server' },
-    { id: 'mysql', group: 'Data', label: 'MySQL', description: 'MySQL database server' },
+    { id: 'mysql', group: 'Data', label: 'MySQL / MariaDB', description: 'Relational database using MySQL or MariaDB, depending on the operating system' },
     { id: 'redis', group: 'Data', label: 'Redis', description: 'Redis in-memory data store' },
     { id: 'sqlite', group: 'Data', label: 'SQLite', description: 'Lightweight embedded database and command-line tools' },
     { id: 'nginx', group: 'Web', label: 'Nginx', description: 'Web server for sites and apps' },
