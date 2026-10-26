@@ -75,6 +75,8 @@ services:
     build:
       context: .
       dockerfile: ./frontend/Dockerfile
+      additional_contexts:
+        articles: ${ARTICLES_SOURCE_CONTEXT:-../articles}
       args:
         HANASAND_RELEASE_COMMIT: vm-stage
         HANASAND_STAGE_BUILD: "1"

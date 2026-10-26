@@ -6,10 +6,16 @@ The staging frontend accepts device proofs for its exact `http://127.0.0.1:3388`
 
 On Inspur, the API uses the restricted `hns-stage` LXD project. Its limits are two instances and virtual machines, four CPUs, 8 GiB RAM and 40 GiB disk. The existing `hei` container is preserved; the remaining quota supports one disposable VM. Staging VMs have outbound internet access for package installers, but no public service route. Check host storage and load before creating a VM; project quotas do not guarantee host capacity.
 
-From the Hanasand checkout on Inspur, start the staging stack with:
+From the Hanasand checkout on Inspur, clone the public `articles` repository into a
+temporary directory and pass it as a named Docker build context. The frontend
+Dockerfile requires this context for its source checks; it must not try to pull an
+`articles` image from a registry.
 
 ```sh
-HANASAND_RELEASE_COMMIT=$(git rev-parse HEAD) docker compose \
+articles_dir=$(mktemp -d /tmp/hanasand-articles-source.XXXXXX)
+trap 'rm -rf "$articles_dir"' EXIT
+git clone --quiet --depth 1 --branch main https://github.com/hanasandcom/articles.git "$articles_dir"
+ARTICLES_SOURCE_CONTEXT="$articles_dir" HANASAND_RELEASE_COMMIT=$(git rev-parse HEAD) docker compose \
   --project-name vm-stage-rehearsal \
   --env-file /home/hanasand/identity/.env.ai.staging \
   -f docker-compose.vm-stage.yml \
@@ -35,7 +41,7 @@ The Inspur rehearsal uses the separate restricted LXD project `hns-stage`. Befor
 Run the rehearsal with the staging-only overlay:
 
 ```sh
-HANASAND_RELEASE_COMMIT=$(git rev-parse HEAD) docker compose \
+ARTICLES_SOURCE_CONTEXT="$articles_dir" HANASAND_RELEASE_COMMIT=$(git rev-parse HEAD) docker compose \
   --project-name vm-stage-rehearsal \
   --env-file /home/hanasand/identity/.env.ai.staging \
   -f docker-compose.vm-stage.yml \
