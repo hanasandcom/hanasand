@@ -2,18 +2,8 @@ import config from '#constants'
 import sanitize from '#utils/sanitize.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { inspectRuntimeContainer } from '#utils/docker/containers.ts'
+import { isProtectedLogsRuntime } from '#utils/docker/protectedRuntime.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-
-function isLogsRuntime(name: string, project?: string, service?: string) {
-    const normalized = name.replace(/^\/+/, '').toLowerCase()
-    return normalized === 'processor'
-        || normalized === 'logs'
-        || normalized === 'hanasand-log-collector'
-        || normalized.startsWith('logs-')
-        || normalized.startsWith('logs_')
-        || project?.toLowerCase() === 'logs'
-        || Boolean(service && /^logs[-_]/i.test(service))
-}
 
 export default async function restartHandler(req: FastifyRequest, res: FastifyReply) {
     const { valid } = await tokenWrapper(req, res)
@@ -27,22 +17,21 @@ export default async function restartHandler(req: FastifyRequest, res: FastifyRe
         return res.status(400).send({ error: 'No service provided' })
     }
 
-    // The System dashboard passes Docker container IDs. Resolve those IDs
-    // before proxying a restart so the Logs API, worker, database and collector
-    // cannot be interrupted through this generic service action.
-    if (isLogsRuntime(id)) {
+    // Reject recognizable Logs aliases immediately, then inspect every other
+    // Docker ID or name before forwarding. Docker accepts both forms, so only
+    // checking full IDs would let a Compose-generated name bypass protection.
+    if (isProtectedLogsRuntime(id)) {
         return res.status(409).send({ error: 'Logs services cannot be restarted from the system dashboard.' })
     }
-    if (/^[a-f0-9]{12,64}$/i.test(id)) {
-        try {
-            const container = await inspectRuntimeContainer(id)
-            const labels = container.Config?.Labels || {}
-            if (isLogsRuntime(container.Name || '', labels['com.docker.compose.project'], labels['com.docker.compose.service'])) {
-                return res.status(409).send({ error: 'Logs services cannot be restarted from the system dashboard.' })
-            }
-        } catch {
-            return res.status(503).send({ error: 'Container identity is unavailable, so this restart was not sent.' })
+
+    try {
+        const container = await inspectRuntimeContainer(id)
+        const labels = container.Config?.Labels || {}
+        if (isProtectedLogsRuntime(container.Name || '', labels['com.docker.compose.project'], labels['com.docker.compose.service'])) {
+            return res.status(409).send({ error: 'Logs services cannot be restarted from the system dashboard.' })
         }
+    } catch {
+        return res.status(503).send({ error: 'Container identity is unavailable, so this restart was not sent.' })
     }
 
     try {
