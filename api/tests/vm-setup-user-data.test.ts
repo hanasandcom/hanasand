@@ -475,7 +475,7 @@ test('APT metadata and package downloads retry transient repository failures and
         expect(readFileSync(updateCount, 'utf8')).toBe('3')
         expect(readFileSync(installCount, 'utf8')).toBe('2')
         expect(readFileSync(progressLog, 'utf8')).toContain('Package repository unavailable; retrying metadata refresh (2/4)')
-        expect(readFileSync(progressLog, 'utf8')).toContain('Package download failed; refreshing metadata before retrying')
+        expect(readFileSync(progressLog, 'utf8')).toContain('Package installation did not complete; refreshing metadata before retrying')
         expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
     } finally {
         rmSync(directory, { recursive: true, force: true })
@@ -526,6 +526,11 @@ test('setup failures persist the stage and line for VM status feedback', () => {
 test('a stalled package install hits its deadline and reports a visible setup error', () => {
     const directory = mkdtempSync(join(tmpdir(), 'vm-setup-timeout-'))
     try {
+        const bin = join(directory, 'bin')
+        mkdirSync(bin)
+        const fakePs = join(bin, 'ps')
+        writeFileSync(fakePs, '#!/bin/sh\nprintf "D\\n"\n')
+        chmodSync(fakePs, 0o755)
         const cloudInit = vmSetupUserData('hei', { services: ['postgresql'] })
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
         const script = config.write_files[0]?.content
@@ -534,17 +539,17 @@ test('a stalled package install hits its deadline and reports a visible setup er
             .replace('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 --error-on=any update -qq', 'run_bounded 1 sleep 0')
             .replace('run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "${apt_packages[@]}" 3>"$apt_progress_file" &', 'run_bounded 1 sleep 3 &')
 
-        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8' })
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
         expect(result.status).not.toBe(0)
         const [state, message] = readFileSync(join(directory, 'status'), 'utf8').trim().split('\t')
         expect(state).toBe('Error')
-        expect(message).toMatch(/^Service setup failed during Package download failed; refreshing metadata before retrying\./)
+        expect(message).toMatch(/^Service setup failed during Package installation is blocked on storage I\/O\./)
     } finally {
         rmSync(directory, { recursive: true, force: true })
     }
 })
 
-test('Java uses the distribution JDK and Minecraft downloads a Java 25 runtime', () => {
+test('Java uses the distribution JDK and Minecraft selects a runtime matching its game version', () => {
     for (const service of ['java', 'minecraft-java'] as const) {
         const cloudInit = vmSetupUserData('runtime-vm', { services: [service] })
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
@@ -553,7 +558,18 @@ test('Java uses the distribution JDK and Minecraft downloads a Java 25 runtime',
         if (service === 'java') {
             expect(script).toContain('apt_packages+=(default-jdk-headless)')
         } else {
-            expect(script).toContain('java_version=25')
+            expect(script).toContain('java_version=17')
+            expect(script).toContain('if [[ "$mc_game_version" == 26.* ]]; then java_version=25')
+            expect(script).toContain('then java_version=21')
+            expect(script.indexOf('Matching Minecraft server and add-ons to a supported version')).toBeLessThan(script.indexOf('set_stage "Installing Java $java_version"'))
+            const javaBlockStart = script.indexOf('  java_version=17')
+            const javaBlockEnd = script.indexOf('\n  java_image_type=jre', javaBlockStart)
+            const javaBlock = script.slice(javaBlockStart, javaBlockEnd)
+            for (const [version, expected] of [['1.19.4', '17'], ['1.20.4', '17'], ['1.20.6', '21'], ['1.21.1', '21'], ['26.1.2', '25']]) {
+                const result = spawnSync('bash', ['-c', `${javaBlock}\nprintf '%s' "$java_version"`], { encoding: 'utf8', env: { ...process.env, mc_game_version: version } })
+                expect(result.status).toBe(0)
+                expect(result.stdout).toBe(expected)
+            }
             expect(script).toContain('java_image_type=jre')
             expect(script).toContain('v3/assets/latest/{java_version}/hotspot?{asset_query}')
             expect(script).toContain('Range')
@@ -661,5 +677,63 @@ test('Minecraft setup resolves official server builds and starts a dedicated sys
     expect(script).toContain('cdn.modrinth.com')
     expect(script).toContain('hashlib.sha512')
     expect(script).toContain('/opt/minecraft/mods')
+    expect(script).toContain('directory, loader, requested_json, game_version = sys.argv[1:]')
+    expect(script).not.toContain('game_version = sys.argv[4]')
+    expect(script).toContain('fabric-api')
+    expect(script).toContain('qsl')
+    expect(script).toContain('ThreadPoolExecutor')
+    expect(script).toContain('game_versions')
+    expect(script).toContain('deadline = time.monotonic() + 75')
+    expect(script).toContain('timeout=min(8, remaining)')
+    expect(script).not.toContain('while offset < 2000')
+    const resolver = script.match(/mc_game_version="\$\((?:timeout --signal=TERM --kill-after=2s 75s )?python3 - '[^']+' '[^']+' <<'PY'\n([\s\S]*?)\nPY\n\)"/)?.[1]
+    expect(resolver).toBeTruthy()
+    const pythonCheck = spawnSync('python3', ['-c', 'import sys; compile(sys.stdin.read(), "generated-minecraft-resolver", "exec")'], { input: resolver, encoding: 'utf8' })
+    expect(pythonCheck.status).toBe(0)
+    const resolverExercise = `
+import contextlib, io, json, sys, urllib.parse, urllib.request
+class Response(io.BytesIO):
+    def __enter__(self): return self
+    def __exit__(self, *args): self.close()
+calls = []
+def fake_urlopen(request, timeout=0):
+    url = request.full_url if hasattr(request, 'full_url') else request
+    if 'version_manifest_v2.json' in url:
+        body = {'versions': [{'id': '1.21.11', 'type': 'release'}, {'id': '1.21.10', 'type': 'release'}]}
+    elif '/v3/projects/paper' in url:
+        body = {'versions': {'1.21': ['1.21.11', '1.21.10']}}
+    elif '/project/' in url:
+        params = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))
+        candidates = json.loads(params['game_versions'])
+        calls.append(candidates)
+        body = [{'version_type': 'release', 'files': [{'url': 'https://example.test/mod.jar'}], 'game_versions': ['1.21.10']}]
+    else:
+        raise AssertionError('Unexpected metadata URL: ' + url)
+    return Response(json.dumps(body).encode())
+urllib.request.urlopen = fake_urlopen
+namespace = {'__name__': '__main__'}
+sys.argv = ['resolver', 'PAPER', '["essentialsx", "luckperms"]']
+output = io.StringIO()
+try:
+    with contextlib.redirect_stdout(output): exec(compile(${JSON.stringify(resolver)}, 'resolver', 'exec'), namespace)
+except SystemExit as exit_value:
+    assert exit_value.code == 0, exit_value.code
+assert output.getvalue().strip() == '1.21.10', output.getvalue()
+assert len(calls) == 2, calls
+print('RESOLVER_COMPATIBLE_VERSION=' + output.getvalue().strip())
+`
+    const resolverResult = spawnSync('python3', ['-c', resolverExercise], { encoding: 'utf8' })
+    expect(resolverResult.status).toBe(0)
+    expect(resolverResult.stdout.trim()).toBe('RESOLVER_COMPATIBLE_VERSION=1.21.10')
     execFileSync('bash', ['-n'], { input: script })
+
+    const foliaCloudInit = vmSetupUserData('game-vm', {
+        services: ['minecraft-java'], minecraftServerType: 'FOLIA', minecraftEulaAccepted: true,
+        minecraftAddons: ['viaversion', 'viabackwards', 'chunky'],
+    })
+    const foliaScript = (parse(foliaCloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }).write_files[0]?.content || ''
+    expect(foliaScript).toContain('folia')
+    expect(foliaScript).toContain('/opt/minecraft/plugins')
+    expect(foliaScript).toContain('viabackwards')
+    execFileSync('bash', ['-n'], { input: foliaScript })
 })

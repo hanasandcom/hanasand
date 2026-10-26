@@ -35,7 +35,8 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     }))
     const minecraftAddons = options.minecraftAddons || []
     if (minecraftAddons.length && !services.includes('minecraft-java')) throw new Error('Minecraft add-ons require the Minecraft Java service.')
-    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, usesDnf)
+    const minecraftServerType = options.minecraftServerType || 'PAPER'
+    const script = createSetupScript(name, services, minecraftServerType, minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, usesDnf)
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -67,6 +68,9 @@ function yamlObject(value: Record<string, unknown>) {
 function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, usesDnf: boolean) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
+    const minecraftPrepare = services.includes('minecraft-java')
+        ? minecraftVersionSelection(minecraftType, minecraftAddons)
+        : ''
     const minecraft = services.includes('minecraft-java')
         ? minecraftSetup(name, minecraftType, minecraftMemoryGb, minecraftAddons)
         : ''
@@ -260,12 +264,18 @@ if (( \${#apt_packages[@]} > 0 )); then
     :
   else
     apt_status=$?
-    set_stage 'Package download failed; refreshing metadata before retrying'
+    if ps -C dpkg -o stat= 2>/dev/null | grep -q 'D'; then
+      set_stage 'Package installation is blocked on storage I/O'
+      report_setup_error "$LINENO"
+      exit "$apt_status"
+    fi
+    set_stage 'Package installation did not complete; refreshing metadata before retrying'
     refresh_apt_metadata
     apt_install_once || { apt_status=$?; report_setup_error "$LINENO"; exit "$apt_status"; }
   fi
 fi
 fi
+${minecraftPrepare}
 if printf '%s' "$services" | grep -q '"nodejs"'; then
   set_stage 'Installing Node.js 24 LTS'
   run_bounded 300 python3 - <<'PY'
@@ -369,7 +379,10 @@ if printf '%s' "$services" | grep -q '"bun"'; then
   install -m 0755 /root/.bun/bin/bun /usr/local/bin/bun
 fi
 if printf '%s' "$services" | grep -q '"minecraft-java"'; then
-  java_version=25
+  java_version=17
+  if [[ "$mc_game_version" == 26.* ]]; then java_version=25
+  elif [[ "$mc_game_version" =~ ^1\\.(2[1-9]|[3-9][0-9])\\. || "$mc_game_version" =~ ^1\\.20\\.(5|6|7|8|9)($|\\.) ]]; then java_version=21
+  fi
   java_image_type=jre
   if printf '%s' "$services" | grep -q '"java"'; then java_image_type=jdk; fi
   set_stage "Installing Java $java_version"
@@ -569,60 +582,256 @@ function minecraftSetup(name: string, type: string, memoryGb: number, addons: st
     let download: string
     if (safeType === 'PAPER' || safeType === 'FOLIA') {
         const project = safeType.toLowerCase()
-        download = `project='${project}'\nuser_agent='Hanasand VM Provisioner/1.0 (https://hanasand.com)'\nmc_game_version="$(curl -fsSL --retry 3 -H "User-Agent: $user_agent" "https://fill.papermc.io/v3/projects/$project" | jq -r '.versions | to_entries[0] | .value[0]')"\nversion="$mc_game_version"\nbuilds="$(curl -fsSL --retry 3 -H "User-Agent: $user_agent" "https://fill.papermc.io/v3/projects/$project/versions/$version/builds")"\nserver_url="$(printf '%s' "$builds" | jq -r 'map(select(.channel == "STABLE")) | .[0].downloads["server:default"].url // empty')"\ntest -n "$server_url"\ncurl -fsSL --retry 3 "$server_url" -o /opt/minecraft/server.jar\n`
+        download = `project='${project}'\nuser_agent='Hanasand VM Provisioner/1.0 (https://hanasand.com)'\nversion="$mc_game_version"\nbuilds="$(curl -fsSL --retry 3 --max-time 60 -H "User-Agent: $user_agent" "https://fill.papermc.io/v3/projects/$project/versions/$version/builds")"\nserver_url="$(printf '%s' "$builds" | jq -r 'map(select(.channel == "STABLE")) | .[0].downloads["server:default"].url // empty')"\ntest -n "$server_url"\ncurl -fsSL --retry 3 --max-time 180 "$server_url" -o /opt/minecraft/server.jar\n`
     } else if (safeType === 'PURPUR') {
-        download = `mc_game_version="$(curl -fsSL --retry 3 https://api.purpurmc.org/v2/purpur | jq -r '.versions[-1]')"\nversion="$mc_game_version"\ncurl -fsSL --retry 3 "https://api.purpurmc.org/v2/purpur/$version/latest/download" -o /opt/minecraft/server.jar\n`
+        download = `version="$mc_game_version"\ncurl -fsSL --retry 3 --max-time 180 "https://api.purpurmc.org/v2/purpur/$version/latest/download" -o /opt/minecraft/server.jar\n`
     } else if (safeType === 'VANILLA') {
-        download = `mc_game_version="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"\nversion_url="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r --arg v "$mc_game_version" '.versions[] | select(.id == $v) | .url')"\nserver_url="$(curl -fsSL --retry 3 "$version_url" | jq -r '.downloads.server.url')"\ncurl -fsSL --retry 3 "$server_url" -o /opt/minecraft/server.jar\n`
+        download = `version_url="$(curl -fsSL --retry 3 --max-time 60 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r --arg v "$mc_game_version" '.versions[] | select(.id == $v) | .url')"\nserver_url="$(curl -fsSL --retry 3 --max-time 60 "$version_url" | jq -r '.downloads.server.url')"\ncurl -fsSL --retry 3 --max-time 180 "$server_url" -o /opt/minecraft/server.jar\n`
     } else if (safeType === 'FORGE') {
-        download = `mc_game_version="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"\ngame_version="$mc_game_version"\nforge_version="$(curl -fsSL --retry 3 https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json | jq -r --arg game "$game_version" '.promos[($game + "-recommended")] // .promos[($game + "-latest")] // empty')"\ntest -n "$forge_version"\ncurl -fsSL --retry 3 "https://maven.minecraftforge.net/net/minecraftforge/forge/$game_version-$forge_version/forge-$game_version-$forge_version-installer.jar" -o /opt/minecraft/installer.jar\n(cd /opt/minecraft && java -jar installer.jar --installServer)\nprintf '%s\\n' '-Xms1G' '-Xmx${memoryGb}G' > /opt/minecraft/user_jvm_args.txt\ntest -s /opt/minecraft/run.sh\nchmod 0755 /opt/minecraft/run.sh\n`
+        download = `game_version="$mc_game_version"\nforge_version="$(curl -fsSL --retry 3 --max-time 60 https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json | jq -r --arg game "$game_version" '.promos[($game + "-recommended")] // .promos[($game + "-latest")] // empty')"\ntest -n "$forge_version"\ncurl -fsSL --retry 3 --max-time 180 "https://maven.minecraftforge.net/net/minecraftforge/forge/$game_version-$forge_version/forge-$game_version-$forge_version-installer.jar" -o /opt/minecraft/installer.jar\n(cd /opt/minecraft && java -jar installer.jar --installServer)\nprintf '%s\\n' '-Xms1G' '-Xmx${memoryGb}G' > /opt/minecraft/user_jvm_args.txt\ntest -s /opt/minecraft/run.sh\nchmod 0755 /opt/minecraft/run.sh\n`
     } else if (safeType === 'FABRIC' || safeType === 'QUILT') {
         const domain = safeType === 'FABRIC' ? 'meta.fabricmc.net' : 'meta.quiltmc.org'
         const endpoint = safeType === 'FABRIC' ? 'v2/versions/loader' : 'v3/versions/loader'
-        download = `mc_game_version="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"\ngame_version="$mc_game_version"\nloader_version="$(curl -fsSL --retry 3 https://${domain}/${endpoint} | jq -r '.[0].loader.version')"\ninstaller_version="$(curl -fsSL --retry 3 https://${domain}/v${safeType === 'FABRIC' ? '2' : '3'}/versions/installer | jq -r '.[0].version')"\ncurl -fsSL --retry 3 "https://${domain}/${endpoint}/$game_version/$loader_version/$installer_version/server/jar" -o /opt/minecraft/server.jar\n`
+        download = `game_version="$mc_game_version"\nloader_version="$(curl -fsSL --retry 3 --max-time 60 "https://${domain}/${endpoint}/$game_version" | jq -r '.[0].loader.version')"\ninstaller_version="$(curl -fsSL --retry 3 --max-time 60 https://${domain}/v${safeType === 'FABRIC' ? '2' : '3'}/versions/installer | jq -r '.[0].version')"\ncurl -fsSL --retry 3 --max-time 180 "https://${domain}/${endpoint}/$game_version/$loader_version/$installer_version/server/jar" -o /opt/minecraft/server.jar\n`
     } else {
-        download = `mc_game_version="$(curl -fsSL --retry 3 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"\ninstaller="$(curl -fsSL --retry 3 https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml | sed -n 's:.*<latest>\\([^<]*\\)</latest>.*:\\1:p')"\ntest -n "$installer"\ncurl -fsSL --retry 3 "https://maven.neoforged.net/releases/net/neoforged/neoforge/$installer/neoforge-$installer-installer.jar" -o /opt/minecraft/installer.jar\n(cd /opt/minecraft && java -jar installer.jar --installServer)\nif [[ -f /opt/minecraft/run.sh ]]; then install -m 0755 /opt/minecraft/run.sh /opt/minecraft/start.sh; else exit 1; fi\n`
+        download = `installer="$(python3 - "$mc_game_version" <<'PY'\nimport re\nimport sys\nimport urllib.request\nimport xml.etree.ElementTree as ET\nversion = sys.argv[1]\nparts = version.split('.')\nprefix = '.'.join(parts[1:3]) if parts[0] == '1' and len(parts) >= 3 else '.'.join(parts[:2])\nrequest = urllib.request.Request('https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml', headers={'User-Agent': 'Hanasand VM Provisioner/1.0'})\nwith urllib.request.urlopen(request, timeout=30) as response:\n    metadata = ET.fromstring(response.read(2_000_001))\nversions = [item.text for item in metadata.findall('.//version') if item.text and (item.text == prefix or item.text.startswith(prefix + '.'))]\nif not versions:\n    raise SystemExit('No NeoForge installer is available for Minecraft ' + version + '.')\nprint(versions[-1])\nPY\n)"\ntest -n "$installer"\ncurl -fsSL --retry 3 --max-time 180 "https://maven.neoforged.net/releases/net/neoforged/neoforge/$installer/neoforge-$installer-installer.jar" -o /opt/minecraft/installer.jar\n(cd /opt/minecraft && java -jar installer.jar --installServer)\nif [[ -f /opt/minecraft/run.sh ]]; then install -m 0755 /opt/minecraft/run.sh /opt/minecraft/start.sh; else exit 1; fi\n`
     }
     const startCommand = safeType === 'NEOFORGE' ? './start.sh nogui' : safeType === 'FORGE' ? './run.sh nogui' : `java -Xms1G -Xmx${memoryGb}G -jar /opt/minecraft/server.jar --nogui`
     const addonInstall = addons.length ? minecraftAddonInstall(addons, safeType) : ''
     return `write_state Provisioning 'Installing Minecraft ${safeType}'\ninstall -d -o '${name}' -g '${name}' /opt/minecraft\ncd /opt/minecraft\n${download}${addonInstall}printf 'eula=true\\n' > eula.txt\nchown -R '${name}:${name}' /opt/minecraft\ncat > /etc/systemd/system/hanasand-minecraft.service <<'SERVICE'\n[Unit]\nDescription=Minecraft ${safeType} server\nAfter=network-online.target\nWants=network-online.target\n[Service]\nUser=${name}\nWorkingDirectory=/opt/minecraft\nExecStart=/bin/bash -lc '${startCommand}'\nRestart=on-failure\nRestartSec=5\n[Install]\nWantedBy=multi-user.target\nSERVICE\nsystemctl daemon-reload\nsystemctl enable --now hanasand-minecraft.service\nfor attempt in {1..120}; do\n  if ss -lntH 'sport = :25565' | grep -q LISTEN; then break; fi\n  sleep 1\ndone\nss -lntH 'sport = :25565' | grep -q LISTEN\n`
 }
 
+function minecraftVersionSelection(serverType: string, addons: string[]) {
+    const selection = JSON.stringify(addons)
+    if (serverType === 'VANILLA' && addons.length === 0) return `latest_mc_game_version="$(curl -fsSL --retry 3 --max-time 60 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"
+mc_game_version="$latest_mc_game_version"
+`
+    return `latest_mc_game_version="$(curl -fsSL --retry 3 --max-time 60 https://launchermeta.mojang.com/mc/game/version_manifest_v2.json | jq -r '.latest.release')"
+mc_game_version="$latest_mc_game_version"
+set_stage 'Matching Minecraft server and add-ons to a supported version'
+mc_game_version="$(timeout --signal=TERM --kill-after=2s 75s python3 - '${serverType}' '${selection}' <<'PY'
+import http.client
+import json
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
+
+server_type, requested_json = sys.argv[1:]
+requested = json.loads(requested_json)
+projects = {
+    'essentialsx': 'essentialsx', 'luckperms': 'luckperms', 'viaversion': 'viaversion',
+    'viabackwards': 'viabackwards', 'placeholderapi': 'placeholderapi', 'chunky': 'chunky',
+    'worldedit': 'worldedit', 'spark': 'spark', 'fabric-api': 'fabric-api', 'qsl': 'qsl',
+    'lithium': 'lithium', 'ferritecore': 'ferrite-core', 'krypton': 'krypton',
+    'carpet': 'carpet', 'jei': 'jei', 'modernfix': 'modernfix',
+}
+headers = {'User-Agent': 'Hanasand VM Provisioner/1.0 (https://hanasand.com)', 'Accept': 'application/json'}
+deadline = time.monotonic() + 75
+def get_bytes(url, maximum):
+    last_error = None
+    for attempt in range(3):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise SystemExit('Timed out checking Minecraft compatibility metadata.')
+        request = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=min(8, remaining)) as response:
+                payload = bytearray()
+                while True:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError('The Minecraft metadata request exceeded its deadline.')
+                    chunk = response.read(min(65536, maximum + 1 - len(payload)))
+                    if not chunk:
+                        break
+                    payload.extend(chunk)
+                    if len(payload) > maximum:
+                        raise ValueError('The Minecraft metadata response exceeded its size limit.')
+            if time.monotonic() >= deadline:
+                raise TimeoutError('The Minecraft metadata request exceeded its deadline.')
+            return bytes(payload)
+        except (OSError, urllib.error.URLError, TimeoutError, http.client.HTTPException) as error:
+            last_error = error
+            if attempt < 2:
+                time.sleep(min(0.5 * (attempt + 1), max(0, deadline - time.monotonic())))
+    raise SystemExit('Minecraft compatibility metadata is temporarily unavailable: ' + str(last_error))
+def get_json(url):
+    try:
+        return json.loads(get_bytes(url, 2_000_000))
+    except (ValueError, json.JSONDecodeError) as error:
+        raise SystemExit('Minecraft compatibility metadata was invalid: ' + str(error))
+manifest = get_json('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json')
+release_versions = [item['id'] for item in manifest.get('versions', []) if item.get('type') == 'release' and isinstance(item.get('id'), str)]
+latest = next((item['id'] for item in manifest.get('versions', []) if item.get('type') == 'release'), None)
+if not latest:
+    raise SystemExit('Minecraft version metadata did not include a stable release.')
+if server_type == 'VANILLA':
+    print(latest)
+    raise SystemExit(0)
+if server_type in ('PAPER', 'FOLIA'):
+    metadata = get_json(f'https://fill.papermc.io/v3/projects/{server_type.lower()}')
+    available_server_versions = {version for versions in metadata.get('versions', {}).values() for version in versions if isinstance(version, str)}
+elif server_type == 'PURPUR':
+    metadata = get_json('https://api.purpurmc.org/v2/purpur')
+    available_server_versions = set(metadata.get('versions', []))
+elif server_type == 'FABRIC':
+    metadata = get_json('https://meta.fabricmc.net/v2/versions/game')
+    available_server_versions = {item.get('version') for item in metadata if item.get('stable') is True}
+elif server_type == 'QUILT':
+    metadata = get_json('https://meta.quiltmc.org/v3/versions/game')
+    available_server_versions = {item.get('version') for item in metadata if item.get('stable') is True}
+elif server_type == 'FORGE':
+    metadata = get_json('https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json')
+    available_server_versions = {key.rsplit('-', 1)[0] for key in metadata.get('promos', {}) if key.endswith(('-latest', '-recommended'))}
+elif server_type == 'NEOFORGE':
+    metadata = ET.fromstring(get_bytes('https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml', 2_000_000))
+    neo_versions = {node.text for node in metadata.findall('.//version') if node.text}
+    available_server_versions = set()
+    for version in release_versions:
+        parts = version.split('.')
+        if parts[0] == '1' and len(parts) >= 3:
+            prefix = '.'.join(parts[1:3])
+        elif len(parts) >= 2:
+            prefix = '.'.join(parts[:2])
+        else:
+            continue
+        if any(item == prefix or item.startswith(prefix + '.') for item in neo_versions):
+            available_server_versions.add(version)
+else:
+    raise SystemExit('Unsupported Minecraft server software.')
+server_versions = [version for version in release_versions if version in available_server_versions]
+loader = {'PAPER': 'paper', 'PURPUR': 'paper', 'FOLIA': 'folia', 'FABRIC': 'fabric', 'QUILT': 'quilt', 'FORGE': 'forge', 'NEOFORGE': 'neoforge'}[server_type]
+def addon_versions(slug, candidates):
+    if slug not in projects:
+        raise SystemExit(f'Unsupported Minecraft add-on {slug}.')
+    query = urllib.parse.urlencode({
+        'loaders': json.dumps([loader]),
+        'game_versions': json.dumps(candidates),
+    })
+    versions = get_json(f'https://api.modrinth.com/v2/project/{projects[slug]}/version?{query}')
+    if not isinstance(versions, list):
+        raise SystemExit('Modrinth returned an invalid version list.')
+    return {
+        game_version
+        for item in versions
+        if item.get('version_type') == 'release' and item.get('files')
+        for game_version in item.get('game_versions', [])
+        if game_version in candidates
+    }
+if not server_versions:
+    raise SystemExit(f'No supported release of {server_type} is available.')
+if requested:
+    from concurrent.futures import ThreadPoolExecutor
+    for start in range(0, len(server_versions), 12):
+        candidates = server_versions[start:start + 12]
+        with ThreadPoolExecutor(max_workers=min(6, len(requested))) as executor:
+            addon_support = list(executor.map(lambda slug: addon_versions(slug, candidates), requested))
+        compatible_versions = set(candidates)
+        for supported_versions in addon_support:
+            compatible_versions.intersection_update(supported_versions)
+        if compatible_versions:
+            print(next(version for version in candidates if version in compatible_versions))
+            raise SystemExit(0)
+        if time.monotonic() >= deadline:
+            raise SystemExit('Timed out finding one Minecraft release compatible with every selected add-on.')
+    raise SystemExit(f'No Minecraft release supports every selected add-on on {server_type}. Remove an add-on or try a different server type.')
+print(server_versions[0])
+PY
+)"
+if [[ "$mc_game_version" != "$latest_mc_game_version" ]]; then set_stage "Using Minecraft $mc_game_version for the selected server and add-ons"; fi
+`
+}
+
 function minecraftAddonInstall(addons: string[], type: string) {
     const loader = ['PAPER', 'PURPUR'].includes(type) ? 'paper'
-        : type === 'FABRIC' ? 'fabric' : type === 'QUILT' ? 'quilt'
-            : type === 'FORGE' ? 'forge' : type === 'NEOFORGE' ? 'neoforge' : ''
+        : type === 'FOLIA' ? 'folia'
+            : type === 'FABRIC' ? 'fabric' : type === 'QUILT' ? 'quilt'
+                : type === 'FORGE' ? 'forge' : type === 'NEOFORGE' ? 'neoforge' : ''
     if (!loader || addons.some(addon => !/^[a-z0-9-]+$/.test(addon))) throw new Error('Selected Minecraft add-ons are not supported by this server software.')
-    const folder = loader === 'paper' ? 'plugins' : 'mods'
+    const folder = ['paper', 'folia'].includes(loader) ? 'plugins' : 'mods'
     const selection = JSON.stringify(addons)
     return `set_stage 'Installing selected Minecraft ${folder}'\ninstall -d -m 0755 /opt/minecraft/${folder}\nrun_bounded 600 python3 - /opt/minecraft/${folder} '${loader}' '${selection}' "$mc_game_version" <<'PY'
 import hashlib
+import http.client
 import json
 import pathlib
 import re
 import sys
+import time
 import urllib.parse
+import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
-directory, loader, requested_json = sys.argv[1:]
+directory, loader, requested_json, game_version = sys.argv[1:]
 projects = {
     'essentialsx': 'essentialsx', 'luckperms': 'luckperms', 'viaversion': 'viaversion',
-    'worldedit': 'worldedit', 'spark': 'spark', 'fabric-api': 'fabric-api',
-    'lithium': 'lithium', 'ferritecore': 'ferritecore', 'krypton': 'krypton',
+    'viabackwards': 'viabackwards', 'placeholderapi': 'placeholderapi', 'chunky': 'chunky', 'carpet': 'carpet',
+    'worldedit': 'worldedit', 'spark': 'spark', 'fabric-api': 'fabric-api', 'qsl': 'qsl',
+    'lithium': 'lithium', 'ferritecore': 'ferrite-core', 'krypton': 'krypton',
     'jei': 'jei', 'modernfix': 'modernfix',
 }
 requested = json.loads(requested_json)
-if not isinstance(requested, list) or len(requested) > 6 or any(item not in projects for item in requested):
+if not isinstance(requested, list) or len(requested) > 9 or any(item not in projects for item in requested):
     raise SystemExit('Unsupported Minecraft add-on selection.')
-game_version = sys.argv[4]
 if not re.fullmatch(r'\\d+(?:\\.\\d+){1,3}', game_version):
     raise SystemExit('The Minecraft server returned an invalid game version.')
 headers = {'User-Agent': 'Hanasand VM Provisioner/1.0', 'Accept': 'application/json'}
-for slug in requested:
+deadline = time.monotonic() + 540
+def read_limited(response, maximum, target=None, digest=None):
+    output = bytearray() if target is None else None
+    total = 0
+    while True:
+        if time.monotonic() >= deadline:
+            raise TimeoutError('Minecraft add-on installation exceeded its deadline.')
+        chunk = response.read(min(65536, maximum + 1 - total))
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > maximum:
+            raise ValueError('A Minecraft add-on download exceeded its size limit.')
+        if digest is not None:
+            digest.update(chunk)
+        if target is None:
+            output.extend(chunk)
+        else:
+            target.write(chunk)
+    return bytes(output) if output is not None else total
+def fetch(url, maximum, timeout, target=None, digest=None):
+    last_error = None
+    for attempt in range(3):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('Minecraft add-on installation exceeded its deadline.')
+        request = urllib.request.Request(url, headers=headers)
+        try:
+            if target is not None:
+                target.seek(0)
+                target.truncate()
+                digest = hashlib.sha512()
+            with urllib.request.urlopen(request, timeout=min(timeout, remaining)) as response:
+                result = read_limited(response, maximum, target, digest)
+                return result, response.geturl(), digest.hexdigest() if digest is not None else None
+        except urllib.error.HTTPError as error:
+            last_error = error
+            if error.code not in (408, 425, 429, 500, 502, 503, 504) or attempt == 2:
+                raise
+            retry_after = error.headers.get('Retry-After', '')
+            delay = min(float(retry_after), 5.0) if retry_after.isdigit() else (attempt + 1)
+            time.sleep(min(delay, max(0, deadline - time.monotonic())))
+        except (OSError, urllib.error.URLError, TimeoutError, http.client.HTTPException) as error:
+            last_error = error
+            if attempt < 2:
+                time.sleep(min(attempt + 1, max(0, deadline - time.monotonic())))
+    raise SystemExit('Minecraft add-on download failed after retries: ' + str(last_error))
+def install_addon(slug):
     query = urllib.parse.urlencode({'loaders': json.dumps([loader]), 'game_versions': json.dumps([game_version])})
-    request = urllib.request.Request(f'https://api.modrinth.com/v2/project/{projects[slug]}/version?{query}', headers=headers)
-    with urllib.request.urlopen(request, timeout=30) as response:
-        versions = json.load(response)
+    versions, _, _ = fetch(f'https://api.modrinth.com/v2/project/{projects[slug]}/version?{query}', 1_000_000, 10)
+    versions = json.loads(versions)
     version = next((item for item in versions if item.get('version_type') == 'release' and isinstance(item.get('files'), list)), None)
     if not version:
         raise SystemExit(f'No released {slug} build supports Minecraft {game_version} on {loader}.')
@@ -638,14 +847,24 @@ for slug in requested:
         raise SystemExit(f'Modrinth returned an unsafe filename for {slug}.')
     if not isinstance(expected, str) or not re.fullmatch(r'[a-fA-F0-9]{128}', expected):
         raise SystemExit(f'Modrinth returned no valid SHA-512 for {slug}.')
-    download = urllib.request.Request(url, headers={'User-Agent': 'Hanasand VM Provisioner/1.0'})
-    with urllib.request.urlopen(download, timeout=60) as response:
-        if urllib.parse.urlparse(response.geturl()).hostname != 'cdn.modrinth.com':
+    if time.monotonic() >= deadline:
+        raise TimeoutError('Minecraft add-on installation exceeded its deadline.')
+    target_path = Path(directory, filename)
+    temporary_path = target_path.with_name(target_path.name + '.' + slug + '.part')
+    try:
+        with temporary_path.open('wb') as output:
+            _, final_url, actual_digest = fetch(url, 50_000_000, 20, output, hashlib.sha512())
+        if urllib.parse.urlparse(final_url).hostname != 'cdn.modrinth.com':
             raise SystemExit(f'Modrinth redirected {slug} outside its CDN.')
-        data = response.read(50_000_001)
-    if len(data) > 50_000_000 or hashlib.sha512(data).hexdigest().lower() != expected.lower():
-        raise SystemExit(f'Download verification failed for {slug}.')
-    pathlib.Path(directory, filename).write_bytes(data)
+        if actual_digest is None or actual_digest.lower() != expected.lower():
+            raise SystemExit(f'Download verification failed for {slug}.')
+        temporary_path.replace(target_path)
+        return slug
+    finally:
+        temporary_path.unlink(missing_ok=True)
+if requested:
+    with ThreadPoolExecutor(max_workers=min(4, len(requested))) as executor:
+        list(executor.map(install_addon, requested))
 PY
 `
 }

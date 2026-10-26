@@ -42,7 +42,7 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(submission).toContain('minecraft_addons: input.minecraftAddons')
     expect(minecraftAddonPicker).toContain('Popular plugins')
     expect(minecraftAddonPicker).toContain('Popular mods')
-    expect(minecraftAddonPicker).toContain('Matched to the latest Minecraft release')
+    expect(minecraftAddonPicker).toContain('Matched to the newest Minecraft release supported by the selected software.')
     expect(submission).toContain('website: input.selectedServices.includes(\'website\') ? input.websitePlan : null')
     expect(websiteEditor).toContain('aria-label=\'Website preview\'')
     expect(websiteEditor).toContain('Contact email')
