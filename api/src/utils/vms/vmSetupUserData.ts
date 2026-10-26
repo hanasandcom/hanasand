@@ -9,6 +9,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     validateVmLoginName(name)
     const services = [...new Set(options.services || [])]
     const usesDnf = options.os === 'fedora-44' || options.os === 'almalinux-9' || options.os === 'rocky-9' || options.os === 'centos-stream-10'
+    const usesMariaDb = usesDnf || options.os === 'debian-13' || options.os === 'kali'
     const aptPackages = normalizeUbuntuAptPackages(options.aptPackages)
     if (!aptPackages) {
         throw new Error('Custom Ubuntu package names must be valid Debian package identifiers, with no more than 12 packages.')
@@ -36,7 +37,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     const minecraftAddons = options.minecraftAddons || []
     if (minecraftAddons.length && !services.includes('minecraft-java')) throw new Error('Minecraft add-ons require the Minecraft Java service.')
     const minecraftServerType = options.minecraftServerType || 'PAPER'
-    const script = createSetupScript(name, services, minecraftServerType, minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, usesDnf)
+    const script = createSetupScript(name, services, minecraftServerType, minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, usesDnf, usesMariaDb)
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -65,7 +66,7 @@ function yamlObject(value: Record<string, unknown>) {
     return JSON.stringify(value, null, 2)
 }
 
-function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, usesDnf: boolean) {
+function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, usesDnf: boolean, usesMariaDb: boolean) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
     const minecraftPrepare = services.includes('minecraft-java')
@@ -76,6 +77,7 @@ function createSetupScript(name: string, services: string[], minecraftType: stri
         : ''
     const webRoot = usesDnf ? '/usr/share/nginx/html' : '/var/www/html'
     const webOwner = usesDnf ? 'root:root' : 'www-data:www-data'
+    const mysqlSystemdService = usesMariaDb ? 'mariadb' : 'mysql'
     const website = websiteBase64
         ? `install -d -m 0755 '${webRoot}'\nprintf '%s' '${websiteBase64}' | base64 -d > '${webRoot}/index.html'\nchown ${webOwner} '${webRoot}/index.html'\n`
         : ''
@@ -140,16 +142,16 @@ if printf '%s' "$services" | grep -Eq '"(bun|docker|minecraft-java)"'; then
   apt_packages+=(ca-certificates curl unzip)
 fi
 if printf '%s' "$services" | grep -q '"nodejs"'; then apt_packages+=(ca-certificates); fi
+if printf '%s' "$services" | grep -q '"java"'; then apt_packages+=(ca-certificates python3 tar); fi
 ${nextjsAptPackages}
 if printf '%s' "$services" | grep -q '"postgresql"'; then apt_packages+=(postgresql postgresql-contrib); fi
-if printf '%s' "$services" | grep -q '"mysql"'; then apt_packages+=(mysql-server); fi
+if printf '%s' "$services" | grep -q '"mysql"'; then apt_packages+=(${usesMariaDb ? 'default-mysql-server' : 'mysql-server'}); fi
 if printf '%s' "$services" | grep -q '"redis"'; then apt_packages+=(redis-server); fi
 if printf '%s' "$services" | grep -q '"sqlite"'; then apt_packages+=(sqlite3); fi
 if printf '%s' "$services" | grep -q '"python"'; then apt_packages+=(python3 python3-pip python3-venv); fi
 if printf '%s' "$services" | grep -q '"rust"'; then apt_packages+=(rustc cargo); fi
 if printf '%s' "$services" | grep -q '"ruby"'; then apt_packages+=(ruby ruby-dev); fi
 if printf '%s' "$services" | grep -q '"cpp"'; then apt_packages+=(build-essential); fi
-if printf '%s' "$services" | grep -q '"java"' && ! printf '%s' "$services" | grep -q '"minecraft-java"'; then apt_packages+=(default-jdk-headless); fi
 if printf '%s' "$services" | grep -q '"go"'; then apt_packages+=(golang-go); fi
 if printf '%s' "$services" | grep -q '"php"'; then apt_packages+=(php-cli php-curl php-mbstring php-xml composer); fi
 if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep -q '"website"'; then apt_packages+=(nginx curl); fi
@@ -191,7 +193,8 @@ if [[ '${usesDnf}' == 'true' ]]; then
   if (( \${#apt_packages[@]} > 0 )); then
     set_stage 'Preparing Enterprise Linux packages'
     packages=(ca-certificates curl unzip)
-    if printf '%s' "$services" | grep -Eq '"(nodejs|minecraft-java)"'; then packages+=(python3); fi
+    if printf '%s' "$services" | grep -Eq '"(nodejs|java|minecraft-java)"'; then packages+=(python3); fi
+    if printf '%s' "$services" | grep -Eq '"(java|minecraft-java)"'; then packages+=(tar); fi
     if printf '%s' "$services" | grep -q '"postgresql"'; then packages+=(postgresql-server postgresql-contrib); fi
     if printf '%s' "$services" | grep -q '"mysql"'; then packages+=(mariadb-server); fi
     if printf '%s' "$services" | grep -q '"redis"'; then packages+=(redis); fi
@@ -202,7 +205,6 @@ if [[ '${usesDnf}' == 'true' ]]; then
     if printf '%s' "$services" | grep -q '"cpp"'; then packages+=(gcc gcc-c++ make); fi
     if printf '%s' "$services" | grep -q '"go"'; then packages+=(golang); fi
     if printf '%s' "$services" | grep -q '"php"'; then packages+=(php-cli php-common php-curl php-mbstring php-xml); fi
-    if printf '%s' "$services" | grep -q '"java"' && ! printf '%s' "$services" | grep -q '"minecraft-java"'; then packages+=(java-21-openjdk-devel); fi
     if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep -q '"website"'; then packages+=(nginx); fi
     if printf '%s' "$services" | grep -q '"minecraft-java"'; then packages+=(jq iproute); fi
     if printf '%s' "$services" | grep -q '"docker"'; then packages+=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin); fi
@@ -211,7 +213,7 @@ if [[ '${usesDnf}' == 'true' ]]; then
       for attempt in 1 2 3; do
         log="$(mktemp /run/hanasand-dnf-install.XXXXXX)"
         set_stage "Installing Enterprise Linux packages ($attempt/3)"
-        if run_bounded 900 dnf install -y --setopt=retries=2 --setopt=timeout=30 "\${packages[@]}" >"$log" 2>&1; then
+        if run_bounded 1800 dnf install -y --setopt=retries=2 --setopt=timeout=30 "\${packages[@]}" >"$log" 2>&1; then
           rm -f "$log"
           return 0
         else
@@ -252,7 +254,7 @@ if (( \${#apt_packages[@]} > 0 )); then
     # Database packages can take several minutes to unpack and configure on small LXD guests.
     # Ubuntu images can start unattended-upgrades while cloud-init starts this
     # installer. Let apt wait for dpkg's lock instead of failing the VM setup.
-    run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=600 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
+    run_bounded 1800 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=600 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\${apt_packages[@]}" 3>"$apt_progress_file" &
     apt_install_pid=$!
     last_apt_progress=''
     apt_install_started=$SECONDS
@@ -300,9 +302,24 @@ if (( \${#apt_packages[@]} > 0 )); then
       report_setup_error "$LINENO"
       exit "$apt_status"
     fi
+    set_stage 'Recovering interrupted package configuration'
+    if run_bounded 1800 dpkg --configure -a; then
+      :
+    else
+      apt_status=$?
+      report_setup_error "$LINENO"
+      exit "$apt_status"
+    fi
     set_stage 'Package installation did not complete; refreshing metadata before retrying'
     refresh_apt_metadata
-    apt_install_once || { apt_status=$?; report_setup_error "$LINENO"; exit "$apt_status"; }
+    if apt_install_once; then
+      :
+    else
+      apt_status=$?
+      run_bounded 1800 dpkg --configure -a || true
+      report_setup_error "$LINENO"
+      exit "$apt_status"
+    fi
   fi
 fi
 fi
@@ -409,13 +426,17 @@ if printf '%s' "$services" | grep -q '"bun"'; then
   curl -fsSL --retry 3 --retry-delay 2 https://bun.sh/install | bash
   install -m 0755 /root/.bun/bin/bun /usr/local/bin/bun
 fi
-if printf '%s' "$services" | grep -q '"minecraft-java"'; then
-  java_version=17
-  if [[ "$mc_game_version" == 26.* ]]; then java_version=25
-  elif [[ "$mc_game_version" =~ ^1\\.(2[1-9]|[3-9][0-9])\\. || "$mc_game_version" =~ ^1\\.20\\.(5|6|7|8|9)($|\\.) ]]; then java_version=21
+if printf '%s' "$services" | grep -q '"java"' || printf '%s' "$services" | grep -q '"minecraft-java"'; then
+  java_version=21
+  java_image_type=jdk
+  if printf '%s' "$services" | grep -q '"minecraft-java"'; then
+    java_version=17
+    if [[ "$mc_game_version" == 26.* ]]; then java_version=25
+    elif [[ "$mc_game_version" =~ ^1\\.(2[1-9]|[3-9][0-9])\\. || "$mc_game_version" =~ ^1\\.20\\.(5|6|7|8|9)($|\\.) ]]; then java_version=21
+    fi
+    java_image_type=jre
+    if printf '%s' "$services" | grep -q '"java"'; then java_image_type=jdk; fi
   fi
-  java_image_type=jre
-  if printf '%s' "$services" | grep -q '"java"'; then java_image_type=jdk; fi
   set_stage "Installing Java $java_version"
   java_arch="$(uname -m)"
   case "$java_arch" in x86_64) java_arch=x64 ;; aarch64) java_arch=aarch64 ;; *) write_state Error 'Java is not supported on this host architecture.'; exit 1 ;; esac
@@ -554,8 +575,8 @@ if printf '%s' "$services" | grep -q '"sqlite"'; then sqlite3 --version; fi
 if printf '%s' "$services" | grep -q '"postgresql"'; then set_stage 'Starting PostgreSQL'; systemctl enable --now postgresql; systemctl is-active --quiet postgresql; fi
 if printf '%s' "$services" | grep -q '"mysql"'; then
   set_stage 'Starting MySQL'
-  if [[ '${usesDnf}' == 'true' ]]; then systemctl enable --now mariadb; systemctl is-active --quiet mariadb
-  else systemctl enable --now mysql; systemctl is-active --quiet mysql; fi
+  systemctl enable --now ${mysqlSystemdService}
+  systemctl is-active --quiet ${mysqlSystemdService}
 fi
 if printf '%s' "$services" | grep -q '"redis"'; then
   set_stage 'Starting Redis'

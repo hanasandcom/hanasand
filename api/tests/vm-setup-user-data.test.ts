@@ -57,6 +57,9 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('urlopen(sys.argv[1], timeout=30)')
     expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 --error-on=any update -qq')
     expect(script).toContain('DPkg::Lock::Timeout=600 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends')
+    expect(script).toContain('run_bounded 1800 apt-get')
+    expect(script).toContain('Recovering interrupted package configuration')
+    expect(script).toContain('run_bounded 1800 dpkg --configure -a')
     expect(script).toContain('set_stage "Installing ${apt_progress}"')
     expect(script).toContain('while kill -0 "$apt_install_pid"')
     expect(script).toContain('command timeout --signal=TERM --kill-after=10s 190s curl --connect-timeout 15 --max-time 180')
@@ -71,6 +74,19 @@ test('Debian Docker setup uses Debian repositories and Enterprise Linux accepts 
     const debianScript = debianConfig.write_files[0]?.content || ''
     expect(debianScript).toContain('https://download.docker.com/linux/%s %s stable')
     expect(debianScript).toContain('debian) docker_distro=debian ;;')
+
+    const debianMysql = vmSetupUserData('debian-mysql', { os: 'debian-13', services: ['mysql'] })
+    const debianMysqlConfig = parse(debianMysql.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+    const debianMysqlScript = debianMysqlConfig.write_files[0]?.content || ''
+    expect(debianMysqlScript).toContain('apt_packages+=(default-mysql-server)')
+    expect(debianMysqlScript).toContain('systemctl enable --now mariadb')
+    expect(debianMysqlScript).not.toContain('apt_packages+=(mysql-server)')
+
+    const ubuntuMysql = vmSetupUserData('ubuntu-mysql', { os: 'ubuntu-24.04', services: ['mysql'] })
+    const ubuntuMysqlConfig = parse(ubuntuMysql.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+    const ubuntuMysqlScript = ubuntuMysqlConfig.write_files[0]?.content || ''
+    expect(ubuntuMysqlScript).toContain('apt_packages+=(mysql-server)')
+    expect(ubuntuMysqlScript).toContain('systemctl enable --now mysql')
 
     const kali = vmSetupUserData('kali-docker', { os: 'kali', services: ['docker'] })
     const kaliConfig = parse(kali.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
@@ -87,7 +103,10 @@ test('Debian Docker setup uses Debian repositories and Enterprise Linux accepts 
         expect(script).toContain('dnf clean metadata')
         expect(script).toContain('postgresql-server postgresql-contrib')
         expect(script).toContain('mariadb-server')
-        expect(script).toContain('java-21-openjdk-devel')
+        expect(script).toContain('packages+=(python3)')
+        expect(script).toContain('packages+=(tar)')
+        expect(script).not.toContain('java-21-openjdk-devel')
+        expect(script).toContain('"(nodejs|java|minecraft-java)"')
         expect(script).toContain('systemctl enable --now mariadb')
         expect(script).toContain('systemctl enable --now redis')
         expect(script).toContain('Installing Composer')
@@ -296,7 +315,7 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     expect(script).toContain('node --version; npm --version')
     expect(script).toContain('wait_for_ready PostgreSQL pg_isready')
     expect(script.match(/run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 --error-on=any update -qq/g)).toHaveLength(1)
-    expect(script.match(/run_bounded 900 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=600 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
+    expect(script.match(/run_bounded 1800 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=600 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
     expect(script).not.toContain('nodesource.com/setup_24.x')
     execFileSync('bash', ['-n'], { input: script })
 })
@@ -519,6 +538,7 @@ test('APT metadata and package downloads retry transient repository failures and
         const progressLog = join(directory, 'progress.log')
         const updateCount = join(directory, 'update-count')
         const installCount = join(directory, 'install-count')
+        const configureCount = join(directory, 'configure-count')
         mkdirSync(bin)
         const fakeAptGet = join(bin, 'apt-get')
         writeFileSync(fakeAptGet, [
@@ -533,10 +553,13 @@ test('APT metadata and package downloads retry transient repository failures and
             `count=$(cat '${installCount}' 2>/dev/null || printf 0)`,
             'count=$((count + 1))',
             `printf '%s' "$count" > '${installCount}'`,
-            'if (( count == 1 )); then printf "Temporary failure resolving package mirror\\n" >&2; exit 100; fi',
+            'if (( count == 1 )); then printf "E: dpkg was interrupted, you must manually run dpkg --configure -a\\n" >&2; exit 100; fi',
             'exit 0',
         ].join('\n'))
         chmodSync(fakeAptGet, 0o755)
+        const fakeDpkg = join(bin, 'dpkg')
+        writeFileSync(fakeDpkg, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${configureCount}'\nexit 0\n`)
+        chmodSync(fakeDpkg, 0o755)
 
         const cloudInit = vmSetupUserData('apt-retry-vm', { aptPackages: ['ripgrep'] })
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
@@ -552,6 +575,8 @@ test('APT metadata and package downloads retry transient repository failures and
         if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)
         expect(readFileSync(updateCount, 'utf8')).toBe('3')
         expect(readFileSync(installCount, 'utf8')).toBe('2')
+        expect(readFileSync(configureCount, 'utf8').trim()).toBe('--configure -a')
+        expect(readFileSync(progressLog, 'utf8')).toContain('Recovering interrupted package configuration')
         expect(readFileSync(progressLog, 'utf8')).toContain('Package repository unavailable; retrying metadata refresh (2/4)')
         expect(readFileSync(progressLog, 'utf8')).toContain('Package installation did not complete; refreshing metadata before retrying')
         expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
@@ -627,21 +652,30 @@ test('a stalled package install hits its deadline and reports a visible setup er
     }
 })
 
-test('Java uses the distribution JDK and Minecraft selects a runtime matching its game version', () => {
+test('Java installs a checked Adoptium JDK and Minecraft selects a matching runtime', () => {
     for (const service of ['java', 'minecraft-java'] as const) {
         const cloudInit = vmSetupUserData('runtime-vm', { services: [service] })
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
         const script = config.write_files[0]?.content || ''
         expect(script).toContain(`"${service}"`)
         if (service === 'java') {
-            expect(script).toContain('apt_packages+=(default-jdk-headless)')
+            expect(script).toContain('apt_packages+=(ca-certificates python3 tar)')
+            expect(script).toContain('java_version=21')
+            expect(script).toContain('java_image_type=jdk')
+            expect(script).toContain('v3/assets/latest/{java_version}/hotspot?{asset_query}')
+            expect(script).not.toContain('default-jdk-headless')
+            const rocky = vmSetupUserData('rocky-java', { os: 'rocky-9', services: ['java'] })
+            const rockyConfig = parse(rocky.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+            expect(rockyConfig.write_files[0]?.content).toContain('packages+=(python3)')
+            expect(rockyConfig.write_files[0]?.content).toContain('packages+=(tar)')
+            expect(rockyConfig.write_files[0]?.content).not.toContain('java-21-openjdk-devel')
         } else {
             expect(script).toContain('java_version=17')
             expect(script).toContain('if [[ "$mc_game_version" == 26.* ]]; then java_version=25')
             expect(script).toContain('then java_version=21')
             expect(script.indexOf('Matching Minecraft server and add-ons to a supported version')).toBeLessThan(script.indexOf('set_stage "Installing Java $java_version"'))
-            const javaBlockStart = script.indexOf('  java_version=17')
-            const javaBlockEnd = script.indexOf('\n  java_image_type=jre', javaBlockStart)
+            const javaBlockStart = script.indexOf('    java_version=17')
+            const javaBlockEnd = script.indexOf('\n    java_image_type=jre', javaBlockStart)
             const javaBlock = script.slice(javaBlockStart, javaBlockEnd)
             for (const [version, expected] of [['1.19.4', '17'], ['1.20.4', '17'], ['1.20.6', '21'], ['1.21.1', '21'], ['26.1.2', '25']]) {
                 const result = spawnSync('bash', ['-c', `${javaBlock}\nprintf '%s' "$java_version"`], { encoding: 'utf8', env: { ...process.env, mc_game_version: version } })

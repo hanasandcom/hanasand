@@ -5,7 +5,7 @@ type HostFetch = (host: string, path: string, options?: RequestInit) => Promise<
 type StatusResponse = { status?: unknown; error?: unknown; status_reason?: unknown }
 export type VmProvisionOptions = { os?: 'ubuntu-24.04' | 'ubuntu-26.04' | 'ubuntu-22.04' | 'ubuntu-24.04-desktop' | 'debian-13' | 'kali' | 'fedora-44' | 'almalinux-9' | 'rocky-9' | 'centos-stream-10'; resources?: { cpu: string; memory: string; disk: string }; services?: SupportedVmSetupService[]; aptPackages?: string[]; minecraftEulaAccepted?: boolean; minecraftServerType?: 'PAPER' | 'VANILLA' | 'FABRIC' | 'QUILT' | 'FORGE' | 'NEOFORGE' | 'PURPUR' | 'FOLIA'; minecraftAddons?: string[]; websiteHtml?: string; nextjsProjectFiles?: import('./nextjsProject.ts').NextjsProjectFile[] }
 
-const provisionTimeoutMs = 150_000
+export const vmProvisionTimeoutMs = 60 * 60_000
 const statusPollIntervalMs = 2_000
 const retryableStatusCodes = new Set([404, 408, 425, 429, 500, 502, 503, 504])
 
@@ -26,21 +26,23 @@ export async function enqueueVmProvisionOnHost(host: string, name: string, reque
     await provision.body?.cancel().catch(() => {})
 }
 
-export async function waitForVmProvisionOnHost(host: string, name: string, request: HostFetch) {
+export async function waitForVmProvisionOnHost(host: string, name: string, request: HostFetch, timing: { timeoutMs?: number; pollIntervalMs?: number } = {}) {
     const encodedName = encodeURIComponent(name)
-    const deadline = Date.now() + provisionTimeoutMs
+    const timeoutMs = timing.timeoutMs ?? vmProvisionTimeoutMs
+    const pollIntervalMs = timing.pollIntervalMs ?? statusPollIntervalMs
+    const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
         let response: Response
         try {
             response = await request(host, `/vms/internal/${encodedName}/status`, { signal: AbortSignal.timeout(5_000) })
         } catch {
-            await pollDelay(deadline)
+            await pollDelay(deadline, pollIntervalMs)
             continue
         }
         if (!response.ok) {
             if (retryableStatusCodes.has(response.status)) {
                 await response.body?.cancel().catch(() => {})
-                await pollDelay(deadline)
+                await pollDelay(deadline, pollIntervalMs)
                 continue
             }
             throw await hostError(response, 'Unable to verify VM provisioning')
@@ -55,13 +57,13 @@ export async function waitForVmProvisionOnHost(host: string, name: string, reque
         if (!['provisioning', 'creating', 'starting', 'pending', 'stopped'].includes(status)) {
             throw new Error(`VM provisioning returned unexpected status${status ? ` ${status}` : ''}.`)
         }
-        await pollDelay(deadline)
+        await pollDelay(deadline, pollIntervalMs)
     }
-    throw new Error(`VM provisioning did not reach Running on host ${host} within ${provisionTimeoutMs / 1_000} seconds.`)
+    throw new Error(`VM provisioning did not reach Running on host ${host} within ${timeoutMs / 1_000} seconds.`)
 }
 
-function pollDelay(deadline: number) {
-    return delay(Math.min(statusPollIntervalMs, Math.max(0, deadline - Date.now())))
+function pollDelay(deadline: number, pollIntervalMs: number) {
+    return delay(Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())))
 }
 
 async function hostError(response: Response, fallback: string) {
