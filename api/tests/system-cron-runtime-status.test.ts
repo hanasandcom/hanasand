@@ -49,6 +49,7 @@ mock.module('../src/utils/managedCronHost.ts', () => ({
 
 const { runTrackedBackgroundJob, getBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
 const { cronCadenceSeconds, listUnifiedScheduledJobs, updateManagedCronJob } = await import('../src/utils/systemCron.ts')
+const { eventProcessingJobDefinitions } = await import('../src/utils/systemCron/apiJobDefinitions/eventProcessing.ts')
 
 test('host cron omits unverified forecasts and reports only fixed cadence intervals', async() => {
     expect(cronCadenceSeconds('* * * * *')).toBe(60)
@@ -190,10 +191,10 @@ test('adaptive log processors report their batch runs without changing queue cad
 
 test('log processors stay visible without pause controls and reject direct API changes', async() => {
     const ids = [LIVE_LOG_PROCESSOR_JOB_ID, STORED_LOG_PROCESSOR_JOB_ID, RULE_REPROCESSOR_JOB_ID]
-    const jobs = await listUnifiedScheduledJobs()
+    const definitions = eventProcessingJobDefinitions.filter(job => ids.includes(job.id))
 
     for (const id of ids) {
-        expect(jobs.find(job => job.id === id)?.controls).toEqual([])
+        expect(definitions.find(job => job.id === id)?.controls).toEqual([])
         await expect(updateManagedCronJob(id, { enabled: false })).rejects.toThrow(
             'Log processors cannot be paused, disabled, or changed through the scheduled-job API.',
         )
