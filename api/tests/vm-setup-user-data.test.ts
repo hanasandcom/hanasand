@@ -92,19 +92,16 @@ test('Debian Docker setup uses Debian repositories and Enterprise Linux accepts 
         expect(script).toContain('systemctl enable --now redis')
         expect(script).toContain('Installing Composer')
         expect(script).toContain('docker-ce docker-ce-cli containerd.io')
-        if (os === 'fedora-44') {
-            expect(script).toContain('dnf install -y dnf5-plugins')
-            expect(script).toContain('dnf config-manager addrepo --from-repofile="$docker_repo_url"')
-        } else {
-            expect(script).toContain('dnf install -y dnf-plugins-core')
-            expect(script).toContain('dnf config-manager --add-repo "$docker_repo_url"')
-        }
+        expect(script).toContain('docker_rpm_release=rhel')
+        expect(script).toContain('[[ "$ID" == fedora ]] && docker_rpm_release=fedora')
+        expect(script).not.toContain('dnf-plugins-core')
+        expect(script).not.toContain('dnf5-plugins')
         expect(script).not.toContain('Unsupported Rocky Linux package')
         execFileSync('bash', ['-n'], { input: script })
     }
 })
 
-test.serial('Fedora Docker setup adds its repository with DNF5 syntax', () => {
+test.serial('Fedora Docker setup writes the official DNF5 repository without a plugin bootstrap', () => {
     const directory = mkdtempSync(join(tmpdir(), 'vm-fedora-docker-'))
     try {
         const bin = join(directory, 'bin')
@@ -122,16 +119,18 @@ test.serial('Fedora Docker setup adds its repository with DNF5 syntax', () => {
         const script = config.write_files[0]?.content
             .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
             .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replaceAll('/etc/yum.repos.d', directory)
             .replace('mktemp /run/hanasand-dnf-install.XXXXXX', `mktemp '${directory}/dnf-install.XXXXXX'`)
             .replace('. /etc/os-release', 'ID=fedora\nVERSION_ID=44')
         const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
 
         expect(result.status, result.stderr).toBe(0)
         const commands = readFileSync(logPath, 'utf8')
-        expect(commands).toContain('dnf install -y dnf5-plugins')
-        expect(commands).toContain('dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo')
-        expect(commands).not.toContain('--add-repo')
+        expect(commands).not.toContain('dnf5-plugins')
+        expect(commands).not.toContain('config-manager')
         expect(commands).toContain('dnf install -y --setopt=retries=2 --setopt=timeout=30')
+        expect(readFileSync(`${directory}/docker-ce.repo`, 'utf8')).toContain('baseurl=https://download.docker.com/linux/fedora/$releasever/$basearch/stable')
+        expect(readFileSync(`${directory}/docker-ce.repo`, 'utf8')).toContain('gpgkey=https://download.docker.com/linux/fedora/gpg')
         expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
     } finally {
         rmSync(directory, { recursive: true, force: true })

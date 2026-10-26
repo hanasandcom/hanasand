@@ -161,14 +161,16 @@ if printf '%s' "$services" | grep -q '"docker"'; then
     . /etc/os-release
     docker_rpm_release=rhel
     [[ "$ID" == fedora ]] && docker_rpm_release=fedora
-    docker_repo_url="https://download.docker.com/linux/$docker_rpm_release/docker-ce.repo"
-    if [[ "$ID" == fedora ]]; then
-      run_bounded 120 dnf install -y dnf5-plugins
-      run_bounded 60 dnf config-manager addrepo --from-repofile="$docker_repo_url"
-    else
-      run_bounded 120 dnf install -y dnf-plugins-core
-      run_bounded 60 dnf config-manager --add-repo "$docker_repo_url"
-    fi
+    docker_repo_base="https://download.docker.com/linux/$docker_rpm_release"
+    install -d -m 0755 /etc/yum.repos.d
+    cat > /etc/yum.repos.d/docker-ce.repo <<EOF
+[docker-ce-stable]
+name=Docker CE Stable - \\$basearch
+baseurl=$docker_repo_base/\\$releasever/\\$basearch/stable
+enabled=1
+gpgcheck=1
+gpgkey=$docker_repo_base/gpg
+EOF
   else
   install -d -m 0755 /etc/apt/keyrings
   fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc
