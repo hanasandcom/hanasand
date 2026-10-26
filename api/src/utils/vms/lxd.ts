@@ -80,17 +80,12 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
             method: 'POST',
             body: {
                 name,
-                type: 'container',
+                type: 'virtual-machine',
                 profiles: ['default'],
                 devices: { root: { type: 'disk', path: '/', pool: rootDiskPool, size: selectedResources.disk } },
                 config: {
                     'limits.cpu': selectedResources.cpu,
                     'limits.memory': selectedResources.memory,
-                    ...(selectedServices.includes('docker') ? {
-                        'security.nesting': 'true',
-                        'security.syscalls.intercept.mknod': 'true',
-                        'security.syscalls.intercept.setxattr': 'true',
-                    } : {}),
                     'user.hanasand.setup_plan': setupHash,
                     'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Preparing selected services' }),
                     'cloud-init.user-data': vmSetupUserData(name, { ...options, os: selectedOs, resources: selectedResources, services: selectedServices, aptPackages: selectedAptPackages }),

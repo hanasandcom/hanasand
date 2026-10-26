@@ -48,7 +48,7 @@ test('LXD project scoping is retained when waiting on an operation URL', async (
     expect(requestedPath).toBe('/1.0/operations/example/wait?project=hanasand-vm-stage&timeout=30')
 })
 
-test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Docker option, and cloud-init setup', async () => {
+test.serial('LXD creates a full VM with the selected resources, Docker setup, and cloud-init user data', async () => {
     await provisionLocalLxdInstance('configured-vm', {
         os: 'ubuntu-26.04',
         resources: { cpu: '4', memory: '8GiB', disk: '40GiB' },
@@ -57,15 +57,16 @@ test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Do
     })
 
     const create = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')
-    const body = create?.options?.body as { config: Record<string, string>; devices: Record<string, { pool: string; size: string }>; source: { alias: string } }
+    const body = create?.options?.body as { type: string; config: Record<string, string>; devices: Record<string, { pool: string; size: string }>; source: { alias: string } }
+    expect(body.type).toBe('virtual-machine')
     expect(body.source.alias).toBe('26.04')
     expect(body.config['limits.cpu']).toBe('4')
     expect(body.config['limits.memory']).toBe('8GiB')
     expect(body.devices.root.size).toBe('40GiB')
     expect(body.devices.root.pool).toBe('test-pool')
-    expect(body.config['security.nesting']).toBe('true')
-    expect(body.config['security.syscalls.intercept.mknod']).toBe('true')
-    expect(body.config['security.syscalls.intercept.setxattr']).toBe('true')
+    expect(body.config['security.nesting']).toBeUndefined()
+    expect(body.config['security.syscalls.intercept.mknod']).toBeUndefined()
+    expect(body.config['security.syscalls.intercept.setxattr']).toBeUndefined()
     expect(body.config['user.hanasand.setup_plan']).toMatch(/^[a-f0-9]{64}$/)
     expect(body.config['user.hanasand.setup_plan']).toBe(createHash('sha256').update(JSON.stringify({ os: 'ubuntu-26.04', resources: { cpu: '4', memory: '8GiB', disk: '40GiB' }, services: ['docker', 'nodejs'], aptPackages: ['ripgrep'] })).digest('hex'))
     expect(body.config['cloud-init.user-data']).toContain('https://nodejs.org/dist/')
