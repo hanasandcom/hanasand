@@ -8,8 +8,18 @@ import { updateTiCollectionScheduler, runTiJob } from './tiJobControls.ts'
 import type { ManagedCronUpdate } from './types.ts'
 import { updateExternallyManagedCronJob, updatedScheduledJob } from './externalJobControls.ts'
 import { VM_LIFECYCLE_MONITOR_JOB_ID } from '../vms/lifecycleMonitor.ts'
+import { LIVE_LOG_PROCESSOR_JOB_ID, RULE_REPROCESSOR_JOB_ID, STORED_LOG_PROCESSOR_JOB_ID } from '../events/processor.ts'
+
+const protectedLogProcessorJobIds = new Set([
+    LIVE_LOG_PROCESSOR_JOB_ID,
+    STORED_LOG_PROCESSOR_JOB_ID,
+    RULE_REPROCESSOR_JOB_ID,
+])
 
 export async function updateManagedCronJob(id: string, input: ManagedCronUpdate) {
+    if (protectedLogProcessorJobIds.has(id)) {
+        throw new Error('Log processors cannot be paused, disabled, or changed through the scheduled-job API.')
+    }
     if (id === 'ti-public-canary-collection') {
         await updateTiCollectionScheduler(input)
         return updatedScheduledJob(id)

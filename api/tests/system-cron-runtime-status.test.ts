@@ -73,7 +73,7 @@ test('host cron omits unverified forecasts and reports only fixed cadence interv
         nextRunAt: null,
     })
 })
-const { startLogProcessor } = await import('../src/utils/events/processor.ts')
+const { LIVE_LOG_PROCESSOR_JOB_ID, RULE_REPROCESSOR_JOB_ID, startLogProcessor, STORED_LOG_PROCESSOR_JOB_ID } = await import('../src/utils/events/processor.ts')
 
 test('registry reports a failed rerun while retaining the last successful result', async() => {
     await runTrackedBackgroundJob(purgeJobId, () => ({ purged: 1 }))
@@ -186,4 +186,16 @@ test('adaptive log processors report their batch runs without changing queue cad
         failureCount: 0,
         lastSuccessAt: expect.any(String),
     })
+})
+
+test('log processors stay visible without pause controls and reject direct API changes', async() => {
+    const ids = [LIVE_LOG_PROCESSOR_JOB_ID, STORED_LOG_PROCESSOR_JOB_ID, RULE_REPROCESSOR_JOB_ID]
+    const jobs = await listUnifiedScheduledJobs()
+
+    for (const id of ids) {
+        expect(jobs.find(job => job.id === id)?.controls).toEqual([])
+        await expect(updateManagedCronJob(id, { enabled: false })).rejects.toThrow(
+            'Log processors cannot be paused, disabled, or changed through the scheduled-job API.',
+        )
+    }
 })
