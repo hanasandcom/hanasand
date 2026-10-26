@@ -22,7 +22,7 @@ export default function VmConsole({ name, host, onHostChange, workspaceOrganizat
         if (switching || (!loading && !workspaceMatches)) window.location.replace('/vms')
     }, [loading, switching, workspaceMatches])
     const consoleTarget = host === 'ovh' ? 'OVH' : host === 'inspur' ? 'Inspur' : name || 'Host'
-    const session = useVmConsoleSession(name, host, workspaceMatches && !loading)
+    const session = useVmConsoleSession(name, host, workspaceMatches && !loading, workspaceOrganizationId)
     const viewport = useConsoleViewport(message => session.setStatus(message))
     const followBoot = session.boot.follow
 

@@ -33,7 +33,7 @@ export function getVmProvisioningUnavailableFeedback(): VmProvisioningFeedback {
     }
 }
 
-export function useVmProvisioningStatus(name: string | undefined, enabled = true) {
+export function useVmProvisioningStatus(name: string | undefined, enabled = true, organizationId?: string) {
     const [feedback, setFeedback] = useState<VmProvisioningFeedback | null>(null)
 
     useEffect(() => {
@@ -46,7 +46,7 @@ export function useVmProvisioningStatus(name: string | undefined, enabled = true
         let consecutiveUnavailableReads = 0
         let timer: number | undefined
         const refresh = async () => {
-            const vms = await getVM(name, undefined, undefined, null)
+            const vms = await getVM(name, undefined, undefined, organizationId || null)
             if (!active) return
             const vm = vms?.[0]
             if (!vm) {
@@ -67,7 +67,7 @@ export function useVmProvisioningStatus(name: string | undefined, enabled = true
             active = false
             if (timer !== undefined) window.clearTimeout(timer)
         }
-    }, [name, enabled])
+    }, [name, enabled, organizationId])
 
     return feedback
 }

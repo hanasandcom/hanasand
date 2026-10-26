@@ -77,7 +77,9 @@ test('successful creation opens the terminal without waiting for a VM status fet
     expect(source).toContain('provisioning=1')
     expect(session).not.toContain('get(\'provisioning\') === \'1\'')
     expect(progress).toContain('new URLSearchParams(window.location.search).get(\'provisioning\') !== \'1\'')
-    expect(progress).toContain('getVM(name, undefined, undefined, null)')
+    expect(progress).toContain('getVM(name, undefined, undefined, organizationId || null)')
+    expect(progress).toContain('}, [name, enabled, organizationId])')
+    expect(await readFile(consoleSession, 'utf8')).toContain('useVmProvisioningStatus(name, enabled, organizationId)')
     expect(progress).toContain('status_reason')
     expect(progress).toContain('2500')
 })
@@ -103,7 +105,7 @@ test('the console reports real VM setup progress, completion, and failure separa
     expect(consoleClient).toContain('role={session.provisioning.state === \'error\' ? \'alert\' : \'status\'}')
 })
 
-test('provisioning status can fetch an accessible VM outside the selected workspace filter', async () => {
+test('provisioning status scopes its VM fetch to the active organization', async () => {
     const originalFetch = globalThis.fetch
     let requestedHeaders: Headers | undefined
     globalThis.fetch = async (_input, init) => {
@@ -112,9 +114,9 @@ test('provisioning status can fetch an accessible VM outside the selected worksp
     }
 
     try {
-        const result = await getVM('hei', 'test-token', 'test-user', null)
+        const result = await getVM('hei', 'test-token', 'test-user', 'vm-stage-cashflow')
         expect(result?.[0]?.status).toBe('PROVISIONING')
-        expect(requestedHeaders?.get('x-organization-id')).toBeNull()
+        expect(requestedHeaders?.get('x-organization-id')).toBe('vm-stage-cashflow')
         expect(requestedHeaders?.get('id')).toBe('test-user')
     } finally {
         globalThis.fetch = originalFetch

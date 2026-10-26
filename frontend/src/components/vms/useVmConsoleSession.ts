@@ -5,14 +5,14 @@ import { prepareVmConsoleSession } from '@/utils/vms/consolePreflight'
 import { openWorkspaceConsoleSocket, refreshWorkspaceConsoleTicket } from '@/utils/vms/workspaceConsoleSocket'
 import { useVmConsoleBootLog } from './useVmConsoleBootLog'
 import { useVmProvisioningStatus } from './useVmProvisioningStatus'
-export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh', enabled = true) {
+export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh', enabled = true, organizationId?: string) {
     const container = useRef<HTMLDivElement>(null)
     const boot = useVmConsoleBootLog()
     const reconnect = useRef<() => void>(() => {})
     const [status, setStatus] = useState('Connecting…')
     const [username, setUsername] = useState('')
     const [opening, setOpening] = useState(true)
-    const provisioning = useVmProvisioningStatus(name, enabled)
+    const provisioning = useVmProvisioningStatus(name, enabled, organizationId)
     useEffect(() => {
         let disposed = false
         const controller = new AbortController()
