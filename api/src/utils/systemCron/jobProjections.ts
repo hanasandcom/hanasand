@@ -1,6 +1,7 @@
 import { getBackgroundJobRuntime, type BackgroundJobRuntime } from '../backgroundJobRuntime.ts'
 import { canRunApiCronJobNow, isApiCronJobPaused } from '../cron.ts'
 import { collectDatabaseBackupServices, DATABASE_BACKUP_JOB_ID } from '../db/backups.ts'
+import { PROTECTED_LOG_PROCESSOR_JOB_IDS } from '../events/processor.ts'
 import { ageMs, costEstimate, scheduledJobControlMode } from './jobMetrics.ts'
 import type { ApiBackgroundJobDefinition } from './apiJobDefinitions/types.ts'
 import type { ScheduledJobControl, UnifiedScheduledJob } from './types.ts'
@@ -10,6 +11,7 @@ export function apiBackgroundJobControls(
     enabled: boolean,
     allowPauseResume = true,
 ): ScheduledJobControl[] {
+    if (PROTECTED_LOG_PROCESSOR_JOB_IDS.has(definition.id)) return []
     const hasRunner = canRunApiCronJobNow(definition.id)
     if (!allowPauseResume) {
         return hasRunner || definition.controls.includes('run_now') ? ['run_now'] : []

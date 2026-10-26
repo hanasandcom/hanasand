@@ -9,7 +9,8 @@ const runNowCalls: string[] = []
 mock.module('../src/utils/events/rawLogRetention.ts', () => ({ RAW_LOG_RETENTION_JOB_ID: 'api-raw-log-retention' }))
 mock.module('../src/utils/vms/collectMetrics.ts', () => ({ VM_METRICS_JOB_ID: 'api-vm-metrics' }))
 mock.module('../src/utils/cron.ts', () => ({
-    canRunApiCronJobNow: (id: string) => id === purgeJobId || id === failoverJobId,
+    canRunApiCronJobNow: (id: string) => id === purgeJobId || id === failoverJobId
+        || ['api-live-log-processor', 'api-stored-log-processor', 'api-rule-reprocessor'].includes(id),
     HOST_UPDATE_MONITOR_JOB_ID: 'api-host-update-monitor',
     isApiCronJobPaused: async() => paused,
     runApiCronJobNow: async(id: string) => { runNowCalls.push(id) },
@@ -50,6 +51,7 @@ mock.module('../src/utils/managedCronHost.ts', () => ({
 const { runTrackedBackgroundJob, getBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
 const { cronCadenceSeconds, listUnifiedScheduledJobs, updateManagedCronJob } = await import('../src/utils/systemCron.ts')
 const { eventProcessingJobDefinitions } = await import('../src/utils/systemCron/apiJobDefinitions/eventProcessing.ts')
+const { apiBackgroundJobControls } = await import('../src/utils/systemCron/jobProjections.ts')
 
 test('host cron omits unverified forecasts and reports only fixed cadence intervals', async() => {
     expect(cronCadenceSeconds('* * * * *')).toBe(60)
@@ -194,7 +196,9 @@ test('log processors stay visible without pause controls and reject direct API c
     const definitions = eventProcessingJobDefinitions.filter(job => ids.includes(job.id))
 
     for (const id of ids) {
-        expect(definitions.find(job => job.id === id)?.controls).toEqual([])
+        const definition = definitions.find(job => job.id === id)!
+        expect(definition.controls).toEqual([])
+        expect(apiBackgroundJobControls(definition, true)).toEqual([])
         await expect(updateManagedCronJob(id, { enabled: false })).rejects.toThrow(
             'Log processors cannot be paused, disabled, or changed through the scheduled-job API.',
         )
