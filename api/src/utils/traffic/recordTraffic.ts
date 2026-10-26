@@ -8,6 +8,7 @@ import { normalizeLogEvent } from '#utils/events/logEvent.ts'
 import { analyzeAccess } from '#utils/events/analyzeLog.ts'
 import { redactLogText, redactLogValue } from '#utils/logs/redact.ts'
 import { analyzeIngestAccess } from '#utils/events/analyzeIngestAccess.ts'
+import { logsOutboxRemoteOnly } from '#utils/logs/logOutboxConfig.ts'
 
 const ignoredPathPrefixes = [
     '/api/traffic',
@@ -17,10 +18,11 @@ const ignoredPathPrefixes = [
 
 export default async function recordTraffic(req: FastifyRequest, res: FastifyReply, persist = true) {
     const path = normalizePath(req.url)
+    const remoteOnlyLogs = logsOutboxRemoteOnly()
     const access = { key: `http-api:${req.id}`, ip: verifiedClientIp(req), timestamp: new Date().toISOString(),
         path, method: req.method, status: res.statusCode, inspection: inspectAccess(req) }
     const userAgent = readHeader(req.headers['user-agent'])
-    if (persist && path === '/api/logs/ingest') {
+    if (persist && !remoteOnlyLogs && path === '/api/logs/ingest') {
         try {
             const decision = await analyzeIngestAccess(access, req.hostname, userAgent)
             if (decision.drop) return
@@ -29,13 +31,15 @@ export default async function recordTraffic(req: FastifyRequest, res: FastifyRep
         }
     }
     let proxyRecorded = false
-    try {
-        if (persist) proxyRecorded = await recordProxyRequest(req, res)
-    } catch (error) {
-        req.log.warn({ error }, 'Proxy request logging failed; checking retention before fallback')
+    if (persist && !remoteOnlyLogs) {
+        try {
+            proxyRecorded = await recordProxyRequest(req, res)
+        } catch (error) {
+            req.log.warn({ error }, 'Proxy request logging failed; checking retention before fallback')
+        }
     }
     let retentionAction: ReturnType<typeof customRetentionAction>
-    if (persist) {
+    if (persist && !remoteOnlyLogs) {
         try {
             retentionAction = customRetentionAction(normalizeLogEvent({ id: access.key, created_at: access.timestamp,
                 service: 'http-traffic', host: req.hostname, level: res.statusCode >= 400 ? 'error' : 'info', message: `${req.method} ${path} → ${res.statusCode}`,
@@ -49,7 +53,7 @@ export default async function recordTraffic(req: FastifyRequest, res: FastifyRep
         if (retentionAction === 'drop') return
     }
     try {
-        if (!proxyRecorded && persist && retentionAction !== 'keep' && await analyzeAccess(access)) return
+        if (!proxyRecorded && persist && !remoteOnlyLogs && retentionAction !== 'keep' && await analyzeAccess(access)) return
     } catch (error) {
         // Access analysis is separate from custom retention; keep evidence when only analysis fails.
         req.log.warn({ error }, 'Access analysis failed; retaining request')

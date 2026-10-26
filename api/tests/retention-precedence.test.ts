@@ -1,10 +1,11 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
 import { eventProtectionDefinition } from '../src/utils/events/eventProtection.ts'
 
-let rules: any[] = [], calls: string[] = [], writes: string[] = [], eligible = '', failLookup = false
+let rules: any[] = [], calls: string[] = [], writes: string[] = [], dbReads: string[] = [], loggedEvents: any[] = [], proxyCalls = 0, eligible = '', failLookup = false
 const query: any = async (sql: string) => {
     if (sql.startsWith('SET LOCAL')) return { rows: [] }
     if (sql.includes('FROM rules r')) {
+        dbReads.push(sql)
         if (failLookup) throw new Error('Rule lookup unavailable')
         return { rows: rules }
     }
@@ -17,14 +18,14 @@ mock.module('../src/utils/events/analyzeLog.ts', () => ({
     analyzeMongoPing: async () => { calls.push('mongo'); return eligible === 'mongo' },
     analyzeAccess: async () => { calls.push('http'); return eligible === 'http' },
 }))
-mock.module('../src/utils/traffic/proxyRequest.ts', () => ({ recordProxyRequest: async () => false }))
+mock.module('../src/utils/traffic/proxyRequest.ts', () => ({ recordProxyRequest: async () => { proxyCalls++; return false } }))
 const { default: recordLog, recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
 const { default: recordTraffic } = await import('../src/utils/traffic/recordTraffic.ts')
 const access = { key: 'http-api:test', ip: '192.0.2.1', timestamp: new Date().toISOString(), path: '/public/file', method: 'GET', status: 200,
     inspection: { version: 1, bodyEmpty: true, headersSafe: true, pathSafe: true } }
 const entry = { service: 'cdn', host: 'inspur', level: 'info' as const, message: 'http_access', metadata: { structured: { msg: 'http_access', access } } }
 const keep = (service: string) => ({ source: 'owned', enabled: true, definition: { stage: 'analyze', action: 'keep', conditions: [{ path: 'service', operator: 'equals', value: service }] } })
-beforeEach(() => { rules = []; calls = []; writes = []; eligible = ''; failLookup = false })
+beforeEach(() => { rules = []; calls = []; writes = []; dbReads = []; loggedEvents = []; proxyCalls = 0; eligible = ''; failLookup = false })
 
 test.each(['collector', 'mongo', 'http'])('Store prevents %s analyzer drops in single and batch ingestion', async kind => {
     eligible = kind
@@ -42,7 +43,7 @@ test.each(['collector', 'mongo', 'http'])('Store prevents %s analyzer drops in s
     expect(calls).toContain(kind)
     expect(writes).toHaveLength(2)
 })
-const request = () => ({ id: 'test', ip: '192.0.2.1', url: '/public/file', method: 'GET', hostname: 'hanasand.com', headers: { host: 'hanasand.com' }, log: { warn() {}, info() {} } }) as any
+const request = () => ({ id: 'test', ip: '192.0.2.1', url: '/public/file', method: 'GET', hostname: 'hanasand.com', headers: { host: 'hanasand.com' }, log: { warn() {}, info(...args: any[]) { loggedEvents.push(args) } } }) as any
 const response = { statusCode: 200, elapsedTime: 1 } as any
 
 test('Store preserves direct HTTP traffic before the access analyzer', async () => {
@@ -62,6 +63,24 @@ test('failed retention lookup prevents the traffic fallback and leaves collector
     expect(writes).toHaveLength(0)
     await expect(recordLog(entry)).rejects.toThrow('Rule lookup unavailable')
     expect(calls).toEqual([])
+})
+
+test('remote-only mode forwards HTTP access logs without Hanasand log-rule reads or writes', async () => {
+    const previousRemoteOnly = process.env.LOGS_OUTBOX_REMOTE_ONLY
+    process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
+    try {
+        await recordTraffic({ ...request(), url: '/api/logs/ingest', method: 'POST' }, { ...response, statusCode: 201 })
+        expect(proxyCalls).toBe(0)
+        expect(dbReads).toEqual([])
+        expect(calls).toEqual([])
+        expect(writes).toHaveLength(1)
+        expect(writes[0]).toContain('INSERT INTO traffic_events')
+        expect(loggedEvents).toHaveLength(1)
+        expect(loggedEvents[0][1]).toBe('http_access')
+    } finally {
+        if (previousRemoteOnly === undefined) delete process.env.LOGS_OUTBOX_REMOTE_ONLY
+        else process.env.LOGS_OUTBOX_REMOTE_ONLY = previousRemoteOnly
+    }
 })
 
 
