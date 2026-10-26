@@ -198,7 +198,30 @@ if [[ '${usesDnf}' == 'true' ]]; then
     if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep -q '"website"'; then packages+=(nginx); fi
     if printf '%s' "$services" | grep -q '"minecraft-java"'; then packages+=(jq iproute); fi
     if printf '%s' "$services" | grep -q '"docker"'; then packages+=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin); fi
-    run_bounded 900 dnf install -y "\${packages[@]}"
+    dnf_install_with_retries() {
+      local attempt log status
+      for attempt in 1 2 3; do
+        log="$(mktemp /run/hanasand-dnf-install.XXXXXX)"
+        set_stage "Installing Enterprise Linux packages ($attempt/3)"
+        if run_bounded 900 dnf install -y --setopt=retries=2 --setopt=timeout=30 "\${packages[@]}" >"$log" 2>&1; then
+          rm -f "$log"
+          return 0
+        else
+          status=$?
+        fi
+        tail -n 20 "$log" >&2 || true
+        if (( attempt == 3 )) || ! grep -Eiq 'Curl error \\((6|7|28|35|56)\\)|Could not resolve|Couldn.t resolve|Temporary failure.*name resolution|Connection timed out|Failed to download metadata|Status code: 5[0-9][0-9]|All mirrors were tried' "$log"; then
+          rm -f "$log"
+          return "$status"
+        fi
+        set_stage "Package repositories unavailable; retrying (attempt $((attempt + 1))/3)"
+        run_bounded 60 dnf clean metadata || true
+        sleep "$((attempt * 2))"
+        rm -f "$log"
+      done
+      return 1
+    }
+    dnf_install_with_retries
     if printf '%s' "$services" | grep -q '"postgresql"'; then
       if [[ ! -s /var/lib/pgsql/data/PG_VERSION ]]; then postgresql-setup --initdb; fi
     fi

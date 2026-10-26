@@ -82,7 +82,9 @@ test('Debian Docker setup uses Debian repositories and Enterprise Linux accepts 
         const cloudInit = vmSetupUserData('enterprise-linux', { os, services: [...supportedSetupServices] })
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
         const script = config.write_files[0]?.content || ''
-        expect(script).toContain('dnf install -y "${packages[@]}"')
+        expect(script).toContain('dnf install -y --setopt=retries=2 --setopt=timeout=30 "${packages[@]}"')
+        expect(script).toContain('Package repositories unavailable; retrying')
+        expect(script).toContain('dnf clean metadata')
         expect(script).toContain('postgresql-server postgresql-contrib')
         expect(script).toContain('mariadb-server')
         expect(script).toContain('java-21-openjdk-devel')
@@ -93,6 +95,43 @@ test('Debian Docker setup uses Debian repositories and Enterprise Linux accepts 
         if (os === 'fedora-44') expect(script).toContain('https://download.docker.com/linux/$docker_rpm_release/docker-ce.repo')
         expect(script).not.toContain('Unsupported Rocky Linux package')
         execFileSync('bash', ['-n'], { input: script })
+    }
+})
+
+test.serial('Enterprise Linux setup retries a transient DNF mirror DNS failure', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-dnf-retry-'))
+    try {
+        const bin = join(directory, 'bin')
+        const statusPath = join(directory, 'status')
+        const dnfCallsPath = join(directory, 'dnf-calls')
+        mkdirSync(bin)
+        writeFileSync(join(bin, 'dnf'), [
+            '#!/usr/bin/env bash',
+            `printf '%s\\n' "$*" >> '${dnfCallsPath}'`,
+            'if [[ " $* " == *" install "* ]]; then',
+            `  count="$(grep -c '^install ' '${dnfCallsPath}' || true)"`,
+            '  if (( count == 1 )); then echo "Curl error (6): Could not resolve host: mirrors.rockylinux.org" >&2; exit 1; fi',
+            'fi',
+        ].join('\n'))
+        writeFileSync(join(bin, 'systemctl'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'nginx'), '#!/usr/bin/env bash\nexit 0\n')
+        for (const executable of ['dnf', 'systemctl', 'nginx']) chmodSync(join(bin, executable), 0o755)
+
+        const cloudInit = vmSetupUserData('rocky-retry', { os: 'rocky-9', services: ['nginx'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content
+            .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
+            .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('mktemp /run/hanasand-dnf-install.XXXXXX', `mktemp '${directory}/dnf-install.XXXXXX'`)
+            .replace('sleep "$((attempt * 2))"', 'sleep 0.01')
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
+
+        expect(result.status).toBe(0)
+        expect(readFileSync(dnfCallsPath, 'utf8').match(/^install /gm)).toHaveLength(2)
+        expect(readFileSync(dnfCallsPath, 'utf8')).toContain('clean metadata')
+        expect(readFileSync(statusPath, 'utf8').trim()).toBe('Running\tSetup complete')
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
     }
 })
 

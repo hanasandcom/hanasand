@@ -16,7 +16,7 @@ mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: a
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async (req: any) => ({ valid: req.headers.id === 'admin' }) }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false }))
 mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur', get lxd_project() { return lxdProject } } }))
-mock.module('../src/utils/db.ts', () => ({
+mock.module('#db', () => ({
     withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work(),
     default: async (sql: string, params: unknown[] = []) => {
         databaseCalls.push({ sql, params })

@@ -7,15 +7,15 @@ let hostWorkerHttpStatus = 200
 let localLxdProject = ''
 let localConfig: Record<string, string> = {}
 const localConfigUpdates: Array<Record<string, string>> = []
-mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur', lxd_socket_path: '/var/lib/lxd/unix.socket', get lxd_project() { return localLxdProject } } }))
-mock.module('../src/utils/vms/hostTransport.ts', () => ({
+mock.module('#constants', () => ({ default: { vm_host_id: 'inspur', lxd_socket_path: '/var/lib/lxd/unix.socket', get lxd_project() { return localLxdProject } } }))
+mock.module('#utils/vms/hostTransport.ts', () => ({
     internalHostFetch: async (host: string, path: string) => {
         remoteRequests.push({ host, path })
         if (hostWorkerHttpStatus !== 200) return new Response(null, { status: hostWorkerHttpStatus })
         return Response.json(hostWorkerStatuses.get(path) || hostWorkerStatus)
     },
 }))
-mock.module('../src/utils/vms/lxd.ts', () => ({
+mock.module('#utils/vms/lxd.ts', () => ({
     getLocalLxdInstance: async () => ({ config: localConfig }),
     updateLocalLxdConfig: async (_name: string, config: Record<string, string>) => { localConfigUpdates.push(config) },
 }))
@@ -144,6 +144,29 @@ test('cloud-init errors override the guest setup script success marker', async (
     }) as typeof fetch
 
     expect(await localVmStatus('cloud-init-failed-setup-vm')).toEqual({
+        status: 'Error',
+        status_reason: 'VM setup failed during cloud-init. Contact Support if the problem persists.',
+    })
+    expect(localConfigUpdates).toEqual([{
+        'user.hanasand.provisioning_state': JSON.stringify({
+            status: 'Error',
+            status_reason: 'VM setup failed during cloud-init. Contact Support if the problem persists.',
+        }),
+    }])
+})
+
+test('a stopped VM with a stale success marker reports the cloud-init setup failure', async () => {
+    localConfig = { 'user.hanasand.setup_plan': 'setup-hash' }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        const url = new URL(String(input))
+        if (url.pathname.endsWith('/state')) return Response.json({ metadata: { status: 'Stopped' } })
+        const path = url.searchParams.get('path')
+        if (path === '/var/lib/hanasand-vm-setup/status') return new Response('Running\tSetup complete')
+        if (path === '/var/lib/cloud/data/result.json') return Response.json({ v1: { errors: ['runcmd package install failed'] } })
+        return Response.json({ metadata: { status: 'Stopped' } })
+    }) as typeof fetch
+
+    expect(await localVmStatus('stopped-cloud-init-failed-vm')).toEqual({
         status: 'Error',
         status_reason: 'VM setup failed during cloud-init. Contact Support if the problem persists.',
     })

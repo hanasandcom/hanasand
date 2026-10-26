@@ -26,7 +26,24 @@ export async function localVmStatus(name: string, statusOptions: { allowHostWork
     if (!response.ok) throw new Error(response.status === 404 ? 'VM is unavailable on its host.' : 'VM host is not responding.')
     const body = await response.json() as { metadata?: State }
     if (!body.metadata?.status) throw new Error('VM host did not report a state.')
-    if (body.metadata.status.toLowerCase() !== 'running') return body.metadata
+    if (body.metadata.status.toLowerCase() !== 'running') {
+        // A failed cloud-init run can leave a stale `Running` marker. Preserve
+        // the power state unless the guest's own result proves setup failed.
+        const instance = await getLocalLxdInstance(name)
+        if (!instance.config?.['user.hanasand.setup_plan']) return body.metadata
+        const setupPath = lxdProjectPath(`/1.0/instances/${encodeURIComponent(name)}/files?path=${encodeURIComponent('/var/lib/hanasand-vm-setup/status')}`, config.lxd_project)
+        const setupOptions: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
+        const setupResponse = await fetch(`http://localhost${setupPath}`, setupOptions).catch(() => null)
+        const rawState = setupResponse?.ok ? await setupResponse.text().catch(() => '') : ''
+        const [setupStatus] = rawState.trim().split('\t')
+        if (setupStatus !== 'Running' || !(await hasCloudInitSetupErrors(name))) return body.metadata
+        const state = { status: 'Error', status_reason: cloudInitSetupFailureReason }
+        const persistedState = instance.config['user.hanasand.provisioning_state']
+        if (persistedState !== JSON.stringify(state)) {
+            await updateLocalLxdConfig(name, { 'user.hanasand.provisioning_state': JSON.stringify(state) }).catch(() => {})
+        }
+        return state
+    }
 
     const instance = await getLocalLxdInstance(name)
     const planHash = instance.config?.['user.hanasand.setup_plan']
