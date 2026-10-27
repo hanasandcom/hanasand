@@ -245,7 +245,7 @@ mock.module('#db', () => ({
     },
 }))
 
-const { assertMigrationCollectorReady, assertMigrationStorageReserve, clearMigratedLogReceipts, clearMovedLogState, customerLogsReadReady, estimatedPlanRows, migrateAnalysisReceipts, migrateEventsByPhysicalTail, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationCollectorReady, migrationPayloadHash, migrationStoragePathsFromDockerInspect, moveOneBatch, resolveMigrationStoragePaths, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
+const { assertMigrationCollectorReady, assertMigrationStorageReserve, clearMigratedLogReceipts, clearMovedLogState, customerLogsReadReady, estimatedPlanRows, migrateAnalysisReceipts, migrateEventsByPhysicalTail, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationCollectorReady, migrationEventArchivePayloadHash, migrationPayloadHash, migrationStoragePathsFromDockerInspect, moveOneBatch, resolveMigrationStoragePaths, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
 const { logMigrationEvent } = await import('../src/utils/logs/logMigrationEvent.ts')
 
 beforeEach(() => {
@@ -1072,6 +1072,47 @@ test('retains source rows when Logs is busy and asks the caller to retry', async
 
     expect(result).toEqual({ moved: 0, remaining: true, retry: true })
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
+})
+
+test('archives conflicting source rows durably and deletes only rows with exact migration ACKs', async () => {
+    const secondRow = {
+        ...sourceRows[0], id: 'source-row-2',
+        normalized: { ...sourceRows[0].normalized, source_event_id: 'collector-event-2' },
+    }
+    selectedRowsOverride = [sourceRows[0], secondRow]
+    sourceDeleteRowsOverride = [{ id: 'source-row-1' }, { id: 'source-row-2' }]
+    const expectedHash = migrationPayloadHash(logMigrationEvent(sourceRows[0]))
+    const targetId = createHash('sha256').update('service:collector-event-1').digest('hex')
+    let ingestCalls = 0
+    let archiveCalls = 0
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/api/migration/receipts')) {
+            archiveCalls++
+            const body = JSON.parse(String(init?.body)) as { kind: string, receipts: Array<Record<string, unknown>> }
+            expect(body.kind).toBe('event_archive')
+            expect(body.receipts.every(receipt => receipt.payload_sha256 === migrationEventArchivePayloadHash(
+                receipt as Parameters<typeof migrationEventArchivePayloadHash>[0]))).toBe(true)
+            return new Response(JSON.stringify({ ok: true, accepted: body.receipts.length,
+                acknowledgements: body.receipts.map(receipt => ({ sourceRowId: receipt.source_row_id, payloadSha256: receipt.payload_sha256 })) }), { status: 200 })
+        }
+        if (String(input).endsWith('/api/migration/status')) {
+            return new Response(JSON.stringify({ ok: true, statuses: [{ id: targetId, status: 'pending', payloadSha256: expectedHash }] }), { status: 200 })
+        }
+        ingestCalls++
+        if (ingestCalls === 1) {
+            return new Response(JSON.stringify({ code: 'LOGS_SOURCE_PAYLOAD_CONFLICT',
+                conflictingSourceEventIds: ['collector-event-2'], error: 'sourceEventId was already accepted with a different source payload.' }), { status: 409 })
+        }
+        return new Response(JSON.stringify({ ok: true, accepted: 1 }), { status: 201 })
+    }) as typeof fetch
+
+    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
+
+    expect(result).toEqual({ moved: 2, remaining: true, retry: false, cursor: 'source-row-2' })
+    expect(ingestCalls).toBe(2)
+    expect(archiveCalls).toBe(1)
+    const deletion = statements.find(statement => statement.sql.startsWith('DELETE FROM events'))
+    expect(JSON.parse(String(deletion?.params[0])).map((row: { id: string }) => row.id)).toEqual(['source-row-1', 'source-row-2'])
 })
 
 test('moves a durably stored pending row without waiting for the Logs worker', async () => {

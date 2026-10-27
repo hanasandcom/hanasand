@@ -8,7 +8,7 @@ import path from 'node:path'
 import { logsServiceConfiguration, logsOutboxEnabled, logsOutboxRemoteOnly, logsServiceDirect } from '../src/utils/logs/logOutboxConfig.ts'
 import { logMigrationEvent } from '../src/utils/logs/logMigrationEvent.ts'
 
-const batchSize = Math.max(1, Math.min(300, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 300))
+const batchSize = Math.max(1, Math.min(200, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 200))
 const receiptBatchSize = 100
 const analyzeReceiptBatchSize = 20_000
 const analyzeReceiptBatchPauseMs = 1_000
@@ -25,7 +25,8 @@ export function migrationTailVacuumInterval(configuredValue = process.env.LOGS_M
     return bytes
 }
 const tailVacuumEveryBytes = migrationTailVacuumInterval()
-const findingScanSize = 10_000
+const findingMigrationPageSize = 500
+const findingMigrationEventChunkSize = 5_000
 const apply = process.argv.includes('--apply')
 const maxPayloadBytes = 6_000_000
 const logsIngestMaxBodyBytes = 512_000
@@ -140,6 +141,20 @@ export function migrationPayloadHash(event: ReturnType<typeof logMigrationEvent>
     return createHash('sha256').update(stableJson(event)).digest('hex')
 }
 
+export function migrationEventArchivePayloadHash(receipt: {
+    source_row_id: string, source_event_id: string, target_event_id: string, organization_id: string,
+    source_row: Record<string, unknown>, event_payload: ReturnType<typeof logMigrationEvent>,
+}) {
+    return createHash('sha256').update(stableJson({
+        source_row_id: receipt.source_row_id,
+        source_event_id: receipt.source_event_id,
+        target_event_id: receipt.target_event_id,
+        organization_id: receipt.organization_id,
+        source_row: receipt.source_row,
+        event_payload: receipt.event_payload,
+    })).digest('hex')
+}
+
 export function migrationCollectorReady(health: unknown, now = Date.now(), maxAgeMs = migrationCollectorHealthMaxAgeMs) {
     if (!health || typeof health !== 'object') return false
     const snapshot = health as {
@@ -177,6 +192,23 @@ export async function assertMigrationCollectorReady(readHealth = async () => {
     }
     if (!migrationCollectorReady(health)) {
         throw new Error('Logs migration paused: Inspur collector sources or its recent live Logs acknowledgement are not healthy; no source rows were moved.')
+    }
+}
+
+export async function waitForMigrationCollectorReady(check = assertMigrationCollectorReady, retryMs = 1000) {
+    let nextNoticeAt = 0
+    while (true) {
+        try {
+            await check()
+            return
+        } catch (error) {
+            if (Date.now() >= nextNoticeAt) {
+                console.warn('Logs migration waiting for a fresh healthy collector ACK; no source rows are being moved.',
+                    error instanceof Error ? error.message : 'collector health check failed')
+                nextNoticeAt = Date.now() + 30_000
+            }
+            await sleep(retryMs)
+        }
     }
 }
 
@@ -355,17 +387,28 @@ export async function migrateFindings(url: string, syncToken: string, sourceEven
         }
         if (!batch.length) throw permanentError('A source finding exceeds the Logs migration payload limit; its source data remains in Hanasand.')
         await assertMigrationStorageReserve()
-        const response = await fetch(`${url}/api/migration/findings`, {
-            method: 'POST',
-            headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
-            body: JSON.stringify({ findings: batch }),
-            signal: AbortSignal.timeout(10_000),
-        })
-        const body = await response.json().catch(() => ({})) as { ok?: boolean, accepted?: number, error?: string }
-        if (response.status === 429 || response.status === 503) throw Object.assign(new Error('Logs finding migration is busy; source findings remain in Hanasand.'), { code: 'DB_QUEUE_FULL' })
-        if (!response.ok || body.ok !== true || body.accepted !== batch.length) {
-            throw permanentError(`Logs did not acknowledge the full finding batch (HTTP ${response.status}${body.error ? `: ${body.error}` : ''}); source findings remain in Hanasand.`)
+        const sendBatch = async (items: typeof batch): Promise<void> => {
+            const response = await fetch(`${url}/api/migration/findings`, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ findings: items }),
+                signal: AbortSignal.timeout(10_000),
+            })
+            const body = await response.json().catch(() => ({})) as { ok?: boolean, accepted?: number, error?: string }
+            if (response.status === 409 && items.length > 1) {
+                const midpoint = Math.floor(items.length / 2)
+                console.warn(JSON.stringify({ scope: 'logs finding conflict isolation', batchSize: items.length }))
+                await sendBatch(items.slice(0, midpoint))
+                await sendBatch(items.slice(midpoint))
+                return
+            }
+            if (response.status === 429 || response.status === 503) throw Object.assign(new Error('Logs finding migration is busy; source findings remain in Hanasand.'), { code: 'DB_QUEUE_FULL' })
+            if (!response.ok || body.ok !== true || body.accepted !== items.length) {
+                const conflict = response.status === 409 && items.length === 1 ? ` for source finding ${items[0]!.id}` : ''
+                throw permanentError(`Logs did not acknowledge the full finding batch${conflict} (HTTP ${response.status}${body.error ? `: ${body.error}` : ''}); source rows remain in Hanasand.`)
+            }
         }
+        await sendBatch(batch)
         offset += batch.length
     }
 
@@ -385,13 +428,41 @@ export async function migrateFindings(url: string, syncToken: string, sourceEven
 export async function migrateFindingsBeforeEvents(url: string, syncToken: string) {
     let cursor = ''
     let migrated = 0
+    let scanned = 0
     while (true) {
-        const source = await withTransaction(query => query(`SELECT id FROM events
-            WHERE ingestion_id='logs' AND id > $1 ORDER BY id LIMIT $2`, [cursor, findingScanSize]))
-        const ids = source.rows.map(row => String(row.id))
-        if (!ids.length) return migrated
-        migrated += await migrateFindings(url, syncToken, ids)
-        cursor = ids[ids.length - 1]!
+        // Findings are sparse compared with the Logs event table. Walk the
+        // findings primary key and probe only each finding's referenced event
+        // IDs instead of rescanning all 53M+ Logs event IDs in 10k-row slices.
+        const source = await withTransaction(query => query(`SELECT finding.id, finding.event_ids FROM findings AS finding
+            WHERE finding.id > $1 AND EXISTS (
+                SELECT 1 FROM unnest(finding.event_ids) AS reference(event_id)
+                JOIN events AS source_event ON source_event.id=reference.event_id
+                WHERE source_event.ingestion_id='logs'
+            )
+            ORDER BY finding.id LIMIT $2`, [cursor, findingMigrationPageSize]))
+        const candidates = source.rows
+        if (!candidates.length) return migrated
+        cursor = String(candidates[candidates.length - 1]!.id)
+        scanned += candidates.length
+
+        const referencedIds = [...new Set(candidates.flatMap(row =>
+            Array.isArray(row.event_ids) ? row.event_ids.map(String) : []))]
+        const logEventIds = new Set<string>()
+        for (let offset = 0; offset < referencedIds.length; offset += findingMigrationEventChunkSize) {
+            const eventIds = referencedIds.slice(offset, offset + findingMigrationEventChunkSize)
+            const matching = await withTransaction(query => query(`SELECT id FROM events
+                WHERE ingestion_id='logs' AND id=ANY($1::text[])`, [eventIds]))
+            for (const row of matching.rows) logEventIds.add(String(row.id))
+        }
+
+        const matchingEventIds = [...logEventIds]
+        for (let offset = 0; offset < matchingEventIds.length; offset += findingMigrationEventChunkSize) {
+            migrated += await migrateFindings(url, syncToken,
+                matchingEventIds.slice(offset, offset + findingMigrationEventChunkSize))
+        }
+        if (scanned % findingMigrationPageSize === 0) {
+            console.log(JSON.stringify({ scannedFindings: scanned, migrated, scope: 'logs findings' }))
+        }
     }
 }
 
@@ -1022,6 +1093,178 @@ export async function customerLogsReadReady(logsServiceUrl: string) {
 
 type MigrationTailRange = { lowerBlock: number; upperBlock: number; afterCtid?: string }
 
+type AcknowledgedMigrationEvents = { events: Array<ReturnType<typeof logMigrationEvent>>, droppedSourceIds: string[] }
+
+async function archiveMigrationEventBatch(url: string, events: Array<ReturnType<typeof logMigrationEvent>>,
+    sourceRows: Array<Record<string, unknown>>): Promise<Array<ReturnType<typeof logMigrationEvent>> | null> {
+    const syncToken = process.env.LOGS_SERVICE_SYNC_TOKEN
+    if (!syncToken || syncToken.length < 32) throw permanentError('Migration requires LOGS_SERVICE_SYNC_TOKEN to archive conflicting rows; source rows remain in Hanasand.')
+    const receipts = events.map((event, index) => {
+        const row = sourceRows[index]
+        if (!row) throw permanentError('A Logs conflict could not be paired with its Hanasand source row; no source rows were deleted.')
+        const sourceRow = Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'source_ctid'))
+        const receipt = {
+            source_row_id: String(row.id), source_event_id: event.sourceEventId,
+            target_event_id: createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'),
+            organization_id: String(row.organization_id), source_row: sourceRow, event_payload: event,
+            payload_sha256: '',
+        }
+        receipt.payload_sha256 = migrationEventArchivePayloadHash(receipt)
+        return receipt
+    })
+    const body = { kind: 'event_archive', receipts }
+    const serialized = JSON.stringify(body)
+    if (receipts.length > 100 || Buffer.byteLength(serialized) > maxPayloadBytes) {
+        if (events.length === 1) throw permanentError('A conflicting source event archive exceeds the Logs migration limit; its source row remains in Hanasand.')
+        const middle = Math.ceil(events.length / 2)
+        const left = await archiveMigrationEventBatch(url, events.slice(0, middle), sourceRows.slice(0, middle))
+        if (!left) return null
+        const right = await archiveMigrationEventBatch(url, events.slice(middle), sourceRows.slice(middle))
+        return right ? [...left, ...right] : null
+    }
+    const response = await fetch(`${url}/api/migration/receipts`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
+        body: serialized,
+        signal: AbortSignal.timeout(10_000),
+    })
+    if (response.status === 429 || response.status === 503) return null
+    const result = await response.json().catch(() => ({})) as {
+        ok?: boolean, accepted?: number, error?: string,
+        acknowledgements?: Array<{ sourceRowId?: unknown, payloadSha256?: unknown }>,
+    }
+    if (!response.ok || result.ok !== true || result.accepted !== receipts.length
+        || !Array.isArray(result.acknowledgements) || result.acknowledgements.length !== receipts.length) {
+        throw permanentError(`Logs did not acknowledge the conflicting-event archive batch (HTTP ${response.status}${result.error ? `: ${result.error}` : ''}); source rows remain in Hanasand.`)
+    }
+    const expected = new Map(receipts.map(receipt => [receipt.source_row_id, receipt.payload_sha256]))
+    if (result.acknowledgements.some(item => typeof item.sourceRowId !== 'string'
+        || typeof item.payloadSha256 !== 'string' || expected.get(item.sourceRowId) !== item.payloadSha256)
+        || new Set(result.acknowledgements.map(item => item?.sourceRowId)).size !== receipts.length) {
+        throw permanentError('Logs returned missing or mismatched conflicting-event archive proofs; source rows remain in Hanasand.')
+    }
+    return events
+}
+
+async function acknowledgeMigrationEventBatch(url: string, token: string,
+    events: Array<ReturnType<typeof logMigrationEvent>>, sourceRows: Array<Record<string, unknown>>): Promise<AcknowledgedMigrationEvents | null> {
+    await assertMigrationStorageReserve()
+    const response = await fetch(`${url}/api/ingest`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ events }),
+        signal: AbortSignal.timeout(10_000),
+    })
+    const body = await response.json().catch(() => ({})) as {
+        ok?: boolean, accepted?: number, error?: string, code?: string, droppedSourceEventIds?: unknown,
+        droppedEvents?: Array<{ sourceEventId?: unknown, payloadSha256?: unknown }>, conflictingSourceEventIds?: unknown,
+    }
+    if (response.status === 503 && body.error === 'Log organization is unavailable.') {
+        throw permanentError('An event belongs to a Logs organization that is missing or inactive; its source row remains in Hanasand.')
+    }
+    if (response.status === 429 || response.status === 503) return null
+    if (response.status === 409) {
+        const conflictIds = body.conflictingSourceEventIds
+        if (Array.isArray(conflictIds) && conflictIds.length > 0
+            && conflictIds.every(id => typeof id === 'string' && events.some(event => event.sourceEventId === id))
+            && new Set(conflictIds).size === conflictIds.length) {
+            const conflicts = new Set(conflictIds as string[])
+            const conflictEvents = events.filter(event => conflicts.has(event.sourceEventId))
+            const conflictRows = sourceRows.filter(row => conflicts.has(logMigrationEvent(row).sourceEventId))
+            const archived = await archiveMigrationEventBatch(url, conflictEvents, conflictRows)
+            if (!archived) return null
+            const retryEvents = events.filter(event => !conflicts.has(event.sourceEventId))
+            const retryRows = sourceRows.filter(row => !conflicts.has(logMigrationEvent(row).sourceEventId))
+            if (!retryEvents.length) return { events: archived, droppedSourceIds: [] }
+            const retried = await acknowledgeMigrationEventBatch(url, token, retryEvents, retryRows)
+            return retried ? { events: [...archived, ...retried.events], droppedSourceIds: retried.droppedSourceIds } : null
+        }
+        if (events.length > 1) {
+            const middle = Math.ceil(events.length / 2)
+            const left = await acknowledgeMigrationEventBatch(url, token, events.slice(0, middle), sourceRows.slice(0, middle))
+            if (!left) return null
+            const right = await acknowledgeMigrationEventBatch(url, token, events.slice(middle), sourceRows.slice(middle))
+            if (!right) return null
+            return { events: [...left.events, ...right.events], droppedSourceIds: [...left.droppedSourceIds, ...right.droppedSourceIds] }
+        }
+        const sourceRow = sourceRows[0]
+        if (!sourceRow) throw permanentError('Logs returned a conflict without a matching Hanasand source row; no source rows were deleted.')
+        const archived = await archiveMigrationEventBatch(url, events, sourceRows)
+        return archived ? { events: archived, droppedSourceIds: [] } : null
+    }
+    if (!response.ok || body.ok !== true || body.accepted !== events.length) {
+        throw permanentError(`Logs did not acknowledge the full migration batch (HTTP ${response.status}${body.error ? `: ${body.error}` : ''}).`)
+    }
+
+    const submittedSourceIds = new Set(events.map(event => event.sourceEventId))
+    const expectedPayloadHashes = new Map(events.map(event => [event.sourceEventId, migrationPayloadHash(event)]))
+    const reportedDrops = body.droppedSourceEventIds === undefined ? [] : body.droppedSourceEventIds
+    if (!Array.isArray(reportedDrops) || !reportedDrops.every(id => typeof id === 'string' && submittedSourceIds.has(id))
+        || new Set(reportedDrops).size !== reportedDrops.length) {
+        throw permanentError('Logs returned invalid dropped-event identities; source rows remain in Hanasand.')
+    }
+    const droppedEvents = body.droppedEvents === undefined ? [] : body.droppedEvents
+    if (!Array.isArray(droppedEvents) || droppedEvents.length !== reportedDrops.length
+        || droppedEvents.some(item => !item || typeof item.sourceEventId !== 'string'
+            || typeof item.payloadSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(item.payloadSha256)
+            || !reportedDrops.includes(item.sourceEventId)
+            || expectedPayloadHashes.get(item.sourceEventId) !== item.payloadSha256)
+        || new Set(droppedEvents.map(item => item?.sourceEventId)).size !== droppedEvents.length) {
+        throw permanentError('Logs returned missing or mismatched drop payload proofs; source rows remain in Hanasand.')
+    }
+
+    const droppedSourceIds = new Set(reportedDrops as string[])
+    const retainedEvents = events.filter(event => !droppedSourceIds.has(event.sourceEventId))
+    const expectedPayloadHashesByTargetId = new Map(retainedEvents.map(event => [
+        createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'),
+        expectedPayloadHashes.get(event.sourceEventId)!,
+    ]))
+    const retainedTargetIds = retainedEvents.map(event => createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'))
+    if (new Set(retainedTargetIds).size !== retainedTargetIds.length) {
+        throw permanentError('The source batch contains duplicate Logs identities; its rows remain in Hanasand.')
+    }
+    if (retainedTargetIds.length) {
+        const syncToken = process.env.LOGS_SERVICE_SYNC_TOKEN
+        if (!syncToken || syncToken.length < 32) throw permanentError('Migration requires LOGS_SERVICE_SYNC_TOKEN to verify worker processing; source rows remain in Hanasand.')
+        while (true) {
+            const statusResponse = await fetch(`${url}/api/migration/status`, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ ids: retainedTargetIds }),
+                signal: AbortSignal.timeout(10_000),
+            })
+            if (statusResponse.status === 429 || statusResponse.status === 503) {
+                await sleep(1000)
+                continue
+            }
+            if (!statusResponse.ok) throw permanentError(`Logs could not verify worker processing (HTTP ${statusResponse.status}); source rows remain in Hanasand.`)
+            const statusBody = await statusResponse.json().catch(() => ({})) as {
+                ok?: boolean, statuses?: Array<{ id?: string, status?: string, payloadSha256?: string }>
+            }
+            if (statusBody.ok !== true || !Array.isArray(statusBody.statuses) || statusBody.statuses.length !== retainedTargetIds.length) {
+                throw permanentError('Logs returned an incomplete processing-status response; source rows remain in Hanasand.')
+            }
+            const statuses = new Map(statusBody.statuses.map(item => [String(item.id), String(item.status)]))
+            if (retainedTargetIds.some(id => !statuses.has(id))) {
+                throw permanentError('Logs returned processing statuses for different event IDs; source rows remain in Hanasand.')
+            }
+            const unfinished = [...statuses].filter(([, status]) => !['processed', 'pending'].includes(status))
+            if (unfinished.length) throw permanentError(`Logs has unverified event state (${unfinished[0][1]}); source rows remain in Hanasand.`)
+            if (statusBody.statuses.some(item => {
+                const expected = item.id ? expectedPayloadHashesByTargetId.get(item.id) : undefined
+                return !expected || item.payloadSha256 !== expected
+            })) throw permanentError('Logs returned missing or mismatched source payload hashes; source rows remain in Hanasand.')
+            break
+        }
+    }
+    return { events, droppedSourceIds: reportedDrops as string[] }
+}
+
+async function hasLogMigrationEvents(query: typeof queryOnce) {
+    const result = await query(`SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id='logs') AS present`)
+    return Boolean(result.rows[0]?.present)
+}
+
 export async function moveOneBatch(url: string, token: string, cursor = '', tailRange?: MigrationTailRange): Promise<MigrationBatchResult> {
     const selected = await withTransaction(async query => {
         await query('SET LOCAL lock_timeout = \'1s\'')
@@ -1049,17 +1292,17 @@ export async function moveOneBatch(url: string, token: string, cursor = '', tail
                 await query('SET LOCAL statement_timeout = \'5min\'')
                 return query(`SELECT EXISTS(SELECT 1 FROM events
                     WHERE ingestion_id='logs' AND ctid >= ('(' || $1::text || ',0)')::tid
-                        AND ctid < ('(' || $2::text || ',0)')::tid) AS present`, [tailRange.lowerBlock, tailRange.upperBlock])
+                        AND ctid < ('(' || $2::text || ',0)')::tid) AS present`,
+                [tailRange.lowerBlock, tailRange.upperBlock])
             })
             return remaining.rows[0]?.present
                 ? { moved: 0, remaining: true, retry: true }
                 : { moved: 0, remaining: true, retry: false, rangeComplete: true }
         }
-        const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id = \'logs\') AS present'))
+        const remaining = await withTransaction(query => hasLogMigrationEvents(query))
         // Sweep from the beginning if a legacy writer inserted a row behind the
         // current cursor. The final pass must observe an actually empty source.
-        return { moved: 0, remaining: Boolean(remaining.rows[0]?.present), retry: false,
-            ...(remaining.rows[0]?.present ? { cursor: '' } : {}) }
+        return { moved: 0, remaining, retry: false, ...(remaining ? { cursor: '' } : {}) }
     }
 
     const events: Array<ReturnType<typeof logMigrationEvent>> = []
@@ -1073,101 +1316,19 @@ export async function moveOneBatch(url: string, token: string, cursor = '', tail
     }
     if (!events.length) throw permanentError('The oldest source event exceeds the Logs API batch size; it remains in Hanasand for manual review.')
 
-    await assertMigrationStorageReserve()
-    const response = await fetch(`${url}/api/ingest`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ events }),
-        signal: AbortSignal.timeout(10_000),
-    })
-    const body = await response.json().catch(() => ({})) as {
-        ok?: boolean, accepted?: number, error?: string, droppedSourceEventIds?: unknown,
-        droppedEvents?: Array<{ sourceEventId?: unknown, payloadSha256?: unknown }>,
-    }
-    if (response.status === 503 && body.error === 'Log organization is unavailable.') {
-        throw permanentError('An event belongs to a Logs organization that is missing or inactive; its source row remains in Hanasand.')
-    }
-    if (response.status === 429 || response.status === 503) {
-        return { moved: 0, remaining: true, retry: true }
-    }
-    if (!response.ok || body.ok !== true || body.accepted !== events.length) {
-        throw permanentError(`Logs did not acknowledge the full migration batch (HTTP ${response.status}${body.error ? `: ${body.error}` : ''}).`)
+    const acknowledged = await acknowledgeMigrationEventBatch(url, token, events, sourceRows)
+    if (!acknowledged) return { moved: 0, remaining: true, retry: true }
+    const acknowledgedSourceIds = new Set(acknowledged.events.map(event => event.sourceEventId))
+    const rowsToDelete = sourceRows.filter(row => acknowledgedSourceIds.has(logMigrationEvent(row).sourceEventId)
+        || acknowledged.droppedSourceIds.includes(logMigrationEvent(row).sourceEventId))
+    if (!rowsToDelete.length) {
+        return { moved: 0, remaining: true, retry: false,
+            ...(tailRange ? { tailCursor: String(sourceRows[sourceRows.length - 1]!.source_ctid) }
+                : { cursor: String(sourceRows[sourceRows.length - 1]!.id) }) }
     }
 
-    const submittedSourceIds = new Set(events.map(event => event.sourceEventId))
-    const expectedPayloadHashes = new Map(events.map(event => [event.sourceEventId, migrationPayloadHash(event)]))
-    const reportedDrops = body.droppedSourceEventIds === undefined ? [] : body.droppedSourceEventIds
-    if (!Array.isArray(reportedDrops) || !reportedDrops.every(id => typeof id === 'string' && submittedSourceIds.has(id))
-        || new Set(reportedDrops).size !== reportedDrops.length) {
-        throw permanentError('Logs returned invalid dropped-event identities; source rows remain in Hanasand.')
-    }
-    const droppedEvents = body.droppedEvents === undefined ? [] : body.droppedEvents
-    if (!Array.isArray(droppedEvents) || droppedEvents.length !== reportedDrops.length
-        || droppedEvents.some(item => !item || typeof item.sourceEventId !== 'string'
-            || typeof item.payloadSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(item.payloadSha256)
-            || !reportedDrops.includes(item.sourceEventId)
-            || expectedPayloadHashes.get(item.sourceEventId) !== item.payloadSha256)
-        || new Set(droppedEvents.map(item => item?.sourceEventId)).size !== droppedEvents.length) {
-        throw permanentError('Logs returned missing or mismatched drop payload proofs; source rows remain in Hanasand.')
-    }
-    const droppedSourceIds = new Set(reportedDrops as string[])
-    const retainedEvents = events.filter(event => !droppedSourceIds.has(event.sourceEventId))
-    const expectedPayloadHashesByTargetId = new Map(retainedEvents.map(event => [
-        createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'),
-        expectedPayloadHashes.get(event.sourceEventId)!,
-    ]))
-    const targetIds = retainedEvents.map(event => createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'))
-    if (new Set(targetIds).size !== targetIds.length) {
-        throw permanentError('The source batch contains duplicate Logs identities; its rows remain in Hanasand.')
-    }
-    const retainedTargetIds = targetIds
-    if (retainedTargetIds.length) {
-        const syncToken = process.env.LOGS_SERVICE_SYNC_TOKEN
-        if (!syncToken || syncToken.length < 32) throw permanentError('Migration requires LOGS_SERVICE_SYNC_TOKEN to verify worker processing; source rows remain in Hanasand.')
-        while (true) {
-            const statusResponse = await fetch(`${url}/api/migration/status`, {
-                method: 'POST',
-                headers: { authorization: `Bearer ${syncToken}`, 'content-type': 'application/json' },
-                body: JSON.stringify({ ids: retainedTargetIds }),
-                signal: AbortSignal.timeout(10_000),
-            })
-            if (statusResponse.status === 429 || statusResponse.status === 503) {
-                await sleep(1000)
-                continue
-            }
-            if (!statusResponse.ok) throw permanentError(`Logs could not verify worker processing (HTTP ${statusResponse.status}); source rows remain in Hanasand.`)
-            const statusBody = await statusResponse.json().catch(() => ({})) as {
-                ok?: boolean, statuses?: Array<{ id?: string, status?: string, payloadSha256?: string }>
-            }
-            if (statusBody.ok !== true || !Array.isArray(statusBody.statuses)
-                || statusBody.statuses.length !== retainedTargetIds.length) {
-                throw permanentError('Logs returned an incomplete processing-status response; source rows remain in Hanasand.')
-            }
-            const statuses = new Map(statusBody.statuses.map(item => [String(item.id), String(item.status)]))
-            if (retainedTargetIds.some(id => !statuses.has(id))) {
-                throw permanentError('Logs returned processing statuses for different event IDs; source rows remain in Hanasand.')
-            }
-            const unfinished = [...statuses].filter(([, status]) => !['processed', 'pending'].includes(status))
-            if (unfinished.length) {
-                throw permanentError(`Logs has unverified event state (${unfinished[0][1]}); source rows remain in Hanasand.`)
-            }
-            if (statusBody.statuses.some(item => {
-                const expected = item.id ? expectedPayloadHashesByTargetId.get(item.id) : undefined
-                return !expected || item.payloadSha256 !== expected
-            })) {
-                throw permanentError('Logs returned missing or mismatched source payload hashes; source rows remain in Hanasand.')
-            }
-            // A pending row is already durably stored in the Logs database and
-            // its payload hash matches this source row. Let the independent Logs
-            // worker process it asynchronously; waiting here serializes the
-            // entire source migration behind worker throughput and prevents the
-            // bounded pending-event admission limit from doing its job.
-            break
-        }
-    }
-
-    const ids = sourceRows.map(row => String(row.id))
-    const expectedRows = sourceRows.map(row => ({
+    const ids = rowsToDelete.map(row => String(row.id))
+    const expectedRows = rowsToDelete.map(row => ({
         id: String(row.id), ingestion_id: row.ingestion_id, organization_id: row.organization_id,
         source_vendor: row.source_vendor, source_product: row.source_product,
         event_timestamp: String(row.event_timestamp), received_at: String(row.received_at),
@@ -1217,7 +1378,7 @@ export async function moveOneBatch(url: string, token: string, cursor = '', tail
 export async function migrateEventsByPhysicalTail(url: string, token: string,
     vacuumTail: (table: 'events' | 'log_analyze_receipts') => void | Promise<void> = runMigrationTailVacuum,
     tailChunkBytes = eventTailChunkBytes, vacuumEveryBytes = tailVacuumEveryBytes,
-    checkCollector = assertMigrationCollectorReady) {
+    checkCollector = waitForMigrationCollectorReady) {
     let moved = 0
     let retryDelay = 1000
     let upperBlock: number | undefined
@@ -1232,8 +1393,8 @@ export async function migrateEventsByPhysicalTail(url: string, token: string,
             blockSize = Number(geometry.rows[0]?.block_size)
             const firstRange = migrationTailPageRange(bytes, blockSize, undefined, tailChunkBytes)
             if (!firstRange) {
-                const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present'))
-                if (!remaining.rows[0]?.present) return moved
+                const remaining = await withTransaction(query => hasLogMigrationEvents(query))
+                if (!remaining) return moved
                 await sleep(retryDelay)
                 retryDelay = Math.min(30_000, retryDelay * 2)
                 continue
@@ -1243,8 +1404,8 @@ export async function migrateEventsByPhysicalTail(url: string, token: string,
 
         const range = migrationTailPageRange(upperBlock * blockSize, blockSize, upperBlock, tailChunkBytes)
         if (!range) {
-            const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present'))
-            if (!remaining.rows[0]?.present) return moved
+            const remaining = await withTransaction(query => hasLogMigrationEvents(query))
+            if (!remaining) return moved
             // A late writer inserted into a previously visited physical range.
             // Refresh the relation geometry and sweep again before final cleanup.
             upperBlock = undefined
@@ -1285,8 +1446,8 @@ export async function migrateEventsByPhysicalTail(url: string, token: string,
             if (!rangeComplete && result.moved === 0 && !result.remaining) {
                 // A concurrent writer may have changed the relation while the
                 // range was being walked. Check the whole table before restarting.
-                const remaining = await withTransaction(query => query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present'))
-                if (!remaining.rows[0]?.present) return moved
+                const remaining = await withTransaction(query => hasUnresolvedMigrationEvents(query))
+                if (!remaining) return moved
                 upperBlock = undefined
                 break
             }
@@ -1330,7 +1491,7 @@ async function main() {
     }
     const { url, ingestToken, syncToken } = logsServiceConfiguration()
     if (!url || !ingestToken || ingestToken.length < 32 || !syncToken || syncToken.length < 32) throw new Error('Apply requires LOGS_SERVICE_URL and valid Logs ingest and sync tokens.')
-    await assertMigrationCollectorReady()
+    await waitForMigrationCollectorReady()
     if (!await customerLogsReadReady(url)) throw new Error('Apply requires the live Hanasand frontend to report Logs reads routed to the target Logs service and every direct read route to be active.')
     if (!await serviceReady(url)) throw new Error('Logs API or worker is not healthy; no source rows were moved.')
     const receipts = await migrateAnalysisReceipts(url, syncToken)
@@ -1344,7 +1505,7 @@ async function main() {
     console.log(JSON.stringify({ reclaimedReceiptTables, scope: 'migrated Logs receipts and hit counts' }))
 
     const moved = await migrateEventsByPhysicalTail(url, ingestToken)
-    await assertMigrationCollectorReady()
+    await waitForMigrationCollectorReady()
     if (!await serviceReady(url)) throw new Error('Logs API or worker became unhealthy before source cleanup; log state remains in Hanasand.')
     if (!await customerLogsReadReady(url)) throw new Error('The live Hanasand frontend no longer routes Logs reads to this service; source log state remains in Hanasand.')
     const clearedTables = await clearMovedLogState()
