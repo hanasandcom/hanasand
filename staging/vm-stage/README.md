@@ -4,7 +4,7 @@ This Compose stack runs the Hanasand UI and API against a private, synthetic Pos
 
 The staging frontend accepts device proofs for its exact `http://127.0.0.1:3388` origin only in images built with `HANASAND_STAGE_BUILD=1`; production images keep the HTTPS-only proof origin.
 
-On Inspur, the API uses the restricted `hns-stage` LXD project. Its limits are two instances and virtual machines, four CPUs, 8 GiB RAM and 40 GiB disk. The existing `hei` container is preserved; the remaining quota supports one disposable VM. Staging VMs have outbound internet access for package installers, but no public service route. Check host storage and load before creating a VM; project quotas do not guarantee host capacity.
+On Inspur, the API uses the restricted `hns-stage` LXD project and its staging-only network. The existing `hei` container is preserved. Project limits change as staging fixtures are added or removed, so inspect `lxc project show hns-stage` before each test; do not assume an old quota is still current. Check configured disk volumes with `lxc storage volume list default --project hns-stage` and physical headroom with `df -h /` before creating a VM. LXD checks aggregate project disk limits, while those limits do not reserve physical disk space for image downloads, unpacking or package installation. Staging VMs have outbound internet access for package installers, but no public service route. If a disposable test needs a temporary quota change, record the prior value and restore it after deleting the test VM.
 
 From the Hanasand checkout on Inspur, clone the public `articles` repository into a
 temporary directory and pass it as a named Docker build context. The frontend

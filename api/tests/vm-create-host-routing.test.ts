@@ -5,8 +5,10 @@ import { resolveVmHostId } from '../src/utils/vms/hostConfig.ts'
 const calls: Array<{ host: string; path: string; method?: string; body?: BodyInit | null }> = []
 const databaseCalls: Array<{ sql: string; params: unknown[] }> = []
 const localProvisionCalls: Array<{ name: string; options: unknown }> = []
+const apiLogs: Array<Record<string, unknown>> = []
 let existingVm: Record<string, unknown> | undefined
 let lxdProject: string | undefined
+let localProvisionError: Error | undefined
 let failedProvisionRequests = 0
 let queuedProvisionResponses: Response[] = []
 let queuedStatusResponses: Response[] = []
@@ -55,16 +57,20 @@ mock.module('../src/utils/vms/hostTransport.ts', () => ({
 }))
 mock.module('../src/utils/vms/lxd.ts', () => ({
     canUseLocalLxd: async () => { throw new Error('Remote creation must not use this API host LXD socket.') },
-    provisionLocalLxdInstance: async (name: string, options: unknown) => { localProvisionCalls.push({ name, options }); return { name } },
+    provisionLocalLxdInstance: async (name: string, options: unknown) => {
+        localProvisionCalls.push({ name, options })
+        if (localProvisionError) throw localProvisionError
+        return { name }
+    },
 }))
 mock.module('../src/utils/vms/syncUserCertificatesToVm.ts', () => ({ default: async () => {} }))
 mock.module('../src/utils/logs/recordLog.ts', () => ({ default: async () => {} }))
 mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {} }))
 
 const { default: postVM } = await import('../src/handlers/vms/post.ts')
-const app = Fastify()
+const app = Fastify({ logger: { level: 'info', stream: { write: (line: string) => apiLogs.push(JSON.parse(line) as Record<string, unknown>) } } })
 app.post('/vm', postVM)
-beforeEach(() => { calls.length = 0; databaseCalls.length = 0; localProvisionCalls.length = 0; existingVm = undefined; lxdProject = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = []; deferStatusResponse = false; releaseStatusResponse = undefined })
+beforeEach(() => { calls.length = 0; databaseCalls.length = 0; localProvisionCalls.length = 0; apiLogs.length = 0; existingVm = undefined; lxdProject = undefined; localProvisionError = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = []; deferStatusResponse = false; releaseStatusResponse = undefined })
 afterAll(async () => { await app.close() })
 async function waitFor(check: () => boolean) {
     for (let attempt = 0; attempt < 100 && !check(); attempt++) await Bun.sleep(2)
@@ -191,6 +197,19 @@ test('VM creation allows Debian 13 on a host with a configured local LXD project
         },
     }])
     expect(calls).toHaveLength(0)
+})
+
+test('asynchronous local VM provisioning failures preserve the host error in API logs', async () => {
+    lxdProject = 'hns-stage'
+    localProvisionError = new Error('Reached maximum aggregate value for limits.disk')
+    const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'disk-limited-vm' } })
+
+    expect(response.statusCode).toBe(201)
+    await waitFor(() => apiLogs.some(log => log.msg === 'Unable to provision VM on its assigned host.'))
+    expect(apiLogs.find(log => log.msg === 'Unable to provision VM on its assigned host.')).toMatchObject({
+        vmName: 'disk-limited-vm',
+        err: { message: 'Reached maximum aggregate value for limits.disk' },
+    })
 })
 
 test('VM creation forwards Ubuntu Desktop and requires the large resource plan', async () => {
