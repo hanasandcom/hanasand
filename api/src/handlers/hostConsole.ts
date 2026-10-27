@@ -4,8 +4,7 @@ import run, { withIdentityAdvisoryLock } from '#db'
 import { validateSession } from '#utils/auth/session.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import { recoveryReadOnly } from '#utils/recovery.ts'
-import { hostConsoleNames, normalizeHostPublicKey, reconcileManagedHostSshKeys, startHostConsole, type HostConsoleName } from '#utils/hostSsh.ts'
-import { isHostConsoleAvailable } from '#utils/hostConsoleAccess.ts'
+import { applyManagedHostSshKeys, hostConsoleNames, normalizeHostPublicKey, startHostConsole, type HostConsoleName } from '#utils/hostSsh.ts'
 import { deviceProofFromWebSocket } from '#utils/auth/deviceProofRequest.ts'
 
 async function canOpenHostConsole(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, trustedInternal = false) {
@@ -35,18 +34,18 @@ export default function registerHostConsole(fastify: FastifyInstance) {
                     if (key) keys.set(key.fingerprint, key.publicKey)
                 }
                 const activeKeys = [...keys.values()]
-                // Keep profile keys on OVH and remove their managed access from Inspur.
-                await reconcileManagedHostSshKeys(activeKeys)
+                // Reconcile existing profile keys at deploy/startup and move
+                // matching unmanaged entries into the profile-managed block.
+                await applyManagedHostSshKeys(activeKeys, activeKeys)
             })
         } catch (error) {
-            fastify.log.error({ err: error }, 'Unable to reconcile OVH profile SSH keys and remove profile keys from Inspur during startup.')
+            fastify.log.error({ err: error }, 'Unable to reconcile profile SSH keys on both hosts during startup.')
         }
     })
 
     fastify.get<{ Params: { name: string } }>('/api/ws/host/:name/console', { websocket: true }, (socket, request) => {
-        const requestedName = request.params.name
-        if (!isHostConsoleAvailable(requestedName) || !hostConsoleNames.includes(requestedName)) { socket.close(1008); return }
-        const name: HostConsoleName = requestedName
+        const name = request.params.name as HostConsoleName
+        if (!hostConsoleNames.includes(name)) { socket.close(1008); return }
         let terminal: Awaited<ReturnType<typeof startHostConsole>> | undefined
         let authenticated = false
         let starting = false

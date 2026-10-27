@@ -94,8 +94,8 @@ export async function postProfileSshKey(req: FastifyRequest, res: FastifyReply) 
                     await execute('DELETE FROM certificates WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM user_certificates WHERE certificate_id = $1)', [created.id])
                 }).catch(rollbackError => req.log.error({ err: rollbackError, certificateId: created.id }, 'Unable to roll back a profile SSH key update.'))
                 await applyManagedHostSshKeys(before).catch(rollbackError => req.log.error({ err: rollbackError }, 'Unable to restore host SSH keys after a failed profile update.'))
-                req.log.error({ err: error, certificateId: created.id }, 'Unable to apply a profile SSH key to OVH.')
-                return res.status(503).send({ error: 'Unable to apply this key to the OVH host. No change was saved.' })
+                req.log.error({ err: error, certificateId: created.id }, 'Unable to apply a profile SSH key to all hosts.')
+                return res.status(503).send({ error: 'Unable to apply this key on both hosts. No change was saved.' })
             }
             invalidateProfileSshKeysResponseCache(userId)
             invalidateProfileSshKeyUsageIndex()
@@ -141,8 +141,8 @@ export async function deleteProfileSshKey(req: FastifyRequest, res: FastifyReply
                 await applyManagedHostSshKeys(after, revoked)
             } catch (error) {
                 await applyManagedHostSshKeys(before).catch(rollbackError => req.log.error({ err: rollbackError }, 'Unable to restore host SSH keys after a failed profile key removal.'))
-                req.log.error({ err: error, certificateId }, 'Unable to remove a profile SSH key from OVH.')
-                return res.status(503).send({ error: 'Unable to remove this key from the OVH host. No change was saved.' })
+                req.log.error({ err: error, certificateId }, 'Unable to remove a profile SSH key from all hosts.')
+                return res.status(503).send({ error: 'Unable to remove this key from both hosts. No change was saved.' })
             }
             try {
                 await withIdentityTransaction(async execute => {

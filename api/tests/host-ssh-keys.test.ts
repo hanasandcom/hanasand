@@ -1,11 +1,12 @@
 import { expect, test } from 'bun:test'
 import { profileHostKeyReconciliationPlan } from '../src/utils/hostSshKeys.ts'
 
-test('profile SSH keys stay on OVH and are removed from Inspur', () => {
+test('active profile SSH keys are provisioned on both administrative hosts', () => {
     const keys = ['ssh-ed25519 AAAA profile-key']
+    const revoked = ['ssh-ed25519 AAAA removed-key']
 
-    expect(profileHostKeyReconciliationPlan(keys)).toEqual([
-        { host: 'ovh', keys, revoke: keys },
-        { host: 'inspur', keys: [], revoke: keys },
+    expect(profileHostKeyReconciliationPlan(keys, revoked)).toEqual([
+        { host: 'inspur', keys, revoke: revoked },
+        { host: 'ovh', keys, revoke: revoked },
     ])
 })

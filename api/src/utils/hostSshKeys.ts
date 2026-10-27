@@ -67,31 +67,15 @@ export function normalizeHostPublicKey(value: unknown) {
     return { publicKey, fingerprint }
 }
 
-async function applyManagedHostSshKeysToHost(name: typeof hostConsoleNames[number], keys: string[], revoke: string[] = []) {
+export function profileHostKeyReconciliationPlan(keys: string[], revoke: string[] = []) {
+    return hostConsoleNames.map(host => ({ host, keys, revoke }))
+}
+
+export async function applyManagedHostSshKeys(keys: string[], revoke: string[] = []) {
     const encodedScript = Buffer.from(managedKeysScript).toString('base64')
     const command = `python3 -c "import base64;exec(base64.b64decode('${encodedScript}'))"`
-    const input = JSON.stringify({ keys, revoke })
-    await runSshCommand(targetFor(name), command, input)
-}
-
-/** Profile SSH keys provide access to OVH only; Inspur is not a user shell target. */
-export async function applyManagedHostSshKeys(keys: string[], revoke: string[] = []) {
-    await applyManagedHostSshKeysToHost('ovh', keys, revoke)
-}
-
-export function profileHostKeyReconciliationPlan(keys: string[]) {
-    return [
-        { host: 'ovh' as const, keys, revoke: keys },
-        { host: 'inspur' as const, keys: [], revoke: keys },
-    ]
-}
-
-/** Move existing profile-managed keys off Inspur while preserving unrelated keys. */
-export async function reconcileManagedHostSshKeys(keys: string[]) {
-    const plan = profileHostKeyReconciliationPlan(keys)
-    const updates = await Promise.allSettled([
-        ...plan.map(update => applyManagedHostSshKeysToHost(update.host, update.keys, update.revoke)),
-    ])
-    const failed = updates.find(result => result.status === 'rejected')
+    const results = await Promise.allSettled(profileHostKeyReconciliationPlan(keys, revoke).map(({ host, keys: hostKeys, revoke: hostRevoked }) =>
+        runSshCommand(targetFor(host), command, JSON.stringify({ keys: hostKeys, revoke: hostRevoked }))))
+    const failed = results.find(result => result.status === 'rejected')
     if (failed?.status === 'rejected') throw failed.reason
 }
