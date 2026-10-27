@@ -332,18 +332,14 @@ test('pauses every migration batch below the filesystem reserve and reports avai
     expect(checkedPaths).toEqual(['/source', '/target'])
 })
 
-test('requires fresh collector sources and a recent live acknowledgement before migration', async () => {
+test('requires fresh collector health and a durable recent live acknowledgement, not every source poll', async () => {
     const now = Date.now()
     const health = {
         checkedAt: new Date(now).toISOString(),
         collector_health: { audit: true, journal: true, docker: true, docker_file_live: true, docker_file_history: true },
         source_status: {
-            journal_live: { ok: true, checkedAt: new Date(now).toISOString() },
-            audit_live: { ok: true, checkedAt: new Date(now).toISOString() },
-            docker: { ok: true, checkedAt: new Date(now).toISOString() },
-            docker_file_live: { ok: true, checkedAt: new Date(now).toISOString() },
-            docker_file_history: { ok: true, checkedAt: new Date(now).toISOString() },
-            delivery_live: { ok: false, checkedAt: new Date(now).toISOString(), lastAcknowledgedAt: new Date(now).toISOString(), accepted: 110 },
+            audit_live: { ok: false, checkedAt: new Date(now).toISOString(), error: 'TimeoutError' },
+            delivery_live: { ok: false, deliveryHealthy: true, checkedAt: new Date(now).toISOString(), lastAcknowledgedAt: new Date(now).toISOString(), accepted: 110 },
         },
     }
     expect(migrationCollectorReady(health, now)).toBe(true)
@@ -351,9 +347,10 @@ test('requires fresh collector sources and a recent live acknowledgement before 
     expect(migrationCollectorReady({ ...health, source_status: { ...health.source_status,
         delivery_live: { ...health.source_status.delivery_live, lastAcknowledgedAt: new Date(now - 121_000).toISOString() } } }, now)).toBe(false)
     expect(migrationCollectorReady({ ...health, source_status: { ...health.source_status,
-        docker: { ...health.source_status.docker, checkedAt: new Date(now - 121_000).toISOString() } } }, now)).toBe(false)
+        delivery_live: { ...health.source_status.delivery_live, accepted: 0 } } }, now)).toBe(false)
     expect(migrationCollectorReady({ ...health, source_status: { ...health.source_status,
-        journal_live: { ok: true } } }, now)).toBe(false)
+        delivery_live: { ...health.source_status.delivery_live, deliveryHealthy: false } } }, now)).toBe(false)
+    expect(migrationCollectorReady({ ...health, collector_health: { ...health.collector_health, audit: false } }, now)).toBe(false)
     await expect(assertMigrationCollectorReady(async () => JSON.stringify({})))
         .rejects.toThrow('collector sources or its recent live Logs acknowledgement are not healthy')
 })

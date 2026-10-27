@@ -164,22 +164,22 @@ export function migrationCollectorReady(health: unknown, now = Date.now(), maxAg
     const snapshot = health as {
         checkedAt?: unknown
         collector_health?: Record<string, unknown>
-        source_status?: Record<string, { ok?: unknown; checkedAt?: unknown; lastAcknowledgedAt?: unknown; accepted?: unknown } | undefined>
+        source_status?: Record<string, { checkedAt?: unknown; lastAcknowledgedAt?: unknown; deliveryHealthy?: unknown; accepted?: unknown } | undefined>
     }
     const checkedAt = typeof snapshot.checkedAt === 'string' ? Date.parse(snapshot.checkedAt) : Number.NaN
     if (!Number.isFinite(checkedAt) || now - checkedAt < 0 || now - checkedAt > maxAgeMs) return false
     const collector = snapshot.collector_health
     if (!collector || ['audit', 'journal', 'docker', 'docker_file_live', 'docker_file_history'].some(key => collector[key] !== true)) return false
     const status = snapshot.source_status
-    const sourceStatuses = ['journal_live', 'audit_live', 'docker', 'docker_file_live', 'docker_file_history']
     const isFresh = (value: unknown) => {
         const timestamp = typeof value === 'string' ? Date.parse(value) : Number.NaN
         return Number.isFinite(timestamp) && now - timestamp >= 0 && now - timestamp <= maxAgeMs
     }
-    if (!status || sourceStatuses.some(key => status[key]?.ok !== true || !isFresh(status[key]?.checkedAt))) return false
+    if (!status) return false
     const live = status.delivery_live
     const lastAcknowledgedAt = typeof live?.lastAcknowledgedAt === 'string' ? Date.parse(live.lastAcknowledgedAt) : Number.NaN
-    return isFresh(live?.checkedAt) && Number.isFinite(lastAcknowledgedAt) && now - lastAcknowledgedAt >= 0 && now - lastAcknowledgedAt <= maxAgeMs
+    return isFresh(live?.checkedAt) && live?.deliveryHealthy === true
+        && Number.isFinite(lastAcknowledgedAt) && now - lastAcknowledgedAt >= 0 && now - lastAcknowledgedAt <= maxAgeMs
         && Number.isSafeInteger(live?.accepted) && Number(live?.accepted) > 0
 }
 
