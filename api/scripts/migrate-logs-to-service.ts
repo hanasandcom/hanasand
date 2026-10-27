@@ -9,6 +9,17 @@ import { logsServiceConfiguration, logsOutboxEnabled, logsOutboxRemoteOnly, logs
 import { logMigrationEvent } from '../src/utils/logs/logMigrationEvent.ts'
 
 const batchSize = Math.max(1, Math.min(200, Number(process.env.LOGS_MIGRATION_BATCH_SIZE) || 200))
+const defaultEventSourceDeleteTimeoutMs = 20_000
+const maximumEventSourceDeleteTimeoutMs = 300_000
+export function migrationEventSourceDeleteTimeoutMs(value = process.env.LOGS_MIGRATION_SOURCE_DELETE_TIMEOUT_MS) {
+    if (value === undefined || value === '') return defaultEventSourceDeleteTimeoutMs
+    const timeoutMs = Number(value)
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < defaultEventSourceDeleteTimeoutMs || timeoutMs > maximumEventSourceDeleteTimeoutMs) {
+        throw new Error(`LOGS_MIGRATION_SOURCE_DELETE_TIMEOUT_MS must be an integer from ${defaultEventSourceDeleteTimeoutMs} to ${maximumEventSourceDeleteTimeoutMs}.`)
+    }
+    return timeoutMs
+}
+const eventSourceDeleteTimeoutMs = migrationEventSourceDeleteTimeoutMs()
 const receiptBatchSize = 100
 const analyzeReceiptBatchSize = 20_000
 const analyzeReceiptBatchPauseMs = 1_000
@@ -1343,7 +1354,7 @@ export async function moveOneBatch(url: string, token: string, cursor = '', tail
     }))
     await withTransaction(async query => {
         await query('SET LOCAL lock_timeout = \'1s\'')
-        await query('SET LOCAL statement_timeout = \'20s\'')
+        await query(`SET LOCAL statement_timeout = '${eventSourceDeleteTimeoutMs}ms'`)
         const result = await query(`DELETE FROM events AS source USING jsonb_to_recordset($1::jsonb) AS expected(
                 id text, ingestion_id text, organization_id text, source_vendor text, source_product text,
                 event_timestamp timestamptz, received_at timestamptz, event_type text, action text, outcome text,

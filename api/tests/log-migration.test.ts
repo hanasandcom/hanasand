@@ -3,10 +3,12 @@ import { createHash } from 'node:crypto'
 
 const previousMigrationReserve = process.env.LOGS_MIGRATION_MIN_FREE_BYTES
 const previousMigrationStoragePath = process.env.LOGS_MIGRATION_STORAGE_PATH
+const previousSourceDeleteTimeout = process.env.LOGS_MIGRATION_SOURCE_DELETE_TIMEOUT_MS
 // Migration tests use mocked database/network state; keep their filesystem guard
 // deterministic on developer machines with less than the production 24 GiB reserve.
 process.env.LOGS_MIGRATION_MIN_FREE_BYTES = '1'
 process.env.LOGS_MIGRATION_STORAGE_PATH = '/'
+delete process.env.LOGS_MIGRATION_SOURCE_DELETE_TIMEOUT_MS
 
 const sourceRows = [{
     id: 'source-row-1',
@@ -256,7 +258,7 @@ mock.module('#db', () => ({
     },
 }))
 
-const { assertMigrationCollectorReady, assertMigrationStorageReserve, clearMigratedLogReceipts, clearMovedLogState, customerLogsReadReady, estimatedPlanRows, migrateAnalysisReceipts, migrateEventsByPhysicalTail, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationCollectorReady, migrationEventArchivePayloadHash, migrationPayloadHash, migrationStoragePathsFromDockerInspect, moveOneBatch, resolveMigrationStoragePaths, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
+const { assertMigrationCollectorReady, assertMigrationStorageReserve, clearMigratedLogReceipts, clearMovedLogState, customerLogsReadReady, estimatedPlanRows, migrateAnalysisReceipts, migrateEventsByPhysicalTail, migrateFindings, migrateFindingsBeforeEvents, migrateLinkageArchive, migrateLogRuntimeState, migrateReceiptKind, migrationCollectorReady, migrationEventArchivePayloadHash, migrationPayloadHash, migrationEventSourceDeleteTimeoutMs, migrationStoragePathsFromDockerInspect, moveOneBatch, resolveMigrationStoragePaths, serviceReady } = await import('../scripts/migrate-logs-to-service.ts')
 const { logMigrationEvent } = await import('../src/utils/logs/logMigrationEvent.ts')
 
 beforeEach(() => {
@@ -309,6 +311,16 @@ afterAll(() => {
     else process.env.LOGS_MIGRATION_MIN_FREE_BYTES = previousMigrationReserve
     if (previousMigrationStoragePath === undefined) delete process.env.LOGS_MIGRATION_STORAGE_PATH
     else process.env.LOGS_MIGRATION_STORAGE_PATH = previousMigrationStoragePath
+    if (previousSourceDeleteTimeout === undefined) delete process.env.LOGS_MIGRATION_SOURCE_DELETE_TIMEOUT_MS
+    else process.env.LOGS_MIGRATION_SOURCE_DELETE_TIMEOUT_MS = previousSourceDeleteTimeout
+})
+
+test('bounds the event source-delete timeout while allowing slow indexed cascades', () => {
+    expect(migrationEventSourceDeleteTimeoutMs()).toBe(20_000)
+    expect(migrationEventSourceDeleteTimeoutMs('120000')).toBe(120_000)
+    expect(() => migrationEventSourceDeleteTimeoutMs('19999')).toThrow('must be an integer from 20000 to 300000')
+    expect(() => migrationEventSourceDeleteTimeoutMs('300001')).toThrow('must be an integer from 20000 to 300000')
+    expect(() => migrationEventSourceDeleteTimeoutMs('not-a-timeout')).toThrow('must be an integer from 20000 to 300000')
 })
 
 test('reads the Logs-only estimate from PostgreSQL planner output and rejects malformed estimates', () => {
@@ -519,6 +531,7 @@ test('deletes source rows only after Logs durably stores and verifies every copi
     }
     expect(deletion?.sql).toContain('source.received_at=expected.received_at')
     expect(deletion?.sql).toContain('source.normalized=expected.normalized')
+    expect(statements.some(statement => statement.sql === "SET LOCAL statement_timeout = '20000ms'")).toBe(true)
 })
 
 test('keeps an event row in Hanasand when it exceeds the deployed Logs ingest body limit', async () => {
