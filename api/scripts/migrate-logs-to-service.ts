@@ -14,6 +14,10 @@ const analyzeReceiptBatchSize = 20_000
 const analyzeReceiptBatchPauseMs = 1_000
 const analyzeReceiptTailChunkBytes = 512 * 1024 ** 2
 const eventTailChunkBytes = 512 * 1024 ** 2
+// Keep each ordered TID scan small. PostgreSQL's TID range scan sorts the
+// matching rows, so re-running it for each 200-row batch over a 512 MiB range
+// repeatedly scans and sorts the same large set.
+const eventMigrationReadWindowBytes = 2 * 1024 ** 2
 const defaultTailVacuumEveryBytes = 512 * 1024 ** 2
 const minimumTailVacuumEveryBytes = Math.min(analyzeReceiptTailChunkBytes, eventTailChunkBytes)
 export function migrationTailVacuumInterval(configuredValue = process.env.LOGS_MIGRATION_TAIL_VACUUM_EVERY_BYTES) {
@@ -670,7 +674,7 @@ export async function migrateReceiptKind(url: string, syncToken: string, kind: '
             // key still exists, it changed and must remain for retry.
             const remaining = await withTransaction(async query => {
                 await query('SET LOCAL statement_timeout = \'20s\'')
-                return query(`SELECT EXISTS(SELECT 1 FROM log_analyze_receipts WHERE key=ANY($1::text[])) AS present`,
+                return query('SELECT EXISTS(SELECT 1 FROM log_analyze_receipts WHERE key=ANY($1::text[])) AS present',
                     [batch.map(row => String(row.key))])
             })
             if (remaining.rows[0]?.present) {
@@ -1261,7 +1265,7 @@ async function acknowledgeMigrationEventBatch(url: string, token: string,
 }
 
 async function hasLogMigrationEvents(query: typeof queryOnce) {
-    const result = await query(`SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id='logs') AS present`)
+    const result = await query('SELECT EXISTS(SELECT 1 FROM events WHERE ingestion_id=\'logs\') AS present')
     return Boolean(result.rows[0]?.present)
 }
 
@@ -1378,7 +1382,8 @@ export async function moveOneBatch(url: string, token: string, cursor = '', tail
 export async function migrateEventsByPhysicalTail(url: string, token: string,
     vacuumTail: (table: 'events' | 'log_analyze_receipts') => void | Promise<void> = runMigrationTailVacuum,
     tailChunkBytes = eventTailChunkBytes, vacuumEveryBytes = tailVacuumEveryBytes,
-    checkCollector = waitForMigrationCollectorReady) {
+    checkCollector = waitForMigrationCollectorReady,
+    readWindowBytes = Math.min(eventMigrationReadWindowBytes, tailChunkBytes)) {
     let moved = 0
     let retryDelay = 1000
     let upperBlock: number | undefined
@@ -1412,45 +1417,56 @@ export async function migrateEventsByPhysicalTail(url: string, token: string,
             continue
         }
 
-        let rangeComplete = false
-        let afterCtid: string | undefined
-        while (!rangeComplete) {
-            let result: MigrationBatchResult
-            try {
-                await checkCollector()
-                result = await moveOneBatch(url, token, '', { ...range, afterCtid })
-            } catch (error) {
-                if ((error as { migrationPermanent?: boolean }).migrationPermanent) throw error
-                const code = String((error as { code?: string }).code || '')
-                const name = String((error as { name?: string }).name || '')
-                if (!code.startsWith('08') && !['40001', '40P01', '55P03', '57014', 'DB_QUEUE_FULL'].includes(code)
-                    && !['AbortError', 'TimeoutError'].includes(name) && !(error instanceof TypeError)) throw error
-                console.warn('Migration batch was not removed from Hanasand; retrying.', error instanceof Error ? error.message : 'unknown error')
-                await sleep(retryDelay)
-                retryDelay = Math.min(30_000, retryDelay * 2)
-                continue
+        let rangeComplete = true
+        let windowUpperBlock = range.upperBlock
+        while (windowUpperBlock > range.lowerBlock) {
+            const window = migrationTailPageRange(windowUpperBlock * blockSize, blockSize, windowUpperBlock,
+                Math.max(blockSize, readWindowBytes))
+            if (!window) throw new Error('Migration could not determine the next bounded event read window.')
+            const boundedWindow = { lowerBlock: Math.max(range.lowerBlock, window.lowerBlock), upperBlock: windowUpperBlock }
+            let windowComplete = false
+            let afterCtid: string | undefined
+            while (!windowComplete) {
+                let result: MigrationBatchResult
+                try {
+                    await checkCollector()
+                    result = await moveOneBatch(url, token, '', { ...boundedWindow, afterCtid })
+                } catch (error) {
+                    if ((error as { migrationPermanent?: boolean }).migrationPermanent) throw error
+                    const code = String((error as { code?: string }).code || '')
+                    const name = String((error as { name?: string }).name || '')
+                    if (!code.startsWith('08') && !['40001', '40P01', '55P03', '57014', 'DB_QUEUE_FULL'].includes(code)
+                        && !['AbortError', 'TimeoutError'].includes(name) && !(error instanceof TypeError)) throw error
+                    console.warn('Migration batch was not removed from Hanasand; retrying.', error instanceof Error ? error.message : 'unknown error')
+                    await sleep(retryDelay)
+                    retryDelay = Math.min(30_000, retryDelay * 2)
+                    continue
+                }
+                if (result.retry) {
+                    afterCtid = undefined
+                    await sleep(retryDelay)
+                    retryDelay = Math.min(30_000, retryDelay * 2)
+                    continue
+                }
+                retryDelay = 1000
+                if (result.moved) {
+                    moved += result.moved
+                    if (moved % 1000 === 0) console.log(JSON.stringify({ moved, scope: 'logs events' }))
+                }
+                if (result.tailCursor) afterCtid = result.tailCursor
+                windowComplete = result.rangeComplete === true
+                if (!windowComplete && result.moved === 0 && !result.remaining) {
+                    // A concurrent writer may have changed the relation while the
+                    // range was being walked. Check the whole table before restarting.
+                    const remaining = await withTransaction(query => hasUnresolvedMigrationEvents(query))
+                    if (!remaining) return moved
+                    upperBlock = undefined
+                    rangeComplete = false
+                    break
+                }
             }
-            if (result.retry) {
-                afterCtid = undefined
-                await sleep(retryDelay)
-                retryDelay = Math.min(30_000, retryDelay * 2)
-                continue
-            }
-            retryDelay = 1000
-            if (result.moved) {
-                moved += result.moved
-                if (moved % 1000 === 0) console.log(JSON.stringify({ moved, scope: 'logs events' }))
-            }
-            if (result.tailCursor) afterCtid = result.tailCursor
-            rangeComplete = result.rangeComplete === true
-            if (!rangeComplete && result.moved === 0 && !result.remaining) {
-                // A concurrent writer may have changed the relation while the
-                // range was being walked. Check the whole table before restarting.
-                const remaining = await withTransaction(query => hasUnresolvedMigrationEvents(query))
-                if (!remaining) return moved
-                upperBlock = undefined
-                break
-            }
+            if (!rangeComplete) break
+            windowUpperBlock = boundedWindow.lowerBlock
         }
 
         if (rangeComplete) {

@@ -117,11 +117,22 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (sql.includes('FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace')) {
         return { rows: discoveredLogTables.map(relname => ({ relname })) }
     }
+    if (sql.includes('FROM findings AS finding')) {
+        const referencedLogEventIds = new Set(referencedRows.filter(row => row.ingestion_id === 'logs').map(row => String(row.id)))
+        return { rows: sourceFindings.filter(row => String(row.id) > String(params[0])
+            && Array.isArray(row.event_ids) && row.event_ids.some(id => referencedLogEventIds.has(String(id))))
+            .sort((left, right) => String(left.id).localeCompare(String(right.id)))
+            .slice(0, Number(params[1])).map(row => ({ id: row.id, event_ids: row.event_ids })) }
+    }
     if (sql.includes('SELECT EXISTS(SELECT 1 FROM public.log_delivery_outbox)')) return { rows: [{ present: sourceLogOutboxRemain }] }
     if (sql.includes('FROM events WHERE ingestion_id = \'logs\'')) {
         return { rows: selectedRowsOverride ?? sourceRows.filter(row => String(row.id) > String(params[0])).slice(0, Number(params[1])) }
     }
     if (sql.includes('FROM findings WHERE event_ids')) return { rows: sourceFindings }
+    if (sql.includes('FROM events') && sql.includes('ingestion_id=\'logs\'') && sql.includes('id=ANY($1::text[])')) {
+        const requestedIds = new Set((params[0] as string[]).map(String))
+        return { rows: referencedRows.filter(row => row.ingestion_id === 'logs' && requestedIds.has(String(row.id))) }
+    }
     if (sql.includes('FROM events WHERE id=ANY')) return { rows: referencedRows }
     if (sql.includes('FROM log_model_probe_receipts WHERE nonce >')) return { rows: sourceModelReceipts.filter(row => String(row.nonce) > String(params[0])).slice(0, Number(params[1])) }
     if (sql.includes('FROM log_readiness_audit_receipts WHERE exec_id >')) return { rows: sourceReadinessReceipts.filter(row => String(row.exec_id) > String(params[0])).slice(0, Number(params[1])) }
@@ -500,7 +511,7 @@ test('deletes source rows only after Logs durably stores and verifies every copi
     expect(selection?.sql).toContain('id > $1')
     expect(selection?.sql).toContain('ORDER BY id LIMIT $2')
     expect(selection?.sql).not.toContain('ORDER BY received_at')
-    expect(selection?.params).toEqual(['source-row-0', 300])
+    expect(selection?.params).toEqual(['source-row-0', 200])
     expect(JSON.parse(String(deletion?.params[0]))).toEqual([{
         ...sourceRows[0], event_timestamp: '2026-10-20T10:00:00.000Z',
     }])
@@ -537,7 +548,7 @@ test('selects event batches inside the requested physical tail range', async () 
     const selection = statements.find(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && statement.sql.includes('ctid >='))
     expect(result).toMatchObject({ moved: 1, retry: false, tailCursor: '(8,3)' })
     expect(selection?.sql).toContain('ORDER BY ctid LIMIT $4')
-    expect(selection?.params).toEqual([8, 12, null, 300])
+    expect(selection?.params).toEqual([8, 12, null, 200])
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
 })
 
@@ -732,8 +743,39 @@ test('walks empty event heap ranges from the tail down and vacuums each complete
         .toBe(0)
     expect(statements.filter(statement => statement.sql.includes('pg_relation_size(\'public.events\')'))).toHaveLength(1)
     expect(statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id') && statement.sql.includes('ctid >='))
-        .map(statement => statement.params)).toEqual([[4, 6, null, 300], [2, 4, null, 300], [0, 2, null, 300]])
+        .map(statement => statement.params)).toEqual([[4, 6, null, 200], [2, 4, null, 200], [0, 2, null, 200]])
     expect(vacuumed).toEqual(['events', 'events'])
+})
+
+test('subdivides event tail ranges into small ordered read windows', async () => {
+    sourceEventRelationBytes = 65_536
+    sourceEventBlockSize = 8192
+    const vacuumed: string[] = []
+
+    expect(await migrateEventsByPhysicalTail('https://logs.hanasand.com', 'i'.repeat(40), table => vacuumed.push(table),
+        32_768, 32_768, async () => {}, 8192)).toBe(0)
+
+    expect(statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id')
+        && statement.sql.includes('ctid >=')).map(statement => statement.params)).toEqual([
+        [7, 8, null, 200], [6, 7, null, 200], [5, 6, null, 200], [4, 5, null, 200],
+        [3, 4, null, 200], [2, 3, null, 200], [1, 2, null, 200], [0, 1, null, 200],
+    ])
+    expect(vacuumed).toEqual(['events', 'events'])
+})
+
+test('keeps the default event read window to 2 MiB inside each larger vacuum range', async () => {
+    sourceEventRelationBytes = 8 * 1024 ** 2
+    sourceEventBlockSize = 8192
+    const vacuumed: string[] = []
+
+    expect(await migrateEventsByPhysicalTail('https://logs.hanasand.com', 'i'.repeat(40), table => vacuumed.push(table),
+        8 * 1024 ** 2, 8 * 1024 ** 2, async () => {})).toBe(0)
+
+    expect(statements.filter(statement => statement.sql.startsWith('SELECT ctid::text AS source_ctid, id, ingestion_id')
+        && statement.sql.includes('ctid >=')).map(statement => statement.params)).toEqual([
+        [768, 1024, null, 200], [512, 768, null, 200], [256, 512, null, 200], [0, 256, null, 200],
+    ])
+    expect(vacuumed).toEqual(['events'])
 })
 
 test('stops the physical event sweep if Inspur collector readiness goes stale', async () => {
