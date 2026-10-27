@@ -143,6 +143,7 @@ if printf '%s' "$services" | grep -Eq '"(bun|docker|minecraft-java)"'; then
 fi
 if printf '%s' "$services" | grep -q '"nodejs"'; then apt_packages+=(ca-certificates); fi
 if printf '%s' "$services" | grep -q '"java"'; then apt_packages+=(ca-certificates python3 tar); fi
+if printf '%s' "$services" | grep -Eq '"(nodejs|minecraft-java)"'; then apt_packages+=(python3); fi
 ${nextjsAptPackages}
 if printf '%s' "$services" | grep -q '"postgresql"'; then apt_packages+=(postgresql postgresql-contrib); fi
 if printf '%s' "$services" | grep -q '"mysql"'; then apt_packages+=(${usesMariaDb ? 'default-mysql-server' : 'mysql-server'}); fi

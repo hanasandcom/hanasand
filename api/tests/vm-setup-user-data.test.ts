@@ -311,6 +311,8 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     expect(script).not.toContain('apt_packages+=(xz-utils)')
     expect(script).toContain('grep -Eq \'"(bun|docker|minecraft-java)"\'')
     expect(script).toContain('apt_packages+=(ca-certificates)')
+    expect(script).toContain('grep -Eq \'"(nodejs|minecraft-java)"\'; then apt_packages+=(python3); fi')
+    expect(script.indexOf('apt_packages+=(python3)')).toBeLessThan(script.indexOf('apt_install_once()'))
     expect(script).toContain('systemctl enable --now postgresql')
     expect(script).toContain('node --version; npm --version')
     expect(script).toContain('wait_for_ready PostgreSQL pg_isready')
@@ -318,6 +320,26 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     expect(script.match(/run_bounded 1800 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=600 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
     expect(script).not.toContain('nodesource.com/setup_24.x')
     execFileSync('bash', ['-n'], { input: script })
+})
+
+test('APT-based Node.js and Minecraft plans install Python before their download helpers run', () => {
+    for (const [os, service] of [
+        ['ubuntu-24.04', 'nodejs'],
+        ['debian-13', 'nodejs'],
+        ['kali', 'minecraft-java'],
+    ] as const) {
+        const cloudInit = vmSetupUserData('bootstrap-vm', { os, services: [service] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content || ''
+        const pythonPackage = script.indexOf('apt_packages+=(python3)')
+        const packageInstall = script.indexOf('apt_install_once()')
+        const downloader = script.indexOf(service === 'nodejs' ? 'Installing Node.js 24 LTS' : 'server_type, requested_json = sys.argv[1:]')
+
+        expect(pythonPackage).toBeGreaterThanOrEqual(0)
+        expect(packageInstall).toBeGreaterThan(pythonPackage)
+        expect(downloader).toBeGreaterThan(packageInstall)
+        execFileSync('bash', ['-n'], { input: script })
+    }
 })
 
 test.serial('Node.js archive download retries an incomplete transfer and verifies the release checksum', async () => {
