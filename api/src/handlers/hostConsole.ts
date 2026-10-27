@@ -4,7 +4,7 @@ import run, { withIdentityAdvisoryLock } from '#db'
 import { validateSession } from '#utils/auth/session.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import { recoveryReadOnly } from '#utils/recovery.ts'
-import { applyManagedHostSshKeys, hostConsoleNames, normalizeHostPublicKey, startHostConsole, type HostConsoleName } from '#utils/hostSsh.ts'
+import { hostConsoleNames, normalizeHostPublicKey, reconcileManagedHostSshKeys, startHostConsole, type HostConsoleName } from '#utils/hostSsh.ts'
 import { isHostConsoleAvailable } from '#utils/hostConsoleAccess.ts'
 import { deviceProofFromWebSocket } from '#utils/auth/deviceProofRequest.ts'
 
@@ -35,12 +35,11 @@ export default function registerHostConsole(fastify: FastifyInstance) {
                     if (key) keys.set(key.fingerprint, key.publicKey)
                 }
                 const activeKeys = [...keys.values()]
-                // Reconcile existing profile keys at deploy/startup and move
-                // matching unmanaged entries into the profile-managed block.
-                await applyManagedHostSshKeys(activeKeys, activeKeys)
+                // Keep profile keys on OVH and remove their managed access from Inspur.
+                await reconcileManagedHostSshKeys(activeKeys)
             })
         } catch (error) {
-            fastify.log.error({ err: error }, 'Unable to reconcile profile SSH keys on both hosts during startup.')
+            fastify.log.error({ err: error }, 'Unable to reconcile OVH profile SSH keys and remove profile keys from Inspur during startup.')
         }
     })
 

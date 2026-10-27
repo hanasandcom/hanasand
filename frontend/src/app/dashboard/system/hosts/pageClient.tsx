@@ -39,7 +39,7 @@ export default function HostsOverview() {
                     </p>
                 </div>
                 <div className='flex shrink-0 items-center gap-1'>
-                    <Link href={`/system/console?host=${host.id}`} aria-label={`Open ${host.name} console`} title={`${host.name} console`} className='rounded-lg border border-ui-border p-2 text-ui-muted transition hover:border-ui-primary hover:text-ui-primary'><SquareTerminal className='h-4 w-4' /></Link>
+                    {host.id === 'ovh' && <Link href='/system/console?host=ovh' aria-label={`${host.name} console`} title={`${host.name} console`} className='rounded-lg border border-ui-border p-2 text-ui-muted transition hover:border-ui-primary hover:text-ui-primary'><SquareTerminal className='h-4 w-4' /></Link>}
                     <button type='button' aria-label={`Show SSH access for ${host.name}`} aria-expanded={openAccess === host.id} title={`${host.name} SSH access`} onClick={() => setOpenAccess(openAccess === host.id ? null : host.id)} className={`rounded-lg border border-ui-border p-2 transition hover:border-ui-primary hover:text-ui-primary ${openAccess === host.id ? 'border-ui-primary text-ui-primary' : 'text-ui-muted'}`}><KeyRound className='h-4 w-4' /></button>
                 </div>
             </div>

@@ -5,7 +5,7 @@ import { applyManagedHostSshKeys, normalizeHostPublicKey } from '#utils/hostSsh.
 
 type UserCertificate = { id: number, public_key: string }
 
-/** Reconcile and remove a user's personal SSH credentials from both hosts. */
+/** Reconcile the remaining OVH keys and remove a user's personal SSH credentials. */
 export async function purgeUserSshKeys(userId: string) {
     return withIdentityAdvisoryLock('profile-ssh-keys-sync', async () => {
         const userKeys = (await identityQueryOnce(`

@@ -10,6 +10,6 @@ export default async function Page(props: { searchParams: Promise<{ host?: strin
         return redirect(systemExpiredSessionPath('/system/console'))
     }
     const searchParams = await props.searchParams
-    const initialHost = searchParams.host === 'ovh' ? 'ovh' : 'inspur'
-    return <DashboardPage className='h-full'><HostConsoleClient initialHost={initialHost} /></DashboardPage>
+    if (searchParams.host !== 'ovh') return redirect('/system/hosts')
+    return <DashboardPage className='h-full'><HostConsoleClient /></DashboardPage>
 }
