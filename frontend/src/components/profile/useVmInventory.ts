@@ -15,7 +15,12 @@ export default function useVmInventory(serverVMs: VM[] | null, organizationId: s
     const generation = useRef(0)
     const pendingEmpty = useRef<string | null>(null)
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-    current.current = vms
+    // Workspace changes can happen before the next inventory request returns.
+    // Keep both the rendered list and the empty-response grace period scoped to
+    // the newly selected workspace so rows from the previous workspace never
+    // remain visible during that transition.
+    const scopedVms = scopeVmInventory(vms, organizationId)
+    current.current = scopedVms
 
     const update = useCallback(async () => {
         const id = getCookie('id')
@@ -83,5 +88,5 @@ export default function useVmInventory(serverVMs: VM[] | null, organizationId: s
         return () => clearInterval(refresh)
     }, [update])
 
-    return { vms, setVms, unavailable, checkingEmpty, update }
+    return { vms: scopedVms, setVms, unavailable, checkingEmpty, update }
 }
