@@ -344,27 +344,32 @@ test('pauses every migration batch below the filesystem reserve and reports avai
     expect(checkedPaths).toEqual(['/source', '/target'])
 })
 
-test('requires fresh collector health and a durable recent live acknowledgement, not every source poll', async () => {
+test('requires fresh healthy collection sources while tolerating delivery backpressure', async () => {
     const now = Date.now()
+    const checkedAt = new Date(now).toISOString()
     const health = {
-        checkedAt: new Date(now).toISOString(),
+        checkedAt,
         collector_health: { audit: true, journal: true, docker: true, docker_file_live: true, docker_file_history: true },
         source_status: {
-            audit_live: { ok: false, checkedAt: new Date(now).toISOString(), error: 'TimeoutError' },
-            delivery_live: { ok: false, deliveryHealthy: true, checkedAt: new Date(now).toISOString(), lastAcknowledgedAt: new Date(now).toISOString(), accepted: 110 },
+            audit: { ok: true, checkedAt },
+            journal: { ok: true, checkedAt },
+            docker: { ok: true, checkedAt },
+            docker_file_live: { ok: true, checkedAt },
+            docker_file_history: { ok: true, checkedAt },
+            audit_live: { ok: true, checkedAt },
+            journal_live: { ok: true, checkedAt },
+            delivery_live: { ok: false, deliveryHealthy: false, checkedAt, accepted: 0 },
         },
     }
     expect(migrationCollectorReady(health, now)).toBe(true)
     expect(migrationCollectorReady({ ...health, checkedAt: new Date(now - 121_000).toISOString() }, now)).toBe(false)
     expect(migrationCollectorReady({ ...health, source_status: { ...health.source_status,
-        delivery_live: { ...health.source_status.delivery_live, lastAcknowledgedAt: new Date(now - 121_000).toISOString() } } }, now)).toBe(false)
+        journal_live: { ...health.source_status.journal_live, checkedAt: new Date(now - 121_000).toISOString() } } }, now)).toBe(false)
     expect(migrationCollectorReady({ ...health, source_status: { ...health.source_status,
-        delivery_live: { ...health.source_status.delivery_live, accepted: 0 } } }, now)).toBe(false)
-    expect(migrationCollectorReady({ ...health, source_status: { ...health.source_status,
-        delivery_live: { ...health.source_status.delivery_live, deliveryHealthy: false } } }, now)).toBe(false)
+        audit_live: { ...health.source_status.audit_live, ok: false } } }, now)).toBe(false)
     expect(migrationCollectorReady({ ...health, collector_health: { ...health.collector_health, audit: false } }, now)).toBe(false)
     await expect(assertMigrationCollectorReady(async () => JSON.stringify({})))
-        .rejects.toThrow('collector sources or its recent live Logs acknowledgement are not healthy')
+        .rejects.toThrow('collector sources are not healthy')
 })
 
 test('resolves both PostgreSQL data volumes and any separately mounted WAL directory', () => {
@@ -531,7 +536,7 @@ test('deletes source rows only after Logs durably stores and verifies every copi
     }
     expect(deletion?.sql).toContain('source.received_at=expected.received_at')
     expect(deletion?.sql).toContain('source.normalized=expected.normalized')
-    expect(statements.some(statement => statement.sql === "SET LOCAL statement_timeout = '20000ms'")).toBe(true)
+    expect(statements.some(statement => statement.sql === 'SET LOCAL statement_timeout = \'20000ms\'')).toBe(true)
 })
 
 test('keeps an event row in Hanasand when it exceeds the deployed Logs ingest body limit', async () => {
@@ -595,6 +600,64 @@ test('deletes a source row only after Logs durably acknowledges its drop-rule re
     expect(result).toEqual({ moved: 1, remaining: true, retry: false, cursor: 'source-row-1' })
     expect(statusQueried).toBe(false)
     expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(true)
+})
+
+test('deletes only exact stored and dropped proofs from a partial Logs acknowledgement', async () => {
+    const secondRow = {
+        ...sourceRows[0], id: 'source-row-2',
+        normalized: { ...sourceRows[0].normalized, source_event_id: 'collector-event-2' },
+    }
+    const deferredRow = {
+        ...sourceRows[0], id: 'source-row-3',
+        normalized: { ...sourceRows[0].normalized, source_event_id: 'collector-event-3' },
+    }
+    selectedRowsOverride = [sourceRows[0], secondRow, deferredRow]
+    sourceDeleteRowsOverride = [{ id: 'source-row-1' }, { id: 'source-row-2' }]
+    sourceLogsRemain = true
+    const events = [sourceRows[0], secondRow, deferredRow].map(logMigrationEvent)
+    const hashes = events.map(migrationPayloadHash)
+    const targetId = createHash('sha256').update('service:collector-event-2').digest('hex')
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/api/ingest')) {
+            expect(new Headers(init?.headers).get('x-logs-partial-ack')).toBe('collector-v1')
+            expect(JSON.parse(String(init?.body)).events.map((event: { sourceEventId: string }) => event.sourceEventId))
+                .toEqual(['collector-event-1', 'collector-event-2', 'collector-event-3'])
+            return new Response(JSON.stringify({ ok: true, accepted: 2, deferred: 1,
+                deferredQueueEventIds: ['collector-event-3'], resolvedQueueEvents: [
+                    { sourceEventId: 'collector-event-1', payloadSha256: hashes[0], disposition: 'dropped' },
+                    { sourceEventId: 'collector-event-2', payloadSha256: hashes[1], disposition: 'stored' },
+                ] }), { status: 202 })
+        }
+        expect(String(input)).toBe('https://logs.hanasand.com/api/migration/status')
+        expect(JSON.parse(String(init?.body))).toEqual({ ids: [targetId] })
+        return new Response(JSON.stringify({ ok: true, statuses: [{ id: targetId, status: 'processed', payloadSha256: hashes[1] }] }), { status: 200 })
+    }) as typeof fetch
+
+    const result = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40))
+
+    expect(result).toEqual({ moved: 2, remaining: true, retry: false, cursor: 'source-row-3' })
+    const deletion = statements.find(statement => statement.sql.startsWith('DELETE FROM events'))
+    expect(JSON.parse(String(deletion?.params[0])).map((row: { id: string }) => row.id)).toEqual(['source-row-1', 'source-row-2'])
+
+    physicalEventRowsOverride = []
+    const tailResult = await moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40), '', { lowerBlock: 0, upperBlock: 16, afterCtid: '(8,3)' })
+    expect(tailResult).toEqual({ moved: 0, remaining: true, retry: true })
+})
+
+test('keeps every source row when a partial Logs acknowledgement has a bad proof', async () => {
+    const deferredRow = {
+        ...sourceRows[0], id: 'source-row-2',
+        normalized: { ...sourceRows[0].normalized, source_event_id: 'collector-event-2' },
+    }
+    selectedRowsOverride = [sourceRows[0], deferredRow]
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true, accepted: 1, deferred: 1,
+        deferredQueueEventIds: ['collector-event-2'], resolvedQueueEvents: [
+            { sourceEventId: 'collector-event-1', payloadSha256: '0'.repeat(64), disposition: 'dropped' },
+        ] }), { status: 202 })) as typeof fetch
+
+    await expect(moveOneBatch('https://logs.hanasand.com', 'i'.repeat(40)))
+        .rejects.toThrow('invalid partial-event proofs')
+    expect(statements.some(statement => statement.sql.startsWith('DELETE FROM events'))).toBe(false)
 })
 
 test('retains source rows when Logs reports a processed event with a different payload hash', async () => {

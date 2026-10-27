@@ -175,7 +175,7 @@ export function migrationCollectorReady(health: unknown, now = Date.now(), maxAg
     const snapshot = health as {
         checkedAt?: unknown
         collector_health?: Record<string, unknown>
-        source_status?: Record<string, { checkedAt?: unknown; lastAcknowledgedAt?: unknown; deliveryHealthy?: unknown; accepted?: unknown } | undefined>
+        source_status?: Record<string, { checkedAt?: unknown; ok?: unknown } | undefined>
     }
     const checkedAt = typeof snapshot.checkedAt === 'string' ? Date.parse(snapshot.checkedAt) : Number.NaN
     if (!Number.isFinite(checkedAt) || now - checkedAt < 0 || now - checkedAt > maxAgeMs) return false
@@ -187,11 +187,8 @@ export function migrationCollectorReady(health: unknown, now = Date.now(), maxAg
         return Number.isFinite(timestamp) && now - timestamp >= 0 && now - timestamp <= maxAgeMs
     }
     if (!status) return false
-    const live = status.delivery_live
-    const lastAcknowledgedAt = typeof live?.lastAcknowledgedAt === 'string' ? Date.parse(live.lastAcknowledgedAt) : Number.NaN
-    return isFresh(live?.checkedAt) && live?.deliveryHealthy === true
-        && Number.isFinite(lastAcknowledgedAt) && now - lastAcknowledgedAt >= 0 && now - lastAcknowledgedAt <= maxAgeMs
-        && Number.isSafeInteger(live?.accepted) && Number(live?.accepted) > 0
+    return ['audit', 'journal', 'docker', 'docker_file_live', 'docker_file_history', 'audit_live', 'journal_live']
+        .every(key => status[key]?.ok === true && isFresh(status[key]?.checkedAt))
 }
 
 export async function assertMigrationCollectorReady(readHealth = async () => {
@@ -206,7 +203,7 @@ export async function assertMigrationCollectorReady(readHealth = async () => {
         throw new Error('Logs migration paused: Inspur collector health could not be read; no source rows were moved.', { cause: error })
     }
     if (!migrationCollectorReady(health)) {
-        throw new Error('Logs migration paused: Inspur collector sources or its recent live Logs acknowledgement are not healthy; no source rows were moved.')
+        throw new Error('Logs migration paused: Inspur collector sources are not healthy; no source rows were moved.')
     }
 }
 
@@ -1166,13 +1163,15 @@ async function acknowledgeMigrationEventBatch(url: string, token: string,
     await assertMigrationStorageReserve()
     const response = await fetch(`${url}/api/ingest`, {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', 'x-logs-partial-ack': 'collector-v1' },
         body: JSON.stringify({ events }),
         signal: AbortSignal.timeout(10_000),
     })
     const body = await response.json().catch(() => ({})) as {
         ok?: boolean, accepted?: number, error?: string, code?: string, droppedSourceEventIds?: unknown,
         droppedEvents?: Array<{ sourceEventId?: unknown, payloadSha256?: unknown }>, conflictingSourceEventIds?: unknown,
+        deferred?: number, deferredQueueEventIds?: unknown,
+        resolvedQueueEvents?: Array<{ sourceEventId?: unknown, payloadSha256?: unknown, disposition?: unknown }>,
     }
     if (response.status === 503 && body.error === 'Log organization is unavailable.') {
         throw permanentError('An event belongs to a Logs organization that is missing or inactive; its source row remains in Hanasand.')
@@ -1207,29 +1206,66 @@ async function acknowledgeMigrationEventBatch(url: string, token: string,
         const archived = await archiveMigrationEventBatch(url, events, sourceRows)
         return archived ? { events: archived, droppedSourceIds: [] } : null
     }
-    if (!response.ok || body.ok !== true || body.accepted !== events.length) {
-        throw permanentError(`Logs did not acknowledge the full migration batch (HTTP ${response.status}${body.error ? `: ${body.error}` : ''}).`)
-    }
-
     const submittedSourceIds = new Set(events.map(event => event.sourceEventId))
     const expectedPayloadHashes = new Map(events.map(event => [event.sourceEventId, migrationPayloadHash(event)]))
-    const reportedDrops = body.droppedSourceEventIds === undefined ? [] : body.droppedSourceEventIds
-    if (!Array.isArray(reportedDrops) || !reportedDrops.every(id => typeof id === 'string' && submittedSourceIds.has(id))
-        || new Set(reportedDrops).size !== reportedDrops.length) {
-        throw permanentError('Logs returned invalid dropped-event identities; source rows remain in Hanasand.')
-    }
-    const droppedEvents = body.droppedEvents === undefined ? [] : body.droppedEvents
-    if (!Array.isArray(droppedEvents) || droppedEvents.length !== reportedDrops.length
-        || droppedEvents.some(item => !item || typeof item.sourceEventId !== 'string'
-            || typeof item.payloadSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(item.payloadSha256)
-            || !reportedDrops.includes(item.sourceEventId)
-            || expectedPayloadHashes.get(item.sourceEventId) !== item.payloadSha256)
-        || new Set(droppedEvents.map(item => item?.sourceEventId)).size !== droppedEvents.length) {
-        throw permanentError('Logs returned missing or mismatched drop payload proofs; source rows remain in Hanasand.')
+    let acknowledgedEvents = events
+    let droppedSourceIds: string[]
+    if (response.status === 202) {
+        const resolved = body.resolvedQueueEvents
+        const deferredIds = body.deferredQueueEventIds
+        if (!response.ok || body.ok !== true || !Array.isArray(resolved) || !Array.isArray(deferredIds)
+            || !Number.isSafeInteger(body.accepted) || body.accepted <= 0 || body.accepted >= events.length
+            || body.accepted !== resolved.length || !Number.isSafeInteger(body.deferred)
+            || body.deferred !== deferredIds.length || body.accepted + body.deferred !== events.length) {
+            throw permanentError('Logs returned an invalid partial ingestion acknowledgement; source rows remain in Hanasand.')
+        }
+        const deferredSourceIds = new Set<string>()
+        for (const id of deferredIds) {
+            if (typeof id !== 'string' || !submittedSourceIds.has(id) || deferredSourceIds.has(id)) {
+                throw permanentError('Logs returned invalid deferred-event identities; source rows remain in Hanasand.')
+            }
+            deferredSourceIds.add(id)
+        }
+        const resolvedById = new Map<string, 'stored' | 'dropped'>()
+        for (const item of resolved) {
+            if (!item || typeof item.sourceEventId !== 'string' || !submittedSourceIds.has(item.sourceEventId)
+                || deferredSourceIds.has(item.sourceEventId) || resolvedById.has(item.sourceEventId)
+                || typeof item.payloadSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(item.payloadSha256)
+                || expectedPayloadHashes.get(item.sourceEventId) !== item.payloadSha256
+                || (item.disposition !== 'stored' && item.disposition !== 'dropped')) {
+                throw permanentError('Logs returned invalid partial-event proofs; source rows remain in Hanasand.')
+            }
+            resolvedById.set(item.sourceEventId, item.disposition)
+        }
+        if (resolvedById.size + deferredSourceIds.size !== submittedSourceIds.size
+            || [...submittedSourceIds].some(id => !resolvedById.has(id) && !deferredSourceIds.has(id))) {
+            throw permanentError('Logs returned incomplete partial-ingest coverage; source rows remain in Hanasand.')
+        }
+        acknowledgedEvents = events.filter(event => resolvedById.has(event.sourceEventId))
+        droppedSourceIds = [...resolvedById].filter(([, disposition]) => disposition === 'dropped').map(([id]) => id)
+    } else {
+        if (!response.ok || body.ok !== true || body.accepted !== events.length) {
+            throw permanentError(`Logs did not acknowledge the full migration batch (HTTP ${response.status}${body.error ? `: ${body.error}` : ''}).`)
+        }
+        const reportedDrops = body.droppedSourceEventIds === undefined ? [] : body.droppedSourceEventIds
+        if (!Array.isArray(reportedDrops) || !reportedDrops.every(id => typeof id === 'string' && submittedSourceIds.has(id))
+            || new Set(reportedDrops).size !== reportedDrops.length) {
+            throw permanentError('Logs returned invalid dropped-event identities; source rows remain in Hanasand.')
+        }
+        const droppedEvents = body.droppedEvents === undefined ? [] : body.droppedEvents
+        if (!Array.isArray(droppedEvents) || droppedEvents.length !== reportedDrops.length
+            || droppedEvents.some(item => !item || typeof item.sourceEventId !== 'string'
+                || typeof item.payloadSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(item.payloadSha256)
+                || !reportedDrops.includes(item.sourceEventId)
+                || expectedPayloadHashes.get(item.sourceEventId) !== item.payloadSha256)
+            || new Set(droppedEvents.map(item => item?.sourceEventId)).size !== droppedEvents.length) {
+            throw permanentError('Logs returned missing or mismatched drop payload proofs; source rows remain in Hanasand.')
+        }
+        droppedSourceIds = reportedDrops as string[]
     }
 
-    const droppedSourceIds = new Set(reportedDrops as string[])
-    const retainedEvents = events.filter(event => !droppedSourceIds.has(event.sourceEventId))
+    const droppedSourceIdSet = new Set(droppedSourceIds)
+    const retainedEvents = acknowledgedEvents.filter(event => !droppedSourceIdSet.has(event.sourceEventId))
     const expectedPayloadHashesByTargetId = new Map(retainedEvents.map(event => [
         createHash('sha256').update(`service:${event.sourceEventId}`).digest('hex'),
         expectedPayloadHashes.get(event.sourceEventId)!,
@@ -1272,7 +1308,7 @@ async function acknowledgeMigrationEventBatch(url: string, token: string,
             break
         }
     }
-    return { events, droppedSourceIds: reportedDrops as string[] }
+    return { events: acknowledgedEvents, droppedSourceIds }
 }
 
 async function hasLogMigrationEvents(query: typeof queryOnce) {
