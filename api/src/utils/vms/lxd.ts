@@ -74,6 +74,9 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
         || selectedServices.length > 0
         || selectedAptPackages.length > 0
         || Boolean(options.websiteHtml)
+    if (existing && existing.type !== 'virtual-machine') {
+        throw new Error(`The existing LXD instance is a ${existing.type || 'container'}, not a virtual machine. It was left untouched.`)
+    }
     if (!existing) {
         const rootDiskPool = await localRootDiskPool()
         const response = await lxdRequest<unknown>('/1.0/instances', {

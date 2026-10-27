@@ -23,7 +23,7 @@ const resetRequest = setLxdRequestForTest(async (path, options) => {
     }
     if (path === '/1.0/instances' && options?.method === 'POST') {
         const body = options.body as Record<string, unknown>
-        created = { name: body.name, status: 'Running', config: body.config, devices: {}, profiles: ['default'], architecture: 'x86_64' }
+        created = { name: body.name, status: 'Running', type: 'virtual-machine', config: body.config, devices: {}, profiles: ['default'], architecture: 'x86_64' }
         return { status_code: 202, status: 'Accepted', metadata: {}, operation: '/1.0/operations/create' }
     }
     if (path.includes('/1.0/operations/')) return { status_code: 200, status: 'Success', metadata: {} }
@@ -133,21 +133,21 @@ test.serial('LXD applies a valid custom CPU and memory allocation to the instanc
 test.serial('empty AI package lists keep the existing setup hash stable', async () => {
     const options = { os: 'ubuntu-24.04' as const, resources: { cpu: '2' as const, memory: '4GiB' as const, disk: '20GiB' as const }, services: ['nodejs' as const, 'postgresql' as const] }
     const legacyHash = createHash('sha256').update(JSON.stringify({ ...options, services: [...options.services].sort() })).digest('hex')
-    created = { name: 'configured-vm', status: 'Running', config: { 'user.hanasand.setup_plan': legacyHash }, devices: {}, profiles: ['default'] }
+    created = { name: 'configured-vm', status: 'Running', type: 'virtual-machine', config: { 'user.hanasand.setup_plan': legacyHash }, devices: {}, profiles: ['default'] }
 
     await provisionLocalLxdInstance('configured-vm', { ...options, aptPackages: [] })
     expect(calls.some(call => call.path === '/1.0/instances/configured-vm' && call.options?.method === 'PATCH')).toBe(false)
 })
 
 test.serial('an existing VM rejects a different provisioning plan instead of silently ignoring it', async () => {
-    created = { name: 'configured-vm', status: 'Running', config: { 'user.hanasand.setup_plan': 'old-plan' }, devices: {}, profiles: ['default'] }
+    created = { name: 'configured-vm', status: 'Running', type: 'virtual-machine', config: { 'user.hanasand.setup_plan': 'old-plan' }, devices: {}, profiles: ['default'] }
 
     await expect(provisionLocalLxdInstance('configured-vm', { os: 'ubuntu-24.04', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: [] }))
         .rejects.toThrow('different setup plan')
 })
 
 test.serial('an existing VM without setup metadata reports selected services as an error', async () => {
-    created = { name: 'configured-vm', status: 'Running', config: {}, devices: {}, profiles: ['default'] }
+    created = { name: 'configured-vm', status: 'Running', type: 'virtual-machine', config: {}, devices: {}, profiles: ['default'] }
     const response = await provisionLocalLxdInstance('configured-vm', { services: ['nodejs'] }).catch(error => error as Error)
 
     expect(response.message).toContain('cannot apply the selected services')
@@ -155,4 +155,14 @@ test.serial('an existing VM without setup metadata reports selected services as 
     expect(calls.find(call => call.path === '/1.0/instances/configured-vm' && call.options?.method === 'PATCH')?.options?.body).toMatchObject({
         config: { 'user.hanasand.provisioning_state': expect.stringContaining('cannot apply the selected services') },
     })
+})
+
+test.serial('LXD refuses to reuse a legacy container as a VM and leaves it untouched', async () => {
+    created = { name: 'hei2', status: 'Stopped', type: 'container', config: { 'user.hanasand.setup_plan': 'old-plan' }, devices: {}, profiles: ['default'] }
+
+    await expect(provisionLocalLxdInstance('hei2', { os: 'rocky-9', services: ['docker', 'nginx', 'website'] }))
+        .rejects.toThrow('existing LXD instance is a container, not a virtual machine')
+    expect(calls.some(call => call.path === '/1.0/instances/hei2/state' && call.options?.method === 'PUT')).toBe(false)
+    expect(calls.some(call => call.path === '/1.0/instances/hei2' && call.options?.method === 'PATCH')).toBe(false)
+    expect(calls.some(call => call.path === '/1.0/instances' && call.options?.method === 'POST')).toBe(false)
 })
