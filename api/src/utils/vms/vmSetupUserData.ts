@@ -193,7 +193,10 @@ fi
 if [[ '${usesDnf}' == 'true' ]]; then
   if (( \${#apt_packages[@]} > 0 )); then
     set_stage 'Preparing Enterprise Linux packages'
-    packages=(ca-certificates curl unzip)
+    # Rocky and the other Enterprise Linux images ship curl-minimal. Requesting
+    # the full curl package conflicts with it, while curl-minimal provides the
+    # same curl CLI used by the service installers below.
+    packages=(ca-certificates unzip)
     if printf '%s' "$services" | grep -Eq '"(nodejs|java|minecraft-java)"'; then packages+=(python3); fi
     if printf '%s' "$services" | grep -Eq '"(java|minecraft-java)"'; then packages+=(tar); fi
     if printf '%s' "$services" | grep -q '"postgresql"'; then packages+=(postgresql-server postgresql-contrib); fi

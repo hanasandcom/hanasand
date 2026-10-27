@@ -99,6 +99,9 @@ test('Debian Docker setup uses Debian repositories and Enterprise Linux accepts 
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
         const script = config.write_files[0]?.content || ''
         expect(script).toContain('dnf install -y --setopt=retries=2 --setopt=timeout=30 "${packages[@]}"')
+        expect(script).toContain('packages=(ca-certificates unzip)')
+        expect(script).not.toContain('packages=(ca-certificates curl unzip)')
+        expect(script).toContain('command timeout --signal=TERM --kill-after=10s 190s curl')
         expect(script).toContain('Package repositories unavailable; retrying')
         expect(script).toContain('dnf clean metadata')
         expect(script).toContain('postgresql-server postgresql-contrib')
