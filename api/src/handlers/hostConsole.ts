@@ -5,6 +5,7 @@ import { validateSession } from '#utils/auth/session.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import { recoveryReadOnly } from '#utils/recovery.ts'
 import { applyManagedHostSshKeys, hostConsoleNames, normalizeHostPublicKey, startHostConsole, type HostConsoleName } from '#utils/hostSsh.ts'
+import { isHostConsoleAvailable } from '#utils/hostConsoleAccess.ts'
 import { deviceProofFromWebSocket } from '#utils/auth/deviceProofRequest.ts'
 
 async function canOpenHostConsole(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, trustedInternal = false) {
@@ -44,8 +45,9 @@ export default function registerHostConsole(fastify: FastifyInstance) {
     })
 
     fastify.get<{ Params: { name: string } }>('/api/ws/host/:name/console', { websocket: true }, (socket, request) => {
-        const name = request.params.name as HostConsoleName
-        if (!hostConsoleNames.includes(name)) { socket.close(1008); return }
+        const requestedName = request.params.name
+        if (!isHostConsoleAvailable(requestedName) || !hostConsoleNames.includes(requestedName)) { socket.close(1008); return }
+        const name: HostConsoleName = requestedName
         let terminal: Awaited<ReturnType<typeof startHostConsole>> | undefined
         let authenticated = false
         let starting = false
