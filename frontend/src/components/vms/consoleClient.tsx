@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { AlertCircle, ArrowLeft, CheckCircle2, LoaderCircle, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Check, CheckCircle2, ChevronDown, LoaderCircle, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { useConsoleViewport } from './useConsoleViewport'
 import { useVmConsoleSession } from './useVmConsoleSession'
 import VMAccessActions from './vmAccessActions'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
-import { useEffect } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 type VmConsoleProps = {
     name?: string
@@ -16,6 +16,11 @@ type VmConsoleProps = {
 }
 
 export default function VmConsole({ name, host, onHostChange, workspaceOrganizationId = '' }: VmConsoleProps) {
+    const hostPicker = useRef<HTMLDivElement>(null)
+    const hostTrigger = useRef<HTMLButtonElement>(null)
+    const hostOptions = useRef<Array<HTMLButtonElement | null>>([])
+    const hostListId = useId()
+    const [hostMenuOpen, setHostMenuOpen] = useState(false)
     const { organizationId, loading, switching } = useWorkspace()
     const workspaceMatches = host !== undefined || (!switching && organizationId === workspaceOrganizationId)
     useEffect(() => {
@@ -25,6 +30,36 @@ export default function VmConsole({ name, host, onHostChange, workspaceOrganizat
     const session = useVmConsoleSession(name, host, workspaceMatches && !loading, workspaceOrganizationId)
     const viewport = useConsoleViewport(message => session.setStatus(message))
     const followBoot = session.boot.follow
+
+    useEffect(() => {
+        if (!hostMenuOpen) return
+        const closeOutside = (event: PointerEvent) => {
+            if (!hostPicker.current?.contains(event.target as Node)) setHostMenuOpen(false)
+        }
+        document.addEventListener('pointerdown', closeOutside)
+        return () => document.removeEventListener('pointerdown', closeOutside)
+    }, [hostMenuOpen])
+
+    useEffect(() => {
+        if (!hostMenuOpen || !host) return
+        hostOptions.current[host === 'inspur' ? 0 : 1]?.focus()
+    }, [hostMenuOpen, host])
+
+    function moveHostFocus(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+        const next = event.key === 'ArrowDown' ? (index + 1) % 2
+            : event.key === 'ArrowUp' ? (index - 1 + 2) % 2
+                : event.key === 'Home' ? 0
+                    : event.key === 'End' ? 1 : -1
+        if (event.key === 'Escape') {
+            setHostMenuOpen(false)
+            hostTrigger.current?.focus()
+        } else if (event.key === 'Tab') {
+            setHostMenuOpen(false)
+        } else if (next >= 0) {
+            event.preventDefault()
+            hostOptions.current[next]?.focus()
+        }
+    }
 
     if (name && !loading && !workspaceMatches) return <div role='status' className='p-6 text-sm text-ui-muted'>Returning to virtual machines…</div>
 
@@ -46,17 +81,42 @@ export default function VmConsole({ name, host, onHostChange, workspaceOrganizat
                 <div className='flex flex-wrap items-center gap-2'>
                     {name && <VMAccessActions vmName={name} />}
                     {host && onHostChange && (
-                        <label className='flex items-center gap-2 text-sm text-ui-muted'>
-                            Host
-                            <select
+                        <div ref={hostPicker} className='relative'>
+                            <button
+                                ref={hostTrigger}
+                                type='button'
+                                role='combobox'
                                 aria-label='Console host'
-                                value={host}
-                                onChange={event => onHostChange(event.target.value as 'inspur' | 'ovh')}
-                                className='rounded-lg border border-ui-border bg-ui-panel px-2 py-2 text-ui-text'>
-                                <option value='inspur'>Inspur</option>
-                                <option value='ovh'>OVH</option>
-                            </select>
-                        </label>
+                                aria-haspopup='listbox'
+                                aria-expanded={hostMenuOpen}
+                                aria-controls={hostListId}
+                                onClick={() => setHostMenuOpen(current => !current)}
+                                onKeyDown={event => {
+                                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                                        event.preventDefault()
+                                        setHostMenuOpen(true)
+                                    } else if (event.key === 'Escape') setHostMenuOpen(false)
+                                }}
+                                className='flex h-9 min-w-24 items-center justify-between gap-3 rounded-lg border border-ui-border bg-ui-panel pl-3 pr-3 text-left text-sm text-ui-text outline-none transition hover:bg-ui-raised focus-visible:ring-2 focus-visible:ring-ui-primary/30 sm:h-10'>
+                                <span>{host === 'inspur' ? 'Inspur' : 'OVH'}</span>
+                                <ChevronDown aria-hidden='true' className={`h-4 w-4 shrink-0 text-ui-muted transition-transform ${hostMenuOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {hostMenuOpen && <div id={hostListId} role='listbox' aria-label='Console host' className='absolute right-0 top-full z-40 mt-2 grid min-w-full gap-1 rounded-xl border border-ui-border bg-ui-panel p-1.5 shadow-2xl shadow-black/35 ring-1 ring-white/10'>
+                                {(['inspur', 'ovh'] as const).map((option, index) => <button
+                                    key={option}
+                                    ref={element => { hostOptions.current[index] = element }}
+                                    type='button'
+                                    role='option'
+                                    aria-selected={host === option}
+                                    tabIndex={-1}
+                                    onClick={() => { onHostChange(option); setHostMenuOpen(false); hostTrigger.current?.focus() }}
+                                    onKeyDown={event => moveHostFocus(event, index)}
+                                    className={`flex h-9 items-center justify-between gap-3 rounded-lg px-3 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ui-primary ${host === option ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-text hover:bg-ui-raised'}`}>
+                                    {option === 'inspur' ? 'Inspur' : 'OVH'}
+                                    {host === option && <Check aria-hidden='true' className='h-4 w-4 shrink-0' />}
+                                </button>)}
+                            </div>}
+                        </div>
                     )}
                     <button
                         type='button'
