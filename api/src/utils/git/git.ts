@@ -17,8 +17,7 @@ export async function articleTimestamps(files: string[]) {
     await ensureRepo()
     const key = [...files].sort().join('\0')
     if (articleTimestampsCache?.key === key) return articleTimestampsCache.value
-    let value: Promise<Map<string, { created?: string, updated?: string }>>
-    value = loadArticleTimestamps(files).catch(error => {
+    const value: Promise<Map<string, { created?: string, updated?: string }>> = loadArticleTimestamps(files).catch(error => {
         if (articleTimestampsCache?.value === value) articleTimestampsCache = null
         throw error
     })
