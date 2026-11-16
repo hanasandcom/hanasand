@@ -169,8 +169,6 @@ volumes:
   prompt_portal_state:
 
 networks:
-  pwnednet:
-    external: true
   hanasandnet:
     driver: bridge
   identity-proxy:

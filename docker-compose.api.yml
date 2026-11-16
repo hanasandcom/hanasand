@@ -97,7 +97,6 @@ services:
     networks:
       hanasandnet:
         gw_priority: 1
-      pwnednet: {}
       identity-proxy: {}
     depends_on:
       deploy-path-guard:
