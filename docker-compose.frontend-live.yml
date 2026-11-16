@@ -1,0 +1,16 @@
+services:
+  frontend-live:
+    extends:
+      file: ./docker-compose.yml
+      service: frontend
+    container_name: hanasand_frontend_live
+    image: ${HANASAND_FRONTEND_LIVE_IMAGE:?Set HANASAND_FRONTEND_LIVE_IMAGE}
+    pull_policy: never
+    build: !reset null
+    ports: !override
+      - "127.0.0.1:23813:3000"
+    environment:
+      FRONTEND_INTERNAL_API: http://hanasand_api:8080/api
+      BROWSER_SANDBOX_WORKER_IMAGE: ${BROWSER_SANDBOX_WORKER_IMAGE:-hanasand_browsers:latest}
+      HANASAND_RELEASE_COMMIT: ${HANASAND_FRONTEND_LIVE_COMMIT:?Set HANASAND_FRONTEND_LIVE_COMMIT}
+    profiles: [production-live]
