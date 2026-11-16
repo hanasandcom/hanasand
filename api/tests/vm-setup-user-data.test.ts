@@ -53,6 +53,8 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('tarfile.open(archive, mode="r:xz")')
     expect(script).toContain('The Node.js archive contains an unsafe path.')
     expect(script).toContain('docker.asc')
+    expect(script).toContain('run_bounded 60 systemctl enable --now docker')
+    expect(script).toContain('wait_for_ready Docker docker version')
     expect(script).toContain('fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc')
     expect(script).toContain('urlopen(sys.argv[1], timeout=30)')
     expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 --error-on=any update -qq')
@@ -256,7 +258,7 @@ test('cloud-init copies a validated Next.js project into the guest and builds it
         services: ['nodejs'],
         nextjsProjectFiles: files,
     })
-    const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ path: string, content: string, encoding?: string, owner?: string }> }
+    const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ path: string, content: string, encoding?: string, owner?: string, defer?: boolean }> }
     const projectPackage = config.write_files.find(file => file.path === '/home/builder-vm/project/package.json')
     const page = config.write_files.find(file => file.path === '/home/builder-vm/project/app/page.tsx')
     const unit = config.write_files.find(file => file.path === '/etc/systemd/system/hanasand-nextjs.service')
@@ -264,6 +266,7 @@ test('cloud-init copies a validated Next.js project into the guest and builds it
 
     expect(projectPackage?.encoding).toBe('b64')
     expect(projectPackage?.owner).toBe('builder-vm:builder-vm')
+    expect(projectPackage?.defer).toBe(true)
     expect(Buffer.from(projectPackage?.content || '', 'base64').toString()).toBe(files[0]?.content)
     expect(Buffer.from(page?.content || '', 'base64').toString()).toBe(files[1]?.content)
     expect(unit?.content).toContain('User=builder-vm')

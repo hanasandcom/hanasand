@@ -199,7 +199,7 @@ test('VM creation allows Debian 13 on a host with a configured local LXD project
     expect(calls).toHaveLength(0)
 })
 
-test('asynchronous local VM provisioning failures preserve the host error in API logs', async () => {
+test('asynchronous local VM provisioning failures log the redacted cause with a request ID', async () => {
     lxdProject = 'hns-stage'
     localProvisionError = new Error('Reached maximum aggregate value for limits.disk')
     const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'disk-limited-vm' } })
@@ -208,7 +208,9 @@ test('asynchronous local VM provisioning failures preserve the host error in API
     await waitFor(() => apiLogs.some(log => log.msg === 'Unable to provision VM on its assigned host.'))
     expect(apiLogs.find(log => log.msg === 'Unable to provision VM on its assigned host.')).toMatchObject({
         vmName: 'disk-limited-vm',
-        err: { message: 'Reached maximum aggregate value for limits.disk' },
+        requestId: expect.any(String),
+        phase: 'create_or_provision',
+        error: 'Reached maximum aggregate value for limits.disk',
     })
 })
 

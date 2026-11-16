@@ -9,7 +9,7 @@ test('operation waits accept LXD URLs, encode IDs, and skip missing operation re
     const paths: string[] = []
     const request = async <T>(path: string) => {
         paths.push(path)
-        return response({} as T)
+        return response({ status_code: 200, status: 'Success' } as T)
     }
 
     await waitForLxdOperation(request, 'https://lxd/1.0/operations/already%20encoded', 30)
@@ -40,7 +40,7 @@ test('instance waits include matching create-like operations and ignore unrelate
             } : { pending: [], running: [] }
             return response(metadata as T)
         }
-        return response({} as T)
+        return response({ status_code: 200, status: 'Success' } as T)
     }
 
     await waitForInstanceOperations(request, 'target vm', 2)
@@ -49,4 +49,26 @@ test('instance waits include matching create-like operations and ignore unrelate
         '/1.0/operations/target-create/wait?timeout=2',
         '/1.0/operations?recursion=1',
     ])
+})
+
+test('operation waits for terminal success and reports the LXD failure', async () => {
+    const paths: string[] = []
+    const request = async <T>(path: string) => {
+        paths.push(path)
+        return response((paths.length === 1
+            ? { status_code: 103, status: 'Running' }
+            : { status_code: 200, status: 'Success' }) as T)
+    }
+    await waitForLxdOperation(request, 'create-vm', 2)
+    expect(paths).toHaveLength(2)
+
+    await expect(waitForLxdOperation(async () => response({
+        status_code: 400, status: 'Failure', err: 'Project limits.virtual-machines reached',
+    }), 'create-vm', 2)).rejects.toThrow('Project limits.virtual-machines reached')
+})
+
+test('instance wait does not treat a failed operation-list request as idle', async () => {
+    await expect(waitForInstanceOperations(async () => {
+        throw new Error('LXD is unavailable')
+    }, 'target', 2)).rejects.toThrow('LXD is unavailable')
 })

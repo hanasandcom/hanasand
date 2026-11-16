@@ -10,8 +10,9 @@ import config from '#constants'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import { enqueueVmProvisionOnHost, waitForVmProvisionOnHost, type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
 import { provisionLocalLxdInstance } from '#utils/vms/lxd.ts'
-import { clearLocalProvisionState, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
+import { clearLocalProvisionState, localProvisionFailureReason, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
 import recordLog from '#utils/logs/recordLog.ts'
+import { redactLogText } from '#utils/logs/redact.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { isSupportedSetupService, supportedSetupServices } from '#utils/vms/supportedSetupServices.ts'
 import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
@@ -125,7 +126,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             if (existing && !canAssignOwner) {
                 if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
-                await queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])], req.log)
+                await queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])], req.log, req.id)
                 return res.status(201).send(existing)
             }
 
@@ -145,7 +146,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 RETURNING *
             `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
-                if (body.provision_local !== false) await queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])], req.log)
+                if (body.provision_local !== false) await queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])], req.log, req.id)
 
                 await recordSystemEvent(req, {
                     actionType: 'vm.access.updated',
@@ -204,7 +205,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
             if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
-            if (body.provision_local !== false) await queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])], req.log)
+            if (body.provision_local !== false) await queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])], req.log, req.id)
 
             await recordSystemEvent(req, {
                 actionType: 'vm.created',
@@ -239,14 +240,17 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     }
 }
 
-async function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[], logger: FastifyRequest['log']) {
+async function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[], logger: FastifyRequest['log'], requestId: string) {
     if (config.lxd_project) {
         setLocalProvisionState(name, { status: 'Provisioning', status_reason: 'Preparing the selected VM setup' })
         void provisionLocalLxdInstance(name, options).then(() => {
             clearLocalProvisionState(name)
         }).catch(error => {
-            setLocalProvisionState(name, { status: 'Error', status_reason: 'VM setup could not start. Try again or contact Support if the problem persists.' })
-            logger.error({ err: error, vmName: name }, 'Unable to provision VM on its assigned host.')
+            setLocalProvisionState(name, { status: 'Error', status_reason: localProvisionFailureReason(error) })
+            logger.error({
+                requestId, vmName: name, phase: 'create_or_provision',
+                error: redactLogText(error instanceof Error ? error.message : String(error)).slice(0, 500),
+            }, 'Unable to provision VM on its assigned host.')
             void recordVmProvisioningError(name, error, 'create_or_provision')
         })
         return

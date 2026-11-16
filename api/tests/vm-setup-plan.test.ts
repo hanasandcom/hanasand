@@ -19,6 +19,18 @@ test('VM setup suggestions require a signed-in user and a bounded prompt', async
     expect(long.statusCode).toBe(400)
 })
 
+test('VM setup suggestions accept a fenced plan after unrelated prose braces', async () => {
+    const previousCompletion = completion
+    try {
+        completion = `Example {not a plan}\n\`\`\`json\n${JSON.stringify({ summary: 'Install Node.js', services: ['nodejs'], packages: [], website: null, minecraftServerType: null })}\n\`\`\``
+        const result = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install Node.js for me' } })
+        expect(result.statusCode).toBe(200)
+        expect(result.json().services).toEqual(['nodejs'])
+    } finally {
+        completion = previousCompletion
+    }
+})
+
 test('VM setup suggestions return only allowlisted services', async () => {
     const result = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A small website with a database' } })
     expect(result.statusCode).toBe(200)

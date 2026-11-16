@@ -13,7 +13,7 @@ test('keepalive applies boot and idle policies, starts a stopped instance, and c
     const restore = setLxdRequestForTest(async <T>(path: string, options: { method?: string, body?: unknown } = {}) => {
         if (options.method === 'PATCH') settings = (options.body as { config: Record<string, string> }).config
         if (options.method === 'PUT' && path.endsWith('/state')) { starts++; status = 'Running' }
-        const metadata = path.includes('/operations') ? {} : path.endsWith('/state') ? { status } : { name: 'keepalive-test', status, config: settings }
+        const metadata = path.includes('/operations') ? { status_code: 200, status: 'Success' } : path.endsWith('/state') ? { status } : { name: 'keepalive-test', status, config: settings }
         return { status_code: 200, status: 'Success', metadata: metadata as T }
     })
     try {

@@ -103,9 +103,9 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                             <div data-vm-menu-keep-open>
                                 <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
                             </div>
-                            <button type='button' onClick={() => setConfirmingDelete(true)} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
+                            {vm.can_delete && <button type='button' onClick={() => setConfirmingDelete(true)} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
                                 <Trash2 className='h-4 w-4' /> Delete VM
-                            </button>
+                            </button>}
                         </FloatingActionMenu>
                     </div>}
                     {!deleted && <div className='col-span-2 row-start-2 flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 sm:col-auto sm:row-auto sm:order-1'>
@@ -143,7 +143,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                             ? 'Dashboard access is blocked. The host is retrying the shutdown.'
                             : 'The VM is disabled while scheduled for deletion.'}</p>
                     {vm.deletion_error && !instanceMissing && <p role='alert' className='mt-2 text-ui-text'>The host operation failed: {vm.deletion_error}</p>}
-                    {!instanceMissing && <button type='button' disabled={busy || expired} onClick={() => void handleRestore()} className={`${vmActionStyle} mt-3 bg-ui-raised px-3 text-ui-text hover:bg-ui-canvas`}>{busy ? 'Restoring…' : 'Restore VM'}</button>}
+                    {vm.can_delete && !instanceMissing && <button type='button' disabled={busy || expired} onClick={() => void handleRestore()} className={`${vmActionStyle} mt-3 bg-ui-raised px-3 text-ui-text hover:bg-ui-canvas`}>{busy ? 'Restoring…' : 'Restore VM'}</button>}
                 </div>}
             </article>
             {confirmingDelete && <DeleteVmDialog name={name} busy={busy} onCancel={() => setConfirmingDelete(false)} onConfirm={confirmation => void handleDelete(confirmation)} />}

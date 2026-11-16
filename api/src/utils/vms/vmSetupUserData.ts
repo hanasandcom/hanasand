@@ -32,6 +32,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
         permissions: '0644',
         owner: `${name}:${name}`,
         encoding: 'b64',
+        defer: true,
         content: Buffer.from(file.content, 'utf8').toString('base64'),
     }))
     const minecraftAddons = options.minecraftAddons || []
@@ -559,9 +560,9 @@ PY
 fi
 if printf '%s' "$services" | grep -q '"docker"'; then
   set_stage 'Starting Docker'
-  systemctl enable --now docker
-  systemctl is-active --quiet docker
-  docker version --format '{{.Server.Version}}' >/dev/null
+  run_bounded 60 systemctl enable --now docker
+  set_stage 'Checking Docker daemon'
+  wait_for_ready Docker docker version --format '{{.Server.Version}}'
   docker compose version >/dev/null
   usermod -aG docker '${name}'
 fi

@@ -26,7 +26,7 @@ const resetRequest = setLxdRequestForTest(async (path, options) => {
         created = { name: body.name, status: 'Running', type: 'virtual-machine', config: body.config, devices: {}, profiles: ['default'], architecture: 'x86_64' }
         return { status_code: 202, status: 'Accepted', metadata: {}, operation: '/1.0/operations/create' }
     }
-    if (path.includes('/1.0/operations/')) return { status_code: 200, status: 'Success', metadata: {} }
+    if (path.includes('/1.0/operations/')) return { status_code: 200, status: 'Success', metadata: { status_code: 200, status: 'Success' } }
     return { status_code: 200, status: 'Success', metadata: { pending: [], running: [] } }
 })
 const resetWriter = setVmDetailsWriterForTest(async () => {})
@@ -43,7 +43,7 @@ test('LXD project scoping is retained when waiting on an operation URL', async (
     let requestedPath = ''
     await waitForLxdOperation(async path => {
         requestedPath = path
-        return { status_code: 200, status: 'Success', metadata: {} }
+        return { status_code: 200, status: 'Success', metadata: { status_code: 200, status: 'Success' } }
     }, '/1.0/operations/example?project=hanasand-vm-stage', 30)
     expect(requestedPath).toBe('/1.0/operations/example/wait?project=hanasand-vm-stage&timeout=30')
 })

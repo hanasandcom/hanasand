@@ -5,10 +5,11 @@ import Fastify from 'fastify'
 const queries: Array<{ sql: string, params: unknown[] }> = []
 let organizationId: string | null = null
 let organizationMember = true
+let viewerAdmin = false
 
 mock.module('#utils/vms/access.ts', () => ({
-    vmViewer: async () => ({ id: 'cashflow-member', admin: false }),
-    requireVmAccess: async () => ({ id: 'cashflow-member', admin: false, name: 'cashflow-vm' }),
+    vmViewer: async () => ({ id: 'cashflow-member', admin: viewerAdmin }),
+    requireVmAccess: async () => ({ id: 'cashflow-member', admin: viewerAdmin, name: 'cashflow-vm' }),
 }))
 mock.module('#utils/contentOrganization.ts', () => ({
     requestedContentOrganization: () => organizationId,
@@ -99,4 +100,22 @@ test('VM detail lookup in an organization workspace includes the selected organi
     expect(queries).toHaveLength(1)
     expect(queries[0]?.sql).toBe('getVmByIdInOrganization.sql')
     expect(queries[0]?.params).toEqual(['cashflow-vm', 'cashflow'])
+})
+
+test('VM detail exposes delete permission only for administrators', async () => {
+    organizationId = 'cashflow'
+    organizationMember = true
+    viewerAdmin = false
+    const member = await app.inject('/vm/cashflow-vm')
+    expect(member.statusCode).toBe(200)
+    expect(member.json()[0]?.can_delete).toBe(false)
+
+    viewerAdmin = true
+    try {
+        const administrator = await app.inject('/vm/cashflow-vm')
+        expect(administrator.statusCode).toBe(200)
+        expect(administrator.json()[0]?.can_delete).toBe(true)
+    } finally {
+        viewerAdmin = false
+    }
 })
