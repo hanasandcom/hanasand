@@ -143,7 +143,12 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB:-hanasand}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # This directory exists only on the mounted RAID; do not create a fallback on root.
+      - type: bind
+        source: /data/datasets/hanasand-postgres
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: false
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./db/init:/docker-entrypoint-initdb.d/init:ro
       - ../ops/healthchecks/pg-readiness.sh:/usr/local/bin/pg_isready:ro
@@ -162,9 +167,6 @@ services:
 volumes:
   api_state:
   prompt_portal_state:
-  postgres_data:
-    external: true
-    name: hanasand_postgres_data
 
 networks:
   pwnednet:
