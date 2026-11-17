@@ -4,6 +4,7 @@ import { ensureContainerBillingSchema } from '../../handlers/containerBilling.ts
 import ensureServiceAccountsSchema from './serviceAccountsSchema.ts'
 import ensureAccountIdentitySchema from './accountIdentitySchema.ts'
 import ensureThesisSchema from './thesisSchema.ts'
+import ensureStudioSchema from './studioSchema.ts'
 
 export default async function ensurePlatformSchema() {
     await run(`CREATE SCHEMA IF NOT EXISTS pgbouncer AUTHORIZATION hanasand;
@@ -26,4 +27,5 @@ export default async function ensurePlatformSchema() {
     await ensureAccountIdentitySchema()
     await ensureServiceAccountsSchema()
     await ensureThesisSchema()
+    await ensureStudioSchema()
 }

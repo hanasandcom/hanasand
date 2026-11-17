@@ -5,6 +5,7 @@ import registerVmConsole from '../handlers/vms/console.ts'
 import registerInternalVmConsole from '../handlers/vms/consoleInternal.ts'
 import registerHostConsole from '../handlers/hostConsole.ts'
 import { subscribeThesis } from '#utils/thesis.ts'
+import { subscribeStudio } from '#utils/studio.ts'
 import { thesisMember } from '#utils/thesisAccess.ts'
 import { registerClient } from '#utils/ws/registerClient.ts'
 import { removeClient } from '#utils/ws/removeClient.ts'
@@ -50,6 +51,33 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
                 } catch {
                     socket.close(1008, 'Hanasand organization membership is required.')
                 }
+            })()
+        })
+    })
+
+    fastify.get('/api/ws/studio', { websocket: true }, (socket, request) => {
+        let authenticating = false
+        let authenticated = false
+        const origin = request.headers.origin
+        if (origin && origin !== 'https://hanasand.com' && origin !== 'https://www.hanasand.com') return socket.close(1008)
+        const deadline = setTimeout(() => socket.close(1008), 10000)
+        socket.on('close', () => clearTimeout(deadline))
+        socket.on('message', raw => {
+            if (authenticating || authenticated) return socket.close(1008)
+            authenticating = true
+            void (async () => {
+                try {
+                    if (Buffer.byteLength(raw.toString()) > 4096) throw new Error('Invalid authentication')
+                    const auth = JSON.parse(raw.toString())
+                    const proof = deviceProofFromWebSocket(request, auth?.dpop)
+                    if (auth?.type !== 'auth' || typeof auth.id !== 'string' || typeof auth.token !== 'string'
+                        || auth.id.length > 200 || auth.token.length > 512
+                        || !await thesisMember(auth.id, auth.token, proof)) throw new Error('Unauthorized')
+                    if (socket.readyState !== WebSocket.OPEN) return
+                    authenticated = true
+                    clearTimeout(deadline)
+                    subscribeStudio(socket)
+                } catch { socket.close(1008, 'Hanasand organization membership is required.') }
             })()
         })
     })

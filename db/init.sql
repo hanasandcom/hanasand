@@ -48,4 +48,5 @@ GRANT EXECUTE ON FUNCTION pgbouncer.get_auth(text) TO hanasand;
 \ir init/80-administration-audit.sql
 \ir init/90-initial-accounts-and-roles.sql
 \ir init/95-thesis.sql
+\ir init/96-studio.sql
 \ir init/99-vm-access-and-billing.sql

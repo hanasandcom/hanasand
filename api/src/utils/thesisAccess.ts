@@ -8,10 +8,7 @@ type CachedSession = Awaited<ReturnType<typeof validateSession>>
 
 export async function thesisAccess(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, req?: FastifyRequest) {
     const authorizationStarted = performance.now()
-    const cached = (req as (FastifyRequest & { rateLimitSession?: CachedSession }) | undefined)?.rateLimitSession
-    const session = cached?.user.id === id && cached.session.token === token && cached.organizationMembership !== undefined
-        ? cached
-        : cached ? null : await validateSession({ id, token, organizationSlug: 'hanasand', deviceProof })
+    const session = await hanasandOrganizationSession(id, token, deviceProof, req)
     return {
         session,
         member: session?.organizationMember === true,
@@ -20,9 +17,17 @@ export async function thesisAccess(id: string, token: string, deviceProof?: { pr
     }
 }
 
+export async function hanasandOrganizationSession(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, req?: FastifyRequest) {
+    const cached = (req as (FastifyRequest & { rateLimitSession?: CachedSession }) | undefined)?.rateLimitSession
+    const session = cached?.user.id === id && cached.session.token === token && cached.organizationMembership !== undefined
+        ? cached
+        : cached ? null : await validateSession({ id, token, organizationSlug: 'hanasand', deviceProof })
+    return session
+}
+
 export async function thesisMember(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, req?: FastifyRequest) {
-    const access = await thesisAccess(id, token, deviceProof, req)
-    return Boolean(access.session && access.member)
+    const session = await hanasandOrganizationSession(id, token, deviceProof, req)
+    return session?.organizationMember === true
 }
 
 export function thesisCredentials(req: FastifyRequest) {

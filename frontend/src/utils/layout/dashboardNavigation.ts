@@ -106,6 +106,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
             link('Cron Jobs', '/automation/cron'),
         ]),
         group('Content', [
+            link('Studio', '/studio', hasHanasandOrganization),
             group('Writing', [
                 link('Notes', '/notes', canManageContent || hasContentOrganization),
                 link('Articles', '/content/articles', canManageContent || hasContentOrganization),

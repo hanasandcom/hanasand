@@ -106,6 +106,7 @@ export const generatedSearchRoutes = [
     { id: 'route:/solutions/security-monitoring', title: 'Solutions · Security Monitoring', detail: 'Page · /solutions/security-monitoring', href: '/solutions/security-monitoring' },
     { id: 'route:/status', title: 'Status', detail: 'Page · /status', href: '/status' },
     { id: 'route:/status/incidents', title: 'Status · Incidents', detail: 'Page · /status/incidents', href: '/status/incidents' },
+    { id: 'route:/studio', title: 'Studio', detail: 'Page · /studio', href: '/studio' },
     { id: 'route:/support', title: 'Support', detail: 'Page · /support', href: '/support' },
     { id: 'route:/switch-account', title: 'Switch Account', detail: 'Page · /switch-account', href: '/switch-account' },
     { id: 'route:/terms', title: 'Terms', detail: 'Page · /terms', href: '/terms' },

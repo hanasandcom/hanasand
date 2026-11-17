@@ -10,12 +10,15 @@ import SheetEditorHeader from './SheetEditorHeader'
 import { navigateTable, type PendingTable } from './tableNavigation'
 import type { Cell, SheetEditorProps } from './sheetEditorTypes'
 import { sheetButton } from './sheetEditorStyles'
+import MarkdownDocumentEditor from '@/components/markdown/MarkdownDocumentEditor'
+import uploadMarkdownImage from '@/components/markdown/uploadMarkdownImage'
 export type { Cell, CustomTableControls, SheetEditorProps, TableInteraction } from './sheetEditorTypes'
 import './workspace.css'
 
 export default function SheetEditor({ sheet, canEdit, onChange, actions, trailingActions, titleAside, beforeContent, renderTable, customTable, showInsertTable = true, contentOnly = false }: SheetEditorProps) {
     const root = useRef<HTMLDivElement>(null)
     const [writing, setWriting] = useState(false)
+    const [canvasMode, setCanvasMode] = useState(false)
     const selection = useRef<{ source: string, start: number, end: number } | null>(null)
     const [active, setActive] = useState<Cell | null>(null)
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null)
@@ -103,7 +106,7 @@ export default function SheetEditor({ sheet, canEdit, onChange, actions, trailin
     function prose(text: string, start: number, end: number, beforeTable = false) {
         if (!text.trim() && (!canEdit || (compact && !writing))) return null
         const displayText = beforeTable ? text.replace(/(?:\r?\n[ \t]*)+$/, '') : text
-        if (compact && !writing) return <RenderMarkdown text={displayText} />
+        if ((compact || text.includes('```timeline')) && !writing) return <RenderMarkdown text={displayText} />
         return canEdit ? <InlineMarkdown text={text} displayText={displayText} label='Description Markdown' showEmptyHint={!parsed.length} showAddTextButton={!beforeTable}
             onSelection={(a, b) => { selection.current = { source: sheet.body, start: start + a, end: start + b } }}
             onChange={(value, group) => {
@@ -174,8 +177,9 @@ export default function SheetEditor({ sheet, canEdit, onChange, actions, trailin
             onSelectCell={selectCell}
             onInsertTable={insertTable}
         />
+        {canEdit && <button type='button' className={sheetButton + ' w-fit'} onClick={() => setCanvasMode(value => !value)} aria-pressed={canvasMode}>{canvasMode ? 'Return to sheet editor' : 'Edit page with images and timelines'}</button>}
         {beforeContent}
-        {(!compact || writing || sheet.body.trim()) && <div className='min-w-0' onClick={() => setContextMenu(null)} onContextMenu={event => {
+        {canvasMode && canEdit ? <MarkdownDocumentEditor value={sheet.body} onChange={value => onChange('body', value)} uploadImage={uploadMarkdownImage} /> : (!compact || writing || sheet.body.trim()) && <div className='min-w-0' onClick={() => setContextMenu(null)} onContextMenu={event => {
             if (!canEdit) return
             const target = event.target as HTMLElement
             const address = target.closest<HTMLElement>('[data-table-cell]')?.dataset.tableCell
