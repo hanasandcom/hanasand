@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { ImagePlus, Plus, Trash2 } from 'lucide-react'
 import styles from './timeline.module.css'
@@ -21,10 +21,28 @@ export function timelineBlock(items: TimelineItem[]) {
 }
 
 export default function Timeline({ items, onChange, uploadImage }: { items: TimelineItem[], onChange?: (items: TimelineItem[]) => void, uploadImage?: (file: File) => Promise<string> }) {
+    const timeline = useRef<HTMLDivElement>(null)
+    const [centers, setCenters] = useState<number[]>([])
+    const [height, setHeight] = useState(0)
     const [editing, setEditing] = useState<number | null>(null)
     const [uploading, setUploading] = useState(false)
     const [error, setError] = useState('')
     const editable = Boolean(onChange)
+    useEffect(() => {
+        const root = timeline.current
+        if (!root || !items.length) return
+        const turns = [...root.querySelectorAll<HTMLElement>('[data-timeline-turn]')]
+        const measure = () => {
+            const next = turns.map(turn => turn.offsetTop + turn.offsetHeight / 2)
+            setCenters(previous => previous.length === next.length && previous.every((value, index) => value === next[index]) ? previous : next)
+            setHeight(previous => previous === root.offsetHeight ? previous : root.offsetHeight)
+        }
+        const observer = new ResizeObserver(measure)
+        observer.observe(root)
+        for (const turn of turns) observer.observe(turn)
+        measure()
+        return () => observer.disconnect()
+    }, [items.length])
     const update = (index: number, patch: Partial<TimelineItem>) => onChange?.(items.map((item, position) => position === index ? { ...item, ...patch } : item))
     const insert = (index: number) => { onChange?.([...items.slice(0, index), { image: '', title: '', text: '' }, ...items.slice(index)]); setEditing(index) }
     async function upload(file: File, index: number) {
@@ -35,14 +53,21 @@ export default function Timeline({ items, onChange, uploadImage }: { items: Time
         finally { setUploading(false) }
     }
     if (!items.length) return editable ? <button type='button' className={styles.empty} onClick={() => insert(0)}><Plus size={18} /> Add first turn</button> : null
-    const height = items.length * 280
-    const x = (index: number) => index % 2 ? 74 : 26
-    const path = items.map((_, index) => index === 0 ? `M ${x(index)} 140` : `C ${x(index - 1)} ${index * 280 - 10}, ${x(index)} ${index * 280 + 10}, ${x(index)} ${index * 280 + 140}`).join(' ')
-    return <div className={styles.timeline} style={{ '--turns': items.length } as CSSProperties} aria-label='Timeline'>
-        <svg className={styles.path} viewBox={`0 0 100 ${height}`} preserveAspectRatio='none' aria-hidden='true'>
+    const curveHeight = height || items.length * 360
+    const point = (index: number) => centers[index] ?? index * 360 + 180
+    const x = (index: number) => index % 2 ? 78 : 22
+    const path = items.map((_, index) => {
+        if (index === 0) return `M ${x(index)} ${point(index)}`
+        const before = point(index - 1)
+        const current = point(index)
+        const bend = (current - before) * .42
+        return `C ${x(index - 1)} ${before + bend}, ${x(index)} ${current - bend}, ${x(index)} ${current}`
+    }).join(' ')
+    return <div ref={timeline} className={styles.timeline} style={{ '--turns': items.length } as CSSProperties} aria-label='Timeline'>
+        <svg className={styles.path} viewBox={`0 0 100 ${curveHeight}`} preserveAspectRatio='none' aria-hidden='true'>
             <path d={path} fill='none' stroke='currentColor' strokeWidth='0.55' vectorEffect='non-scaling-stroke' />
         </svg>
-        {items.map((item, index) => <article className={`${styles.turn} ${index % 2 ? styles.right : styles.left}`} key={index}>
+        {items.map((item, index) => <article data-timeline-turn className={`${styles.turn} ${index % 2 ? styles.right : styles.left}`} key={index}>
             {editable && index === 0 && <button type='button' className={`${styles.insert} ${styles.insertTop}`} onClick={() => insert(0)} aria-label='Add turn at top' title='Add turn at top'><Plus size={18} /></button>}
             <span className={styles.marker} aria-hidden='true' />
             <div className={`${styles.card} ${editable ? styles.editable : ''}`} onClick={() => { if (editable) setEditing(index) }}>

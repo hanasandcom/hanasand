@@ -100,9 +100,9 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
     }
 
     return <Sidebar aria-label='Dashboard sidebar' className={`site-chrome dashboard-sidebar-sticky noscroll min-h-0 w-full overflow-auto rounded-lg border border-ui-border bg-ui-panel text-ui-text p-2 shadow-sm shadow-ui-canvas/10 dark:shadow-ui-canvas/20 ${compact ? 'lg:w-16' : 'lg:w-58'}`}>
-        {studio && <div role='tablist' aria-label='Studio navigation' className='mb-3 grid grid-cols-2 gap-1 rounded-md bg-ui-canvas p-1'>
-            <button type='button' role='tab' aria-selected={studioTab === 'site'} onClick={() => setStudioTab('site')} className={`rounded px-2 py-2 text-sm ${studioTab === 'site' ? 'bg-ui-panel font-semibold text-ui-text shadow-sm' : 'text-ui-muted'}`}>Site</button>
-            <button type='button' role='tab' aria-selected={studioTab === 'pages'} onClick={() => setStudioTab('pages')} className={`rounded px-2 py-2 text-sm ${studioTab === 'pages' ? 'bg-ui-panel font-semibold text-ui-text shadow-sm' : 'text-ui-muted'}`}>Studio</button>
+        {studio && <div role='tablist' aria-label='Studio navigation' className='mx-auto mb-2 grid h-7 w-36 grid-cols-2 rounded-full border border-ui-border/50 bg-ui-canvas/50 p-0.5'>
+            <button type='button' role='tab' aria-selected={studioTab === 'site'} onClick={() => setStudioTab('site')} className={`rounded-full text-xs leading-none transition-colors ${studioTab === 'site' ? 'bg-ui-border/70 font-medium text-ui-text' : 'text-ui-muted hover:text-ui-text'}`}>Site</button>
+            <button type='button' role='tab' aria-selected={studioTab === 'pages'} onClick={() => setStudioTab('pages')} className={`rounded-full text-xs leading-none transition-colors ${studioTab === 'pages' ? 'bg-ui-border/70 font-medium text-ui-text' : 'text-ui-muted hover:text-ui-text'}`}>Studio</button>
         </div>}
         {studio && studioTab === 'pages' ? <nav aria-label='Studio pages' className='grid gap-1'>
             {studioPages.map(page => <Link key={page.id} href={page.id === 1 ? '/studio' : `/studio?page=${page.id}`} aria-current={selectedPage === page.id ? 'page' : undefined} className={`rounded-md px-3 py-2 text-sm ${selectedPage === page.id ? 'bg-ui-primary/10 font-semibold text-ui-primary' : 'text-ui-muted hover:bg-ui-canvas hover:text-ui-text'}`}>{page.title}</Link>)}
