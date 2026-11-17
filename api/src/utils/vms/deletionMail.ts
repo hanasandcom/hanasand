@@ -54,7 +54,7 @@ export function vmDeletionScheduledMail(input: {
     const rows = details.map(([label, value]) => `${label}: ${value}`).join('\n')
     const htmlRows = details.map(([label, value]) => `<tr><th align="left">${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join('')
     const locationNote = 'Location is approximate and may be unavailable for private or unrecognized IP addresses.'
-    const action = 'You can restore this VM from the VMs page during the 30-day recovery period.'
+    const action = 'You can restore this VM from the VMs page during the 14-day recovery period.'
 
     return {
         subject: `VM ${input.vmName} is scheduled for deletion`,

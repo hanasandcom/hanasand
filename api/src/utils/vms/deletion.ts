@@ -68,7 +68,7 @@ export async function scheduleVmDeletion(name: string, confirmation: unknown) {
             const saved = instance
                 ? { running: instance.status?.toLowerCase() === 'running', autostart: instance.config?.['boot.autostart'] ?? null, ephemeral: instance.ephemeral ?? false }
                 : { running: false, autostart: null, ephemeral: false, instanceMissing: true }
-            vm = (await run('UPDATE vms SET deleted_at = NOW(), delete_after = NOW() + INTERVAL \'30 days\', deletion_restore = $2::jsonb, deletion_error = $3 WHERE name = $1 RETURNING *', [name, JSON.stringify(saved), instance ? null : missingInstanceMessage])).rows[0]
+            vm = (await run('UPDATE vms SET deleted_at = NOW(), delete_after = NOW() + INTERVAL \'14 days\', deletion_restore = $2::jsonb, deletion_error = $3 WHERE name = $1 RETURNING *', [name, JSON.stringify(saved), instance ? null : missingInstanceMessage])).rows[0]
             newlyScheduled = true
         }
         try {
@@ -84,7 +84,7 @@ export async function restoreVm(name: string) {
         const vm = await load(name)
         if (!vm.deleted_at) return vm
         const eligible = await run('SELECT name FROM vms WHERE name = $1 AND delete_after > NOW()', [name])
-        if (!eligible.rows.length) return fail('The 30-day recovery period has ended.', 410)
+        if (!eligible.rows.length) return fail('The recovery period has ended.', 410)
         if (!vm.deletion_restore) return fail('The saved VM configuration is missing.')
         if (vm.deletion_restore.instanceMissing) return fail(missingInstanceMessage, 410)
         const instance = await getLocalInstanceIfPresent(name)

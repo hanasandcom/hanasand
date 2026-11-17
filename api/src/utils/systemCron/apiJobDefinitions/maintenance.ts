@@ -117,7 +117,7 @@ export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
     {
         id: 'api-vm-deletion',
         name: 'Deleted VM retention',
-        description: 'Keeps deleted VMs stopped and removes their disks after the 30-day recovery period.',
+        description: 'Keeps deleted VMs stopped and removes their disks after the 14-day recovery period.',
         category: 'Other/System',
         schedule: 'Every minute',
         cadenceSeconds: API_CRON_CADENCE_SECONDS,

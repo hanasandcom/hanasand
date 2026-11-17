@@ -22,10 +22,10 @@ test('emails the VM owner and organization administrators once when deletion is 
     expect(state.sentEmails).toHaveLength(2)
 })
 
-test('preserves the disk, disables startup, and retries without extending the 30-day deadline', async () => {
+test('preserves the disk, disables startup, and retries without extending the 14-day deadline', async () => {
     await operations.scheduleVmDeletion('cashflow', 'cashflow')
     const deadline = state.vm.delete_after
-    expect(Date.parse(deadline) - state.now).toBe(30 * day)
+    expect(Date.parse(deadline) - state.now).toBe(14 * day)
     expect(state.instance.status).toBe('Stopped')
     expect(state.instance.ephemeral).toBe(false)
     expect(state.instance.config[operations.deletionMarker]).toBe(deadline)
@@ -41,7 +41,7 @@ test('records an already-missing instance accurately and keeps its tombstone unt
     state.instance = null
     const response = await app.inject({ method: 'DELETE', url: '/vm/cashflow', headers: { id: 'admin' }, payload: { confirmation: 'cashflow' } })
     expect(response.statusCode).toBe(200)
-    expect(response.json().message).toContain('Its record is retained for 30 days.')
+    expect(response.json().message).toContain('Its record is retained for 14 days.')
     expect(state.vm.deleted_at).not.toBeNull()
     expect(state.vm.deletion_restore).toMatchObject({ instanceMissing: true })
     expect(state.vm.deletion_error).toContain('disk cannot be restored')
@@ -52,7 +52,7 @@ test('records an already-missing instance accurately and keeps its tombstone unt
 
     await operations.maintainDeletedVms()
     expect(state.vm).not.toBeNull()
-    state.now += 30 * day
+    state.now += 14 * day
     await operations.maintainDeletedVms()
     expect(state.vm).toBeNull()
 })

@@ -47,8 +47,8 @@ async function changeDeletion(req: FastifyRequest, res: FastifyReply, restore: b
         const message = restore
             ? 'VM restored.'
             : vm.deletion_restore?.instanceMissing
-                ? `${missingInstanceMessage} Its record is retained for 30 days.`
-                : 'VM stopped. You can restore it for 30 days.'
+                ? `${missingInstanceMessage} Its record is retained for 14 days.`
+                : 'VM stopped. You can restore it for 14 days.'
         return res.send({ message: `${message}${notificationWarning || ''}`, vm })
     } catch (error) {
         req.log.error({ err: error, id }, 'Unable to change VM deletion state.')

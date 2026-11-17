@@ -3,7 +3,7 @@ import { app, day, operations, state } from './fixture.ts'
 
 test('one restore request returns the VM to its previous state and cancels expiry', async () => {
     await operations.scheduleVmDeletion('cashflow', 'cashflow')
-    state.now += 29 * day
+    state.now += 13 * day
     expect((await app.inject({ method: 'POST', url: '/vm/cashflow/restore', headers: { id: 'member' } })).statusCode).toBe(403)
     expect((await app.inject({ method: 'POST', url: '/vm/cashflow/restore', headers: { id: 'admin' } })).statusCode).toBe(200)
     expect(state.vm.deleted_at).toBeNull()
@@ -29,7 +29,7 @@ test('failed restore keeps the VM stopped and recoverable', async () => {
 
 test('expiry boundary is enforced under the same lock as restore, and disk failures are retried', async () => {
     await operations.scheduleVmDeletion('cashflow', 'cashflow')
-    state.now += 30 * day - 1
+    state.now += 14 * day - 1
     await operations.maintainDeletedVms()
     expect(state.removed).toBe(0)
     state.now++
@@ -48,7 +48,7 @@ test('expiry boundary is enforced under the same lock as restore, and disk failu
 
 test('restoring before expiry prevents a concurrent retention job from deleting the VM', async () => {
     await operations.scheduleVmDeletion('cashflow', 'cashflow')
-    state.now += 29 * day
+    state.now += 13 * day
     await Promise.all([operations.restoreVm('cashflow'), operations.maintainDeletedVms()])
     expect(state.vm.deleted_at).toBeNull()
     expect(state.removed).toBe(0)

@@ -36,7 +36,10 @@ mock.module('../../src/utils/db.ts', () => ({
             const eligible = state.vm && (sql.includes('delete_after <=') ? Date.parse(state.vm.delete_after) <= state.now : sql.includes('delete_after >') ? Date.parse(state.vm.delete_after) > state.now : state.vm.deleted_at)
             return { rows: eligible ? [{ name: state.vm.name }] : [] }
         }
-        if (sql.includes('SET deleted_at = NOW()')) Object.assign(state.vm, { deleted_at: new Date(state.now).toISOString(), delete_after: new Date(state.now + 30 * day).toISOString(), deletion_restore: JSON.parse(params[1]), deletion_error: params[2] ?? null })
+        if (sql.includes('SET deleted_at = NOW()')) {
+            if (!sql.includes('INTERVAL \'14 days\'')) throw new Error(`Unexpected VM retention period: ${sql}`)
+            Object.assign(state.vm, { deleted_at: new Date(state.now).toISOString(), delete_after: new Date(state.now + 14 * day).toISOString(), deletion_restore: JSON.parse(params[1]), deletion_error: params[2] ?? null })
+        }
         else if (sql.includes('SET deleted_at = NULL')) {
             if (state.failAt === 'restore-db') throw new Error('Database write failed')
             Object.assign(state.vm, { deleted_at: null, delete_after: null, deletion_restore: null, deletion_error: null })
