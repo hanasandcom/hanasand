@@ -14,14 +14,14 @@ async function member(req: FastifyRequest, res: FastifyReply) {
 
 export async function getStudio(req: FastifyRequest, res: FastifyReply) {
     try {
-        if (!await member(req, res)) return
+        if (!await member(req, res)) return res
         return res.header('Cache-Control', 'no-store').send(await readStudio())
     } catch (error) { req.log.error(error); return res.status(500).send({ error: 'Studio could not be loaded.' }) }
 }
 
 export async function putStudio(req: FastifyRequest, res: FastifyReply) {
     try {
-        if (!await member(req, res)) return
+        if (!await member(req, res)) return res
         if (!validStudio(req.body)) return res.status(400).send({ error: 'Invalid Studio document.' })
         const result = await saveStudio(req.body)
         return res.status(result.status).header('Cache-Control', 'no-store').send(result.document)
@@ -38,7 +38,7 @@ function matchesImage(type: string, data: Buffer) {
 
 export async function postMarkdownImage(req: FastifyRequest, res: FastifyReply) {
     try {
-        if (!await member(req, res)) return
+        if (!await member(req, res)) return res
         const body = req.body as { type?: unknown, data?: unknown } | null
         if (typeof body?.type !== 'string' || typeof body.data !== 'string' || body.data.length > 7_000_000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(body.data)) return res.status(400).send({ error: 'Invalid image.' })
         const data = Buffer.from(body.data, 'base64')
@@ -51,7 +51,7 @@ export async function postMarkdownImage(req: FastifyRequest, res: FastifyReply) 
 
 export async function getMarkdownImage(req: FastifyRequest, res: FastifyReply) {
     try {
-        if (!await member(req, res)) return
+        if (!await member(req, res)) return res
         const { id } = req.params as { id: string }
         if (!/^[a-f0-9-]{36}$/i.test(id)) return res.status(404).send()
         const result = await queryOnce('SELECT media_type, data FROM markdown_images WHERE id = $1', [id])
