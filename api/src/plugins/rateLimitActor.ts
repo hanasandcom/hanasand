@@ -46,6 +46,8 @@ export async function resolveRateLimitActor(
         const routePath = normalizeRequestPath(req)
         const organizationSlug = routePath === '/api/logs/tuning'
             || routePath.startsWith('/api/thesis')
+            || routePath === '/api/studio'
+            || routePath.startsWith('/api/markdown/images')
             || routePath.startsWith('/api/code-reviews')
             ? 'hanasand' : undefined
         const session = await withReadDatabase(() => validateUserSession({

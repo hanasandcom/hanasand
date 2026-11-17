@@ -8,6 +8,7 @@ mock.module('../src/utils/auth/session.ts', () => ({
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ hasHanasandInternalPageAccess: async() => false }))
 
 const { validStudio } = await import('../src/utils/studio.ts')
+const { hanasandOrganizationSession } = await import('../src/utils/thesisAccess.ts')
 const { getStudio, putStudio, postMarkdownImage, getMarkdownImage } = await import('../src/handlers/studio.ts')
 
 function reply() {
@@ -36,4 +37,12 @@ test('Studio rejects malformed revisions and image uploads before storage', asyn
     const invalidImage = reply()
     await postMarkdownImage({ ...request, body: { type: 'image/svg+xml', data: 'PHN2Zz4=' } }, invalidImage)
     assert.equal(invalidImage.statusCode, 400)
+})
+
+test('Studio resolves organization membership when a prior auth check cached only the session', async() => {
+    const cached = { user: { id: 'member' }, session: { token: 'member-token' } }
+    const request = { headers: {}, rateLimitSession: cached }
+    const session = await hanasandOrganizationSession('member', 'member-token', undefined, request)
+    assert.equal(session?.organizationMember, true)
+    assert.equal(await hanasandOrganizationSession('outsider', 'member-token', undefined, request), null)
 })

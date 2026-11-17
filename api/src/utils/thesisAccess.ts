@@ -2,6 +2,7 @@ import type { FastifyRequest } from 'fastify'
 import { performance } from 'node:perf_hooks'
 import { validateSession } from '#utils/auth/session.ts'
 import { deviceProofFromRequest } from '#utils/auth/deviceProofRequest.ts'
+import { hasTrustedServerSession } from '#utils/auth/deviceProofRequest.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 
 type CachedSession = Awaited<ReturnType<typeof validateSession>>
@@ -19,10 +20,12 @@ export async function thesisAccess(id: string, token: string, deviceProof?: { pr
 
 export async function hanasandOrganizationSession(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, req?: FastifyRequest) {
     const cached = (req as (FastifyRequest & { rateLimitSession?: CachedSession }) | undefined)?.rateLimitSession
-    const session = cached?.user.id === id && cached.session.token === token && cached.organizationMembership !== undefined
-        ? cached
-        : cached ? null : await validateSession({ id, token, organizationSlug: 'hanasand', deviceProof })
-    return session
+    if (cached) {
+        if (cached.user.id !== id || cached.session.token !== token) return null
+        if (cached.organizationMembership !== undefined) return cached
+    }
+    return validateSession({ id, token, organizationSlug: 'hanasand', deviceProof,
+        trustedInternal: req ? hasTrustedServerSession(req, id, token) : false })
 }
 
 export async function thesisMember(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, req?: FastifyRequest) {
