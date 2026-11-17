@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Plus } from 'lucide-react'
 import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
 import { createDeviceProof } from '@/utils/auth/deviceProof'
@@ -8,14 +10,16 @@ import type { StudioDocument } from '@/utils/studio'
 import MarkdownDocumentEditor from '@/components/markdown/MarkdownDocumentEditor'
 import uploadMarkdownImage from '@/components/markdown/uploadMarkdownImage'
 
-const DRAFT_KEY = 'hanasand-studio-draft'
-const same = (a: StudioDocument, b: StudioDocument) => a.title === b.title && a.body === b.body
+const same = (a: StudioDocument, b: StudioDocument) => a.id === b.id && a.title === b.title && a.body === b.body
 
-export default function StudioClient({ initialDocument }: { initialDocument: StudioDocument }) {
+export default function StudioClient({ initialDocument, canEdit }: { initialDocument: StudioDocument, canEdit: boolean }) {
+    const router = useRouter()
+    const draftKey = `hanasand-studio-draft:${initialDocument.id}`
     const [document, setDocument] = useState(initialDocument)
     const [status, setStatus] = useState('Saved')
     const [conflict, setConflict] = useState<StudioDocument | null>(null)
     const [recovery, setRecovery] = useState<StudioDocument | null>(null)
+    const [titleEditing, setTitleEditing] = useState(false)
     const draft = useRef(initialDocument)
     const base = useRef(initialDocument)
     const conflictRef = useRef<StudioDocument | null>(null)
@@ -24,23 +28,25 @@ export default function StudioClient({ initialDocument }: { initialDocument: Stu
     const stopped = useRef(false)
     const saveRef = useRef<() => Promise<void>>(async () => {})
 
-    const update = useCallback((field: 'title' | 'body', value: string) => {
+    const updateField = useCallback((field: 'body' | 'title', value: string) => {
         const next = { ...draft.current, [field]: value }
         draft.current = next; setDocument(next); setStatus('Saving…')
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(next))
+        localStorage.setItem(draftKey, JSON.stringify(next))
         if (timer.current) clearTimeout(timer.current)
         timer.current = setTimeout(() => { void saveRef.current() }, 650)
-    }, [])
+    }, [draftKey])
+    const update = useCallback((value: string) => updateField('body', value), [updateField])
 
     useEffect(() => {
         try {
-            const stored = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') as StudioDocument | null
-            if (stored && typeof stored.body === 'string' && typeof stored.title === 'string' && !same(stored, initialDocument)) setRecovery(stored)
+            const stored = JSON.parse(localStorage.getItem(draftKey) || 'null') as StudioDocument | null
+            if (canEdit && stored && stored.id === initialDocument.id && typeof stored.body === 'string' && !same(stored, initialDocument)) setRecovery(stored)
         } catch { /* Ignore a damaged browser draft. */ }
-    }, [initialDocument])
+    }, [initialDocument, canEdit, draftKey])
 
     useEffect(() => {
         stopped.current = false
+        if (!canEdit) return
         let disposed = false
         saveRef.current = async () => {
             if (disposed || stopped.current || saving.current || conflictRef.current || same(draft.current, base.current)) return
@@ -54,7 +60,7 @@ export default function StudioClient({ initialDocument }: { initialDocument: Stu
                 if (response.status === 409) { conflictRef.current = next; setConflict(next); setStatus('Another tab changed this page'); return }
                 if (!response.ok) throw new Error(next.error || 'Save failed')
                 base.current = next
-                if (same(draft.current, next)) { draft.current = next; setDocument(next); setStatus('Saved'); localStorage.removeItem(DRAFT_KEY) }
+                if (same(draft.current, next)) { draft.current = next; setDocument(next); setStatus('Saved'); localStorage.removeItem(draftKey) }
                 else { setStatus('Saving…'); if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => { void saveRef.current() }, 50) }
             } catch (error) { if (!disposed && !stopped.current) { setStatus(error instanceof Error ? error.message : 'Save failed'); if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => { void saveRef.current() }, 3000) } }
             finally { saving.current = false }
@@ -75,9 +81,10 @@ export default function StudioClient({ initialDocument }: { initialDocument: Stu
                 if (disposed) return
                 try {
                     const remote = JSON.parse(event.data) as StudioDocument
-                    if (typeof remote.revision !== 'number' || typeof remote.body !== 'string' || typeof remote.title !== 'string' || remote.revision <= base.current.revision) return
+                    if ('type' in remote && remote.type === 'pages') { window.dispatchEvent(new Event('studio-pages-updated')); return }
+                    if (remote.id !== base.current.id || typeof remote.revision !== 'number' || typeof remote.body !== 'string' || typeof remote.title !== 'string' || remote.revision <= base.current.revision) return
                     if (same(draft.current, remote) || same(draft.current, base.current)) {
-                        base.current = remote; draft.current = remote; setDocument(remote); setStatus('Saved'); localStorage.removeItem(DRAFT_KEY)
+                        base.current = remote; draft.current = remote; setDocument(remote); setStatus('Saved'); localStorage.removeItem(draftKey)
                     } else { conflictRef.current = remote; setConflict(remote); setStatus('Another tab changed this page') }
                 } catch { /* Ignore malformed messages. */ }
             }
@@ -89,24 +96,37 @@ export default function StudioClient({ initialDocument }: { initialDocument: Stu
         const pagehide = () => { if (!same(draft.current, base.current)) void saveRef.current() }
         window.addEventListener('online', online)
         window.addEventListener('pagehide', pagehide)
-        return () => { disposed = true; stopped.current = true; if (timer.current) clearTimeout(timer.current); if (reconnect) clearTimeout(reconnect); socket?.close(); window.removeEventListener('online', online); window.removeEventListener('pagehide', pagehide) }
-    }, [])
+        return () => { if (!same(draft.current, base.current)) void saveRef.current(); disposed = true; stopped.current = true; if (timer.current) clearTimeout(timer.current); if (reconnect) clearTimeout(reconnect); socket?.close(); window.removeEventListener('online', online); window.removeEventListener('pagehide', pagehide) }
+    }, [canEdit, draftKey])
 
     function resolve(useMine: boolean) {
         if (!conflict) return
         base.current = conflict; conflictRef.current = null; setConflict(null)
-        if (!useMine) { draft.current = conflict; setDocument(conflict); setStatus('Saved'); localStorage.removeItem(DRAFT_KEY) }
+        if (!useMine) { draft.current = conflict; setDocument(conflict); setStatus('Saved'); localStorage.removeItem(draftKey) }
         else { setStatus('Saving…'); void saveRef.current() }
+    }
+
+    async function createPage() {
+        await saveRef.current()
+        if (!same(draft.current, base.current)) return
+        try {
+            const response = await fetch('/api/studio/pages', { method: 'POST' })
+            const page = await response.json() as StudioDocument & { error?: string }
+            if (!response.ok || !Number.isSafeInteger(page.id)) throw new Error(page.error || 'Could not create page.')
+            window.dispatchEvent(new Event('studio-pages-updated'))
+            router.push(`/studio?page=${page.id}`)
+        } catch (failure) { setStatus(failure instanceof Error ? failure.message : 'Could not create page.') }
     }
 
     return <main className='mx-auto max-w-6xl space-y-6 px-4 py-8 text-ui-text md:px-8'>
         <header className='flex flex-wrap items-end justify-between gap-3'>
-            <div><p className='text-sm uppercase tracking-wide text-ui-secondary'>Content</p><h1 className='text-3xl font-bold'>Studio</h1></div>
-            <p role='status' className='text-sm text-ui-secondary'>{status}</p>
+            <div><p className='text-sm uppercase tracking-wide text-ui-secondary'>Content</p>{canEdit && document.id > 1 && titleEditing
+                ? <input autoFocus aria-label='Page name' value={document.title} maxLength={500} onChange={event => updateField('title', event.target.value)} onBlur={() => { if (!document.title.trim()) updateField('title', 'Untitled page'); setTitleEditing(false) }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} className='rounded border border-ui-border bg-ui-panel px-2 py-1 text-3xl font-bold' />
+                : <h1 className={`text-3xl font-bold ${canEdit && document.id > 1 ? 'cursor-text' : ''}`} onClick={() => { if (canEdit && document.id > 1) setTitleEditing(true) }} title={canEdit && document.id > 1 ? 'Click to rename page' : undefined}>{document.id === 1 ? 'Studio' : document.title}</h1>}</div>
+            {canEdit && <div className='flex items-center gap-2'><p role='status' className='text-sm text-ui-secondary'>{status}</p><button type='button' onClick={() => void createPage()} aria-label='Add Studio page' title='Add page' className='grid h-9 w-9 place-items-center rounded-md border border-ui-border hover:bg-ui-panel'><Plus size={18} /></button></div>}
         </header>
-        {recovery && <div className='flex flex-wrap items-center gap-3 rounded-lg border border-ui-border p-3'><span>Unsaved draft found in this browser.</span><button className='rounded border border-ui-border px-3 py-1' onClick={() => { draft.current = recovery; setDocument(recovery); setRecovery(null); setStatus('Saving…'); void saveRef.current() }}>Restore draft</button><button className='rounded border border-ui-border px-3 py-1' onClick={() => { localStorage.removeItem(DRAFT_KEY); setRecovery(null) }}>Discard</button></div>}
+        {recovery && <div className='flex flex-wrap items-center gap-3 rounded-lg border border-ui-border p-3'><span>Unsaved draft found in this browser.</span><button className='rounded border border-ui-border px-3 py-1' onClick={() => { draft.current = recovery; setDocument(recovery); setRecovery(null); setStatus('Saving…'); void saveRef.current() }}>Restore draft</button><button className='rounded border border-ui-border px-3 py-1' onClick={() => { localStorage.removeItem(draftKey); setRecovery(null) }}>Discard</button></div>}
         {conflict && <div role='alert' className='flex flex-wrap items-center gap-3 rounded-lg border border-ui-border p-3'><span>Another tab updated Studio. Choose which version to keep.</span><button className='rounded border border-ui-border px-3 py-1' onClick={() => resolve(true)}>Use my draft</button><button className='rounded border border-ui-border px-3 py-1' onClick={() => resolve(false)}>Use latest version</button></div>}
-        <label className='grid gap-2 font-semibold'>Page title<input value={document.title} onChange={event => update('title', event.target.value)} maxLength={500} className='rounded-lg border border-ui-border bg-ui-panel px-4 py-3 font-normal' /></label>
-        <MarkdownDocumentEditor value={document.body} onChange={value => update('body', value)} uploadImage={uploadMarkdownImage} />
+        <MarkdownDocumentEditor value={document.body} onChange={update} uploadImage={file => uploadMarkdownImage(file, true)} disabled={!canEdit} />
     </main>
 }

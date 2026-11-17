@@ -8,6 +8,15 @@ import { validStudio } from '@/utils/studio'
 export const dynamic = 'force-dynamic'
 
 async function forward(request: NextRequest, method: 'GET' | 'PUT') {
+    if (method === 'GET') {
+        const page = request.nextUrl.searchParams.get('page') || '1'
+        if (!/^\d{1,5}$/.test(page)) return NextResponse.json({ error: 'Invalid page.' }, { status: 400 })
+        try {
+            const response = await fetch(`${config.url.api}/studio?page=${page}`, { cache: 'no-store', signal: AbortSignal.timeout(10000) })
+            if (response.status === 404) return new NextResponse(null, { status: 404 })
+            return NextResponse.json(await response.json(), { status: response.status, headers: { 'Cache-Control': 'no-store' } })
+        } catch { return NextResponse.json({ error: 'Studio is temporarily unavailable.' }, { status: 503 }) }
+    }
     if (method === 'PUT') {
         const origin = request.headers.get('origin')
         if (!origin || !URL.canParse(origin) || new URL(origin).host !== request.headers.get('host')) return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 })

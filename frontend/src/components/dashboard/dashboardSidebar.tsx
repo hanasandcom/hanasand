@@ -17,6 +17,7 @@ import { useDashboardSidebarPreview, DashboardSidebarPreviewPanel } from './dash
 import { DashboardSidebarGroup, DashboardSidebarLink, PendingBadge, sectionIcons } from './dashboardSidebarMenu'
 import { DashboardSidebarHeader } from './dashboardSidebarHeader'
 import { Sidebar } from 'hanasand'
+import type { StudioPage } from '@/utils/studio'
 
 const emptyThesisNavigation: ReturnType<typeof getThesisNavigation> = []
 
@@ -24,6 +25,10 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
     const { organizationId, organizations } = useWorkspace()
     const pathname = usePathname()
     const searchParams = useSearchParams()
+    const studio = pathname === '/studio'
+    const selectedPage = Number(searchParams.get('page') || '1')
+    const [studioTab, setStudioTab] = useState<'site' | 'pages'>('pages')
+    const [studioPages, setStudioPages] = useState<StudioPage[]>([])
     const domId = useId()
     const storageKey = `dashboard-navigation:v1:${access.id}`
     const [query, setQuery] = useState('')
@@ -38,7 +43,7 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
         media.addEventListener('change', onChange)
         return () => media.removeEventListener('change', onChange)
     }, () => window.matchMedia('(min-width: 1024px)').matches, () => true)
-    const compact = desktop && mode === 'compact'
+    const compact = !studio && desktop && mode === 'compact'
     const hasVMs = useDashboardSidebarVmPresence(access.id)
     const { hasUnreadSupport } = useDashboardSidebarSupport(access.id, pathname)
     const { sections, links, active, activePath } = useDashboardSidebarNavigation({
@@ -72,6 +77,20 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
         setSearchOpen(false)
     }, [pathname, activePath])
 
+    useEffect(() => {
+        if (!studio) return
+        setStudioTab('pages')
+        let disposed = false
+        const refresh = () => {
+            void fetch('/api/studio/pages', { cache: 'no-store' }).then(response => response.json()).then(pages => {
+                if (!disposed && Array.isArray(pages)) setStudioPages(pages.filter(page => Number.isSafeInteger(page.id) && typeof page.title === 'string'))
+            }).catch(() => {})
+        }
+        refresh()
+        window.addEventListener('studio-pages-updated', refresh)
+        return () => { disposed = true; window.removeEventListener('studio-pages-updated', refresh) }
+    }, [studio])
+
     function renderLink(item: { label: string; href: string }, key = item.href) {
         return <DashboardSidebarLink key={key} linkKey={key} item={item} active={active} preferences={preferences} hasUnreadSupport={hasUnreadSupport} onPin={pin} />
     }
@@ -81,35 +100,43 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
     }
 
     return <Sidebar aria-label='Dashboard sidebar' className={`site-chrome dashboard-sidebar-sticky noscroll min-h-0 w-full overflow-auto rounded-lg border border-ui-border bg-ui-panel text-ui-text p-2 shadow-sm shadow-ui-canvas/10 dark:shadow-ui-canvas/20 ${compact ? 'lg:w-16' : 'lg:w-58'}`}>
-        <DashboardSidebarHeader domId={domId} route={pathname} compact={compact} hasExpandedMenu={hasExpandedMenu} searchOpen={searchOpen} setSearchOpen={setSearchOpen} query={query} setQuery={setQuery} searchButton={searchButton} onCollapseAll={() => { collapseAll(); setQuery('') }} />
-        <nav aria-label='Main navigation' onMouseLeave={deferPreviewClose} className='grid gap-1'>
-            {compact ? sections.map(section => {
-                const Icon = sectionIcons[section.label] || FolderKanban
-                if (section.href) return <Link key={section.href} href={section.href} aria-label={section.label} title={section.label} aria-current={active?.href === section.href ? 'page' : undefined}
-                    className={`grid h-10 w-full place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-ui-primary ${active?.href === section.href ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-canvas'}`}><Icon className='h-4 w-4' /></Link>
-                return <button key={section.label} type='button'
-                    aria-label={section.label === 'Communication' && communicationSummary ? `Open Communication, ${communicationSummary}` : `Open ${section.label}`}
-                    title={section.label === 'Communication' && communicationSummary ? `Communication · ${communicationSummary}` : section.label}
-                    onMouseEnter={event => showPreview(section, event.currentTarget)} onFocus={event => showPreview(section, event.currentTarget)}
-                    onClick={() => { save({ ...preferences, expanded: { ...preferences.expanded, [section.label]: true } }); setDashboardViewMode('normal'); closePreview() }}
-                    className={`relative grid h-10 w-full place-items-center rounded-md hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary ${activePath.startsWith(section.label) ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted'}`}>
-                    <Icon className='h-4 w-4' />
-                    {section.label === 'Communication' && communicationSummary && preview?.section.label !== section.label ? <PendingBadge className='absolute right-0 top-0' /> : null}
-                </button>
-            }) : search ? <div aria-label='Navigation search results'>
-                <p role='status' className='px-2 py-1 text-xs text-ui-muted'>{matches.length} matching pages</p>
-                {matches.map(item => <div key={item.href} className='mb-2'>
-                    <p className='px-2 text-[10px] text-ui-muted'>{item.ancestors.join(' › ')}</p>
-                    {renderLink(item)}
-                </div>)}
-            </div> : <>
-                {favorites.length > 0 && renderGroup({ label: 'Pinned', items: pinnedNavigation(favorites) })}
-                {sections.map(section => section.items ? renderGroup(section) : section.href ? renderLink({ label: section.label, href: section.href }) : null)}
-            </>}
-        </nav>
-        {compact && preview && <DashboardSidebarPreviewPanel preview={preview} panelRef={previewPanel} domId={domId} active={active} hasUnreadSupport={hasUnreadSupport} preferences={preferences} onToggle={toggle} onClose={closePreview} onMouseEnter={cancelPreviewClose} onMouseLeave={deferPreviewClose} />}
-        <nav aria-label='Status shortcut' className='mt-2 grid gap-1 border-t border-ui-border pt-2 lg:hidden'>
-            <Link href='/status' className='rounded-md px-2 py-2 text-sm text-ui-muted hover:bg-ui-canvas hover:text-ui-text'>Status</Link>
-        </nav>
+        {studio && <div role='tablist' aria-label='Studio navigation' className='mb-3 grid grid-cols-2 gap-1 rounded-md bg-ui-canvas p-1'>
+            <button type='button' role='tab' aria-selected={studioTab === 'site'} onClick={() => setStudioTab('site')} className={`rounded px-2 py-2 text-sm ${studioTab === 'site' ? 'bg-ui-panel font-semibold text-ui-text shadow-sm' : 'text-ui-muted'}`}>Site</button>
+            <button type='button' role='tab' aria-selected={studioTab === 'pages'} onClick={() => setStudioTab('pages')} className={`rounded px-2 py-2 text-sm ${studioTab === 'pages' ? 'bg-ui-panel font-semibold text-ui-text shadow-sm' : 'text-ui-muted'}`}>Studio</button>
+        </div>}
+        {studio && studioTab === 'pages' ? <nav aria-label='Studio pages' className='grid gap-1'>
+            {studioPages.map(page => <Link key={page.id} href={page.id === 1 ? '/studio' : `/studio?page=${page.id}`} aria-current={selectedPage === page.id ? 'page' : undefined} className={`rounded-md px-3 py-2 text-sm ${selectedPage === page.id ? 'bg-ui-primary/10 font-semibold text-ui-primary' : 'text-ui-muted hover:bg-ui-canvas hover:text-ui-text'}`}>{page.title}</Link>)}
+        </nav> : <>
+            <DashboardSidebarHeader domId={domId} route={pathname} compact={compact} hasExpandedMenu={hasExpandedMenu} searchOpen={searchOpen} setSearchOpen={setSearchOpen} query={query} setQuery={setQuery} searchButton={searchButton} onCollapseAll={() => { collapseAll(); setQuery('') }} />
+            <nav aria-label='Main navigation' onMouseLeave={deferPreviewClose} className='grid gap-1'>
+                {compact ? sections.map(section => {
+                    const Icon = sectionIcons[section.label] || FolderKanban
+                    if (section.href) return <Link key={section.href} href={section.href} aria-label={section.label} title={section.label} aria-current={active?.href === section.href ? 'page' : undefined}
+                        className={`grid h-10 w-full place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-ui-primary ${active?.href === section.href ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-canvas'}`}><Icon className='h-4 w-4' /></Link>
+                    return <button key={section.label} type='button'
+                        aria-label={section.label === 'Communication' && communicationSummary ? `Open Communication, ${communicationSummary}` : `Open ${section.label}`}
+                        title={section.label === 'Communication' && communicationSummary ? `Communication · ${communicationSummary}` : section.label}
+                        onMouseEnter={event => showPreview(section, event.currentTarget)} onFocus={event => showPreview(section, event.currentTarget)}
+                        onClick={() => { save({ ...preferences, expanded: { ...preferences.expanded, [section.label]: true } }); setDashboardViewMode('normal'); closePreview() }}
+                        className={`relative grid h-10 w-full place-items-center rounded-md hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary ${activePath.startsWith(section.label) ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted'}`}>
+                        <Icon className='h-4 w-4' />
+                        {section.label === 'Communication' && communicationSummary && preview?.section.label !== section.label ? <PendingBadge className='absolute right-0 top-0' /> : null}
+                    </button>
+                }) : search ? <div aria-label='Navigation search results'>
+                    <p role='status' className='px-2 py-1 text-xs text-ui-muted'>{matches.length} matching pages</p>
+                    {matches.map(item => <div key={item.href} className='mb-2'>
+                        <p className='px-2 text-[10px] text-ui-muted'>{item.ancestors.join(' › ')}</p>
+                        {renderLink(item)}
+                    </div>)}
+                </div> : <>
+                    {favorites.length > 0 && renderGroup({ label: 'Pinned', items: pinnedNavigation(favorites) })}
+                    {sections.map(section => section.items ? renderGroup(section) : section.href ? renderLink({ label: section.label, href: section.href }) : null)}
+                </>}
+            </nav>
+            {compact && preview && <DashboardSidebarPreviewPanel preview={preview} panelRef={previewPanel} domId={domId} active={active} hasUnreadSupport={hasUnreadSupport} preferences={preferences} onToggle={toggle} onClose={closePreview} onMouseEnter={cancelPreviewClose} onMouseLeave={deferPreviewClose} />}
+            <nav aria-label='Status shortcut' className='mt-2 grid gap-1 border-t border-ui-border pt-2 lg:hidden'>
+                <Link href='/status' className='rounded-md px-2 py-2 text-sm text-ui-muted hover:bg-ui-canvas hover:text-ui-text'>Status</Link>
+            </nav>
+        </>}
     </Sidebar>
 }

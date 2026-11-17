@@ -31,7 +31,7 @@ import deactivateUser from '../handlers/user/deactivateUser.ts'
 import { deleteNote, getNote, getNotes, postNote, putNote } from '../handlers/notes.ts'
 import { getCodeReviews, postCodeReview } from '../handlers/codeReviews.ts'
 import { getThesis, getThesisAccess, putThesis, getThesisHistory } from '../handlers/thesis.ts'
-import { getStudio, putStudio, getMarkdownImage, postMarkdownImage } from '../handlers/studio.ts'
+import { getStudio, getStudioPages, postStudioPage, putStudio, getMarkdownImage, postMarkdownImage } from '../handlers/studio.ts'
 import {
     deleteDwmWebhookDestination,
     getDwmWebhookDeliveries,
@@ -118,6 +118,8 @@ export async function registerUserContentRoutes(fastify: FastifyInstance) {
     fastify.get('/thesis/history/:revision', getThesisHistory)
     fastify.put('/thesis', { bodyLimit: 4_100_000 }, putThesis)
     fastify.get('/studio', getStudio)
+    fastify.get('/studio/pages', getStudioPages)
+    fastify.post('/studio/pages', postStudioPage)
     fastify.put('/studio', { bodyLimit: 1_100_000 }, putStudio)
     fastify.post('/markdown/images', { bodyLimit: 7_100_000 }, postMarkdownImage)
     fastify.get('/markdown/images/:id', getMarkdownImage)

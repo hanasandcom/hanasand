@@ -9,14 +9,14 @@ mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ hasHanasandI
 
 const { validStudio } = await import('../src/utils/studio.ts')
 const { hanasandOrganizationSession } = await import('../src/utils/thesisAccess.ts')
-const { getStudio, putStudio, postMarkdownImage, getMarkdownImage } = await import('../src/handlers/studio.ts')
+const { putStudio, postStudioPage, postMarkdownImage } = await import('../src/handlers/studio.ts')
 
 function reply() {
     return { statusCode: 200, status(code) { this.statusCode = code; return this }, header() { return this }, send(value) { this.payload = value; return this } }
 }
 
-test('Studio and uploaded images require Hanasand organization membership', async() => {
-    for (const handler of [getStudio, putStudio, postMarkdownImage, getMarkdownImage]) {
+test('Studio writes and image uploads require Hanasand organization membership', async() => {
+    for (const handler of [putStudio, postStudioPage, postMarkdownImage]) {
         const anonymous = reply()
         await handler({ headers: {}, log: { error() {} } }, anonymous)
         assert.equal(anonymous.statusCode, 401)
@@ -27,10 +27,11 @@ test('Studio and uploaded images require Hanasand organization membership', asyn
 })
 
 test('Studio rejects malformed revisions and image uploads before storage', async() => {
-    assert.equal(validStudio({ title: 'Studio', body: '', revision: 0 }), true)
-    assert.equal(validStudio({ title: 'Studio', body: '', revision: -1 }), false)
-    assert.equal(validStudio({ title: '', body: '', revision: 0 }), false)
-    const request = { headers: { id: 'member', authorization: 'Bearer member-token' }, body: { title: 'Studio', body: '', revision: -1 }, log: { error() {} } }
+    assert.equal(validStudio({ id: 1, title: 'Studio', body: '', revision: 0 }), true)
+    assert.equal(validStudio({ id: 1, title: 'Studio', body: '', revision: -1 }), false)
+    assert.equal(validStudio({ id: 1, title: '', body: '', revision: 0 }), false)
+    assert.equal(validStudio({ id: 0, title: 'Studio', body: '', revision: 0 }), false)
+    const request = { headers: { id: 'member', authorization: 'Bearer member-token' }, body: { id: 1, title: 'Studio', body: '', revision: -1 }, log: { error() {} } }
     const invalidDocument = reply()
     await putStudio(request, invalidDocument)
     assert.equal(invalidDocument.statusCode, 400)
