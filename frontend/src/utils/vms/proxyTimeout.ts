@@ -13,7 +13,7 @@ export function vmLifecycleProxyTimeoutMs(method: string, path: string[], defaul
 
 export function vmSetupPlanProxyTimeoutMs(method: string, path: string[], defaultTimeout: number) {
     const setupPlan = method === 'POST' && path[0] === 'vm' && path[1] === 'setup-plan' && path.length === 2
-    return setupPlan ? Math.max(defaultTimeout, 30_000) : null
+    return setupPlan ? Math.max(defaultTimeout, 95_000) : null
 }
 
 export function vmCreateProxyTimeoutMs(method: string, path: string[], defaultTimeout: number) {

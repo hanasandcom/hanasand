@@ -11,7 +11,7 @@ export default async function suggestVmSetup(prompt: string, os: string): Promis
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, os }),
-        signal: AbortSignal.timeout(25_000),
+        signal: AbortSignal.timeout(90_000),
     })
     const result = await response.json().catch(() => ({})) as Partial<VmSetupPlan> & { packages?: unknown; error?: string }
     if (!response.ok || typeof result.summary !== 'string' || !Array.isArray(result.services)) {

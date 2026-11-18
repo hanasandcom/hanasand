@@ -27,10 +27,10 @@ test('VM lifecycle mutations get enough proxy time for the host operation', () =
 })
 
 test('VM setup planning gets enough proxy time for its model request', () => {
-    assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'setup-plan'], 12000), 30000)
+    assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'setup-plan'], 12000), 95000)
     assert.equal(vmSetupPlanProxyTimeoutMs('GET', ['vm', 'setup-plan'], 12000), null)
     assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'other'], 12000), null)
-    assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'setup-plan'], 40000), 40000)
+    assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'setup-plan'], 120000), 120000)
 })
 
 test('VM creation proxy and browser request use a matching long timeout', () => {
