@@ -150,6 +150,8 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         if (plan.minecraftServerType && !plan.services.includes('minecraft-java')) throw new Error('A Minecraft plan needs the Minecraft Java service.')
         const selectedServices = [...new Set(plan.services.filter(isSupportedSetupService))]
         if (plan.website) {
+            const unnecessaryNode = selectedServices.indexOf('nodejs')
+            if (unnecessaryNode !== -1) selectedServices.splice(unnecessaryNode, 1)
             if (!selectedServices.includes('website')) selectedServices.push('website')
             if (!selectedServices.includes('nginx')) selectedServices.push('nginx')
         }

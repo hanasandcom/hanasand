@@ -64,10 +64,10 @@ test('VM setup suggestions return only allowlisted services', async () => {
     expect(completionMessages[0].content).toContain('For a static website, include website and nginx only')
     expect(completionMessages[0].content).toContain('Contact email creates a mailto link, not a form')
 
-    completion = JSON.stringify({ summary: 'A blog using Next.js', services: [], packages: [], website: { title: 'Blog', tagline: 'Updates', sections: [], gallery: [{ url: 'https://example.com/invented.jpg', alt: 'Invented', caption: '' }], contactEmail: 'contact@example.com' }, minecraftServerType: null })
+    completion = JSON.stringify({ summary: 'A blog using Next.js', services: ['nodejs', 'nginx'], packages: [], website: { title: 'Blog', tagline: 'Updates', sections: [], gallery: [{ url: 'https://example.com/invented.jpg', alt: 'Invented', caption: '' }], contactEmail: 'contact@example.com' }, minecraftServerType: null })
     const blog = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'blog' } })
     expect(blog.statusCode).toBe(200)
-    expect(blog.json().services).toEqual(['website', 'nginx'])
+    expect(blog.json().services.sort()).toEqual(['nginx', 'website'])
     expect(blog.json().summary).toBe('A responsive static website based on your description.')
     expect(blog.json().website.gallery).toEqual([])
     expect(blog.json().website.contactEmail).toBe('')
