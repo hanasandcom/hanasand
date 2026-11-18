@@ -53,10 +53,11 @@ test('VM setup suggestions return only allowlisted services', async () => {
     expect(completionMessages[0].content).toContain('For a static website, include website and nginx only')
     expect(completionMessages[0].content).toContain('Contact email creates a mailto link, not a form')
 
-    completion = JSON.stringify({ summary: 'A blog', services: [], packages: [], website: { title: 'Blog', tagline: 'Updates', sections: [] }, minecraftServerType: null })
+    completion = JSON.stringify({ summary: 'A blog using Next.js', services: [], packages: [], website: { title: 'Blog', tagline: 'Updates', sections: [] }, minecraftServerType: null })
     const blog = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'blog' } })
     expect(blog.statusCode).toBe(200)
     expect(blog.json().services).toEqual(['website', 'nginx'])
+    expect(blog.json().summary).toBe('A responsive static website based on your description.')
 
     completion = JSON.stringify({ summary: 'A gallery page', services: ['website', 'nginx'], packages: [], website: { title: 'Gallery', tagline: '', sections: [], gallery: [{ url: 'javascript:alert(1)', alt: 'Unsafe', caption: '' }], contactEmail: '' }, minecraftServerType: null })
     const invalidGallery = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A photo gallery' } })

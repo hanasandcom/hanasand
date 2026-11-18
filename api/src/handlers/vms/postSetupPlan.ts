@@ -157,7 +157,10 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         if (!selectedServices.length && !selectedPackages.length && !websitePlan && !projectFiles) {
             return res.status(422).send({ error: plan.summary.trim().slice(0, 400) || 'That setup is not available yet. Choose a service from the list or describe a supported setup.' })
         }
-        return res.send({ summary: plan.summary.slice(0, 400), services: selectedServices, packages: selectedPackages, website: websitePlan, minecraftServerType: requestedMinecraftServerType(prompt) || plan.minecraftServerType || null, ...(projectFiles ? { projectFiles } : {}) })
+        const summary = websitePlan && /\bnext\.?js\b/i.test(plan.summary)
+            ? 'A responsive static website based on your description.'
+            : plan.summary.slice(0, 400)
+        return res.send({ summary, services: selectedServices, packages: selectedPackages, website: websitePlan, minecraftServerType: requestedMinecraftServerType(prompt) || plan.minecraftServerType || null, ...(projectFiles ? { projectFiles } : {}) })
     } catch (error) {
         req.log.warn({ err: error }, 'Unable to create a supported VM setup plan.')
         return res.status(503).send({ error: 'Could not turn that request into a supported setup. Choose services from the list or try again.' })
