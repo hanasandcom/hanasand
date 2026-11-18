@@ -1,13 +1,13 @@
 type CompletionMessage = { role: 'system' | 'user' | 'assistant', content: string }
 
-export async function requestAiCompletion(messages: CompletionMessage[], timeoutMs = 15_000) {
+export async function requestAiCompletion(messages: CompletionMessage[], timeoutMs = 15_000, maxTokens = 600) {
     const base = (process.env.AI_API_BASE || 'http://ai:19182').replace(/\/+$/, '')
     const serviceKey = process.env.SUPPORT_SERVICE_KEY
     if (!serviceKey) throw new Error('AI service credentials are not configured.')
     const response = await fetch(`${base}/api/internal/model/completions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-support-service-key': serviceKey },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages, maxTokens }),
         signal: AbortSignal.timeout(timeoutMs),
     })
     if (!response.ok) throw new Error(`AI completion failed (${response.status}).`)

@@ -116,7 +116,7 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
                 content: `${setupPlanInstructions} The selected OS is ${packageOs}. ${packageGuidance} A website plan must contain a title and tagline under 120 characters, at most 5 sections (headings under 100 and bodies under 500 characters), up to 8 user-supplied gallery items (captions under 240 characters), and an optional user-supplied contact email.`,
             },
             { role: 'user', content: prompt.trim() },
-        ], 20_000)
+        ], 40_000, 2400)
         const plan = parseSetupPlan(content) as { summary?: unknown, unsupportedReason?: unknown, services?: unknown, packages?: unknown, website?: unknown, minecraftServerType?: unknown, projectFiles?: unknown }
         const packages = normalizeUbuntuAptPackages(plan.packages)
         if (['fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'].includes(operatingSystem) && packages?.length) {
