@@ -17,18 +17,19 @@ export function createdVmPublicServices(result: VmPublicService | { services: Vm
     return 'services' in result ? result.services : [result]
 }
 
-export function requestVmPublicServices(vmName: string): Promise<VmPublicServicesResponse>
-export function requestVmPublicServices(vmName: string, method: 'GET'): Promise<VmPublicServicesResponse>
-export function requestVmPublicServices(vmName: string, method: 'POST', data: unknown): Promise<VmPublicService | { services: VmPublicService[] }>
-export function requestVmPublicServices(vmName: string, method: 'DELETE', data: string): Promise<{ ok: true }>
-export async function requestVmPublicServices(vmName: string, method: 'GET' | 'POST' | 'DELETE' = 'GET', data?: unknown): Promise<VmPublicServicesResponse | VmPublicService | { services: VmPublicService[] } | { ok: true }> {
+export function requestVmPublicServices(vmName: string, method?: 'GET', data?: undefined, organizationId?: string | null): Promise<VmPublicServicesResponse>
+export function requestVmPublicServices(vmName: string, method: 'POST', data: unknown, organizationId?: string | null): Promise<VmPublicService | { services: VmPublicService[] }>
+export function requestVmPublicServices(vmName: string, method: 'DELETE', data: string, organizationId?: string | null): Promise<{ ok: true }>
+export async function requestVmPublicServices(vmName: string, method: 'GET' | 'POST' | 'DELETE' = 'GET', data?: unknown, organizationId?: string | null): Promise<VmPublicServicesResponse | VmPublicService | { services: VmPublicService[] } | { ok: true }> {
     const token = getCookie('access_token')
     const userId = getCookie('id')
     if (!token || !userId) throw new Error('Sign in again to manage public services.')
-    const organizationId = readWorkspace(getCookie(WORKSPACE_COOKIE) || undefined, userId)?.organizationId
+    const workspaceOrganizationId = organizationId === undefined
+        ? readWorkspace(getCookie(WORKSPACE_COOKIE) || undefined, getCookie('impersonating_id') || userId)?.organizationId
+        : organizationId || undefined
     const response = await fetch(`${config.url.api}/vm/${encodeURIComponent(vmName)}/public-services${method === 'DELETE' && data ? `/${encodeURIComponent(String(data))}` : ''}`, {
         method,
-        headers: { Authorization: `Bearer ${token}`, id: userId, ...(organizationId ? { 'x-organization-id': organizationId } : {}), ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) },
+        headers: { Authorization: `Bearer ${token}`, id: userId, ...(workspaceOrganizationId ? { 'x-organization-id': workspaceOrganizationId } : {}), ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) },
         body: method === 'POST' ? JSON.stringify(data) : undefined,
     })
     const result = await response.json().catch(() => ({}))

@@ -8,7 +8,7 @@ import { vmGameServers } from '@/utils/vms/createOptions'
 
 const maxPublicServicesPerVm = 1000
 
-export default function VmPublicServices({ vmName }: { vmName: string }) {
+export default function VmPublicServices({ vmName, organizationId }: { vmName: string, organizationId: string | null }) {
     const [services, setServices] = useState<VmPublicService[]>([])
     const [canManage, setCanManage] = useState(false)
     const [name, setName] = useState('')
@@ -24,7 +24,7 @@ export default function VmPublicServices({ vmName }: { vmName: string }) {
 
     async function load() {
         try {
-            const result = await requestVmPublicServices(vmName, 'GET')
+            const result = await requestVmPublicServices(vmName, 'GET', undefined, organizationId)
             const response = result as VmPublicServicesResponse
             setServices(Array.isArray(response.services) ? response.services : [])
             setCanManage(response.canManage === true)
@@ -34,13 +34,13 @@ export default function VmPublicServices({ vmName }: { vmName: string }) {
         finally { setLoading(false) }
     }
 
-    useEffect(() => { void load() }, [vmName])
+    useEffect(() => { void load() }, [vmName, organizationId])
 
     async function create(event: FormEvent) {
         event.preventDefault()
         setSaving(true); setError(''); setNotice('')
         try {
-            const created = await requestVmPublicServices(vmName, 'POST', gamePreset ? { name, game: gamePreset } : { name, type, port: Number(port) })
+            const created = await requestVmPublicServices(vmName, 'POST', gamePreset ? { name, game: gamePreset } : { name, type, port: Number(port) }, organizationId)
             const added = createdVmPublicServices(created)
             setServices(current => [...current, ...added]); setName(''); setGamePreset('')
             setNotice(`${added.length} public ${added.length === 1 ? 'route' : 'routes'} added. They will be ready after the route refreshes.`)
@@ -51,7 +51,7 @@ export default function VmPublicServices({ vmName }: { vmName: string }) {
     async function remove(service: VmPublicService) {
         setError(''); setNotice('')
         try {
-            await requestVmPublicServices(vmName, 'DELETE', service.id)
+            await requestVmPublicServices(vmName, 'DELETE', service.id, organizationId)
             setServices(current => current.filter(item => item.id !== service.id)); setNotice(`${service.hostname || service.name} removed.`)
         } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to remove this address.') }
     }
