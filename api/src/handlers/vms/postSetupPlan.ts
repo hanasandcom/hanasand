@@ -110,14 +110,24 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         const packageGuidance = ['fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'].includes(operatingSystem)
             ? 'This Enterprise Linux distribution uses DNF, so return an empty packages array and choose only supported services.'
             : 'Use package names from the selected Ubuntu or Debian archive.'
-        const content = await requestAiCompletion([
+        const messages = [
             {
-                role: 'system',
+                role: 'system' as const,
                 content: `${setupPlanInstructions} The selected OS is ${packageOs}. ${packageGuidance} A website plan must contain a title and tagline under 120 characters, at most 5 sections (headings under 100 and bodies under 500 characters), up to 8 user-supplied gallery items (captions under 240 characters), and an optional user-supplied contact email.`,
             },
-            { role: 'user', content: prompt.trim() },
-        ], 40_000, 2400)
-        const plan = parseSetupPlan(content) as { summary?: unknown, unsupportedReason?: unknown, services?: unknown, packages?: unknown, website?: unknown, minecraftServerType?: unknown, projectFiles?: unknown }
+            { role: 'user' as const, content: prompt.trim() },
+        ]
+        let content = await requestAiCompletion(messages, 40_000, 2400)
+        let plan: { summary?: unknown, unsupportedReason?: unknown, services?: unknown, packages?: unknown, website?: unknown, minecraftServerType?: unknown, projectFiles?: unknown }
+        try {
+            plan = parseSetupPlan(content)
+        } catch {
+            content = await requestAiCompletion([...messages, {
+                role: 'system',
+                content: 'The previous response was not a complete JSON plan. Return one compact, complete JSON object only. Use the exact keys summary, unsupportedReason, services, packages, website, minecraftServerType, and projectFiles. For a short request for a blog or informational website, use a static website plan with no projectFiles, no invented contact email, and no invented image URLs.',
+            }], 40_000, 2400)
+            plan = parseSetupPlan(content)
+        }
         const packages = normalizeUbuntuAptPackages(plan.packages)
         if (['fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'].includes(operatingSystem) && packages?.length) {
             return res.status(422).send({ error: 'Custom packages are not available for this Enterprise Linux image yet. Choose an installable service instead.' })

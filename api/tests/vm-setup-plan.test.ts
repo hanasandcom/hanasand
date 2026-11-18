@@ -3,8 +3,9 @@ import { expect, mock, test } from 'bun:test'
 let completion = '{"summary":"A Node site with a database","services":["nodejs","postgresql"],"packages":["npm","psql","postgresql","ripgrep"],"website":null,"minecraftServerType":null}'
 let completionRequests = 0
 let completionMessages: Array<{ role: string, content: string }> = []
+let completionSequence: string[] = []
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: any) => ({ valid: Boolean(req.headers.id), id: req.headers.id }) }))
-mock.module('../src/utils/ai/client.ts', () => ({ requestAiCompletion: async (messages: Array<{ role: string, content: string }>) => { completionRequests += 1; completionMessages = messages; return completion } }))
+mock.module('../src/utils/ai/client.ts', () => ({ requestAiCompletion: async (messages: Array<{ role: string, content: string }>) => { completionRequests += 1; completionMessages = messages; return completionSequence.shift() ?? completion } }))
 
 const { default: Fastify } = await import('fastify')
 const { default: postVmSetupPlan } = await import('../src/handlers/vms/postSetupPlan.ts')
@@ -30,6 +31,16 @@ test('VM setup suggestions accept a fenced plan after unrelated prose braces', a
     } finally {
         completion = previousCompletion
     }
+})
+
+test('VM setup suggestions retry a malformed model response once', async () => {
+    const before = completionRequests
+    completionSequence = ['The response was incomplete.', JSON.stringify({ summary: 'A static blog', services: ['website', 'nginx'], packages: [], website: { title: 'Blog', tagline: 'Updates', sections: [] }, minecraftServerType: null })]
+    const result = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'blog' } })
+    expect(result.statusCode).toBe(200)
+    expect(result.json().website.title).toBe('Blog')
+    expect(completionRequests - before).toBe(2)
+    expect(completionMessages.at(-1)?.content).toContain('one compact, complete JSON object')
 })
 
 test('VM setup suggestions return only allowlisted services', async () => {
