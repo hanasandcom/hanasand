@@ -22,7 +22,7 @@ test('the dedicated game catalog has ten distinct games with valid connection po
     expect(() => gameServerSetupScript('game-made-up', 'guest')).toThrow('Unsupported game server')
 })
 
-test('every game setup is a runnable shell script with a real image or official Terraria binary', () => {
+test('every game setup is a runnable shell script with a game server and port check', () => {
     for (const game of gameServerCatalog) {
         const data = vmSetupUserData('game-guest', { os: 'ubuntu-24.04', services: [game.id] })
         const config = parse(data.slice('#cloud-config\n'.length)) as { write_files: Array<{ path: string, content: string }> }
@@ -39,6 +39,12 @@ test('every game setup is a runnable shell script with a real image or official 
             expect(script).toContain('https://terraria.org/api/get/dedicated-servers-names')
             expect(script).toContain('TerrariaServer.bin.x86_64')
             expect(script).toContain('systemctl enable --now hanasand-game.service')
+        } else if (game.id === 'game-wolfet') {
+            expect(script).toContain('etlegacy/server:v2.86.2')
+            expect(script).toContain('FS_GAME=legacy')
+            expect(script).toContain('mirror.etlegacy.com/etmain/$asset.pk3')
+            expect(script).toContain('sha256sum')
+            expect(script).toContain('Game Initialization completed')
         } else {
             expect(game.id).toBe('game-teeworlds')
             expect(script).toContain('apt_packages+=(teeworlds-server)')

@@ -10,7 +10,7 @@ export const gameServerCatalog = [
     { id: 'game-xonotic', label: 'Xonotic', minMemoryGiB: 2, minDiskGiB: 20, imageTag: 'xnt', ports: [{ port: 26000, protocol: 'udp' }] },
     { id: 'game-teeworlds', label: 'Teeworlds', minMemoryGiB: 2, minDiskGiB: 20, imageTag: null, ports: [{ port: 8303, protocol: 'udp' }] },
     { id: 'game-warfork', label: 'Warfork', minMemoryGiB: 2, minDiskGiB: 20, imageTag: 'wf', ports: [{ port: 44400, protocol: 'udp' }] },
-    { id: 'game-wolfet', label: 'Wolfenstein: Enemy Territory', minMemoryGiB: 2, minDiskGiB: 20, imageTag: 'wet', ports: [{ port: 27960, protocol: 'udp' }] },
+    { id: 'game-wolfet', label: 'Wolfenstein: Enemy Territory', minMemoryGiB: 2, minDiskGiB: 20, imageTag: null, ports: [{ port: 27960, protocol: 'udp' }] },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; minMemoryGiB: number; minDiskGiB: number; imageTag: string | null; ports: ReadonlyArray<GameServerPort> }>
 
 export type GameServerService = typeof gameServerCatalog[number]['id']
@@ -47,6 +47,7 @@ export function gameServerSetupScript(id: string, loginName: string) {
         : 'docker logs --tail 40 hanasand-game >&2 || true'
     if (id === 'game-terraria') return terrariaSetupScript(loginName, portCheck)
     if (id === 'game-teeworlds') return teeworldsSetupScript(loginName, portCheck)
+    if (id === 'game-wolfet') return wolfetSetupScript(loginName, portCheck)
 
     return `set_stage 'Downloading ${game.label} server image'
 run_bounded 1800 docker pull '${image}'
@@ -80,6 +81,61 @@ if [[ "$game_health" != healthy ]] || ! ${portCheck}; then
   printf '${game.label} server did not become healthy on port ${firstPort.port}.\\n' >&2
   exit 1
 fi
+`
+}
+
+function wolfetSetupScript(loginName: string, portCheck: string) {
+    return `set_stage 'Downloading Wolfenstein: Enemy Territory server image'
+run_bounded 1800 docker pull etlegacy/server:v2.86.2
+install -d -m 0755 -o '${loginName}' -g '${loginName}' /opt/hanasand-game/etmain /opt/hanasand-game/homepath
+set_stage 'Downloading Wolfenstein: Enemy Territory game assets'
+for asset in pak0 pak1 pak2; do
+  asset_path="/opt/hanasand-game/etmain/$asset.pk3"
+  case "$asset" in
+    pak0) asset_hash='712966b20e06523fe81419516500e499c86b2b4fec823856ddbd333fcb3d26e5' ;;
+    pak1) asset_hash='5610fd749024405b4425a7ce6397e58187b941d22092ef11d4844b427df53e5d' ;;
+    pak2) asset_hash='a48ab749a1a12ab4d9137286b1f23d642c29da59845b2bafc8f64e052cf06f3e' ;;
+  esac
+  if [[ -s "$asset_path" ]] && [[ "$(sha256sum "$asset_path" | cut -d ' ' -f 1)" == "$asset_hash" ]]; then continue; fi
+  asset_tmp="$(mktemp "/opt/hanasand-game/etmain/$asset.XXXXXXXX.pk3")"
+  if ! run_bounded 1800 curl -fsSL --connect-timeout 20 --max-time 1700 --retry 4 --retry-delay 3 "https://mirror.etlegacy.com/etmain/$asset.pk3" -o "$asset_tmp"; then
+    rm -f "$asset_tmp"
+    exit 1
+  fi
+  if [[ "$(sha256sum "$asset_tmp" | cut -d ' ' -f 1)" != "$asset_hash" ]]; then
+    rm -f "$asset_tmp"
+    printf 'Wolfenstein asset %s failed checksum verification.\\n' "$asset" >&2
+    exit 1
+  fi
+  mv "$asset_tmp" "$asset_path"
+done
+chown '${loginName}:${loginName}' /opt/hanasand-game/etmain/pak{0,1,2}.pk3
+cat > /opt/hanasand-game/etmain/etl_server.cfg <<'CONFIG'
+set sv_hostname "Hanasand ET Legacy"
+set sv_maxclients "20"
+set sv_privateclients "0"
+set sv_allowDownload "1"
+set sv_dlRate "100"
+set sv_pure "1"
+map battery
+CONFIG
+chown '${loginName}:${loginName}' /opt/hanasand-game/etmain/etl_server.cfg
+set_stage 'Starting Wolfenstein: Enemy Territory server'
+docker run -d --name hanasand-game --network host --restart unless-stopped \\
+  -e FS_GAME=legacy \\
+  --mount type=bind,src=/opt/hanasand-game/etmain,dst=/legacy/server/etmain \\
+  --mount type=bind,src=/opt/hanasand-game/homepath,dst=/legacy/homepath \\
+  etlegacy/server:v2.86.2 >/dev/null
+for attempt in $(seq 1 120); do
+  if ${portCheck} && docker logs hanasand-game 2>&1 | grep -F 'Game Initialization completed' >/dev/null; then break; fi
+  if [[ "$(docker inspect --format '{{.State.Status}}' hanasand-game)" != running ]]; then
+    docker logs --tail 40 hanasand-game >&2 || true
+    exit 1
+  fi
+  sleep 2
+done
+${portCheck}
+docker logs hanasand-game 2>&1 | grep -F 'Game Initialization completed' >/dev/null
 `
 }
 
