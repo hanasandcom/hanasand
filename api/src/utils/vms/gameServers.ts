@@ -41,6 +41,11 @@ export function gameServerSetupScript(id: string, loginName: string) {
     const portCheck = id === 'game-valheim'
         ? `${firstPortCheck} && ss -lunH 'sport = :2457' | grep -q ':2457'`
         : firstPortCheck
+    // The upstream CS2 image runs LinuxGSM monitor in its health check. During
+    // startup that can launch a second server before the first is ready.
+    const dockerHealthCheck = id === 'game-cs2'
+        ? `--health-cmd='timeout 10 gamedig --type protocol-valve 127.0.0.1:27015 | grep -q "Counter-Strike 2"' --health-interval=30s --health-timeout=15s --health-start-period=120s --health-retries=3`
+        : ''
     const valheimSecret = id === 'game-valheim' ? valheimSecretSetupScript(loginName) : ''
     const failureDetail = id === 'game-valheim'
         ? 'printf \'Valheim server did not start; inspect its private logs inside the VM.\\n\' >&2'
@@ -58,7 +63,7 @@ if [[ "$(stat -c '%u:%g' /opt/hanasand-game/data)" != "$game_owner" ]]; then
   run_bounded 1800 chown -hR "$game_owner" /opt/hanasand-game/data
 fi
 set_stage 'Starting ${game.label} server'
-docker run -d --name hanasand-game --network host --restart unless-stopped \\
+docker run -d --name hanasand-game --network host --restart unless-stopped ${dockerHealthCheck} \\
   --mount type=bind,src=/opt/hanasand-game/data,dst=/data \\
   -e UID="${'$'}{game_owner%:*}" -e GID="${'$'}{game_owner#*:}" -e UPDATE_CHECK=60 \\
   '${image}' >/dev/null
