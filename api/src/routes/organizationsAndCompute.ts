@@ -34,6 +34,7 @@ import stopVms from '../handlers/vms/stopVms.ts'
 import putVmHostFeatures from '../handlers/vms/putHostFeatures.ts'
 import postVmFailover from '../handlers/vms/postFailover.ts'
 import vmAction from '../handlers/vms/action.ts'
+import actionInternalVm from '../handlers/vms/actionInternal.ts'
 import { deleteProject, deleteShare, getProject, getShare, getShareTree, getUserProjects, getUserShares, postShare, putShare, setShareLock } from '../handlers/share.ts'
 import {
     deleteOrganizationWatchlist,
@@ -153,6 +154,7 @@ export function registerOrganizationsAndComputeRoutes(fastify: FastifyInstance) 
     fastify.post('/vm/setup-plan', postVmSetupPlan)
     fastify.post('/vms/internal/:name/provision', provisionVmInternal)
     fastify.get('/vms/internal/:name/status', getInternalVmStatus)
+    fastify.post('/vms/internal/:name/:action', actionInternalVm)
     fastify.post('/vm/:id/:action', vmAction)
     fastify.post('/vm/details', postVMDetails)
     fastify.post('/vms/shutdown', shutdownVMs)

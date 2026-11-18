@@ -58,7 +58,7 @@ test('VM action feedback does not expand inventory rows or console status surfac
     expect(vmRow).not.toMatch(/deleteError|setDeleteError/)
     expect(deleteDialog).not.toMatch(/\berror\s*:\s*string|role='alert'/)
     expect(deleteDialog).toMatch(/min-w-32 .*\{busy \? 'Deleting VM…' : 'Delete VM'\}/)
-    expect(actionFeedback).toMatch(/fixed inset-x-3 top-3/)
+    expect(actionFeedback).toMatch(/fixed inset-x-3 top-\[calc\(var\(--ui-header-height\)\+0\.75rem\)\]/)
     expect(actionFeedback).toMatch(/role=\{item\.tone === 'error' \? 'alert' : 'status'\}/)
     expect(consoleClient).toMatch(/role='status' title=\{session\.status\} className='h-5 min-h-5 max-w-full truncate/)
     expect(consoleClient).toMatch(/h-10 min-h-10 shrink-0 items-center gap-2 overflow-hidden/)

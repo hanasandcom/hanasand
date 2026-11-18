@@ -52,7 +52,7 @@ export default function RestartButtons({ vm, onUpdated, onFeedback, showLabels =
             const response = await manageVM(vm.name, action)
             if (response.ok) {
                 if (action === 'start' || action === 'stop') setPendingAction(action)
-                onFeedback?.(`${action === 'start' ? 'Start' : action === 'stop' ? 'Stop' : 'Restart'} requested for ${vm.name}.`, 'success', feedbackKey)
+                onFeedback?.(response.message, 'success', feedbackKey)
                 router.refresh()
                 onUpdated?.()
             } else {
