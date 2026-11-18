@@ -178,6 +178,22 @@ test('a stopped VM with a stale success marker reports the cloud-init setup fail
     }])
 })
 
+test('a stopped VM with an unfinished setup reports an error instead of waiting forever', async () => {
+    localConfig = {
+        'user.hanasand.setup_plan': 'setup-hash',
+        'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Preparing selected services' }),
+    }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        if (String(input).includes('/files?')) return new Response('Not found', { status: 404 })
+        return Response.json({ metadata: { status: 'Stopped' } })
+    }) as typeof fetch
+
+    const result = await localVmStatus('stopped-unfinished-vm')
+    expect(result.status).toBe('Error')
+    expect(result.status_reason).toContain('stopped before setup completed')
+    expect(localConfigUpdates[0]?.['user.hanasand.provisioning_state']).toContain('"status":"Error"')
+})
+
 test('cloud-init result with no errors keeps the guest setup success marker', async () => {
     localConfig = { 'user.hanasand.setup_plan': 'setup-hash' }
     globalThis.fetch = (async (input: string | URL | Request) => {

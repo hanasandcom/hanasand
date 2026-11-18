@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 
 const calls: Array<{ path: string, options?: { method?: string; body?: unknown } }> = []
 let created: Record<string, unknown> | undefined
+const cachedAliases = new Set<string>()
 mock.module('../src/constants.ts', () => ({ default: { lxd_image_server: 'https://images.example', lxd_image_alias: '24.04', lxd_socket_path: '/tmp/lxd.sock' } }))
 mock.module('../src/utils/db.ts', () => ({ default: async () => ({ rows: [] }) }))
 
@@ -14,6 +15,10 @@ const resetRequest = setLxdRequestForTest(async (path, options) => {
         return { status_code: 200, status: 'Success', metadata: {}, operation: '/1.0/operations/start' }
     }
     if (path === '/1.0/profiles/default') return { status_code: 200, status: 'Success', metadata: { devices: { root: { type: 'disk', path: '/', pool: 'test-pool' } } } }
+    if (path.startsWith('/1.0/images/aliases/')) {
+        if (!cachedAliases.has(decodeURIComponent(path.split('/').pop() || ''))) throw new Error('LXD returned 404')
+        return { status_code: 200, status: 'Success', metadata: { name: path.split('/').pop() } }
+    }
     if (path.startsWith('/1.0/instances/') && path.endsWith('/state')) {
         return { status_code: 200, status: 'Success', metadata: { status: 'Running' } }
     }
@@ -30,7 +35,7 @@ const resetRequest = setLxdRequestForTest(async (path, options) => {
     return { status_code: 200, status: 'Success', metadata: { pending: [], running: [] } }
 })
 const resetWriter = setVmDetailsWriterForTest(async () => {})
-beforeEach(() => { calls.length = 0; created = undefined })
+beforeEach(() => { calls.length = 0; created = undefined; cachedAliases.clear() })
 afterAll(() => { resetRequest(); resetWriter() })
 
 test('LXD project scoping preserves other query parameters and replaces stale project values', () => {
@@ -74,6 +79,13 @@ test.serial('LXD creates a full VM with the selected resources, Docker setup, an
     expect(body.config['cloud-init.user-data']).toContain('apt_packages+=( \'ripgrep\' )')
 })
 
+test.serial('LXD uses a preloaded local image when one is available', async () => {
+    cachedAliases.add('hanasand-ubuntu-24.04-vm')
+    await provisionLocalLxdInstance('cached-vm', { os: 'ubuntu-24.04' })
+    const source = (calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as { source: Record<string, string> }).source
+    expect(source).toEqual({ type: 'image', alias: 'hanasand-ubuntu-24.04-vm' })
+})
+
 test.serial('Rocky Linux uses its supported image alias and installs Docker and Nginx with DNF', async () => {
     await provisionLocalLxdInstance('rocky-vm', {
         os: 'rocky-9',
@@ -96,11 +108,7 @@ test.serial('Rocky Linux uses its supported image alias and installs Docker and 
     expect(body.config['cloud-init.user-data']).toContain('if [[ \'true\' == \'true\' ]]')
 })
 
-test.serial('Kali, Fedora Server, and AlmaLinux use published cloud image aliases', async () => {
-    await provisionLocalLxdInstance('kali-vm', { os: 'kali', services: ['docker'] })
-    const kali = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as { source: { server: string; alias: string } }
-    expect(kali.source).toMatchObject({ server: 'https://images.lxd.canonical.com', alias: 'kali/current/cloud' })
-
+test.serial('Fedora Server and AlmaLinux use published cloud image aliases', async () => {
     calls.length = 0
     created = undefined
     await provisionLocalLxdInstance('fedora-vm', { os: 'fedora-44', services: ['docker'] })

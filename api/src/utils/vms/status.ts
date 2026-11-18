@@ -36,6 +36,13 @@ export async function localVmStatus(name: string, statusOptions: { allowHostWork
         const setupResponse = await fetch(`http://localhost${setupPath}`, setupOptions).catch(() => null)
         const rawState = setupResponse?.ok ? await setupResponse.text().catch(() => '') : ''
         const [setupStatus] = rawState.trim().split('\t')
+        const persisted = instance.config['user.hanasand.provisioning_state']
+        const pending = persisted ? parsePersistedSetupState(persisted) : undefined
+        if (pending?.status.toLowerCase() === 'provisioning' && setupStatus !== 'Running') {
+            const state = { status: 'Error', status_reason: 'The VM stopped before setup completed. Start it again or contact Support.' }
+            await updateLocalLxdConfig(name, { 'user.hanasand.provisioning_state': JSON.stringify(state) }).catch(() => {})
+            return state
+        }
         if (setupStatus !== 'Running' || !(await hasCloudInitSetupErrors(name))) return body.metadata
         const state = { status: 'Error', status_reason: cloudInitSetupFailureReason }
         const persistedState = instance.config['user.hanasand.provisioning_state']

@@ -17,6 +17,7 @@ test('VM setup suggestions require a signed-in user and a bounded prompt', async
     const long = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'a'.repeat(1201) } })
     expect(short.statusCode).toBe(400)
     expect(long.statusCode).toBe(400)
+    expect((await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'blog' } })).statusCode).toBe(200)
 })
 
 test('VM setup suggestions accept a fenced plan after unrelated prose braces', async () => {
@@ -51,6 +52,11 @@ test('VM setup suggestions return only allowlisted services', async () => {
     expect(website.json().packages).toEqual(['git'])
     expect(completionMessages[0].content).toContain('For a static website, include website and nginx only')
     expect(completionMessages[0].content).toContain('Contact email creates a mailto link, not a form')
+
+    completion = JSON.stringify({ summary: 'A blog', services: [], packages: [], website: { title: 'Blog', tagline: 'Updates', sections: [] }, minecraftServerType: null })
+    const blog = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'blog' } })
+    expect(blog.statusCode).toBe(200)
+    expect(blog.json().services).toEqual(['website', 'nginx'])
 
     completion = JSON.stringify({ summary: 'A gallery page', services: ['website', 'nginx'], packages: [], website: { title: 'Gallery', tagline: '', sections: [], gallery: [{ url: 'javascript:alert(1)', alt: 'Unsafe', caption: '' }], contactEmail: '' }, minecraftServerType: null })
     const invalidGallery = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A photo gallery' } })
@@ -125,12 +131,9 @@ test('AlmaLinux setup plans use DNF services and reject Debian package names', a
     expect(unsupportedPackage.statusCode).toBe(422)
 })
 
-test('Kali setup plans use the Debian package catalog', async () => {
-    completion = JSON.stringify({ summary: 'Docker on Kali', services: ['docker'], packages: [], website: null, minecraftServerType: null })
+test('Kali setup plans are unavailable while no VM image is published', async () => {
     const response = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install Docker', os: 'kali' } })
-    expect(response.statusCode).toBe(200)
-    expect(response.json().services).toEqual(['docker'])
-    expect(completionMessages[0].content).toContain('Use package names from the selected Ubuntu or Debian archive')
+    expect(response.statusCode).toBe(400)
 })
 
 test('Fedora Server setup plans use DNF services and reject Debian package names', async () => {

@@ -19,7 +19,7 @@ function imageSource(os: NonNullable<VmProvisionOptions['os']>): { server: strin
         case 'ubuntu-26.04': return { server: config.lxd_image_server, alias: '26.04' }
         case 'ubuntu-24.04-desktop': return { server: lxdImageServer, alias: 'ubuntu/24.04/desktop' }
         case 'debian-13': return { server: lxdImageServer, alias: 'debian/13/cloud' }
-        case 'kali': return { server: lxdImageServer, alias: 'kali/current/cloud' }
+        case 'kali': throw new Error('Kali Linux does not currently publish a compatible virtual-machine image.')
         case 'fedora-44': return { server: lxdImageServer, alias: 'fedora/44/cloud' }
         case 'almalinux-9': return { server: lxdImageServer, alias: 'almalinux/9/cloud' }
         case 'rocky-9': return { server: lxdImageServer, alias: 'rockylinux/9/cloud' }
@@ -79,6 +79,8 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
     }
     if (!existing) {
         const rootDiskPool = await localRootDiskPool()
+        const cachedAlias = `hanasand-${selectedOs}-vm`
+        const cachedImage = await lxdRequest(`/1.0/images/aliases/${encodeURIComponent(cachedAlias)}`).then(() => true).catch(() => false)
         const response = await lxdRequest<unknown>('/1.0/instances', {
             method: 'POST',
             body: {
@@ -93,13 +95,9 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
                     'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Preparing selected services' }),
                     'cloud-init.user-data': vmSetupUserData(name, { ...options, os: selectedOs, resources: selectedResources, services: selectedServices, aptPackages: selectedAptPackages }),
                 },
-                source: {
-                    type: 'image',
-                    mode: 'pull',
-                    server: selectedImage.server,
-                    protocol: 'simplestreams',
-                    alias: selectedImage.alias,
-                },
+                source: cachedImage
+                    ? { type: 'image', alias: cachedAlias }
+                    : { type: 'image', mode: 'pull', server: selectedImage.server, protocol: 'simplestreams', alias: selectedImage.alias },
             },
         })
         await waitForLxdOperation(response.operation, 120)

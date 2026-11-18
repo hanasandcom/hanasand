@@ -9,7 +9,7 @@ import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import config from '#constants'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import { enqueueVmProvisionOnHost, waitForVmProvisionOnHost, type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
-import { provisionLocalLxdInstance } from '#utils/vms/lxd.ts'
+import { provisionLocalLxdInstance, updateLocalLxdConfig } from '#utils/vms/lxd.ts'
 import { clearLocalProvisionState, localProvisionFailureReason, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { redactLogText } from '#utils/logs/redact.ts'
@@ -246,7 +246,9 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
         void provisionLocalLxdInstance(name, options).then(() => {
             clearLocalProvisionState(name)
         }).catch(error => {
-            setLocalProvisionState(name, { status: 'Error', status_reason: localProvisionFailureReason(error) })
+            const status_reason = localProvisionFailureReason(error)
+            setLocalProvisionState(name, { status: 'Error', status_reason })
+            void updateLocalLxdConfig(name, { 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', status_reason }) }).catch(() => {})
             logger.error({
                 requestId, vmName: name, phase: 'create_or_provision',
                 error: redactLogText(error instanceof Error ? error.message : String(error)).slice(0, 500),
@@ -273,7 +275,7 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
 class VmProvisionQueueError extends Error {}
 
 function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, minecraftAddonsInput: unknown, customAptPackages: unknown, website: unknown, projectFilesInput?: unknown): VmProvisionOptions | null {
-    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop', 'debian-13', 'kali', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'])
+    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop', 'debian-13', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
     if (resources !== undefined && !isSupportedResourceAllocation(resources)) return null
     if (services !== undefined && (!Array.isArray(services) || services.length > supportedSetupServices.length || services.some(service => !isSupportedSetupService(service)))) return null

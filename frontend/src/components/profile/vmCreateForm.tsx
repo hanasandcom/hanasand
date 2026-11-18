@@ -63,7 +63,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const currentResources = getVmResourceAllocation(resourcePlan, customCpu, customMemory, customDisk)
     const resourceError = getVmResourceError(resourcePlan, customCpu, customMemory, customDisk, minimumMemory, minimumDisk)
     const currentSetupKey = `${operatingSystem}\n${setupPrompt.trim()}`
-    const unresolvedSetupPrompt = setupPrompt.trim().length >= 5 && suggestedSetupKey !== currentSetupKey
+    const unresolvedSetupPrompt = setupPrompt.trim().length >= 3 && suggestedSetupKey !== currentSetupKey
         && selectedServices.length === 0 && customAptPackages.length === 0
 
     useEffect(() => { if (visible) nameInput.current?.focus() }, [visible])
@@ -109,7 +109,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             <label htmlFor={promptId} className='text-sm font-medium text-ui-text'>Describe what you want to build</label>
             <div className='flex flex-wrap items-center gap-2'>
                 <input id={promptId} value={setupPrompt} onChange={event => { setSetupPrompt(event.target.value); setSelectedServices([]); setWebsitePlan(starterWebsitePlan); setProjectFiles([]); setCustomAptPackages([]); setSetupSuggestion(''); setSuggestedSetupKey('') }} maxLength={1200} placeholder='A portfolio, a custom app, or Node.js with PostgreSQL' disabled={creating || suggestingSetup} className='h-10 min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text placeholder:text-ui-muted' />
-                <button type='button' onClick={suggestSetup} disabled={creating || suggestingSetup || setupPrompt.trim().length < 5} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-medium text-ui-text hover:bg-ui-panel disabled:opacity-50'>{suggestingSetup ? 'Creating…' : 'Generate setup'}</button>
+                <button type='button' onClick={suggestSetup} disabled={creating || suggestingSetup || setupPrompt.trim().length < 3} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-medium text-ui-text hover:bg-ui-panel disabled:opacity-50'>{suggestingSetup ? 'Creating…' : 'Generate setup'}</button>
             </div>
             {setupSuggestion && <p role='status' className='text-sm text-ui-muted'>{setupSuggestion}</p>}
             {customAptPackages.length > 0 && <p className='text-xs text-ui-muted'>Additional Ubuntu packages: {customAptPackages.join(', ')}</p>}

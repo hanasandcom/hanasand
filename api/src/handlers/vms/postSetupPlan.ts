@@ -93,11 +93,11 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
 
     const body = req.body as { prompt?: unknown; os?: unknown } | undefined
     const prompt = body?.prompt
-    if (typeof prompt !== 'string' || prompt.trim().length < 5 || prompt.length > 1200) {
-        return res.status(400).send({ error: 'Describe what you want to build in 5 to 1,200 characters.' })
+    if (typeof prompt !== 'string' || prompt.trim().length < 3 || prompt.length > 1200) {
+        return res.status(400).send({ error: 'Describe what you want to build in 3 to 1,200 characters.' })
     }
     const operatingSystem = body?.os === undefined ? 'ubuntu-24.04' : body.os
-    if (typeof operatingSystem !== 'string' || !['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-24.04-desktop', 'debian-13', 'kali', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'].includes(operatingSystem)) {
+    if (typeof operatingSystem !== 'string' || !['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-24.04-desktop', 'debian-13', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'].includes(operatingSystem)) {
         return res.status(400).send({ error: 'Choose a supported operating system before generating a setup.' })
     }
 
@@ -137,9 +137,12 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         if (typeof plan.unsupportedReason === 'string' && plan.unsupportedReason.trim()) {
             return res.status(422).send({ error: plan.unsupportedReason.trim().slice(0, 400) })
         }
-        if (plan.website && (!plan.services.includes('website') || !plan.services.includes('nginx'))) throw new Error('A website plan needs the website and nginx services.')
         if (plan.minecraftServerType && !plan.services.includes('minecraft-java')) throw new Error('A Minecraft plan needs the Minecraft Java service.')
         const selectedServices = [...new Set(plan.services.filter(isSupportedSetupService))]
+        if (plan.website) {
+            if (!selectedServices.includes('website')) selectedServices.push('website')
+            if (!selectedServices.includes('nginx')) selectedServices.push('nginx')
+        }
         if (projectFiles && !selectedServices.includes('nodejs')) selectedServices.push('nodejs')
         if (projectFiles && (selectedServices.includes('website') || selectedServices.includes('minecraft-java') || plan.minecraftServerType)) {
             throw new Error('Generated web projects cannot also select incompatible setup types.')
