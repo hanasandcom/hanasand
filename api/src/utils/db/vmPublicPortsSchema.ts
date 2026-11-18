@@ -5,25 +5,41 @@ export default async function ensureVmPublicPortsSchema() {
         id BIGSERIAL PRIMARY KEY,
         vm_name TEXT NOT NULL REFERENCES vms(name) ON UPDATE CASCADE ON DELETE CASCADE,
         name TEXT NOT NULL UNIQUE,
-        route_type TEXT NOT NULL CHECK (route_type IN ('minecraft-java', 'tls', 'http')),
+        route_type TEXT NOT NULL CHECK (route_type IN ('minecraft-java', 'tls', 'http', 'tcp', 'udp')),
         guest_port INTEGER NOT NULL CHECK (guest_port BETWEEN 1 AND 65535),
+        public_port INTEGER,
         created_by TEXT NOT NULL,
         short_hostname BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`)
     await run('ALTER TABLE vm_public_ports ADD COLUMN IF NOT EXISTS short_hostname BOOLEAN NOT NULL DEFAULT FALSE')
+    await run('ALTER TABLE vm_public_ports ADD COLUMN IF NOT EXISTS public_port INTEGER')
     await run(`DO $$
     BEGIN
         IF NOT EXISTS (
             SELECT 1 FROM pg_constraint
             WHERE conrelid = 'vm_public_ports'::regclass
               AND conname = 'vm_public_ports_route_type_check'
-              AND pg_get_constraintdef(oid) LIKE '%http%'
+              AND pg_get_constraintdef(oid) LIKE '%udp%'
         ) THEN
             ALTER TABLE vm_public_ports DROP CONSTRAINT IF EXISTS vm_public_ports_route_type_check;
             ALTER TABLE vm_public_ports ADD CONSTRAINT vm_public_ports_route_type_check
-                CHECK (route_type IN ('minecraft-java', 'tls', 'http'));
+                CHECK (route_type IN ('minecraft-java', 'tls', 'http', 'tcp', 'udp'));
+        END IF;
+    END $$`)
+    await run(`DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'vm_public_ports'::regclass
+            AND conname = 'vm_public_ports_public_port_check') THEN
+            ALTER TABLE vm_public_ports ADD CONSTRAINT vm_public_ports_public_port_check
+                CHECK (public_port IS NULL OR public_port BETWEEN 32000 AND 45000);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'vm_public_ports'::regclass
+            AND conname = 'vm_public_ports_public_port_type_check') THEN
+            ALTER TABLE vm_public_ports ADD CONSTRAINT vm_public_ports_public_port_type_check
+                CHECK ((route_type IN ('tcp', 'udp')) = (public_port IS NOT NULL));
         END IF;
     END $$`)
     await run('CREATE INDEX IF NOT EXISTS vm_public_ports_vm_name_idx ON vm_public_ports(vm_name)')
+    await run('CREATE UNIQUE INDEX IF NOT EXISTS vm_public_ports_public_port_idx ON vm_public_ports(public_port) WHERE public_port IS NOT NULL')
 }

@@ -17,9 +17,16 @@ let releaseStatusResponse: (() => void) | undefined
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: any) => ({ valid: Boolean(req.headers.id), id: req.headers.id }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async (req: any) => ({ valid: req.headers.id === 'admin' }) }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false }))
+mock.module('../src/utils/loadSQL.ts', () => ({
+    loadSQL: async (file: string) => {
+        if (file !== 'insertVM.sql') throw new Error('Unexpected VM query fixture.')
+        return Bun.file(new URL('../src/queries/insertVM.sql', import.meta.url)).text()
+    },
+}))
 mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur', get lxd_project() { return lxdProject } } }))
 mock.module('#db', () => ({
     withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work(),
+    withTransaction: async () => { throw new Error('VM creation should not start a public port transaction.') },
     default: async (sql: string, params: unknown[] = []) => {
         databaseCalls.push({ sql, params })
         return {
@@ -258,6 +265,42 @@ test('VM creation accepts and forwards every listed service', async () => {
     expect(smallVanillaVm.statusCode).toBe(201)
     const undersizedModdedVm = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'small-modded', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['minecraft-java'], minecraft_eula_accepted: true, minecraft_server_type: 'FORGE' } })
     expect(undersizedModdedVm.statusCode).toBe(400)
+})
+
+test('VM creation accepts ten game servers with their minimum resources on Ubuntu 24.04', async () => {
+    const games = [
+        ['game-cs2', 8, 100], ['game-terraria', 2, 20], ['game-factorio', 4, 20],
+        ['game-valheim', 4, 30], ['game-luanti', 2, 20], ['game-openra', 2, 20],
+        ['game-xonotic', 2, 20], ['game-teeworlds', 2, 20], ['game-warfork', 2, 20],
+        ['game-wolfet', 2, 20],
+    ] as const
+    for (const [service, memory, disk] of games) {
+        existingVm = undefined
+        const name = `verify-${service}`
+        const response = await app.inject({
+            method: 'POST', url: '/vm', headers: { id: 'member' },
+            payload: { name, os: 'ubuntu-24.04', resources: { cpu: '2', memory: `${memory}GiB`, disk: `${disk}GiB` }, services: [service] },
+        })
+        expect(response.statusCode).toBe(201)
+        const provision = calls.find(call => call.path.endsWith(`/${name}/provision`))
+        expect(JSON.parse(String(provision?.body))).toMatchObject({ os: 'ubuntu-24.04', services: [service] })
+    }
+})
+
+test('VM creation rejects unsupported game combinations, OS, and undersized allocations', async () => {
+    const base = { name: 'game-vm', services: ['game-terraria'], resources: { cpu: '2', memory: '2GiB', disk: '20GiB' } }
+    for (const payload of [
+        { ...base, os: 'kali' },
+        { ...base, services: ['game-terraria', 'game-factorio'] },
+        { ...base, services: ['game-terraria', 'minecraft-java'], minecraft_eula_accepted: true },
+        { ...base, resources: { cpu: '1', memory: '2GiB', disk: '10GiB' } },
+        { ...base, services: ['game-cs2'], resources: { cpu: '4', memory: '8GiB', disk: '80GiB' } },
+    ]) {
+        const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload })
+        expect(response.statusCode).toBe(400)
+    }
+    expect(calls).toHaveLength(0)
+    expect(databaseCalls.every(call => !/INSERT INTO vms/.test(call.sql))).toBe(true)
 })
 
 test('AI website content is escaped before it crosses the authenticated host boundary', async () => {

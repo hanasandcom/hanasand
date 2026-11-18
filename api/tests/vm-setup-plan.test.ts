@@ -103,10 +103,36 @@ test('unsupported game requests cannot be remapped to Minecraft Java', async () 
     expect(bedrock.json()).toEqual({ error: 'Minecraft Bedrock is not available yet. This VM builder currently supports Minecraft Java Edition.' })
     expect(completionRequests).toBe(callsBefore)
 
-    completion = JSON.stringify({ summary: 'Terraria needs a separate UDP route.', unsupportedReason: 'This game server is not available yet.', services: [], packages: [], website: null, minecraftServerType: null })
-    const unsupportedGame = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Set up a Terraria server' } })
+    completion = JSON.stringify({ summary: 'This game is not supported.', unsupportedReason: 'This game server is not available yet.', services: [], packages: [], website: null, minecraftServerType: null })
+    const unsupportedGame = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Set up an ARK Survival Ascended server' } })
     expect(unsupportedGame.statusCode).toBe(422)
     expect(unsupportedGame.json()).toEqual({ error: 'This game server is not available yet.' })
+})
+
+test('short game prompts select their exact supported server without model guesses', async () => {
+    const prompts = [
+        ['cs server', 'game-cs2'],
+        ['terraria server', 'game-terraria'],
+        ['factorio server', 'game-factorio'],
+        ['valheim server', 'game-valheim'],
+        ['luanti server', 'game-luanti'],
+        ['openra server', 'game-openra'],
+        ['xonotic server', 'game-xonotic'],
+        ['teeworlds server', 'game-teeworlds'],
+        ['warfork server', 'game-warfork'],
+        ['wolfenstein enemy territory server', 'game-wolfet'],
+    ] as const
+    const callsBefore = completionRequests
+    for (const [prompt, service] of prompts) {
+        const result = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt } })
+        expect(result.statusCode).toBe(200)
+        expect(result.json()).toMatchObject({ services: [service], packages: [], website: null, minecraftServerType: null })
+    }
+    expect(completionRequests).toBe(callsBefore)
+    const incompatibleOs = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'terraria server', os: 'kali' } })
+    expect(incompatibleOs.statusCode).toBe(422)
+    const twoGames = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'cs2 and terraria servers' } })
+    expect(twoGames.statusCode).toBe(422)
 })
 
 test('Rocky Linux setup plans use supported services and reject archive packages', async () => {

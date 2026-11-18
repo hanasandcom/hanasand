@@ -8,7 +8,7 @@ import hasInternalToken from '#utils/auth/internalToken.ts'
 import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import config from '#constants'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
-import { enqueueVmProvisionOnHost, waitForVmProvisionOnHost, type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
+import { enqueueVmProvisionOnHost, waitForVmProvisionOnHost, vmProvisionTimeoutForOptions, type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
 import { provisionLocalLxdInstance, updateLocalLxdConfig } from '#utils/vms/lxd.ts'
 import { clearLocalProvisionState, localProvisionFailureReason, setLocalProvisionState } from '#utils/vms/localProvisionState.ts'
 import recordLog from '#utils/logs/recordLog.ts'
@@ -19,6 +19,7 @@ import { normalizeUbuntuAptPackages } from '#utils/vms/ubuntuAptPackages.ts'
 import { isVmWebsitePlan, renderVmWebsite } from '#utils/vms/website.ts'
 import { normalizeNextjsProjectFiles } from '#utils/vms/nextjsProject.ts'
 import { minecraftAddonLoader, normalizeMinecraftAddons } from '#utils/vms/minecraftAddons.ts'
+import { gameServerCatalog, isGameServerService } from '#utils/vms/gameServers.ts'
 
 export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     const body = req.body as {
@@ -262,7 +263,7 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
     } catch {
         throw new VmProvisionQueueError('The VM host could not start this setup. Try again in a moment.')
     }
-    void waitForVmProvisionOnHost(host, name, internalHostFetch).then(async () => {
+    void waitForVmProvisionOnHost(host, name, internalHostFetch, { timeoutMs: vmProvisionTimeoutForOptions(options) }).then(async () => {
         await syncUserCertificatesToVm({ vmName: name, userIds }).catch(error => {
             void recordVmProvisioningError(name, error, 'certificate_sync')
         })
@@ -284,6 +285,9 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     if (['fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'].includes(String(os)) && selectedAptPackages.length) return null
     const selectedServices = [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)]
     if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null
+    const selectedGameServers = selectedServices.filter(isGameServerService)
+    if (selectedGameServers.length > 1 || (selectedGameServers.length && selectedServices.includes('minecraft-java'))) return null
+    if (selectedGameServers.length && (os || 'ubuntu-24.04') !== 'ubuntu-24.04') return null
     const selectedResources = (resources || { cpu: '1', memory: '2GiB', disk: '10GiB' }) as NonNullable<VmProvisionOptions['resources']>
     const selectedMinecraftType = (minecraftServerType || 'PAPER') as NonNullable<VmProvisionOptions['minecraftServerType']>
     const selectedMinecraftAddons = normalizeMinecraftAddons(minecraftAddonsInput, selectedMinecraftType)
@@ -291,6 +295,10 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
         || (selectedMinecraftAddons.length && !minecraftAddonLoader(selectedMinecraftType))) return null
     const memoryGiB = Number.parseInt(selectedResources.memory, 10)
     const diskGiB = Number.parseInt(selectedResources.disk, 10)
+    if (selectedGameServers.some(id => {
+        const game = gameServerCatalog.find(entry => entry.id === id)
+        return !game || memoryGiB < game.minMemoryGiB || diskGiB < game.minDiskGiB
+    })) return null
     if (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(selectedMinecraftType)
         && (memoryGiB < 4 || diskGiB < 20)) return null
     if (os === 'ubuntu-24.04-desktop' && (memoryGiB < 8 || diskGiB < 40)) return null

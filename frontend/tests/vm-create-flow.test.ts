@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
-import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceTabs, vmServices } from '../src/utils/vms/createOptions'
+import { isVmGameServer, vmGameServers, vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceTabs, vmServices } from '../src/utils/vms/createOptions'
+import { fitVmGameResources } from '../src/utils/vms/gameResourceSelection'
 import { getVmProvisioningFeedback, getVmProvisioningUnavailableFeedback } from '../src/components/vms/useVmProvisioningStatus'
 import getVM from '../src/utils/vms/fetch/getVM'
 
@@ -18,7 +19,13 @@ const createRequest = new URL('../src/utils/vms/fetch/postVM.ts', import.meta.ur
 test('the VM create form offers locally bundled operating systems and installable services', async () => {
     const [source, submission, picker, resourcePickerSource, websiteEditor, minecraftAddonPicker] = await Promise.all([readFile(createForm, 'utf8'), readFile(createSubmission, 'utf8'), readFile(osPicker, 'utf8'), readFile(resourcePicker, 'utf8'), readFile(new URL('../src/components/profile/vmWebsiteEditor.tsx', import.meta.url), 'utf8'), readFile(new URL('../src/components/profile/vmMinecraftAddonPicker.tsx', import.meta.url), 'utf8')])
     expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-24.04-desktop', 'ubuntu-26.04', 'ubuntu-22.04', 'debian-13', 'kali', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'])
-    expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'go', 'php', 'rust', 'ruby', 'cpp', 'docker', 'postgresql', 'mysql', 'redis', 'sqlite', 'nginx', 'website', 'minecraft-java'])
+    expect(vmServices.slice(0, 17).map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'go', 'php', 'rust', 'ruby', 'cpp', 'docker', 'postgresql', 'mysql', 'redis', 'sqlite', 'nginx', 'website', 'minecraft-java'])
+    expect(vmGameServers.map(game => game.id)).toEqual(['game-cs2', 'game-terraria', 'game-factorio', 'game-valheim', 'game-luanti', 'game-openra', 'game-xonotic', 'game-teeworlds', 'game-warfork', 'game-wolfet'])
+    expect(vmServices.filter(service => service.group === 'Game servers')).toHaveLength(11)
+    expect(isVmGameServer('minecraft-java')).toBe(true)
+    expect(isVmGameServer('game-cs2')).toBe(true)
+    expect(isVmGameServer('nginx')).toBe(false)
+    expect(vmGameServers.find(game => game.id === 'game-cs2')).toMatchObject({ minMemoryGiB: 8, minDiskGiB: 100 })
     expect(vmServiceTabs).toEqual([
         { id: 'development', label: 'Development', groups: ['Development'] },
         { id: 'data', label: 'Data', groups: ['Data'] },
@@ -59,7 +66,7 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('Generate a supported setup for this description, or clear it to create a blank VM.')
     expect(submission).toContain('custom_apt_packages: input.customAptPackages')
     expect(source).toContain('Additional Ubuntu packages: {customAptPackages.join(\', \')}')
-    expect(source).toContain('option.memory !== \'2GiB\'')
+    expect(source).toContain('Number.parseInt(option.memory, 10) >= minimumMemory')
     expect(source).toContain('const requiresLargePlan = operatingSystem === \'ubuntu-24.04-desktop\'')
     expect(source).toContain('(value === \'ubuntu-24.04-desktop\' || value === \'kali\') && resourcePlan !== \'custom\'')
     expect(submission).toContain('input.setCreationError(result.message)')
@@ -69,7 +76,15 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('projectFiles.length > 0 || (selectedServices.includes(\'minecraft-java\') && [\'FABRIC\', \'QUILT\', \'FORGE\', \'NEOFORGE\', \'FOLIA\'].includes(minecraftServerType))')
     expect(source).toContain('if (plan.projectFiles?.length && resourcePlan === \'small\') setResourcePlan(\'standard\')')
     expect(source).toContain('a custom app')
-    expect(source).toContain('disabled={projectFiles.length > 0 && [\'nodejs\', \'website\', \'minecraft-java\'].includes(service.id)}')
+    expect(source).toContain('projectFiles.length > 0 && isVmGameServer(service.id)')
+    expect(source).toContain('fitGameResources(service.id)')
+    expect(source).toContain('<VmGameServerDetails game={selectedGame} />')
+    const gameDetails = await readFile(new URL('../src/components/profile/vmGameServerDetails.tsx', import.meta.url), 'utf8')
+    expect(gameDetails).toContain('Configure public access before inviting players.')
+    expect(gameDetails).toContain('sudo cat /opt/hanasand-game/valheim-password')
+    expect(gameDetails).toContain('Xbox and Game Pass crossplay is not enabled.')
+    expect(fitVmGameResources(vmGameServers[0], 'small', '4', '40')).toEqual({ plan: 'custom', memory: '8', disk: '100' })
+    expect(fitVmGameResources(vmGameServers[1], 'small', '4', '40')).toEqual({ plan: 'standard', memory: '4', disk: '40' })
 })
 
 test('successful creation opens the terminal without waiting for a VM status fetch', async () => {

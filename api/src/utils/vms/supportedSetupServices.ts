@@ -1,6 +1,9 @@
+import { gameServerCatalog } from './gameServers.ts'
+
 export const supportedSetupServices = [
     'nodejs', 'postgresql', 'mysql', 'sqlite', 'redis', 'python', 'bun', 'rust', 'ruby', 'cpp',
     'docker', 'java', 'go', 'php', 'nginx', 'website', 'minecraft-java',
+    ...gameServerCatalog.map(game => game.id),
 ] as const
 
 export type SupportedVmSetupService = typeof supportedSetupServices[number]

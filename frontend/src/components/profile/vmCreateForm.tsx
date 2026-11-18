@@ -2,24 +2,19 @@
 
 import suggestVmSetup, { type VmWebsitePlan } from '@/utils/vms/fetch/suggestVmSetup'
 import { useEffect, useId, useRef, useState } from 'react'
-import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceTabs, vmServices } from '@/utils/vms/createOptions'
+import { isVmGameServer, vmGameServers, vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceTabs, vmServices } from '@/utils/vms/createOptions'
 import type { NotifyVmAction } from '@/components/vms/vmActionFeedback'
 import VmOperatingSystemPicker from './vmOperatingSystemPicker'
 import VmResourcePicker from './vmResourcePicker'
 import VmCustomResourceFields from './vmCustomResourceFields'
 import VmMinecraftAddonPicker from './vmMinecraftAddonPicker'
 import VmMinecraftServerPicker from './vmMinecraftServerPicker'
+import VmGameServerDetails from './vmGameServerDetails'
 import VmWebsiteEditor from './vmWebsiteEditor'
 import { getVmResourceAllocation, getVmResourceError } from '@/utils/vms/resourceAllocation'
+import { fitVmGameResources } from '@/utils/vms/gameResourceSelection'
+import { starterWebsitePlan } from '@/utils/vms/websiteStarter'
 import { submitVmCreation } from './vmCreateSubmission'
-
-const starterWebsitePlan: VmWebsitePlan = {
-    title: 'Make this space yours.',
-    tagline: 'A simple one-page website, ready for your content.',
-    sections: [],
-    gallery: [],
-    contactEmail: '',
-}
 
 export default function VmCreateForm({ id, visible, organizationId, canCreate, permissionMessage, notify, onCreating, onCreated }: {
     id: string
@@ -56,18 +51,31 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const requiresLargePlan = operatingSystem === 'ubuntu-24.04-desktop'
     const requiresKaliDisk = operatingSystem === 'kali'
     const requiresFourGiB = projectFiles.length > 0 || (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(minecraftServerType))
-    const availableResources = vmResourceOptions.filter(option => option.id === 'custom' || (requiresLargePlan || requiresKaliDisk
-        ? option.id === 'large'
-        : !requiresFourGiB || option.memory !== '2GiB'))
-    const minimumMemory = requiresLargePlan ? 8 : requiresFourGiB ? 4 : 1
-    const minimumDisk = requiresLargePlan ? 40 : requiresKaliDisk ? 30 : 20
+    const selectedGame = vmGameServers.find(game => selectedServices.includes(game.id))
+    const minimumMemory = Math.max(requiresLargePlan ? 8 : 1, requiresFourGiB ? 4 : 1, selectedGame?.minMemoryGiB || 1)
+    const minimumDisk = Math.max(requiresLargePlan ? 40 : requiresKaliDisk ? 30 : 20, selectedGame?.minDiskGiB || 20)
+    const availableResources = vmResourceOptions.filter(option => option.id === 'custom' || (
+        (!requiresLargePlan && !requiresKaliDisk || option.id === 'large')
+        && Number.parseInt(option.memory, 10) >= minimumMemory
+        && Number.parseInt(option.disk, 10) >= (selectedGame?.minDiskGiB || (requiresLargePlan || requiresKaliDisk ? minimumDisk : 0))))
     const currentResources = getVmResourceAllocation(resourcePlan, customCpu, customMemory, customDisk)
     const resourceError = getVmResourceError(resourcePlan, customCpu, customMemory, customDisk, minimumMemory, minimumDisk)
+        || (selectedGame && (Number.parseInt(currentResources.memory, 10) < minimumMemory || Number.parseInt(currentResources.disk, 10) < minimumDisk)
+            ? `${selectedGame.label} needs at least ${minimumMemory} GB of memory and ${minimumDisk} GB of disk.` : '')
     const currentSetupKey = `${operatingSystem}\n${setupPrompt.trim()}`
     const unresolvedSetupPrompt = setupPrompt.trim().length >= 3 && suggestedSetupKey !== currentSetupKey
         && selectedServices.length === 0 && customAptPackages.length === 0
 
     useEffect(() => { if (visible) nameInput.current?.focus() }, [visible])
+
+    function fitGameResources(gameId: string) {
+        const game = vmGameServers.find(option => option.id === gameId)
+        if (!game) return
+        const fitted = fitVmGameResources(game, resourcePlan, customMemory, customDisk)
+        setCustomMemory(fitted.memory)
+        setCustomDisk(fitted.disk)
+        setResourcePlan(fitted.plan)
+    }
 
     function create(event: React.FormEvent) {
         return submitVmCreation(event, {
@@ -89,7 +97,9 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         setSetupSuggestion('')
         try {
             const plan = await suggestVmSetup(setupPrompt, operatingSystem)
-            setSelectedServices(plan.services)
+            const plannedGame = plan.services.find(isVmGameServer)
+            setSelectedServices(plannedGame ? plan.services.filter(service => !isVmGameServer(service) || service === plannedGame) : plan.services)
+            if (plannedGame && plannedGame !== 'minecraft-java') fitGameResources(plannedGame)
             if (plan.services.includes('minecraft-java') && plan.minecraftServerType && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(plan.minecraftServerType) && resourcePlan === 'small') setResourcePlan('standard')
             setMinecraftAddons([])
             setCustomAptPackages(plan.aptPackages)
@@ -119,6 +129,10 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>VM name<input ref={nameInput} value={name} onChange={event => setName(event.target.value)} required pattern='[a-z][a-z0-9-]{0,61}[a-z0-9]' minLength={2} maxLength={63} title='2–63 lowercase letters, numbers or hyphens, starting with a letter' disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-ui-text' /></label>
             <VmOperatingSystemPicker value={operatingSystem} onChange={value => {
                 setOperatingSystem(value)
+                if (value !== 'ubuntu-24.04' && selectedServices.some(service => service.startsWith('game-'))) {
+                    setSelectedServices(current => current.filter(service => !service.startsWith('game-')))
+                    setSetupSuggestion('Dedicated game servers currently require Ubuntu 24.04. Choose the game again after switching back.')
+                }
                 if (setupPrompt.trim()) {
                     setSelectedServices([])
                     setMinecraftServerType('PAPER')
@@ -156,9 +170,15 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                     <h3 className='text-xs font-medium uppercase tracking-wide text-ui-muted'>{group}</h3>
                     <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-4'>
                         {vmServices.filter(service => service.group === group).map(service => <label key={service.id} className='flex cursor-pointer items-start gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5'>
-                            <input type='checkbox' checked={selectedServices.includes(service.id)} disabled={projectFiles.length > 0 && ['nodejs', 'website', 'minecraft-java'].includes(service.id)} onChange={event => {
-                                setSelectedServices(current => event.target.checked ? [...current, service.id] : current.filter(id => id !== service.id))
+                            <input type='checkbox' checked={selectedServices.includes(service.id)} disabled={projectFiles.length > 0 && ['nodejs', 'website', 'minecraft-java'].includes(service.id) || (projectFiles.length > 0 && isVmGameServer(service.id))} onChange={event => {
+                                setSelectedServices(current => event.target.checked
+                                    ? [...current.filter(id => !isVmGameServer(service.id) || !isVmGameServer(id)), service.id]
+                                    : current.filter(id => id !== service.id))
                                 if (service.id === 'minecraft-java' && event.target.checked && resourcePlan === 'small') setResourcePlan('standard')
+                                if (service.id.startsWith('game-') && event.target.checked) {
+                                    setOperatingSystem('ubuntu-24.04')
+                                    fitGameResources(service.id)
+                                }
                             }} className='mt-1 accent-ui-primary' />
                             <span className='grid'><span className='text-sm font-medium text-ui-text'>{service.label}</span><span className='text-xs text-ui-muted'>{service.description}</span></span>
                         </label>)}
@@ -171,6 +191,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             <VmMinecraftServerPicker value={minecraftServerType} onChange={type => { setMinecraftServerType(type); setMinecraftAddons([]); if (['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(type) && resourcePlan === 'small') setResourcePlan('standard') }} disabled={creating} />
             <VmMinecraftAddonPicker serverType={minecraftServerType} value={minecraftAddons} onChange={setMinecraftAddons} disabled={creating} />
         </>}
+        {selectedGame && <VmGameServerDetails game={selectedGame} />}
         {!canCreate && permissionMessage && <p role='status' className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5 text-sm leading-5 text-ui-muted'>{permissionMessage}</p>}
         {unresolvedSetupPrompt && <p role='status' className='text-xs leading-5 text-ui-muted'>Generate a supported setup for this description, or clear it to create a blank VM.</p>}
         <button disabled={creating || Boolean(permissionMessage) || unresolvedSetupPrompt} aria-disabled={!canCreate || undefined} className={`h-10 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50 ${!canCreate ? 'cursor-not-allowed opacity-50' : ''}`}>{creating ? 'Creating VM…' : 'Create VM'}</button>

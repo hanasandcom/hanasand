@@ -1,9 +1,13 @@
 import { expect, test } from 'bun:test'
-import { vmProvisionTimeoutMs, waitForVmProvisionOnHost } from '../src/utils/vms/provisionOnHost.ts'
+import { vmCs2ProvisionTimeoutMs, vmProvisionTimeoutForOptions, vmProvisionTimeoutMs, waitForVmProvisionOnHost } from '../src/utils/vms/provisionOnHost.ts'
 
 test('host provisioning watcher allows supported setup downloads and installs to finish', () => {
     expect(vmProvisionTimeoutMs).toBe(60 * 60_000)
     expect(vmProvisionTimeoutMs).toBeGreaterThan(150_000)
+    expect(vmCs2ProvisionTimeoutMs).toBe(435 * 60_000)
+    expect(vmProvisionTimeoutForOptions({ services: ['game-cs2'] })).toBe(vmCs2ProvisionTimeoutMs)
+    expect(vmProvisionTimeoutForOptions({ services: ['game-terraria'] })).toBe(vmProvisionTimeoutMs)
+    expect(vmProvisionTimeoutForOptions()).toBe(vmProvisionTimeoutMs)
 })
 
 test('host provisioning watcher keeps polling until the VM reports Running', async () => {

@@ -7,6 +7,7 @@ import { parse } from 'yaml'
 import { vmSetupUserData } from '../src/utils/vms/vmSetupUserData.ts'
 import { normalizeUbuntuAptPackages } from '../src/utils/vms/ubuntuAptPackages.ts'
 import { supportedSetupServices } from '../src/utils/vms/supportedSetupServices.ts'
+import { getGameServerDefinition, isGameServerService } from '../src/utils/vms/gameServers.ts'
 import { vmServices } from '../../frontend/src/utils/vms/createOptions.ts'
 
 test('the server setup generator covers every service advertised in the VM builder', () => {
@@ -17,7 +18,8 @@ test('the server setup generator covers every service advertised in the VM build
         const cloudInit = vmSetupUserData('catalog-vm', { services: [service] })
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
         const script = config.write_files[0]?.content || ''
-        expect(script).toContain(`"${service}"`)
+        if (isGameServerService(service)) expect(script).toContain(getGameServerDefinition(service)?.label)
+        else expect(script).toContain(`"${service}"`)
         execFileSync('bash', ['-n'], { input: script })
     }
 })
@@ -97,7 +99,7 @@ test('Debian Docker setup uses Debian repositories and Enterprise Linux accepts 
     execFileSync('bash', ['-n'], { input: kaliScript })
 
     for (const os of ['fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'] as const) {
-        const cloudInit = vmSetupUserData('enterprise-linux', { os, services: [...supportedSetupServices] })
+        const cloudInit = vmSetupUserData('enterprise-linux', { os, services: supportedSetupServices.filter(service => !isGameServerService(service)) })
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
         const script = config.write_files[0]?.content || ''
         expect(script).toContain('dnf install -y --setopt=retries=2 --setopt=timeout=30 "${packages[@]}"')

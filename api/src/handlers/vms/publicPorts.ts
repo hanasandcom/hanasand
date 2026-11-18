@@ -3,23 +3,27 @@ import run, { withTransaction } from '#db'
 import { hasVmAccess, requireVmAccess } from '#utils/vms/access.ts'
 import config from '#constants'
 import hasVmPortRouteToken from '#utils/auth/vmPortRouteToken.ts'
+import { getGameServerDefinition } from '#utils/vms/gameServers.ts'
 
 const maxPortsPerVm = 1000
-const routeTypes = ['minecraft-java', 'tls', 'http'] as const
+const routeTypes = ['minecraft-java', 'tls', 'http', 'tcp', 'udp'] as const
+const firstPublicPort = 32000
+const lastPublicPort = 45000
 const reservedServiceHostnames = ['api', 'api-browsers', 'browsers', 'cashflow', 'cdn', 'cobbleverse', 'git', 'hanasand', 'idk', 'idk-api', 'identity', 'internal', 'logs', 'mail', 'name-pending', 'np', 'status', 'support', 'turn', 'www', '67']
 
-type RouteBody = { name?: unknown, type?: unknown, port?: unknown }
+type RouteBody = { name?: unknown, type?: unknown, port?: unknown, game?: unknown }
 
 export async function getVmPublicPorts(req: FastifyRequest, res: FastifyReply) {
     const { id } = req.params as { id: string }
     const viewer = await requireVmAccess(req, res, id)
     if (!viewer) return
-    const result = await run(`SELECT id, name, route_type, guest_port, created_at,
+    const result = await run(`SELECT id, name, route_type, guest_port, public_port, created_at,
             (LOWER(name) = ANY($2::text[]) OR name ~ '^[0-9]+-[a-z0-9-]+$'
              OR EXISTS (SELECT 1 FROM vms WHERE LOWER(vms.name) = LOWER(vm_public_ports.name))) AS hostname_unavailable
         FROM vm_public_ports WHERE vm_name = $1 ORDER BY created_at`, [viewer.name, reservedServiceHostnames])
     const services = result.rows.map(row => ({
         id: String(row.id), name: row.name, type: row.route_type, port: Number(row.guest_port),
+        ...(row.public_port == null ? {} : { publicPort: Number(row.public_port) }),
         hostname: row.hostname_unavailable ? null : `${row.name}.hanasand.com`, hostnameUnavailable: Boolean(row.hostname_unavailable), createdAt: row.created_at,
     }))
     const vmName = viewer.name.toLowerCase()
@@ -34,27 +38,58 @@ export async function postVmPublicPort(req: FastifyRequest<{ Body: RouteBody }>,
     const name = typeof req.body?.name === 'string' ? req.body.name.trim().toLowerCase() : ''
     const type = req.body?.type
     const port = req.body?.port
-    if (!/^[a-z0-9](?:[a-z0-9-]{0,39}[a-z0-9])?$/.test(name) || !routeTypes.includes(type as typeof routeTypes[number]) || typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
+    const game = typeof req.body?.game === 'string' ? getGameServerDefinition(req.body.game) : undefined
+    const gameRequested = req.body?.game !== undefined
+    const requestedPorts = game
+        ? game.ports.map((entry, index) => ({ name: index ? `${name}-${index + 1}` : name, type: entry.protocol, port: entry.port }))
+        : [{ name, type, port }]
+    if (!requestedPorts.every(entry => /^[a-z0-9](?:[a-z0-9-]{0,39}[a-z0-9])?$/.test(entry.name)
+        && routeTypes.includes(entry.type as typeof routeTypes[number])
+        && typeof entry.port === 'number' && Number.isInteger(entry.port) && entry.port >= 1 && entry.port <= 65535)
+        || (gameRequested && (!game || type !== undefined || port !== undefined))) {
         return res.code(400).send({ error: 'Use a short service name, choose a supported service type, and enter a guest port from 1 to 65535.' })
     }
-    const routeType = type as typeof routeTypes[number]
-    if (reservedServiceHostnames.includes(name)) return res.code(409).send({ error: 'That hostname is reserved for a Hanasand service.' })
-    if (/^\d+-[a-z0-9-]+$/.test(name)) return res.code(409).send({ error: 'That hostname conflicts with a legacy VM port address.' })
-    const hostnameCollision = await run('SELECT 1 FROM vms WHERE LOWER(name) = $1 LIMIT 1', [name])
-    if (hostnameCollision.rows.length) return res.code(409).send({ error: 'That hostname matches an existing VM.' })
+    const selectedPorts = requestedPorts as Array<{ name: string, type: typeof routeTypes[number], port: number }>
+    for (const entry of selectedPorts) {
+        if (reservedServiceHostnames.includes(entry.name)) return res.code(409).send({ error: 'That hostname is reserved for a Hanasand service.' })
+        if (/^\d+-[a-z0-9-]+$/.test(entry.name)) return res.code(409).send({ error: 'That hostname conflicts with a legacy VM port address.' })
+        const hostnameCollision = await run('SELECT 1 FROM vms WHERE LOWER(name) = $1 LIMIT 1', [entry.name])
+        if (hostnameCollision.rows.length) return res.code(409).send({ error: 'That hostname matches an existing VM.' })
+    }
     try {
         const result = await withTransaction(async query => {
+            const needsPublicPort = selectedPorts.some(entry => entry.type === 'tcp' || entry.type === 'udp')
+            if (needsPublicPort) await query('SELECT pg_advisory_xact_lock(hashtext($1))', ['vm-public-ports:global'])
             // Serialize additions per VM so concurrent requests cannot exceed the cap.
             await query('SELECT pg_advisory_xact_lock(hashtext($1))', [`vm-public-ports:${viewer.name}`])
             const count = await query('SELECT COUNT(*)::int AS total FROM vm_public_ports WHERE vm_name = $1', [viewer.name])
-            if (Number(count.rows[0]?.total) >= maxPortsPerVm) return { atLimit: true, rows: [] }
-            return query(`INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by)
-                VALUES ($1, $2, $3, $4, $5)
-                RETURNING id, name, route_type, guest_port, created_at`, [viewer.name, name, routeType, port, viewer.id])
+            if (Number(count.rows[0]?.total) + selectedPorts.length > maxPortsPerVm) return { atLimit: true, rows: [] }
+            let publicPort: number | null = null
+            if (needsPublicPort) {
+                const available = await query(`SELECT ports.start_port AS public_port
+                    FROM generate_series($1::integer, $2::integer - $3::integer + 1) AS ports(start_port)
+                    WHERE NOT EXISTS (SELECT 1 FROM vm_public_ports p
+                        WHERE p.public_port BETWEEN ports.start_port AND ports.start_port + $3::integer - 1)
+                    ORDER BY ports.start_port LIMIT 1`, [firstPublicPort, lastPublicPort, selectedPorts.length])
+                if (!available.rows.length) return { noPublicPort: true, rows: [] }
+                publicPort = Number(available.rows[0].public_port)
+            }
+            const rows = []
+            for (const [index, entry] of selectedPorts.entries()) {
+                const inserted = await query(`INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, public_port, created_by)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    RETURNING id, name, route_type, guest_port, public_port, created_at`, [viewer.name, entry.name, entry.type, entry.port,
+                    publicPort === null ? null : publicPort + index, viewer.id])
+                rows.push(inserted.rows[0])
+            }
+            return { rows }
         })
         if ('atLimit' in result && result.atLimit) return res.code(409).send({ error: `A VM can have up to ${maxPortsPerVm} public services.` })
-        const row = result.rows[0]
-        return res.code(201).send({ id: String(row.id), name: row.name, type: row.route_type, port: Number(row.guest_port), hostname: `${row.name}.hanasand.com`, createdAt: row.created_at })
+        if ('noPublicPort' in result && result.noPublicPort) return res.code(409).send({ error: 'No public game ports are available right now.' })
+        const created = result.rows.map(row => ({ id: String(row.id), name: row.name, type: row.route_type, port: Number(row.guest_port),
+            ...(row.public_port == null ? {} : { publicPort: Number(row.public_port) }),
+            hostname: `${row.name}.hanasand.com`, createdAt: row.created_at }))
+        return res.code(201).send(game ? { services: created } : created[0])
     } catch (error) {
         if ((error as { code?: string }).code === '23505') return res.code(409).send({ error: 'That service name is already in use.' })
         req.log.error({ err: error }, 'Unable to create VM public service.')
@@ -79,7 +114,7 @@ export async function getInternalVmPublicPorts(req: FastifyRequest, res: Fastify
           AND LOWER(v.name) <> ALL($2::text[])
           AND NULLIF(BTRIM(d.device_eth0_ipv4_address), '') IS NOT NULL
         ORDER BY v.name`, [config.vm_host_id, reservedServiceHostnames])
-    const servicesResult = await run(`SELECT p.name, p.route_type, p.guest_port, v.name AS vm_name, d.device_eth0_ipv4_address AS vm_ip
+    const servicesResult = await run(`SELECT p.name, p.route_type, p.guest_port, p.public_port, v.name AS vm_name, d.device_eth0_ipv4_address AS vm_ip
         FROM vm_public_ports p JOIN vms v ON v.name = p.vm_name
         JOIN vm_details d ON d.name = v.name
         WHERE v.deleted_at IS NULL AND v.primary_host = $1
@@ -95,6 +130,7 @@ export async function getInternalVmPublicPorts(req: FastifyRequest, res: Fastify
     const serviceRoutes = servicesResult.rows.map(row => ({
         name: row.name, hostname: `${row.name}.hanasand.com`, type: row.route_type,
         vmName: row.vm_name, vmIp: row.vm_ip, port: Number(row.guest_port),
+        ...(row.public_port == null ? {} : { publicPort: Number(row.public_port) }),
     }))
     return res.send([...vmRoutes, ...serviceRoutes])
 }

@@ -2,12 +2,17 @@ import type { VmProvisionOptions } from './provisionOnHost.ts'
 import { validateVmLoginName } from './vmLoginUserData.ts'
 import { normalizeUbuntuAptPackages } from './ubuntuAptPackages.ts'
 import { normalizeNextjsProjectFiles } from './nextjsProject.ts'
+import { gameServerSetupScript, isGameServerService } from './gameServers.ts'
 
 const setupStatePath = '/var/lib/hanasand-vm-setup/status'
 
 export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     validateVmLoginName(name)
     const services = [...new Set(options.services || [])]
+    const gameServers = services.filter(isGameServerService)
+    if (gameServers.length > 1 || (gameServers.length && ((options.os || 'ubuntu-24.04') !== 'ubuntu-24.04' || services.includes('minecraft-java')))) {
+        throw new Error('Choose one game server on Ubuntu 24.04.')
+    }
     const usesDnf = options.os === 'fedora-44' || options.os === 'almalinux-9' || options.os === 'rocky-9' || options.os === 'centos-stream-10'
     const usesMariaDb = usesDnf || options.os === 'debian-13' || options.os === 'kali'
     const aptPackages = normalizeUbuntuAptPackages(options.aptPackages)
@@ -38,7 +43,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     const minecraftAddons = options.minecraftAddons || []
     if (minecraftAddons.length && !services.includes('minecraft-java')) throw new Error('Minecraft add-ons require the Minecraft Java service.')
     const minecraftServerType = options.minecraftServerType || 'PAPER'
-    const script = createSetupScript(name, services, minecraftServerType, minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, usesDnf, usesMariaDb)
+    const script = createSetupScript(name, services, minecraftServerType, minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, usesDnf, usesMariaDb, gameServers[0])
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -67,7 +72,7 @@ function yamlObject(value: Record<string, unknown>) {
     return JSON.stringify(value, null, 2)
 }
 
-function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, usesDnf: boolean, usesMariaDb: boolean) {
+function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, usesDnf: boolean, usesMariaDb: boolean, gameService?: string) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
     const minecraftPrepare = services.includes('minecraft-java')
@@ -76,6 +81,8 @@ function createSetupScript(name: string, services: string[], minecraftType: stri
     const minecraft = services.includes('minecraft-java')
         ? minecraftSetup(name, minecraftType, minecraftMemoryGb, minecraftAddons)
         : ''
+    const game = gameService ? gameServerSetupScript(gameService, name) : ''
+    const requiresDocker = services.includes('docker') || Boolean(gameService && !['game-terraria', 'game-teeworlds'].includes(gameService))
     const webRoot = usesDnf ? '/usr/share/nginx/html' : '/var/www/html'
     const webOwner = usesDnf ? 'root:root' : 'www-data:www-data'
     const mysqlSystemdService = usesMariaDb ? 'mariadb' : 'mysql'
@@ -138,7 +145,7 @@ refresh_apt_metadata() {
 set_stage 'Preparing selected services'
 services="$(printf '%s' '${selectedBase64}' | base64 -d)"
 apt_packages=()
-if printf '%s' "$services" | grep -Eq '"(bun|docker|minecraft-java)"'; then
+if printf '%s' "$services" | grep -Eq '"(bun|docker|minecraft-java)"' || [[ '${requiresDocker}' == 'true' || '${gameService || ''}' == 'game-terraria' ]]; then
   set_stage 'Preparing secure downloads'
   apt_packages+=(ca-certificates curl unzip)
 fi
@@ -158,8 +165,12 @@ if printf '%s' "$services" | grep -q '"go"'; then apt_packages+=(golang-go); fi
 if printf '%s' "$services" | grep -q '"php"'; then apt_packages+=(php-cli php-curl php-mbstring php-xml composer); fi
 if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep -q '"website"'; then apt_packages+=(nginx curl); fi
 if printf '%s' "$services" | grep -q '"minecraft-java"'; then apt_packages+=(curl jq tar iproute2); fi
+if [[ -n '${gameService || ''}' ]]; then apt_packages+=(iproute2); fi
+if [[ '${gameService || ''}' == 'game-valheim' ]]; then apt_packages+=(openssl); fi
+if [[ '${gameService || ''}' == 'game-terraria' ]]; then apt_packages+=(python3); fi
+if [[ '${gameService || ''}' == 'game-teeworlds' ]]; then apt_packages+=(teeworlds-server); fi
 ${installCustomPackages}
-if printf '%s' "$services" | grep -q '"docker"'; then
+if [[ '${requiresDocker}' == 'true' ]]; then
   if [[ '${usesDnf}' == 'true' ]]; then
     set_stage 'Preparing Docker repository'
     . /etc/os-release
@@ -558,7 +569,7 @@ PY
   ln -sfn "/opt/hanasand/java$java_version/bin/java" /usr/local/bin/java
   ln -sfn "/opt/hanasand/java$java_version/bin/javac" /usr/local/bin/javac
 fi
-if printf '%s' "$services" | grep -q '"docker"'; then
+if [[ '${requiresDocker}' == 'true' ]]; then
   set_stage 'Starting Docker'
   run_bounded 60 systemctl enable --now docker
   set_stage 'Checking Docker daemon'
@@ -599,6 +610,7 @@ if printf '%s' "$services" | grep -q '"website"'; then
   wait_for_ready 'Website HTTP endpoint' curl -fsS http://127.0.0.1/
 fi
 ${minecraft}
+${game}
 ${nextjs}
 ${nextjs ? 'write_state Running \'Next.js app built and serving on port 3000\'' : 'write_state Running \'Setup complete\''}
 `

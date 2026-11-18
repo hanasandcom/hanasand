@@ -6,12 +6,17 @@ type StatusResponse = { status?: unknown; error?: unknown; status_reason?: unkno
 export type VmProvisionOptions = { os?: 'ubuntu-24.04' | 'ubuntu-26.04' | 'ubuntu-22.04' | 'ubuntu-24.04-desktop' | 'debian-13' | 'kali' | 'fedora-44' | 'almalinux-9' | 'rocky-9' | 'centos-stream-10'; resources?: { cpu: string; memory: string; disk: string }; services?: SupportedVmSetupService[]; aptPackages?: string[]; minecraftEulaAccepted?: boolean; minecraftServerType?: 'PAPER' | 'VANILLA' | 'FABRIC' | 'QUILT' | 'FORGE' | 'NEOFORGE' | 'PURPUR' | 'FOLIA'; minecraftAddons?: string[]; websiteHtml?: string; nextjsProjectFiles?: import('./nextjsProject.ts').NextjsProjectFile[] }
 
 export const vmProvisionTimeoutMs = 60 * 60_000
+export const vmCs2ProvisionTimeoutMs = (7 * 60 + 15) * 60_000
 const statusPollIntervalMs = 2_000
 const retryableStatusCodes = new Set([404, 408, 425, 429, 500, 502, 503, 504])
 
 export default async function provisionVmOnHost(host: string, name: string, request: HostFetch, options?: VmProvisionOptions) {
     await enqueueVmProvisionOnHost(host, name, request, options)
-    return waitForVmProvisionOnHost(host, name, request)
+    return waitForVmProvisionOnHost(host, name, request, { timeoutMs: vmProvisionTimeoutForOptions(options) })
+}
+
+export function vmProvisionTimeoutForOptions(options?: VmProvisionOptions) {
+    return options?.services?.includes('game-cs2') ? vmCs2ProvisionTimeoutMs : vmProvisionTimeoutMs
 }
 
 export async function enqueueVmProvisionOnHost(host: string, name: string, request: HostFetch, options?: VmProvisionOptions) {

@@ -18,6 +18,24 @@ export const vmResourceOptions = [
     { id: 'custom', label: 'Custom allocation', cpu: '2', memory: '4GiB', disk: '40GiB' },
 ] as const
 
+export const vmGameServers = [
+    { id: 'game-cs2', label: 'Counter-Strike 2', description: 'Dedicated CS2 server · Steam token needed for public listing', minMemoryGiB: 8, minDiskGiB: 100, ports: [{ port: 27015, protocol: 'udp' }, { port: 27015, protocol: 'tcp' }] },
+    { id: 'game-terraria', label: 'Terraria', description: 'Dedicated Terraria world using the official server download', minMemoryGiB: 2, minDiskGiB: 20, ports: [{ port: 7777, protocol: 'tcp' }] },
+    { id: 'game-factorio', label: 'Factorio', description: 'Persistent multiplayer factory', minMemoryGiB: 4, minDiskGiB: 20, ports: [{ port: 34197, protocol: 'udp' }] },
+    { id: 'game-valheim', label: 'Valheim', description: 'Dedicated survival world', minMemoryGiB: 4, minDiskGiB: 30, ports: [{ port: 2456, protocol: 'udp' }, { port: 2457, protocol: 'udp' }] },
+    { id: 'game-luanti', label: 'Luanti', description: 'Open source voxel world', minMemoryGiB: 2, minDiskGiB: 20, ports: [{ port: 30000, protocol: 'udp' }] },
+    { id: 'game-openra', label: 'OpenRA: Red Alert', description: 'Real-time strategy matches', minMemoryGiB: 2, minDiskGiB: 20, ports: [{ port: 1234, protocol: 'tcp' }] },
+    { id: 'game-xonotic', label: 'Xonotic', description: 'Fast arena shooter', minMemoryGiB: 2, minDiskGiB: 20, ports: [{ port: 26000, protocol: 'udp' }] },
+    { id: 'game-teeworlds', label: 'Teeworlds', description: 'Multiplayer 2D action', minMemoryGiB: 2, minDiskGiB: 20, ports: [{ port: 8303, protocol: 'udp' }] },
+    { id: 'game-warfork', label: 'Warfork', description: 'Arena shooter server', minMemoryGiB: 2, minDiskGiB: 20, ports: [{ port: 44400, protocol: 'udp' }] },
+    { id: 'game-wolfet', label: 'Wolfenstein: Enemy Territory', description: 'Team-based shooter server', minMemoryGiB: 2, minDiskGiB: 20, ports: [{ port: 27960, protocol: 'udp' }] },
+] as const
+
+export type VmGameServer = typeof vmGameServers[number]
+export function isVmGameServer(id: string) {
+    return id === 'minecraft-java' || vmGameServers.some(game => game.id === id)
+}
+
 export const vmServices = [
     { id: 'nodejs', group: 'Development', label: 'Node.js + npm', description: 'Node.js 24 LTS and npm' },
     { id: 'bun', group: 'Development', label: 'Bun', description: 'JavaScript runtime and package manager' },
@@ -36,6 +54,7 @@ export const vmServices = [
     { id: 'nginx', group: 'Web', label: 'Nginx', description: 'Web server for sites and apps' },
     { id: 'website', group: 'Web', label: 'Website', description: 'A responsive site generated from your description or a ready-to-edit starter' },
     { id: 'minecraft-java', group: 'Game servers', label: 'Minecraft Java', description: 'Vanilla or modded server with Paper, Fabric, Quilt, Forge, NeoForge, Purpur or Folia' },
+    ...vmGameServers.map(game => ({ id: game.id, group: 'Game servers' as const, label: game.label, description: game.description })),
 ] as const
 
 export const vmServiceTabs = [
