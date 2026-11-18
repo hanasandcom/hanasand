@@ -1,5 +1,6 @@
 import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
+import { readWorkspace, WORKSPACE_COOKIE } from '@/utils/organizations/workspace'
 
 export type VmPublicService = { id: string, name: string, type: 'minecraft-java' | 'tls' | 'http' | 'tcp' | 'udp', port: number, publicPort?: number | null, hostname: string | null, hostnameUnavailable?: boolean, createdAt: string }
 export type VmPublicServicesResponse = { services: VmPublicService[], canManage: boolean, hostname: string, portAlias: string }
@@ -24,9 +25,10 @@ export async function requestVmPublicServices(vmName: string, method: 'GET' | 'P
     const token = getCookie('access_token')
     const userId = getCookie('id')
     if (!token || !userId) throw new Error('Sign in again to manage public services.')
+    const organizationId = readWorkspace(getCookie(WORKSPACE_COOKIE) || undefined, userId)?.organizationId
     const response = await fetch(`${config.url.api}/vm/${encodeURIComponent(vmName)}/public-services${method === 'DELETE' && data ? `/${encodeURIComponent(String(data))}` : ''}`, {
         method,
-        headers: { Authorization: `Bearer ${token}`, id: userId, ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) },
+        headers: { Authorization: `Bearer ${token}`, id: userId, ...(organizationId ? { 'x-organization-id': organizationId } : {}), ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) },
         body: method === 'POST' ? JSON.stringify(data) : undefined,
     })
     const result = await response.json().catch(() => ({}))
