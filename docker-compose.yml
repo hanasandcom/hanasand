@@ -48,6 +48,8 @@ services:
     environment:
       FRONTEND_AUTH_API: ${FRONTEND_AUTH_API:-https://api.hanasand.com/api}
       FRONTEND_IDENTITY_API: ${FRONTEND_IDENTITY_API:-http://identity:8081/api}
+      GAME_SERVER_INTERNAL_URL: ${GAME_SERVER_INTERNAL_URL:-}
+      GAME_LINK_SECRET: ${GAME_LINK_SECRET:-}
       FRONTEND_INTERNAL_API: ${FRONTEND_INTERNAL_API:-http://api:8080/api}
       FRONTEND_LOGS_API_URL: ${FRONTEND_LOGS_API_URL:-https://logs.hanasand.com/api}
       FRONTEND_INTERNAL_AI_API: ${FRONTEND_INTERNAL_AI_API:-http://ai:19182/api}

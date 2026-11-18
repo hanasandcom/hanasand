@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { loadStudio } from '@/utils/studio'
 import { isHanasandOrganizationMember } from '@/utils/organizations/hanasandMembership'
 import StudioClient from './studioClient'
+import GameChatBubble from './gameChatBubble'
 
 export const metadata = { title: 'Studio | Hanasand' }
 export const dynamic = 'force-dynamic'
@@ -17,5 +18,5 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
     const document = await loadStudio(page)
     if (!document) notFound()
     const canEdit = token && id ? await isHanasandOrganizationMember(token, id).catch(() => false) : false
-    return <StudioClient key={page} initialDocument={document} canEdit={canEdit} />
+    return <><StudioClient key={page} initialDocument={document} canEdit={canEdit} /><GameChatBubble /></>
 }
