@@ -147,8 +147,14 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         if (projectFiles && (selectedServices.includes('website') || selectedServices.includes('minecraft-java') || plan.minecraftServerType)) {
             throw new Error('Generated web projects cannot also select incompatible setup types.')
         }
-        const websitePlan = plan.website
-            ? { ...(plan.website as VmWebsitePlan), gallery: (plan.website as VmWebsitePlan).gallery || [], contactEmail: (plan.website as VmWebsitePlan).contactEmail || '' }
+        const generatedWebsite = plan.website as VmWebsitePlan | null
+        const contactEmail = generatedWebsite?.contactEmail || ''
+        const websitePlan = generatedWebsite
+            ? {
+                ...generatedWebsite,
+                gallery: (generatedWebsite.gallery || []).filter(image => prompt.includes(image.url)),
+                contactEmail: contactEmail && prompt.toLowerCase().includes(contactEmail.toLowerCase()) ? contactEmail : '',
+            }
             : null
         const selectedPackages = packages.filter(packageName =>
             !selectedServices.some(service => servicePackageAliases[service]?.has(packageName))

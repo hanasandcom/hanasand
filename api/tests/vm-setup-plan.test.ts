@@ -44,7 +44,7 @@ test('VM setup suggestions return only allowlisted services', async () => {
     expect(commonServices.json().packages).toEqual(['ripgrep'])
 
     completion = JSON.stringify({ summary: 'A small bakery website', services: ['website', 'nginx'], packages: ['git', 'nginx', 'nodejs'], website: { title: '<script>alert(1)</script>', tagline: 'Fresh bread daily', sections: [{ heading: 'Visit us', body: 'Open every day.' }], gallery: [{ url: 'https://images.example/bread.jpg', alt: 'Freshly baked sourdough', caption: 'Baked this morning' }], contactEmail: 'bakery@example.com' }, minecraftServerType: null })
-    const website = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A bakery website' } })
+    const website = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A bakery website with https://images.example/bread.jpg and bakery@example.com' } })
     expect(website.statusCode).toBe(200)
     expect(website.json().website.title).toBe('<script>alert(1)</script>')
     expect(website.json().website.gallery).toEqual([{ url: 'https://images.example/bread.jpg', alt: 'Freshly baked sourdough', caption: 'Baked this morning' }])
@@ -53,11 +53,13 @@ test('VM setup suggestions return only allowlisted services', async () => {
     expect(completionMessages[0].content).toContain('For a static website, include website and nginx only')
     expect(completionMessages[0].content).toContain('Contact email creates a mailto link, not a form')
 
-    completion = JSON.stringify({ summary: 'A blog using Next.js', services: [], packages: [], website: { title: 'Blog', tagline: 'Updates', sections: [] }, minecraftServerType: null })
+    completion = JSON.stringify({ summary: 'A blog using Next.js', services: [], packages: [], website: { title: 'Blog', tagline: 'Updates', sections: [], gallery: [{ url: 'https://example.com/invented.jpg', alt: 'Invented', caption: '' }], contactEmail: 'contact@example.com' }, minecraftServerType: null })
     const blog = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'blog' } })
     expect(blog.statusCode).toBe(200)
     expect(blog.json().services).toEqual(['website', 'nginx'])
     expect(blog.json().summary).toBe('A responsive static website based on your description.')
+    expect(blog.json().website.gallery).toEqual([])
+    expect(blog.json().website.contactEmail).toBe('')
 
     completion = JSON.stringify({ summary: 'A gallery page', services: ['website', 'nginx'], packages: [], website: { title: 'Gallery', tagline: '', sections: [], gallery: [{ url: 'javascript:alert(1)', alt: 'Unsafe', caption: '' }], contactEmail: '' }, minecraftServerType: null })
     const invalidGallery = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A photo gallery' } })
