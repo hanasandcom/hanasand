@@ -79,9 +79,13 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
     }
     if (!existing) {
         const rootDiskPool = await localRootDiskPool()
+        const cs2Cache = selectedOs === 'ubuntu-24.04' && selectedServices.includes('game-cs2')
+            && await lxdRequest('/1.0/instances/original-cs2/snapshots/clean').then(() => true).catch(() => false)
         const cachedAlias = selectedOs === 'kali' ? 'kali-vm' : `hanasand-${selectedOs}-vm`
-        const cachedImage = await lxdRequest(`/1.0/images/aliases/${encodeURIComponent(cachedAlias)}`).then(() => true).catch(() => false)
-        const image = cachedImage
+        const cachedImage = cs2Cache ? false : await lxdRequest(`/1.0/images/aliases/${encodeURIComponent(cachedAlias)}`).then(() => true).catch(() => false)
+        const image = cs2Cache
+            ? { type: 'copy', source: 'original-cs2/clean', instance_only: true }
+            : cachedImage
             ? { type: 'image', alias: cachedAlias }
             : selectedImage ? { type: 'image', mode: 'pull', server: selectedImage.server, protocol: 'simplestreams', alias: selectedImage.alias }
                 : undefined
@@ -104,7 +108,8 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
                 source: image,
             },
         })
-        await waitForLxdOperation(response.operation, 120)
+        // A directory-backed LXD pool copies the 67 GB CS2 cache in full.
+        await waitForLxdOperation(response.operation, cs2Cache ? 900 : 120)
     } else if (!existing.config?.['user.hanasand.setup_plan'] && hasNonDefaultSetup) {
         const message = 'This existing VM has no saved setup plan and cannot apply the selected services. Create a new VM to install them.'
         await updateLocalLxdConfig(name, {

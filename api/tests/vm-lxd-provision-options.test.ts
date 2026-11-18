@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 const calls: Array<{ path: string, options?: { method?: string; body?: unknown } }> = []
 let created: Record<string, unknown> | undefined
 const cachedAliases = new Set<string>()
+let cs2SnapshotAvailable = false
 mock.module('../src/constants.ts', () => ({ default: { lxd_image_server: 'https://images.example', lxd_image_alias: '24.04', lxd_socket_path: '/tmp/lxd.sock' } }))
 mock.module('../src/utils/db.ts', () => ({ default: async () => ({ rows: [] }) }))
 
@@ -18,6 +19,10 @@ const resetRequest = setLxdRequestForTest(async (path, options) => {
     if (path.startsWith('/1.0/images/aliases/')) {
         if (!cachedAliases.has(decodeURIComponent(path.split('/').pop() || ''))) throw new Error('LXD returned 404')
         return { status_code: 200, status: 'Success', metadata: { name: path.split('/').pop() } }
+    }
+    if (path === '/1.0/instances/original-cs2/snapshots/clean') {
+        if (!cs2SnapshotAvailable) throw new Error('LXD returned 404')
+        return { status_code: 200, status: 'Success', metadata: { name: 'clean' } }
     }
     if (path.startsWith('/1.0/instances/') && path.endsWith('/state')) {
         return { status_code: 200, status: 'Success', metadata: { status: 'Running' } }
@@ -35,7 +40,7 @@ const resetRequest = setLxdRequestForTest(async (path, options) => {
     return { status_code: 200, status: 'Success', metadata: { pending: [], running: [] } }
 })
 const resetWriter = setVmDetailsWriterForTest(async () => {})
-beforeEach(() => { calls.length = 0; created = undefined; cachedAliases.clear() })
+beforeEach(() => { calls.length = 0; created = undefined; cachedAliases.clear(); cs2SnapshotAvailable = false })
 afterAll(() => { resetRequest(); resetWriter() })
 
 test('LXD project scoping preserves other query parameters and replaces stale project values', () => {
@@ -84,6 +89,18 @@ test.serial('LXD uses a preloaded local image when one is available', async () =
     await provisionLocalLxdInstance('cached-vm', { os: 'ubuntu-24.04' })
     const source = (calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as { source: Record<string, string> }).source
     expect(source).toEqual({ type: 'image', alias: 'hanasand-ubuntu-24.04-vm' })
+})
+
+test.serial('CS2 creation copies the installed VM snapshot when available', async () => {
+    cs2SnapshotAvailable = true
+    await provisionLocalLxdInstance('cached-cs2', {
+        os: 'ubuntu-24.04', resources: { cpu: '4', memory: '8GiB', disk: '100GiB' }, services: ['game-cs2'],
+    })
+    const body = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as {
+        source: Record<string, unknown>; config: Record<string, string>
+    }
+    expect(body.source).toEqual({ type: 'copy', source: 'original-cs2/clean', instance_only: true })
+    expect(body.config['cloud-init.user-data']).toContain('Counter-Strike 2')
 })
 
 test.serial('Kali requires its verified local VM image and disables Secure Boot', async () => {
