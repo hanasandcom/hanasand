@@ -7,20 +7,23 @@ import { recoveryReadOnly } from '#utils/recovery.ts'
 import { canUseLocalLxd } from '#utils/vms/lxd.ts'
 import { supportedHost } from '#utils/vms/hostTransport.ts'
 import { startConsoleSession } from '#utils/vms/consoleSession.ts'
+import { startVmConsoleActivity } from '#utils/vms/consoleActivity.ts'
 
 export default function registerInternalVmConsole(fastify: FastifyInstance) {
     fastify.get<{ Params: { name: string } }>('/api/vms/internal/:name/console', { websocket: true }, (socket, request) => {
         let terminal: ReturnType<typeof startConsoleSession> | undefined
+        let stopConsoleActivity: (() => void) | undefined
         const name = request.params.name
         if (!hasInternalToken(request) || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$/.test(name)) { socket.close(1008); return }
         const deadline = setTimeout(() => close(1013), 10000)
         const close = (code = 1008) => {
             clearTimeout(deadline)
+            stopConsoleActivity?.()
             terminal?.close()
             if (socket.readyState === WebSocket.OPEN) socket.close(code)
         }
-        socket.on('close', () => { clearTimeout(deadline); terminal?.close() })
-        socket.on('error', () => { clearTimeout(deadline); terminal?.close() })
+        socket.on('close', () => { clearTimeout(deadline); stopConsoleActivity?.(); terminal?.close() })
+        socket.on('error', () => { clearTimeout(deadline); stopConsoleActivity?.(); terminal?.close() })
         socket.on('message', raw => {
             try {
                 if (!terminal || Buffer.byteLength(raw.toString()) > 32768) return close()
@@ -37,6 +40,7 @@ export default function registerInternalVmConsole(fastify: FastifyInstance) {
                 if (socket.bufferedAmount > 1024 * 1024) return close(1013)
                 if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value))
             })
+            stopConsoleActivity = startVmConsoleActivity(name)
         }).catch(error => {
             request.log.warn({ err: error, vmName: name }, 'Internal VM console authorization failed')
             close(1011)

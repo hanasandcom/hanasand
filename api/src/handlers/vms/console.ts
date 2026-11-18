@@ -7,6 +7,7 @@ import { validateSession } from '#utils/auth/session.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import { recoveryReadOnly } from '#utils/recovery.ts'
 import { startConsoleSession } from '#utils/vms/consoleSession.ts'
+import { startVmConsoleActivity } from '#utils/vms/consoleActivity.ts'
 import { internalHostWebSocket, supportedHost } from '#utils/vms/hostTransport.ts'
 import { deviceProofFromWebSocket } from '#utils/auth/deviceProofRequest.ts'
 import { consumeVmConsoleWorkspaceTicket, verifyVmConsoleWorkspaceTicket, type VmConsoleWorkspaceTicket } from '#utils/vms/consoleWorkspaceTicket.ts'
@@ -38,11 +39,13 @@ export default function registerVmConsole(fastify: FastifyInstance) {
         let workspaceTicket: VmConsoleWorkspaceTicket | undefined
         let recheck: ReturnType<typeof setInterval> | undefined
         let heartbeat: ReturnType<typeof setInterval> | undefined
+        let stopConsoleActivity: (() => void) | undefined
         const send = (value: object) => {
             if (socket.bufferedAmount > 1024 * 1024) { socket.close(1013); close(); return }
             if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value))
         }
         const close = () => {
+            stopConsoleActivity?.()
             terminal?.close()
             if (upstream?.readyState === WebSocket.CONNECTING) upstream.terminate()
             else upstream?.close()
@@ -66,7 +69,7 @@ export default function registerVmConsole(fastify: FastifyInstance) {
             socket.close(1008)
             return
         }
-        socket.on('close', () => { clearTimeout(authenticationDeadline); clearTimeout(connectionDeadline); clearInterval(recheck); clearInterval(heartbeat); close() })
+        socket.on('close', () => { clearTimeout(authenticationDeadline); clearTimeout(connectionDeadline); clearInterval(recheck); clearInterval(heartbeat); stopConsoleActivity?.(); close() })
         socket.on('error', close)
         socket.on('message', async raw => {
             try {
@@ -103,7 +106,10 @@ export default function registerVmConsole(fastify: FastifyInstance) {
                             upstream?.once('error', reject)
                             upstream?.once('close', () => reject(new Error('VM host closed the console before connecting.')))
                         })
-                    } else terminal = startConsoleSession(request.params.name, send)
+                    } else {
+                        terminal = startConsoleSession(request.params.name, send)
+                        stopConsoleActivity = startVmConsoleActivity(request.params.name)
+                    }
                     clearTimeout(connectionDeadline)
                     connectionDeadline = undefined
                     authenticated = true
