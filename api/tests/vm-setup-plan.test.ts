@@ -145,9 +145,10 @@ test('AlmaLinux setup plans use DNF services and reject Debian package names', a
     expect(unsupportedPackage.statusCode).toBe(422)
 })
 
-test('Kali setup plans are unavailable while no VM image is published', async () => {
+test('Kali setup plans use packages from the Kali rolling archive', async () => {
     const response = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'Install Docker', os: 'kali' } })
-    expect(response.statusCode).toBe(400)
+    expect(response.statusCode).toBe(200)
+    expect(completionMessages[0].content).toContain('Kali rolling archive')
 })
 
 test('Fedora Server setup plans use DNF services and reject Debian package names', async () => {

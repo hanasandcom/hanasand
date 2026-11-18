@@ -97,7 +97,7 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         return res.status(400).send({ error: 'Describe what you want to build in 3 to 1,200 characters.' })
     }
     const operatingSystem = body?.os === undefined ? 'ubuntu-24.04' : body.os
-    if (typeof operatingSystem !== 'string' || !['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-24.04-desktop', 'debian-13', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'].includes(operatingSystem)) {
+    if (typeof operatingSystem !== 'string' || !['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-24.04-desktop', 'debian-13', 'kali', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'].includes(operatingSystem)) {
         return res.status(400).send({ error: 'Choose a supported operating system before generating a setup.' })
     }
 
@@ -109,7 +109,7 @@ export default async function postVmSetupPlan(req: FastifyRequest, res: FastifyR
         const packageOs = operatingSystem === 'ubuntu-24.04-desktop' ? 'ubuntu-24.04' : operatingSystem
         const packageGuidance = ['fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'].includes(operatingSystem)
             ? 'This Enterprise Linux distribution uses DNF, so return an empty packages array and choose only supported services.'
-            : 'Use package names from the selected Ubuntu or Debian archive.'
+            : operatingSystem === 'kali' ? 'Use package names from the Kali rolling archive.' : 'Use package names from the selected Ubuntu or Debian archive.'
         const messages = [
             {
                 role: 'system' as const,

@@ -86,6 +86,17 @@ test.serial('LXD uses a preloaded local image when one is available', async () =
     expect(source).toEqual({ type: 'image', alias: 'hanasand-ubuntu-24.04-vm' })
 })
 
+test.serial('Kali requires its verified local VM image and disables Secure Boot', async () => {
+    const options = { os: 'kali' as const, resources: { cpu: '4', memory: '8GiB', disk: '40GiB' } }
+    await expect(provisionLocalLxdInstance('kali-vm', options)).rejects.toThrow('not cached on this host')
+    cachedAliases.add('kali-vm')
+    await provisionLocalLxdInstance('kali-vm', options)
+    const body = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')?.options?.body as { type: string; source: Record<string, string>; config: Record<string, string> }
+    expect(body.type).toBe('virtual-machine')
+    expect(body.source).toEqual({ type: 'image', alias: 'kali-vm' })
+    expect(body.config['security.secureboot']).toBe('false')
+})
+
 test.serial('Rocky Linux uses its supported image alias and installs Docker and Nginx with DNF', async () => {
     await provisionLocalLxdInstance('rocky-vm', {
         os: 'rocky-9',

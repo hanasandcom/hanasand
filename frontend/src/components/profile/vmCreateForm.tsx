@@ -54,12 +54,13 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
     const [creating, setCreating] = useState(false)
     const [creationError, setCreationError] = useState('')
     const requiresLargePlan = operatingSystem === 'ubuntu-24.04-desktop'
+    const requiresKaliDisk = operatingSystem === 'kali'
     const requiresFourGiB = projectFiles.length > 0 || (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(minecraftServerType))
-    const availableResources = vmResourceOptions.filter(option => option.id === 'custom' || (requiresLargePlan
+    const availableResources = vmResourceOptions.filter(option => option.id === 'custom' || (requiresLargePlan || requiresKaliDisk
         ? option.id === 'large'
         : !requiresFourGiB || option.memory !== '2GiB'))
     const minimumMemory = requiresLargePlan ? 8 : requiresFourGiB ? 4 : 1
-    const minimumDisk = requiresLargePlan ? 40 : requiresFourGiB ? 20 : 20
+    const minimumDisk = requiresLargePlan ? 40 : requiresKaliDisk ? 30 : 20
     const currentResources = getVmResourceAllocation(resourcePlan, customCpu, customMemory, customDisk)
     const resourceError = getVmResourceError(resourcePlan, customCpu, customMemory, customDisk, minimumMemory, minimumDisk)
     const currentSetupKey = `${operatingSystem}\n${setupPrompt.trim()}`
@@ -127,7 +128,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                 setCustomAptPackages([])
                 setSuggestedSetupKey('')
                 if (setupPrompt.trim()) setSetupSuggestion('The operating system changed. Generate the setup again to check package compatibility.')
-                if (value === 'ubuntu-24.04-desktop' && resourcePlan !== 'custom') setResourcePlan('large')
+                if ((value === 'ubuntu-24.04-desktop' || value === 'kali') && resourcePlan !== 'custom') setResourcePlan('large')
             }} disabled={creating} />
             <VmResourcePicker value={resourcePlan} onChange={setResourcePlan} disabled={creating} availableOptions={availableResources} />
         </div>

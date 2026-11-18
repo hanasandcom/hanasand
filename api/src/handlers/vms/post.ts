@@ -275,7 +275,7 @@ async function queueVmProvision(name: string, host: string, options: VmProvision
 class VmProvisionQueueError extends Error {}
 
 function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, minecraftAddonsInput: unknown, customAptPackages: unknown, website: unknown, projectFilesInput?: unknown): VmProvisionOptions | null {
-    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop', 'debian-13', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'])
+    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04', 'ubuntu-24.04-desktop', 'debian-13', 'kali', 'fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
     if (resources !== undefined && !isSupportedResourceAllocation(resources)) return null
     if (services !== undefined && (!Array.isArray(services) || services.length > supportedSetupServices.length || services.some(service => !isSupportedSetupService(service)))) return null
@@ -294,6 +294,7 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     if (selectedServices.includes('minecraft-java') && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(selectedMinecraftType)
         && (memoryGiB < 4 || diskGiB < 20)) return null
     if (os === 'ubuntu-24.04-desktop' && (memoryGiB < 8 || diskGiB < 40)) return null
+    if (os === 'kali' && diskGiB < 30) return null
     const supportedMinecraftTypes = new Set(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'PURPUR', 'FOLIA'])
     if (minecraftServerType !== undefined && (typeof minecraftServerType !== 'string' || !supportedMinecraftTypes.has(minecraftServerType))) return null
     if (minecraftServerType !== undefined && !selectedServices.includes('minecraft-java')) return null

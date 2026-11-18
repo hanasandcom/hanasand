@@ -57,6 +57,7 @@ mock.module('../src/utils/vms/hostTransport.ts', () => ({
 }))
 mock.module('../src/utils/vms/lxd.ts', () => ({
     canUseLocalLxd: async () => { throw new Error('Remote creation must not use this API host LXD socket.') },
+    updateLocalLxdConfig: async () => ({}),
     provisionLocalLxdInstance: async (name: string, options: unknown) => {
         localProvisionCalls.push({ name, options })
         if (localProvisionError) throw localProvisionError
@@ -161,9 +162,9 @@ test('VM creation forwards Debian and Enterprise Linux images to the configured 
     expect(debian.statusCode).toBe(201)
     expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'debian-13', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: [], minecraftEulaAccepted: false }))
 
-    const kali = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'kali-vm', os: 'kali', services: ['docker'] } })
+    const kali = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'kali-vm', os: 'kali', resources: { cpu: '4', memory: '8GiB', disk: '40GiB' }, services: ['docker'] } })
     expect(kali.statusCode).toBe(201)
-    expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'kali', resources: { cpu: '1', memory: '2GiB', disk: '10GiB' }, services: ['docker'], minecraftEulaAccepted: false }))
+    expect(calls.filter(call => call.path.endsWith('/provision')).at(-1)?.body).toBe(JSON.stringify({ os: 'kali', resources: { cpu: '4', memory: '8GiB', disk: '40GiB' }, services: ['docker'], minecraftEulaAccepted: false }))
 
     const fedora = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'fedora-vm', os: 'fedora-44', services: ['nodejs', 'postgresql'] } })
     expect(fedora.statusCode).toBe(201)

@@ -5,6 +5,7 @@ import { getVmProvisioningFeedback, getVmProvisioningUnavailableFeedback } from 
 import getVM from '../src/utils/vms/fetch/getVM'
 
 const components = new URL('../src/components/profile/vms.tsx', import.meta.url)
+const inventoryHook = new URL('../src/components/profile/useVmInventory.ts', import.meta.url)
 const createForm = new URL('../src/components/profile/vmCreateForm.tsx', import.meta.url)
 const createSubmission = new URL('../src/components/profile/vmCreateSubmission.ts', import.meta.url)
 const consoleSession = new URL('../src/components/vms/useVmConsoleSession.ts', import.meta.url)
@@ -60,7 +61,7 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('Additional Ubuntu packages: {customAptPackages.join(\', \')}')
     expect(source).toContain('option.memory !== \'2GiB\'')
     expect(source).toContain('const requiresLargePlan = operatingSystem === \'ubuntu-24.04-desktop\'')
-    expect(source).toContain('if (value === \'ubuntu-24.04-desktop\' && resourcePlan !== \'custom\') setResourcePlan(\'large\')')
+    expect(source).toContain('(value === \'ubuntu-24.04-desktop\' || value === \'kali\') && resourcePlan !== \'custom\'')
     expect(submission).toContain('input.setCreationError(result.message)')
     expect(source).toContain('role=\'alert\' className=\'rounded-lg border border-ui-danger/25')
     expect(source).toContain('setProjectFiles(plan.projectFiles || [])')
@@ -124,10 +125,10 @@ test('provisioning status scopes its VM fetch to the active organization', async
 })
 
 test('organization VM creation enforces access without the owner/admin disclaimer', async () => {
-    const [inventory, form, submission] = await Promise.all([readFile(components, 'utf8'), readFile(createForm, 'utf8'), readFile(createSubmission, 'utf8')])
+    const [inventory, form, submission, inventorySource] = await Promise.all([readFile(components, 'utf8'), readFile(createForm, 'utf8'), readFile(createSubmission, 'utf8'), readFile(inventoryHook, 'utf8')])
     expect(inventory).toContain('[\'owner\', \'admin\'].includes(activeOrganization?.role || \'\')')
-    expect(inventory).toContain('}, [organizationId, router])')
-    expect(inventory).toContain('}, [update])')
+    expect(inventorySource).toContain('}, [organizationId, router])')
+    expect(inventorySource).toContain('}, [update])')
     expect(inventory).toContain('const hasOrganizationContext = Boolean(organizationId || organizationName)')
     expect(inventory).toContain('!organizationsLoading && !organizationsUnavailable')
     expect(inventory).not.toContain('Only an owner or admin of')

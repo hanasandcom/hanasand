@@ -12,14 +12,14 @@ import type { VmProvisionOptions } from './provisionOnHost.ts'
 // fingerprint when it cannot resolve it.
 const lxdImageServer = 'https://images.lxd.canonical.com'
 
-function imageSource(os: NonNullable<VmProvisionOptions['os']>): { server: string; alias: string } {
+function imageSource(os: NonNullable<VmProvisionOptions['os']>): { server: string; alias: string } | undefined {
     switch (os) {
         case 'ubuntu-22.04': return { server: config.lxd_image_server, alias: '22.04' }
         case 'ubuntu-24.04': return { server: config.lxd_image_server, alias: '24.04' }
         case 'ubuntu-26.04': return { server: config.lxd_image_server, alias: '26.04' }
         case 'ubuntu-24.04-desktop': return { server: lxdImageServer, alias: 'ubuntu/24.04/desktop' }
         case 'debian-13': return { server: lxdImageServer, alias: 'debian/13/cloud' }
-        case 'kali': throw new Error('Kali Linux does not currently publish a compatible virtual-machine image.')
+        case 'kali': return undefined
         case 'fedora-44': return { server: lxdImageServer, alias: 'fedora/44/cloud' }
         case 'almalinux-9': return { server: lxdImageServer, alias: 'almalinux/9/cloud' }
         case 'rocky-9': return { server: lxdImageServer, alias: 'rockylinux/9/cloud' }
@@ -79,8 +79,13 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
     }
     if (!existing) {
         const rootDiskPool = await localRootDiskPool()
-        const cachedAlias = `hanasand-${selectedOs}-vm`
+        const cachedAlias = selectedOs === 'kali' ? 'kali-vm' : `hanasand-${selectedOs}-vm`
         const cachedImage = await lxdRequest(`/1.0/images/aliases/${encodeURIComponent(cachedAlias)}`).then(() => true).catch(() => false)
+        const image = cachedImage
+            ? { type: 'image', alias: cachedAlias }
+            : selectedImage ? { type: 'image', mode: 'pull', server: selectedImage.server, protocol: 'simplestreams', alias: selectedImage.alias }
+                : undefined
+        if (!image) throw new Error('The Kali VM image is not cached on this host. Import the verified Kali cloud image before creating VMs.')
         const response = await lxdRequest<unknown>('/1.0/instances', {
             method: 'POST',
             body: {
@@ -91,13 +96,12 @@ export async function provisionLocalLxdInstance(name: string, options: VmProvisi
                 config: {
                     'limits.cpu': selectedResources.cpu,
                     'limits.memory': selectedResources.memory,
+                    ...(selectedOs === 'kali' ? { 'security.secureboot': 'false' } : {}),
                     'user.hanasand.setup_plan': setupHash,
                     'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Preparing selected services' }),
                     'cloud-init.user-data': vmSetupUserData(name, { ...options, os: selectedOs, resources: selectedResources, services: selectedServices, aptPackages: selectedAptPackages }),
                 },
-                source: cachedImage
-                    ? { type: 'image', alias: cachedAlias }
-                    : { type: 'image', mode: 'pull', server: selectedImage.server, protocol: 'simplestreams', alias: selectedImage.alias },
+                source: image,
             },
         })
         await waitForLxdOperation(response.operation, 120)
