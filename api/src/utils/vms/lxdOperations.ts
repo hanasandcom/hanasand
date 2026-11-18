@@ -22,7 +22,7 @@ export async function waitForLxdOperation<T>(request: LxdRequest, operation: str
         // The LXD wait endpoint can return while the operation is still running.
         // Keep each long poll below the transport's 125-second inactivity limit.
         const remaining = Math.max(1, Math.ceil((deadline - Date.now()) / 1000))
-        const waitSeconds = Math.min(60, remaining)
+        const waitSeconds = Math.min(30, remaining)
         let path: string
         if (isOperationUrl) {
             const url = new URL(operation, 'http://localhost')
@@ -33,7 +33,19 @@ export async function waitForLxdOperation<T>(request: LxdRequest, operation: str
             path = `/1.0/operations/${encodeURIComponent(operation)}/wait?timeout=${waitSeconds}`
         }
 
-        const response = await request<T>(path, { timeout: (waitSeconds + 5) * 1000 })
+        let response: LxdResponse<T>
+        try {
+            response = await request<T>(path, { timeout: (waitSeconds + 5) * 1000 })
+        } catch (error) {
+            // LXD can close a long-poll with its own context deadline while a
+            // large directory-backed copy keeps running. The operation is not
+            // failed; ask for its state again within the overall deadline.
+            if (error instanceof Error && /context deadline exceeded|LXD request timed out/i.test(error.message)) {
+                await sleep(250)
+                continue
+            }
+            throw error
+        }
         const result = response.metadata as { status?: unknown; status_code?: unknown; err?: unknown } | undefined
         const code = typeof result?.status_code === 'number' ? result.status_code : undefined
         const status = typeof result?.status === 'string' ? result.status.toLowerCase() : ''

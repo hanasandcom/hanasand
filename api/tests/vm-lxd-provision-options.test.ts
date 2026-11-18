@@ -58,6 +58,17 @@ test('LXD project scoping is retained when waiting on an operation URL', async (
     expect(requestedPath).toBe('/1.0/operations/example/wait?project=hanasand-vm-stage&timeout=30')
 })
 
+test('LXD keeps waiting when a copy long-poll hits a transient deadline', async () => {
+    let attempts = 0
+    const result = await waitForLxdOperation(async () => {
+        attempts += 1
+        if (attempts === 1) throw new Error('context deadline exceeded')
+        return { status_code: 200, status: 'Success', metadata: { status_code: 200, status: 'Success' } }
+    }, '/1.0/operations/copy', 60)
+    expect(attempts).toBe(2)
+    expect(result?.metadata).toMatchObject({ status: 'Success' })
+})
+
 test.serial('LXD creates a full VM with the selected resources, Docker setup, and cloud-init user data', async () => {
     await provisionLocalLxdInstance('configured-vm', {
         os: 'ubuntu-26.04',
