@@ -14,7 +14,7 @@
   }
 
   .ui-button:focus-visible {
-    outline: 2px solid var(--ui-primary);
+    outline: 2px solid var(--ui-focus);
     outline-offset: 2px;
   }
 
@@ -40,7 +40,7 @@
 
   .ui-card { border: 1px solid var(--card-border); border-radius: 1rem; background: var(--panel-surface); }
   .ui-field { border: 1px solid var(--ui-border); border-radius: 0.625rem; background: var(--ui-panel); color: var(--ui-text); }
-  .ui-field:focus-visible { outline: 2px solid color-mix(in srgb, var(--ui-primary) 55%, transparent); outline-offset: 1px; }
+  .ui-field:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 1px; }
 }
 
 @layer utilities {
