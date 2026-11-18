@@ -55,6 +55,7 @@ export default function StudioClient({ initialDocument, canEdit }: { initialDocu
         stopped.current = false
         if (!canEdit) return
         let disposed = false
+        let exitSent = false
         saveRef.current = async (keepalive = false) => {
             if (disposed || stopped.current || saving.current || conflictRef.current || same(draft.current, base.current)) return
             const snapshot = { ...draft.current, revision: base.current.revision }
@@ -100,10 +101,17 @@ export default function StudioClient({ initialDocument, canEdit }: { initialDocu
         }
         connect()
         const online = () => { void saveRef.current() }
-        const pagehide = () => { if (!same(draft.current, base.current)) void saveRef.current(true) }
+        const pagehide = () => {
+            if (exitSent || conflictRef.current || same(draft.current, base.current)) return
+            const snapshot = { ...draft.current, revision: base.current.revision }
+            if (!snapshot.title.trim() || snapshot.title.length > 500 || snapshot.body.length > 1_000_000) return
+            try { exitSent = navigator.sendBeacon('/api/studio', new Blob([JSON.stringify(snapshot)], { type: 'application/json' })) }
+            catch { exitSent = false }
+            if (!exitSent) void saveRef.current(true)
+        }
         window.addEventListener('online', online)
         window.addEventListener('pagehide', pagehide)
-        return () => { if (!same(draft.current, base.current)) void saveRef.current(true); disposed = true; stopped.current = true; if (timer.current) clearTimeout(timer.current); if (reconnect) clearTimeout(reconnect); socket?.close(); window.removeEventListener('online', online); window.removeEventListener('pagehide', pagehide) }
+        return () => { pagehide(); disposed = true; stopped.current = true; if (timer.current) clearTimeout(timer.current); if (reconnect) clearTimeout(reconnect); socket?.close(); window.removeEventListener('online', online); window.removeEventListener('pagehide', pagehide) }
     }, [canEdit, draftKey])
 
     function resolve(useMine: boolean) {
