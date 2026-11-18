@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import requireApiSession from '@/utils/proxy/requireApiSession'
+import hasGameOrigin from '../game-origin'
 
 export async function POST(request: NextRequest) {
-    const origin = request.headers.get('origin')
-    if (origin && new URL(origin).host !== request.nextUrl.host) return NextResponse.json({ error: 'Cross-site account links are not allowed.' }, { status: 403 })
+    if (!hasGameOrigin(request)) return NextResponse.json({ error: 'Cross-site account links are not allowed.' }, { status: 403 })
     const session = await requireApiSession(request)
     if ('response' in session) return session.response
     let body: { code?: unknown }

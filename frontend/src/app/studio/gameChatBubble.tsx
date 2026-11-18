@@ -11,6 +11,7 @@ export default function GameChatBubble() {
     const [draft, setDraft] = useState('')
     const [error, setError] = useState('')
     const [linkStatus, setLinkStatus] = useState('')
+    const [canSend, setCanSend] = useState(false)
     const cursor = useRef(0)
     useEffect(() => {
         const code = new URLSearchParams(window.location.search).get('game_link')
@@ -28,9 +29,10 @@ export default function GameChatBubble() {
         async function load() {
             try {
                 const response = await fetch(`/api/game-chat?after=${cursor.current}`, { cache: 'no-store' })
-                if (!response.ok) throw new Error(response.status === 401 ? 'Sign in to use world chat.' : 'Chat is temporarily unavailable.')
+                if (!response.ok) throw new Error('Chat is temporarily unavailable.')
                 const incoming = await response.json() as Message[]
                 if (!active) return
+                setCanSend(response.headers.get('x-game-chat-can-send') === '1')
                 if (incoming.length) {
                     cursor.current = Math.max(cursor.current, ...incoming.map(message => message.id))
                     setMessages(previous => [...previous, ...incoming].slice(-80))
@@ -47,6 +49,7 @@ export default function GameChatBubble() {
         if (!message) return
         try {
             const response = await fetch('/api/game-chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message }) })
+            if (response.status === 401) { setCanSend(false); return }
             if (!response.ok) throw new Error('Could not send message.')
             setDraft('');setError('')
         } catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not send message.') }
@@ -57,7 +60,8 @@ export default function GameChatBubble() {
             <header className='flex items-center justify-between border-b border-ui-border px-4 py-3'><strong className='text-sm'>World chat</strong><button type='button' aria-label='Close world chat' onClick={() => setOpen(false)}><X className='h-5 w-5' /></button></header>
             <div aria-live='polite' className='flex-1 space-y-2 overflow-y-auto p-4 text-sm'>{messages.map(message => <p key={message.id}><strong>{message.name}</strong> {message.body}</p>)}</div>
             {error && <p role='status' className='px-4 text-xs text-ui-danger'>{error}</p>}
-            <form onSubmit={event => { event.preventDefault();void send() }} className='flex gap-2 border-t border-ui-border p-3'><input aria-label='Message the world' value={draft} onChange={event => setDraft(event.target.value)} maxLength={500} className='min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm' /><button type='submit' className='rounded-lg bg-ui-primary px-3 py-2 text-sm text-ui-on-primary'>Send</button></form>
+            {canSend ? <form onSubmit={event => { event.preventDefault();void send() }} className='flex gap-2 border-t border-ui-border p-3'><input aria-label='Message the world' value={draft} onChange={event => setDraft(event.target.value)} maxLength={500} className='min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm' /><button type='submit' className='rounded-lg bg-ui-primary px-3 py-2 text-sm text-ui-on-primary'>Send</button></form>
+                : <p className='border-t border-ui-border px-4 py-4 text-sm'>Sign in to use world chat.</p>}
         </section>}
         <button type='button' onClick={() => setOpen(value => !value)} aria-label={open ? 'Close world chat' : 'Open world chat'} className='ml-auto grid h-14 w-14 place-items-center rounded-full bg-ui-primary text-ui-on-primary shadow-ui-panel'><MessageCircle className='h-6 w-6' /></button>
     </div>

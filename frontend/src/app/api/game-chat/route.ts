@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import requireApiSession from '@/utils/proxy/requireApiSession'
+import hasGameOrigin from '../game-origin'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,19 +23,21 @@ async function gameSession(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-    const linked = await gameSession(request)
-    if ('error' in linked) return linked.error
     const after = Number(request.nextUrl.searchParams.get('after') || 0)
     if (!Number.isSafeInteger(after) || after < 0) return NextResponse.json({ error: 'Invalid cursor.' }, { status: 400 })
+    const base = process.env.GAME_SERVER_INTERNAL_URL
+    if (!base) return NextResponse.json({ error: 'Game chat is unavailable.' }, { status: 503 })
     try {
-        const response = await fetch(`${linked.base}/chat?player_id=${linked.playerId}&after=${after}`, { cache: 'no-store', signal: AbortSignal.timeout(4000), headers: { 'x-game-link-secret': linked.secret } })
-        return NextResponse.json(await response.json(), { status: response.status, headers: { 'cache-control': 'no-store' } })
+        const [session, response] = await Promise.all([
+            requireApiSession(request),
+            fetch(`${base.replace(/\/$/, '')}/chat/public?after=${after}`, { cache: 'no-store', signal: AbortSignal.timeout(4000) }),
+        ])
+        return NextResponse.json(await response.json(), { status: response.status, headers: { 'cache-control': 'no-store', 'x-game-chat-can-send': 'response' in session ? '0' : '1' } })
     } catch { return NextResponse.json({ error: 'Game chat is unavailable.' }, { status: 503 }) }
 }
 
 export async function POST(request: NextRequest) {
-    const origin = request.headers.get('origin')
-    if (origin && new URL(origin).host !== request.nextUrl.host) return NextResponse.json({ error: 'Cross-site messages are not allowed.' }, { status: 403 })
+    if (!hasGameOrigin(request)) return NextResponse.json({ error: 'Cross-site messages are not allowed.' }, { status: 403 })
     const linked = await gameSession(request)
     if ('error' in linked) return linked.error
     let body: { message?: unknown }
