@@ -13,6 +13,7 @@ const missingSetupStatusReason = 'VM startup finished without reporting whether 
 const cloudInitSetupFailureReason = 'VM setup failed during cloud-init. Contact Support if the problem persists.'
 const waitingForHostSetupStatusReason = 'Waiting for the VM host to confirm service setup.'
 const missingHostVmStatusReason = 'VM could not be found on its host. Contact Support if the problem persists.'
+const vmStartupGraceMs = 2 * 60_000
 
 export function invalidateLiveVmStatus(name: string) {
     for (const key of checks.keys()) if (key.endsWith(':' + name)) checks.delete(key)
@@ -39,6 +40,13 @@ export async function localVmStatus(name: string, statusOptions: { allowHostWork
         const persisted = instance.config['user.hanasand.provisioning_state']
         const pending = persisted ? parsePersistedSetupState(persisted) : undefined
         if (pending?.status.toLowerCase() === 'provisioning' && setupStatus !== 'Running') {
+            // LXD can briefly report Stopped while a newly created VM crosses
+            // its first boot. Do not turn that transient power state into a
+            // permanent setup error while cloud-init is still starting.
+            const lastBoot = Math.max(Date.parse(instance.last_used_at || '') || 0, Date.parse(instance.created_at || '') || 0)
+            if (lastBoot && Date.now() - lastBoot < vmStartupGraceMs) {
+                return { status: 'Provisioning', status_reason: 'Waiting for the VM to finish starting.' }
+            }
             const state = { status: 'Error', status_reason: 'The VM stopped before setup completed. Start it again or contact Support.' }
             await updateLocalLxdConfig(name, { 'user.hanasand.provisioning_state': JSON.stringify(state) }).catch(() => {})
             return state

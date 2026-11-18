@@ -6,6 +6,7 @@ const hostWorkerStatuses = new Map<string, { status: string; status_reason?: str
 let hostWorkerHttpStatus = 200
 let localLxdProject = ''
 let localConfig: Record<string, string> = {}
+let localInstanceLastUsedAt = ''
 const localConfigUpdates: Array<Record<string, string>> = []
 mock.module('#constants', () => ({ default: { vm_host_id: 'inspur', lxd_socket_path: '/var/lib/lxd/unix.socket', get lxd_project() { return localLxdProject } } }))
 mock.module('#utils/vms/hostTransport.ts', () => ({
@@ -16,7 +17,7 @@ mock.module('#utils/vms/hostTransport.ts', () => ({
     },
 }))
 mock.module('#utils/vms/lxd.ts', () => ({
-    getLocalLxdInstance: async () => ({ config: localConfig }),
+    getLocalLxdInstance: async () => ({ config: localConfig, last_used_at: localInstanceLastUsedAt }),
     updateLocalLxdConfig: async (_name: string, config: Record<string, string>) => { localConfigUpdates.push(config) },
 }))
 
@@ -38,6 +39,7 @@ afterEach(() => {
     hostWorkerHttpStatus = 200
     localLxdProject = ''
     localConfig = {}
+    localInstanceLastUsedAt = ''
     localConfigUpdates.length = 0
 })
 
@@ -192,6 +194,23 @@ test('a stopped VM with an unfinished setup reports an error instead of waiting 
     expect(result.status).toBe('Error')
     expect(result.status_reason).toContain('stopped before setup completed')
     expect(localConfigUpdates[0]?.['user.hanasand.provisioning_state']).toContain('"status":"Error"')
+})
+
+test('a brief stopped state during first boot keeps setup pending', async () => {
+    localInstanceLastUsedAt = new Date().toISOString()
+    localConfig = {
+        'user.hanasand.setup_plan': 'setup-hash',
+        'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Preparing selected services' }),
+    }
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        if (String(input).includes('/files?')) return new Response('Not found', { status: 404 })
+        return Response.json({ metadata: { status: 'Stopped' } })
+    }) as typeof fetch
+
+    expect(await localVmStatus('booting-vm')).toEqual({
+        status: 'Provisioning', status_reason: 'Waiting for the VM to finish starting.',
+    })
+    expect(localConfigUpdates).toEqual([])
 })
 
 test('cloud-init result with no errors keeps the guest setup success marker', async () => {
