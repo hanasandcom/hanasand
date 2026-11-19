@@ -15,7 +15,6 @@ import { getVmResourceAllocation, getVmResourceError } from '@/utils/vms/resourc
 import { fitVmGameResources } from '@/utils/vms/gameResourceSelection'
 import { starterWebsitePlan } from '@/utils/vms/websiteStarter'
 import { submitVmCreation } from './vmCreateSubmission'
-
 export default function VmCreateForm({ id, visible, organizationId, canCreate, permissionMessage, notify, onCreating, onCreated }: {
     id: string
     visible: boolean
