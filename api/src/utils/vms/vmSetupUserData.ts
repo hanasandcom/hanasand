@@ -19,7 +19,14 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     if (!aptPackages) {
         throw new Error('Custom Ubuntu package names must be valid Debian package identifiers, with no more than 12 packages.')
     }
+    if (aptPackages.some(packageName => packageName.startsWith('nginx-') || packageName.startsWith('libnginx-mod-'))) {
+        throw new Error('Install Nginx with the Nginx service or the nginx package; distribution Nginx variants are unavailable until patched.')
+    }
     if (usesDnf && aptPackages.length) throw new Error('Custom Debian package names are not available on DNF-based images.')
+    const needsNginx = services.includes('nginx') || services.includes('website') || aptPackages.includes('nginx')
+    if (needsNginx && options.os === 'fedora-44') {
+        throw new Error('Nginx is temporarily unavailable on Fedora 44 until a fixed package is available. Choose Ubuntu, Debian, AlmaLinux, Rocky Linux, or CentOS Stream.')
+    }
     const website = options.websiteHtml ? Buffer.from(options.websiteHtml).toString('base64') : ''
     const memoryGb = Number.parseInt(options.resources?.memory || '2', 10)
     const minecraftMemoryGb = Math.max(1, Math.floor(memoryGb * 0.75))
@@ -43,7 +50,7 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     const minecraftAddons = options.minecraftAddons || []
     if (minecraftAddons.length && !services.includes('minecraft-java')) throw new Error('Minecraft add-ons require the Minecraft Java service.')
     const minecraftServerType = options.minecraftServerType || 'PAPER'
-    const script = createSetupScript(name, services, minecraftServerType, minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, usesDnf, usesMariaDb, gameServers[0])
+    const script = createSetupScript(name, services, minecraftServerType, minecraftAddons, website, minecraftMemoryGb, aptPackages, nextjs, nextjsAptPackages, usesDnf, usesMariaDb, needsNginx, gameServers[0])
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -72,7 +79,7 @@ function yamlObject(value: Record<string, unknown>) {
     return JSON.stringify(value, null, 2)
 }
 
-function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, usesDnf: boolean, usesMariaDb: boolean, gameService?: string) {
+function createSetupScript(name: string, services: string[], minecraftType: string, minecraftAddons: string[], websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string, nextjsAptPackages: string, usesDnf: boolean, usesMariaDb: boolean, needsNginx: boolean, gameService?: string) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
     const minecraftPrepare = services.includes('minecraft-java')
@@ -83,8 +90,8 @@ function createSetupScript(name: string, services: string[], minecraftType: stri
         : ''
     const game = gameService ? gameServerSetupScript(gameService, name) : ''
     const requiresDocker = services.includes('docker') || Boolean(gameService && !['game-terraria', 'game-teeworlds'].includes(gameService))
-    const webRoot = usesDnf ? '/usr/share/nginx/html' : '/var/www/html'
-    const webOwner = usesDnf ? 'root:root' : 'www-data:www-data'
+    const webRoot = '/usr/share/nginx/html'
+    const webOwner = 'nginx:nginx'
     const mysqlSystemdService = usesMariaDb ? 'mariadb' : 'mysql'
     const website = websiteBase64
         ? `install -d -m 0755 '${webRoot}'\nprintf '%s' '${websiteBase64}' | base64 -d > '${webRoot}/index.html'\nchown ${webOwner} '${webRoot}/index.html'\n`
@@ -142,6 +149,53 @@ refresh_apt_metadata() {
   done
   return 1
 }
+prepare_nginx_repo() {
+  set_stage 'Preparing patched Nginx repository'
+  source /etc/os-release
+  if [[ '${usesDnf}' == 'true' ]]; then
+    case "$ID" in
+      almalinux|rocky|centos) ;;
+      *) printf 'No fixed Nginx repository is configured for %s.\\n' "$ID" >&2; return 1 ;;
+    esac
+    install -d -m 0755 /etc/yum.repos.d /etc/pki/rpm-gpg
+    fetch_apt_key https://nginx.org/keys/nginx_signing.key /etc/pki/rpm-gpg/nginx_signing.key
+    printf '%s  %s\\n' '55385da31d198fa6a5012d40ae98ecb272a6c4e8fffffba94719ffd3e87de37a' /etc/pki/rpm-gpg/nginx_signing.key | sha256sum --check --status
+    cat > /etc/yum.repos.d/nginx.repo <<'EOF'
+[nginx-stable]
+name=nginx stable repo
+baseurl=https://nginx.org/packages/centos/$releasever/$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/nginx_signing.key
+module_hotfixes=true
+EOF
+  else
+    local nginx_distro nginx_release
+    nginx_release="$VERSION_CODENAME"
+    case "$ID" in
+      ubuntu) nginx_distro=ubuntu ;;
+      debian) nginx_distro=debian ;;
+      kali) nginx_distro=debian; nginx_release=trixie ;;
+      *) printf 'No fixed Nginx repository is configured for %s.\\n' "$ID" >&2; return 1 ;;
+    esac
+    install -d -m 0755 /etc/apt/keyrings /etc/apt/preferences.d
+    fetch_apt_key https://nginx.org/keys/nginx_signing.key /etc/apt/keyrings/nginx_signing.asc
+    printf '%s  %s\\n' '55385da31d198fa6a5012d40ae98ecb272a6c4e8fffffba94719ffd3e87de37a' /etc/apt/keyrings/nginx_signing.asc | sha256sum --check --status
+    chmod a+r /etc/apt/keyrings/nginx_signing.asc
+    printf 'deb [arch=%s signed-by=/etc/apt/keyrings/nginx_signing.asc] https://nginx.org/packages/%s %s nginx\\n' "$(dpkg --print-architecture)" "$nginx_distro" "$nginx_release" > /etc/apt/sources.list.d/nginx.list
+    printf 'Package: nginx\\nPin: origin nginx.org\\nPin-Priority: 900\\n' > /etc/apt/preferences.d/99nginx
+  fi
+}
+verify_patched_nginx() {
+  local version major minor patch
+  version="$(nginx -v 2>&1)"
+  [[ "$version" =~ nginx/([0-9]+)\\.([0-9]+)\\.([0-9]+) ]] || { printf 'Cannot determine Nginx version: %s\\n' "$version" >&2; return 1; }
+  major=\${BASH_REMATCH[1]}; minor=\${BASH_REMATCH[2]}; patch=\${BASH_REMATCH[3]}
+  if (( major < 1 || (major == 1 && (minor < 30 || (minor == 30 && patch < 7) || (minor == 31 && patch < 9))) )); then
+    printf 'Nginx %s is vulnerable; refusing to run it.\\n' "$version" >&2
+    return 1
+  fi
+}
 set_stage 'Preparing selected services'
 services="$(printf '%s' '${selectedBase64}' | base64 -d)"
 apt_packages=()
@@ -170,6 +224,7 @@ if [[ '${gameService || ''}' == 'game-valheim' ]]; then apt_packages+=(openssl);
 if [[ '${gameService || ''}' == 'game-terraria' ]]; then apt_packages+=(python3); fi
 if [[ '${gameService || ''}' == 'game-teeworlds' ]]; then apt_packages+=(teeworlds-server); fi
 ${installCustomPackages}
+if [[ '${needsNginx}' == 'true' ]]; then prepare_nginx_repo; fi
 if [[ '${requiresDocker}' == 'true' ]]; then
   if [[ '${usesDnf}' == 'true' ]]; then
     set_stage 'Preparing Docker repository'
@@ -221,7 +276,7 @@ if [[ '${usesDnf}' == 'true' ]]; then
     if printf '%s' "$services" | grep -q '"cpp"'; then packages+=(gcc gcc-c++ make); fi
     if printf '%s' "$services" | grep -q '"go"'; then packages+=(golang); fi
     if printf '%s' "$services" | grep -q '"php"'; then packages+=(php-cli php-common php-curl php-mbstring php-xml); fi
-    if printf '%s' "$services" | grep -q '"nginx"' || printf '%s' "$services" | grep -q '"website"'; then packages+=(nginx); fi
+    if [[ '${needsNginx}' == 'true' ]]; then packages+=(nginx); fi
     if printf '%s' "$services" | grep -q '"minecraft-java"'; then packages+=(jq iproute); fi
     if printf '%s' "$services" | grep -q '"docker"'; then packages+=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin); fi
     dnf_install_with_retries() {
@@ -599,6 +654,7 @@ if printf '%s' "$services" | grep -q '"redis"'; then
   if [[ '${usesDnf}' == 'true' ]]; then systemctl enable --now redis; systemctl is-active --quiet redis
   else systemctl enable --now redis-server; systemctl is-active --quiet redis-server; fi
 fi
+if [[ '${needsNginx}' == 'true' ]]; then verify_patched_nginx; fi
 if printf '%s' "$services" | grep -Eq '"(nginx|website)"'; then set_stage 'Starting Nginx'; systemctl enable --now nginx; systemctl is-active --quiet nginx; nginx -t; fi
 if printf '%s' "$services" | grep -q '"postgresql"'; then set_stage 'Checking PostgreSQL'; wait_for_ready PostgreSQL pg_isready; fi
 if printf '%s' "$services" | grep -q '"mysql"'; then set_stage 'Checking MySQL'; wait_for_ready MySQL mysqladmin ping --silent; fi

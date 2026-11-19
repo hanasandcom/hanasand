@@ -98,8 +98,10 @@ test('Debian Docker setup uses Debian repositories and Enterprise Linux accepts 
     expect(kaliScript).toContain('kali) docker_distro=debian; docker_release=trixie ;;')
     execFileSync('bash', ['-n'], { input: kaliScript })
 
+    expect(() => vmSetupUserData('fedora-web', { os: 'fedora-44', services: ['nginx'] })).toThrow('Nginx is temporarily unavailable on Fedora 44')
+    expect(() => vmSetupUserData('old-nginx', { os: 'ubuntu-24.04', aptPackages: ['nginx-full'] })).toThrow('distribution Nginx variants are unavailable until patched')
     for (const os of ['fedora-44', 'almalinux-9', 'rocky-9', 'centos-stream-10'] as const) {
-        const cloudInit = vmSetupUserData('enterprise-linux', { os, services: supportedSetupServices.filter(service => !isGameServerService(service)) })
+        const cloudInit = vmSetupUserData('enterprise-linux', { os, services: supportedSetupServices.filter(service => !isGameServerService(service) && (os !== 'fedora-44' || !['nginx', 'website'].includes(service))) })
         const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
         const script = config.write_files[0]?.content || ''
         expect(script).toContain('dnf install -y --setopt=retries=2 --setopt=timeout=30 "${packages[@]}"')
@@ -179,7 +181,7 @@ test.serial('Enterprise Linux setup retries a transient DNF mirror DNS failure',
             'fi',
         ].join('\n'))
         writeFileSync(join(bin, 'systemctl'), '#!/usr/bin/env bash\nexit 0\n')
-        writeFileSync(join(bin, 'nginx'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'nginx'), '#!/usr/bin/env bash\nif [[ "$1" == -v ]]; then echo "nginx version: nginx/1.30.7" >&2; fi\nexit 0\n')
         for (const executable of ['dnf', 'systemctl', 'nginx']) chmodSync(join(bin, executable), 0o755)
 
         const cloudInit = vmSetupUserData('rocky-retry', { os: 'rocky-9', services: ['nginx'] })
@@ -187,6 +189,7 @@ test.serial('Enterprise Linux setup retries a transient DNF mirror DNS failure',
         const script = config.write_files[0]?.content
             .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
             .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('if [[ \'true\' == \'true\' ]]; then prepare_nginx_repo; fi', ':')
             .replace('mktemp /run/hanasand-dnf-install.XXXXXX', `mktemp '${directory}/dnf-install.XXXXXX'`)
             .replace('sleep "$((attempt * 2))"', 'sleep 0.01')
         const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
@@ -221,7 +224,7 @@ test('selecting Website alone starts Nginx and waits for its HTTP endpoint', () 
         mkdirSync(bin)
         writeFileSync(join(bin, 'apt-get'), '#!/usr/bin/env bash\nexit 0\n')
         writeFileSync(join(bin, 'systemctl'), `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${serviceLog}'\nexit 0\n`)
-        writeFileSync(join(bin, 'nginx'), '#!/usr/bin/env bash\nexit 0\n')
+        writeFileSync(join(bin, 'nginx'), '#!/usr/bin/env bash\nif [[ "$1" == -v ]]; then echo "nginx version: nginx/1.30.7" >&2; fi\nexit 0\n')
         writeFileSync(join(bin, 'curl'), '#!/usr/bin/env bash\nexit 0\n')
         writeFileSync(join(bin, 'chown'), '#!/usr/bin/env bash\nexit 0\n')
         for (const executable of ['apt-get', 'systemctl', 'nginx', 'curl', 'chown']) chmodSync(join(bin, executable), 0o755)
@@ -231,8 +234,9 @@ test('selecting Website alone starts Nginx and waits for its HTTP endpoint', () 
         const script = config.write_files[0]?.content
             .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
             .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('if [[ \'true\' == \'true\' ]]; then prepare_nginx_repo; fi', ':')
             .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
-            .replaceAll('/var/www/html', `${directory}/www`)
+            .replaceAll('/usr/share/nginx/html', `${directory}/www`)
             .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.01\n  done\n  update_apt_progress')
         const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
         if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)

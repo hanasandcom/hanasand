@@ -98,12 +98,13 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
         try {
             const plan = await suggestVmSetup(setupPrompt, operatingSystem)
             const plannedGame = plan.services.find(isVmGameServer)
-            setSelectedServices(plannedGame ? plan.services.filter(service => !isVmGameServer(service) || service === plannedGame) : plan.services)
+            const safeServices = operatingSystem === 'fedora-44' ? plan.services.filter(service => service !== 'nginx' && service !== 'website') : plan.services
+            setSelectedServices(plannedGame ? safeServices.filter(service => !isVmGameServer(service) || service === plannedGame) : safeServices)
             if (plannedGame && plannedGame !== 'minecraft-java') fitGameResources(plannedGame)
             if (plan.services.includes('minecraft-java') && plan.minecraftServerType && ['FABRIC', 'QUILT', 'FORGE', 'NEOFORGE', 'FOLIA'].includes(plan.minecraftServerType) && resourcePlan === 'small') setResourcePlan('standard')
             setMinecraftAddons([])
             setCustomAptPackages(plan.aptPackages)
-            setSetupSuggestion(plan.summary)
+            setSetupSuggestion(operatingSystem === 'fedora-44' && safeServices.length !== plan.services.length ? `${plan.summary} Nginx and Website were omitted because Fedora 44 does not yet have a fixed Nginx package.` : plan.summary)
             setWebsitePlan(plan.website || starterWebsitePlan)
             setProjectFiles(plan.projectFiles || [])
             if (plan.projectFiles?.length && resourcePlan === 'small') setResourcePlan('standard')
@@ -129,6 +130,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
             <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>VM name<input ref={nameInput} value={name} onChange={event => setName(event.target.value)} required pattern='[a-z][a-z0-9-]{0,61}[a-z0-9]' minLength={2} maxLength={63} title='2–63 lowercase letters, numbers or hyphens, starting with a letter' disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-ui-text' /></label>
             <VmOperatingSystemPicker value={operatingSystem} onChange={value => {
                 setOperatingSystem(value)
+                if (value === 'fedora-44') setSelectedServices(current => current.filter(service => service !== 'nginx' && service !== 'website'))
                 if (value !== 'ubuntu-24.04' && selectedServices.some(service => service.startsWith('game-'))) {
                     setSelectedServices(current => current.filter(service => !service.startsWith('game-')))
                     setSetupSuggestion('Dedicated game servers currently require Ubuntu 24.04. Choose the game again after switching back.')
@@ -170,7 +172,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                     <h3 className='text-xs font-medium uppercase tracking-wide text-ui-muted'>{group}</h3>
                     <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-4'>
                         {vmServices.filter(service => service.group === group).map(service => <label key={service.id} className='flex cursor-pointer items-start gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5'>
-                            <input type='checkbox' checked={selectedServices.includes(service.id)} disabled={projectFiles.length > 0 && ['nodejs', 'website', 'minecraft-java'].includes(service.id) || (projectFiles.length > 0 && isVmGameServer(service.id))} onChange={event => {
+                            <input type='checkbox' checked={selectedServices.includes(service.id)} disabled={(operatingSystem === 'fedora-44' && ['nginx', 'website'].includes(service.id)) || (projectFiles.length > 0 && ['nodejs', 'website', 'minecraft-java'].includes(service.id)) || (projectFiles.length > 0 && isVmGameServer(service.id))} onChange={event => {
                                 setSelectedServices(current => event.target.checked
                                     ? [...current.filter(id => !isVmGameServer(service.id) || !isVmGameServer(id)), service.id]
                                     : current.filter(id => id !== service.id))
@@ -180,7 +182,7 @@ export default function VmCreateForm({ id, visible, organizationId, canCreate, p
                                     fitGameResources(service.id)
                                 }
                             }} className='mt-1 accent-ui-primary' />
-                            <span className='grid'><span className='text-sm font-medium text-ui-text'>{service.label}</span><span className='text-xs text-ui-muted'>{service.description}</span></span>
+                            <span className='grid'><span className='text-sm font-medium text-ui-text'>{service.label}</span><span className='text-xs text-ui-muted'>{operatingSystem === 'fedora-44' && ['nginx', 'website'].includes(service.id) ? 'Unavailable until Fedora provides a fixed Nginx package' : service.description}</span></span>
                         </label>)}
                     </div>
                 </section>)}
