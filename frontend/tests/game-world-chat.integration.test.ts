@@ -10,6 +10,9 @@ mock.module('@/utils/proxy/requireApiSession', () => ({
         ? { identity: { id: identityId, token: 'private-test', canEditInternalPages: false } }
         : { response: NextResponse.json({ error: 'Sign in required.' }, { status: 401 }) },
 }))
+mock.module('@/utils/users/fetchUser', () => ({
+    default: async () => ({ username: 'StudioPlayer' }),
+}))
 
 const base = process.env.GAME_CHAT_TEST_SERVER
 const run = base ? test : test.skip
@@ -51,8 +54,10 @@ run('Studio and native game exchange chat and link the same account', async () =
         assert.equal(sent.status, 201)
         const fromStudio = await GET(request(`/api/game-chat?after=${after}`, false))
         assert.equal(fromStudio.headers.get('x-game-chat-can-send'), '0')
-        const firstMessages = await fromStudio.json() as Array<{ id: number; body: string }>
+        const firstMessages = await fromStudio.json() as Array<{ id: number; name: string; body: string; source: string }>
         assert.equal(firstMessages.length, 1)
+        assert.equal(firstMessages[0].name, 'StudioPlayer')
+        assert.equal(firstMessages[0].source, 'web')
         assert.equal(firstMessages[0].body, 'Private Studio message')
 
         const clientKey = crypto.randomUUID()
@@ -62,7 +67,8 @@ run('Studio and native game exchange chat and link the same account', async () =
         const player = joined.body as { player_id: string; session_token: string }
         const nativeRead = await game(`/chat?player_id=${player.player_id}&after=0`, undefined, player.session_token)
         assert.equal(nativeRead.status, 200)
-        assert.ok(nativeRead.body.some((message: { body: string }) => message.body === 'Private Studio message'))
+        assert.ok(nativeRead.body.some((message: { name: string; body: string; source: string }) =>
+            message.name === '[web] StudioPlayer' && message.source === 'web' && message.body === 'Private Studio message'))
         const nativeSend = await fetch(`${base}/chat`, {
             method: 'POST', headers: { 'content-type': 'application/json', 'x-game-session': player.session_token },
             body: JSON.stringify({ player_id: player.player_id, body: 'Private game message' }),
@@ -76,7 +82,10 @@ run('Studio and native game exchange chat and link the same account', async () =
         assert.equal(saved.status, 204)
         const fromGame = await GET(request(`/api/game-chat?after=${firstMessages[0].id}`, true))
         assert.equal(fromGame.headers.get('x-game-chat-can-send'), '1')
-        assert.equal((await fromGame.json())[0].body, 'Private game message')
+        const gameMessages = await fromGame.json() as Array<{ name: string; body: string; source: string }>
+        assert.equal(gameMessages[0].name, playerName)
+        assert.equal(gameMessages[0].source, 'game')
+        assert.equal(gameMessages[0].body, 'Private game message')
 
         const started = await fetch(`${base}/link/start`, {
             method: 'POST', headers: { 'content-type': 'application/json', 'x-game-session': player.session_token },

@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { MessageCircle, X } from 'lucide-react'
+import { Globe2, MessageCircle, X } from 'lucide-react'
 import Link from 'next/link'
 
-type Message = { id: number; name: string; body: string; created_at: string }
+type Message = { id: number; name: string; body: string; source: 'game' | 'web'; created_at: string }
 
 export default function GameChatBubble() {
     const [open, setOpen] = useState(false)
@@ -59,7 +59,7 @@ export default function GameChatBubble() {
         {linkStatus && <p role='status' className='mb-2 max-w-80 rounded-xl border border-ui-border bg-ui-panel p-3 text-sm shadow-ui-panel'>{linkStatus}</p>}
         {open && <section role='dialog' aria-label='World chat' className='mb-3 flex h-[min(32rem,calc(100dvh-7rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-ui-border bg-ui-panel shadow-ui-panel'>
             <header className='flex items-center justify-between border-b border-ui-border px-4 py-3'><strong className='text-sm'>World chat</strong><button type='button' aria-label='Close world chat' onClick={() => setOpen(false)}><X className='h-5 w-5' /></button></header>
-            <div aria-live='polite' className='flex-1 space-y-2 overflow-y-auto p-4 text-sm'>{messages.map(message => <p key={message.id}><strong>{message.name}</strong> {message.body}</p>)}</div>
+            <div aria-live='polite' className='flex-1 space-y-2 overflow-y-auto p-4 text-sm'>{messages.map(message => <p key={message.id}>{message.source === 'web' && <span tabIndex={0} title='This message was sent from the website chat.' aria-label='Sent from website chat' className='mr-1 inline-flex align-middle'><Globe2 aria-hidden='true' className='h-3.5 w-3.5' /></span>}<strong>{message.name}</strong> {message.body}</p>)}</div>
             {error && <p role='status' className='px-4 text-xs text-ui-danger'>{error}</p>}
             {canSend ? <form onSubmit={event => { event.preventDefault();void send() }} className='flex gap-2 border-t border-ui-border p-3'><input aria-label='Message the world' value={draft} onChange={event => setDraft(event.target.value)} maxLength={500} className='min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm' /><button type='submit' className='rounded-lg bg-ui-primary px-3 py-2 text-sm text-ui-on-primary'>Send</button></form>
                 : <p className='border-t border-ui-border px-4 py-4 text-sm'><Link href='/login?path=%2Fstudio' className='text-blue-400 hover:underline focus-visible:underline'>Sign in</Link> to use world chat.</p>}
