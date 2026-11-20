@@ -11,7 +11,7 @@ mock.module('@/utils/proxy/requireApiSession', () => ({
         : { response: NextResponse.json({ error: 'Sign in required.' }, { status: 401 }) },
 }))
 mock.module('@/utils/users/fetchUser', () => ({
-    default: async () => ({ username: 'StudioPlayer' }),
+    default: async () => ({ username: 'Hanasand-StudioPlayer' }),
 }))
 
 const base = process.env.GAME_CHAT_TEST_SERVER

@@ -5,6 +5,11 @@ import hasGameOrigin from '../game-origin'
 
 export const dynamic = 'force-dynamic'
 
+function gameUsername(name: string) {
+    const username = name.trim()
+    return username.replace(/^Hanasand-(?=.)/i, '')
+}
+
 async function gameSession(request: NextRequest) {
     const session = await requireApiSession(request)
     if ('response' in session) return { error: session.response }
@@ -13,7 +18,7 @@ async function gameSession(request: NextRequest) {
     if (!base || !secret) return { error: NextResponse.json({ error: 'Game chat is unavailable.' }, { status: 503 }) }
     try {
         const profile = await fetchUser(session.identity.id, session.identity)
-        const username = profile?.username?.trim()
+        const username = gameUsername(profile?.username || '')
         if (!username) return { error: NextResponse.json({ error: 'Could not load your username.' }, { status: 503 }) }
         const response = await fetch(`${base.replace(/\/$/, '')}/world/join`, {
             method: 'POST', cache: 'no-store', signal: AbortSignal.timeout(4000),
@@ -36,7 +41,13 @@ export async function GET(request: NextRequest) {
             requireApiSession(request),
             fetch(`${base.replace(/\/$/, '')}/chat/public?after=${after}`, { cache: 'no-store', signal: AbortSignal.timeout(4000) }),
         ])
-        return NextResponse.json(await response.json(), { status: response.status, headers: { 'cache-control': 'no-store', 'x-game-chat-can-send': 'response' in session ? '0' : '1' } })
+        const payload = await response.json()
+        const messages = response.ok && Array.isArray(payload)
+            ? payload.map(message => message?.source === 'web' && typeof message.name === 'string'
+                ? { ...message, name: gameUsername(message.name) }
+                : message)
+            : payload
+        return NextResponse.json(messages, { status: response.status, headers: { 'cache-control': 'no-store', 'x-game-chat-can-send': 'response' in session ? '0' : '1' } })
     } catch { return NextResponse.json({ error: 'Game chat is unavailable.' }, { status: 503 }) }
 }
 
