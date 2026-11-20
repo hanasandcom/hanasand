@@ -44,7 +44,7 @@ export default function GameChatMessages({ messages, now }: { messages: WorldCha
                 </div>}
                 {showName && <strong className='mb-1 block text-xs font-semibold text-ui-muted'>{message.name}</strong>}
                 <div className='group relative w-fit max-w-full'>
-                    <p tabIndex={0} className='w-fit max-w-full whitespace-pre-wrap break-words rounded-2xl border border-ui-border bg-ui-raised px-3 py-2 text-ui-text'>
+                    <p tabIndex={0} className='w-fit max-w-full whitespace-pre-wrap wrap-break-word rounded-2xl border border-ui-border bg-ui-raised px-3 py-2 text-ui-text'>
                         {message.source === 'web' && <span tabIndex={0} title='This message was sent from the website chat.' aria-label='Sent from website chat' className='mr-1 inline-flex align-middle'>
                             <Globe2 aria-hidden='true' className='h-3.5 w-3.5' />
                         </span>}
