@@ -11,6 +11,15 @@ import MarkdownDocumentEditor from '@/components/markdown/MarkdownDocumentEditor
 import uploadMarkdownImage from '@/components/markdown/uploadMarkdownImage'
 
 const same = (a: StudioDocument, b: StudioDocument) => a.id === b.id && a.title === b.title && a.body === b.body
+const responseError = (payload: unknown, status: number, fallback: string) => {
+    if (status === 401) return 'Your session has expired.'
+    if (payload && typeof payload === 'object' && 'error' in payload) {
+        const error = payload.error
+        if (typeof error === 'string') return error
+        if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message
+    }
+    return fallback
+}
 const clearDraft = (key: string, saved: StudioDocument) => {
     sessionStorage.removeItem(key)
     try {
@@ -63,14 +72,14 @@ export default function StudioClient({ initialDocument, canEdit }: { initialDocu
             saving.current = true
             try {
                 const response = await fetch('/api/studio', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(snapshot), keepalive, ...(!keepalive ? { signal: AbortSignal.timeout(15000) } : {}) })
-                const next = await response.json() as StudioDocument & { error?: string }
+                const next = await response.json() as StudioDocument
                 if (disposed || stopped.current) return
                 if (response.status === 409) { conflictRef.current = next; setConflict(next); setStatus('Another tab changed this page'); return }
-                if (!response.ok) throw new Error(next.error || 'Save failed')
+                if (!response.ok) throw new Error(responseError(next, response.status, 'Save failed'))
                 base.current = next
                 if (same(draft.current, next)) { draft.current = next; setDocument(next); setStatus('Saved'); clearDraft(draftKey, next); if (timer.current) clearTimeout(timer.current); timer.current = null }
                 else { setStatus('Saving…'); if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => { timer.current = null; void saveRef.current() }, 50) }
-            } catch (error) { if (!disposed && !stopped.current) { setStatus(error instanceof Error ? error.message : 'Save failed'); if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => { timer.current = null; void saveRef.current() }, 3000) } }
+            } catch (error) { if (!disposed && !stopped.current) { const message = error instanceof Error ? error.message : 'Save failed'; setStatus(message); if (timer.current) clearTimeout(timer.current); timer.current = message === 'Your session has expired.' ? null : setTimeout(() => { timer.current = null; void saveRef.current() }, 3000) } }
             finally { saving.current = false }
         }
         let socket: WebSocket | null = null
@@ -126,8 +135,8 @@ export default function StudioClient({ initialDocument, canEdit }: { initialDocu
         if (!same(draft.current, base.current)) return
         try {
             const response = await fetch('/api/studio/pages', { method: 'POST' })
-            const page = await response.json() as StudioDocument & { error?: string }
-            if (!response.ok || !Number.isSafeInteger(page.id)) throw new Error(page.error || 'Could not create page.')
+            const page = await response.json() as StudioDocument
+            if (!response.ok || !Number.isSafeInteger(page.id)) throw new Error(responseError(page, response.status, 'Could not create page.'))
             window.dispatchEvent(new Event('studio-pages-updated'))
             router.push(`/studio?page=${page.id}`)
         } catch (failure) { setStatus(failure instanceof Error ? failure.message : 'Could not create page.') }
@@ -138,7 +147,7 @@ export default function StudioClient({ initialDocument, canEdit }: { initialDocu
             <div><p className='text-sm uppercase tracking-wide text-ui-secondary'>Content</p>{canEdit && document.id > 1 && titleEditing
                 ? <input autoFocus aria-label='Page name' value={document.title} maxLength={500} onChange={event => updateField('title', event.target.value)} onBlur={() => { if (!document.title.trim()) updateField('title', 'Untitled page'); setTitleEditing(false) }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} className='rounded border border-ui-border bg-ui-panel px-2 py-1 text-3xl font-bold' />
                 : <h1 className={`text-3xl font-bold ${canEdit && document.id > 1 ? 'cursor-text' : ''}`} onClick={() => { if (canEdit && document.id > 1) setTitleEditing(true) }} title={canEdit && document.id > 1 ? 'Click to rename page' : undefined}>{document.id === 1 ? 'Studio' : document.title}</h1>}</div>
-            {canEdit && <div className='flex items-center gap-2'><p role='status' className='text-sm text-ui-secondary'>{status}</p><button type='button' onClick={() => void createPage()} aria-label='Add Studio page' title='Add page' className='grid h-9 w-9 place-items-center rounded-md border border-ui-border hover:bg-ui-panel'><Plus size={18} /></button></div>}
+            {canEdit && <div className='flex items-center gap-2'><p role='status' className='text-sm text-ui-secondary'>{status}{status === 'Your session has expired.' && <> <a href={`/login?path=${encodeURIComponent(`/studio?page=${document.id}`)}`} className='underline'>Sign in again</a></>}</p><button type='button' onClick={() => void createPage()} disabled={status === 'Your session has expired.'} aria-label='Add Studio page' title='Add page' className='grid h-9 w-9 place-items-center rounded-md border border-ui-border hover:bg-ui-panel disabled:cursor-not-allowed disabled:opacity-50'><Plus size={18} /></button></div>}
         </header>
         {recovery && <div className='flex flex-wrap items-center gap-3 rounded-lg border border-ui-border p-3'><span>Unsaved draft found in this browser.</span><button className='rounded border border-ui-border px-3 py-1' onClick={() => { draft.current = recovery; setDocument(recovery); setRecovery(null); setStatus('Saving…'); void saveRef.current() }}>Restore draft</button><button className='rounded border border-ui-border px-3 py-1' onClick={() => { clearDraft(draftKey, recovery); setRecovery(null) }}>Discard</button></div>}
         {conflict && <div role='alert' className='flex flex-wrap items-center gap-3 rounded-lg border border-ui-border p-3'><span>Another tab updated Studio. Choose which version to keep.</span><button className='rounded border border-ui-border px-3 py-1' onClick={() => resolve(true)}>Use my draft</button><button className='rounded border border-ui-border px-3 py-1' onClick={() => resolve(false)}>Use latest version</button></div>}
